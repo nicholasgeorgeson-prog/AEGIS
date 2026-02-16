@@ -1263,11 +1263,37 @@ const AEGISGuide = {
             const overlay = document.createElementNS(svgNS, 'rect');
             overlay.setAttribute('width', '100%');
             overlay.setAttribute('height', '100%');
-            overlay.setAttribute('fill', 'rgba(0,0,0,0.65)');
+            overlay.setAttribute('fill', 'rgba(0,0,0,0.75)');
             overlay.setAttribute('mask', 'url(#guideSpotlightMask)');
             overlay.style.pointerEvents = 'auto';
             overlay.addEventListener('click', (e) => e.stopPropagation());
             svg.appendChild(overlay);
+
+            // v5.7.0: Add glowing highlight ring around the cutout for visibility on dark UIs
+            const highlightRing = document.createElementNS(svgNS, 'rect');
+            highlightRing.setAttribute('x', cx - 2);
+            highlightRing.setAttribute('y', cy - 2);
+            highlightRing.setAttribute('width', cw + 4);
+            highlightRing.setAttribute('height', ch + 4);
+            highlightRing.setAttribute('fill', 'none');
+            highlightRing.setAttribute('stroke', '#58a6ff');
+            highlightRing.setAttribute('stroke-width', '2.5');
+            highlightRing.setAttribute('rx', '10');
+            highlightRing.setAttribute('opacity', '0.9');
+            svg.appendChild(highlightRing);
+
+            // Outer glow ring for extra emphasis
+            const glowRing = document.createElementNS(svgNS, 'rect');
+            glowRing.setAttribute('x', cx - 5);
+            glowRing.setAttribute('y', cy - 5);
+            glowRing.setAttribute('width', cw + 10);
+            glowRing.setAttribute('height', ch + 10);
+            glowRing.setAttribute('fill', 'none');
+            glowRing.setAttribute('stroke', '#58a6ff');
+            glowRing.setAttribute('stroke-width', '1.5');
+            glowRing.setAttribute('rx', '13');
+            glowRing.setAttribute('opacity', '0.35');
+            svg.appendChild(glowRing);
 
             spotlight.insertBefore(svg, spotlight.querySelector('.spotlight-tooltip'));
 
