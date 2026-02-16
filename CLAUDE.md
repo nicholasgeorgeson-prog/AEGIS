@@ -10,6 +10,9 @@
 - **Routes**: Modular blueprints in `routes/` package
 - **Static files**: `static/js/`, `static/css/`, `templates/`
 - **Database**: `scan_history.db` (SQLite) - roles, documents, scans, etc.
+- **Quality Checkers**: 83+ document review checkers with UI toggle controls
+- **Guided Tour System**: Interactive help panels and spotlight tours via `guide-system.js`
+- **Print Support**: Print-optimized stylesheet with URL display and page break controls
 
 ## Server Management - CRITICAL
 - **The user does NOT manage the server.** Everything is done through Claude sessions.
@@ -44,8 +47,13 @@
 | `static/js/roles-tabs-fix.js` | Roles Studio tab management (very large file, ~4500 lines) |
 | `static/js/features/landing-page.js` | Dashboard landing page tile click handlers |
 | `static/js/function-tags.js` | Function tags, report generation, tag management |
+| `static/js/features/guide-system.js` | Guided tour & contextual help system |
 | `static/css/features/roles-studio.css` | Roles Studio styling |
+| `static/css/features/guide-system.css` | Guide system styling (beacon, panel, spotlight) |
+| `static/css/print.css` | Print-optimized stylesheet |
 | `config.json` | App configuration |
+| `download_win_wheels.py` | Downloads Windows x64 wheels on connected machine |
+| `install_offline.bat` | Offline wheel installer for air-gapped Windows |
 
 ## CSS Patterns
 - Roles sections use class-based visibility: `.roles-section { display: none !important }` / `.roles-section.active { display: flex !important }`
@@ -152,6 +160,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
+- **Current version**: 5.1.0
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -159,6 +168,25 @@
 - **Client-side**: `app.js loadVersionLabel()` and `landing-page.js` both fetch `/api/version` as primary source (reads fresh from root `version.json` via `get_version()`), with `/static/version.json` as fallback
 - **IMPORTANT**: There are TWO copies of `version.json` — root and `static/`. Always update BOTH when changing version, or better yet just update root and copy: `cp version.json static/version.json`
 - **To update version**: Edit `version.json` in project root, then `cp version.json static/version.json` to sync the static copy.
+
+## GitHub Workflow
+- **PAT**: Stored in session context (not committed to repo for security)
+- **Git config**: email=`nicholas.georgeson@gmail.com`, name=`Nicholas Georgeson`
+- **gh CLI path**: `/sessions/fervent-ecstatic-faraday/gh`
+- **Index lock status**: Git index is stuck in Cowork VM — all pushes use GitHub REST API (no `git push`)
+- **REST API workflow**: Create blobs (base64) → create tree (with base_tree) → create commit → PATCH refs/heads/main
+- **Batch size**: Group files in batches of 30 per commit to avoid timeout errors
+- **Large files (>100MB)**: Must use GitHub Releases, not regular commits
+- **Release for wheels**: `v5.1.0-wheels` contains torch (139MB) and other large binaries
+
+## Wheels & Dependencies
+- **Total wheels**: 195 wheel files in `wheels/` directory
+- **Platforms**: Both Linux ARM64 (`manylinux_2_17_aarch64`) and Windows x64 (`win_amd64`) wheels present
+- **torch wheel**: 139MB uploaded to GitHub Release v5.1.0-wheels (exceeds 100MB commit limit)
+- **Installation script**: `install_offline.bat` handles installation on air-gapped Windows systems
+- **Download script**: `download_win_wheels.py` downloads Windows x64 wheels on connected machines
+- **Key packages**: spaCy (en_core_web_sm), numpy, pandas, scipy, scikit-learn, docling, opencv, transformers
+- **NLP model sharing**: Use `get_spacy_model()` from `nlp_utils.py` for singleton caching across checkers
 
 ### 18. CSRF Token Mismatch When Using MCP Browser / Programmatic fetch()
 **Problem**: Programmatic `fetch('/api/upload', ...)` from MCP browser JavaScript fails with `CSRF_ERROR` even after page refresh and cookie clearing.
@@ -191,3 +219,52 @@ additional_checkers = [
 2. `get_role_context()` — powers the RACI detail popup statements list
 3. `get_raci_matrix()` — powers RACI matrix verb classification counts
 **Lesson**: Any method that reads from `responsibilities_json` MUST deduplicate by statement text. Multiple scans of the same document create duplicates within the JSON array. Always use a `seen_texts = set()` pattern when iterating over responsibility entries. The two separate counting systems (scan_statements table vs responsibilities_json) may produce different totals — this is expected since they count different things (extracted requirements vs role-linked responsibilities).
+
+### 21. GitHub Release for Large Files (torch wheel)
+**Problem**: torch-2.10.0 wheel (139MB) exceeds GitHub's 100MB per-file commit limit.
+**Root Cause**: GitHub REST API and git both reject files >100MB in regular commits.
+**Fix**: Created a GitHub Release (`v5.1.0-wheels`) and uploaded torch as a release asset. Releases support up to 2GB per file.
+**Lesson**: Any wheel or binary >100MB must go into a GitHub Release, not a regular commit. Use `gh api repos/{owner}/{repo}/releases` to create, then upload assets to the upload_url.
+
+### 22. Git Index Lock — Use GitHub REST API for All Pushes
+**Problem**: Git index.lock file is stuck/corrupted in the Cowork VM, preventing all normal git operations (add, commit, push).
+**Fix**: ALL pushes done via GitHub REST API: create blobs (base64) → create tree (with base_tree) → create commit → PATCH refs/heads/main.
+**Lesson**: When git is broken in the VM, the full GitHub REST API workflow is: (1) GET refs/heads/main for HEAD SHA, (2) GET commits/{sha} for tree SHA, (3) POST git/blobs for each file, (4) POST git/trees with base_tree + new blob SHAs, (5) POST git/commits with tree + parent, (6) PATCH git/refs/heads/main with new SHA. Batch files in groups of 30 per commit to avoid timeouts.
+
+### 23. Platform-Specific Wheels Must Match Production OS
+**Problem**: All 33 platform-specific wheels were Linux ARM64 (`manylinux_2_17_aarch64`). Production is Windows x86_64.
+**Root Cause**: Wheels were downloaded on the Cowork VM (Linux ARM64). pip silently skips incompatible platform wheels — no error, just doesn't install.
+**Fix**: Downloaded Windows x64 (`win_amd64`) versions of all packages. Both platforms' wheels coexist in `wheels/` — pip auto-selects the correct one.
+**Lesson**: Always verify wheel platform tags match the target OS. pip gives NO warning when it skips incompatible wheels. Use `pip debug --verbose` to see which platforms pip expects.
+
+### 24. spaCy Model Singleton Pattern (Performance)
+**Problem**: Multiple checkers each loading their own spaCy model instance, wasting memory and startup time.
+**Fix**: Added `get_spacy_model()` function in `nlp_utils.py` that caches the model globally. All checkers share one instance.
+**Lesson**: Heavy NLP models (spaCy, transformers) should be loaded ONCE and shared via a module-level cache function. Never load in a checker's `__init__` if multiple checkers need the same model.
+
+### 25. Guided Tour System Architecture
+**Pattern**: The AEGIS Guide system (`guide-system.js` + `guide-system.css`) uses:
+- SVG mask for spotlight cutouts (not box-shadow hack)
+- `getBoundingClientRect()` + `scrollIntoView()` for element targeting
+- Section registry pattern — each section defines: whatIsThis, keyActions, proTips, tourSteps
+- Tour steps reference CSS selectors that must exist in index.html
+**Files**: `static/js/features/guide-system.js`, `static/css/features/guide-system.css`
+**API**: `AEGISGuide.startFullTour()`, `AEGISGuide.openPanel('sectionId')`, `AEGISGuide.addHelpButton(modal, sectionId)`
+
+### 26. Print Stylesheet Approach
+**Pattern**: `static/css/print.css` loaded with `media="print"` — only activates during Ctrl+P.
+**Key rules**: Hide sidebar, toolbar, toasts, floating buttons. Show table borders. Display URLs after links via `a[href]::after { content: " (" attr(href) ")"; }`. Force white background. Control page breaks with `break-inside: avoid` on cards/tables.
+
+### 27. Accessibility Retrofit Pattern
+**Pattern**: When adding aria-labels to an existing app:
+1. All icon-only buttons need `aria-label` describing the action
+2. All modals need `role="dialog"`, `aria-modal="true"`, `aria-labelledby`
+3. All tab systems need `role="tablist"` on container, `role="tab"` on buttons, `role="tabpanel"` on panels
+4. Decorative icons (next to text labels) get `aria-hidden="true"`
+5. Live regions (toasts, loading) get `role="alert"` or `aria-live="polite"`
+**Lesson**: Don't add `aria-label` to elements that already have visible text — screen readers read both, causing duplication.
+
+### 28. Checker UI Toggle Wiring (Three Places to Touch)
+**Problem**: 14 checkers had no UI checkboxes — they ran via `additional_checkers` but users couldn't see/control them.
+**Fix**: Added checkbox HTML in index.html → mapped names in `option_mapping` in core.py → removed from `additional_checkers`.
+**Lesson**: To add a checker toggle: (1) Add `<input type="checkbox" data-checker="name">` in index.html settings panel, (2) Add `'check_name': 'checker_name'` to `option_mapping` in core.py `review_document()`, (3) Remove from `additional_checkers` if it was there. Three files, three changes, all required.
