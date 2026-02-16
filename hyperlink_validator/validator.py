@@ -1145,6 +1145,47 @@ class StandaloneHyperlinkValidator:
 
         result.response_time_ms = (time.time() - start_time) * 1000
         result.attempts = min(attempt + 1, retries + 1) if 'attempt' in dir() else 1
+
+        # v5.0.5: Document URL false-positive mitigation
+        # URLs pointing to document files (.docx, .pdf, .xlsx, etc.) on enterprise/gov
+        # networks frequently fail validation due to auth requirements, VPN, or firewalls.
+        # These are almost never truly "broken" — they just can't be accessed without credentials.
+        # Downgrade BROKEN/TIMEOUT/BLOCKED/DNSFAILED to AUTH_REQUIRED for document URLs.
+        if result.status in ('BROKEN', 'TIMEOUT', 'BLOCKED', 'DNSFAILED', 'SSLERROR'):
+            doc_extensions = (
+                '.pdf', '.docx', '.doc', '.xlsx', '.xls', '.pptx', '.ppt',
+                '.odt', '.ods', '.odp', '.rtf', '.csv', '.txt',
+                '.zip', '.rar', '.7z', '.tar', '.gz',
+                '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.svg',
+                '.mp4', '.mp3', '.avi', '.mov', '.wav',
+            )
+            try:
+                url_path = urlparse(url).path.lower()
+                # Check if URL path ends with a document extension
+                # Also check for SharePoint-style document URLs (e.g., /sites/.../Documents/...)
+                is_document_url = any(url_path.endswith(ext) for ext in doc_extensions)
+                # Also catch URLs with query params after extension (e.g., file.pdf?version=2)
+                if not is_document_url:
+                    # Strip query params and check
+                    clean_path = url_path.split('?')[0]
+                    is_document_url = any(clean_path.endswith(ext) for ext in doc_extensions)
+                # Also detect SharePoint/OneDrive document library patterns
+                if not is_document_url:
+                    sharepoint_patterns = ('/documents/', '/shared documents/', '/_layouts/',
+                                          '/sites/', '/personal/', '/doclib/')
+                    is_document_url = any(p in url_path for p in sharepoint_patterns)
+
+                if is_document_url:
+                    original_status = result.status
+                    result.status = 'AUTH_REQUIRED'
+                    result.message = (
+                        f'Document link — likely requires authentication or VPN '
+                        f'(original: {original_status}). '
+                        f'This link probably opens a file download when accessed with proper credentials.'
+                    )
+            except Exception:
+                pass  # Don't let URL parsing fail the whole validation
+
         return result
 
     def _validate_with_requests(

@@ -438,46 +438,19 @@ def export_html(
         <p class="subtitle">Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC</p>
 '''
 
-    # Summary section - BUG-M09 fix: Handle missing summary with fallback
-    if summary:
-        html += f'''
-        <div class="summary-grid">
-            <div class="summary-card">
-                <div class="value">{summary.total}</div>
-                <div class="label">Total URLs</div>
-            </div>
-            <div class="summary-card working">
-                <div class="value">{summary.working}</div>
-                <div class="label">Working</div>
-            </div>
-            <div class="summary-card broken">
-                <div class="value">{summary.broken}</div>
-                <div class="label">Broken</div>
-            </div>
-            <div class="summary-card redirect">
-                <div class="value">{summary.redirect}</div>
-                <div class="label">Redirect</div>
-            </div>
-            <div class="summary-card timeout">
-                <div class="value">{summary.timeout}</div>
-                <div class="label">Timeout</div>
-            </div>
-            <div class="summary-card blocked">
-                <div class="value">{summary.blocked + summary.dns_failed + summary.ssl_error}</div>
-                <div class="label">Other Errors</div>
-            </div>
-        </div>
-'''
-    else:
-        # Fallback: Calculate summary from results if summary not provided
-        total = len(display_results)
-        working = sum(1 for r in display_results if r.status and r.status.upper() == 'WORKING')
-        broken = sum(1 for r in display_results if r.status and r.status.upper() == 'BROKEN')
-        redirect = sum(1 for r in display_results if r.status and r.status.upper() == 'REDIRECT')
-        timeout = sum(1 for r in display_results if r.status and r.status.upper() == 'TIMEOUT')
-        other = total - working - broken - redirect - timeout
+    # v5.0.5: Always calculate summary from display_results to ensure consistency
+    # between the summary cards and the results table. The original summary object
+    # uses pre-exclusion statuses, but display_results has exclusion rules applied,
+    # so the counts would mismatch if we used the original summary directly.
+    total = len(display_results)
+    working = sum(1 for r in display_results if r.status and r.status.upper() == 'WORKING')
+    broken = sum(1 for r in display_results if r.status and r.status.upper() == 'BROKEN')
+    redirect = sum(1 for r in display_results if r.status and r.status.upper() == 'REDIRECT')
+    timeout = sum(1 for r in display_results if r.status and r.status.upper() == 'TIMEOUT')
+    auth_req = sum(1 for r in display_results if r.status and r.status.upper() == 'AUTH_REQUIRED')
+    other = total - working - broken - redirect - timeout - auth_req
 
-        html += f'''
+    html += f'''
         <div class="summary-grid">
             <div class="summary-card">
                 <div class="value">{total}</div>
@@ -500,8 +473,12 @@ def export_html(
                 <div class="label">Timeout</div>
             </div>
             <div class="summary-card blocked">
+                <div class="value">{auth_req}</div>
+                <div class="label">Auth Required</div>
+            </div>
+            <div class="summary-card">
                 <div class="value">{other}</div>
-                <div class="label">Other Errors</div>
+                <div class="label">Other</div>
             </div>
         </div>
 '''
@@ -559,9 +536,11 @@ def export_html(
             <strong>Completed:</strong> {run.completed_at or 'N/A'}
 '''
         if summary:
+            # v5.0.5: Calculate success rate from display_results for consistency
+            display_success_rate = ((working + redirect) / total * 100) if total > 0 else 0
             html += f''' |
             <strong>Total Time:</strong> {summary.total_time_seconds:.1f}s |
-            <strong>Success Rate:</strong> {summary.success_rate:.1f}%
+            <strong>Success Rate:</strong> {display_success_rate:.1f}%
 '''
         html += '''
         </div>
