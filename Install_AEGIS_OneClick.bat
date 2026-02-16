@@ -289,6 +289,9 @@ for %%f in ("%WHEELS%\*.whl") do (
     "%PYTHON_DIR%\python.exe" -m pip install --no-index --no-deps --no-warn-script-location "%%f" 2>nul
 )
 
+:: Install colorama (required by Flask/Click on Windows for terminal output)
+"%PYTHON_DIR%\python.exe" -m pip install colorama --no-warn-script-location 2>nul
+
 echo.
 echo  [OK] All packages installed
 
