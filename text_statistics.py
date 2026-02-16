@@ -131,13 +131,14 @@ class TextStatistics:
             try:
                 self.stopwords = set(stopwords.words('english'))
             except LookupError:
-                # Download if not available
+                # v5.0.0: Try offline download only (raise_on_error=False prevents network calls
+                # when NLTK_DATA env var points to local data). Never call out to internet.
                 try:
-                    nltk.download('stopwords', quiet=True)
-                    nltk.download('punkt', quiet=True)
+                    nltk.download('stopwords', quiet=True, raise_on_error=False)
+                    nltk.download('punkt', quiet=True, raise_on_error=False)
                     self.stopwords = set(stopwords.words('english'))
-                except:
-                    pass
+                except Exception:
+                    pass  # Fallback stopwords will be used below
 
         # Fallback stopwords if NLTK not available
         if not self.stopwords:

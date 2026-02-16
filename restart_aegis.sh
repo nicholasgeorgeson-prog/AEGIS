@@ -27,6 +27,14 @@ echo ""
 echo "  [2/2] Starting AEGIS..."
 echo ""
 cd "$(dirname "$0")"
+
+# Offline mode - prevent any external network calls
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+export HF_HUB_DISABLE_TELEMETRY=1
+export DO_NOT_TRACK=1
+export TOKENIZERS_PARALLELISM=false
+
 /Library/Frameworks/Python.framework/Versions/3.10/bin/python3 app.py --debug
 
 echo ""

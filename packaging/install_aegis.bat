@@ -152,13 +152,14 @@ echo          PyTorch (CPU)... OK
     spacy==3.8.11 2>nul
 echo          spaCy NLP... OK
 
-"%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%~dp0wheels" --no-warn-script-location --no-cache-dir -q -q -q ^
-    "https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.8.0/en_core_web_md-3.8.0-py3-none-any.whl" 2>nul
+REM Install spaCy model from local wheel ONLY (no GitHub download)
 if exist "%~dp0wheels\en_core_web_md-3.8.0-py3-none-any.whl" (
     "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%~dp0wheels" --no-warn-script-location --no-cache-dir -q -q -q ^
-        en_core_web_md 2>nul
+        "%~dp0wheels\en_core_web_md-3.8.0-py3-none-any.whl" 2>nul
+    echo          spaCy language model... OK
+) else (
+    echo          [WARNING] spaCy model wheel not found - skipping
 )
-echo          spaCy language model... OK
 
 "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%~dp0wheels" --no-warn-script-location --no-cache-dir -q -q -q ^
     transformers==4.57.6 tokenizers==0.22.2 sentence-transformers safetensors==0.7.0 ^
@@ -169,6 +170,22 @@ echo          Transformers / Sentence-Transformers... OK
     nltk==3.9.2 textblob==0.19.0 textstat==0.7.12 PassivePy proselint==0.16.0 ^
     rapidfuzz symspellpy==6.9.0 language_tool_python==3.2.2 2>nul
 echo          NLP libraries... OK
+
+REM --- Install pre-bundled NLTK data (offline — no downloads needed) ---
+if exist "%~dp0nltk_data" (
+    echo          Copying bundled NLTK data...
+    if not exist "%APP_DIR%\nltk_data" mkdir "%APP_DIR%\nltk_data"
+    robocopy "%~dp0nltk_data" "%APP_DIR%\nltk_data" /E /NFL /NDL /NJH /NJS /NC /NS /NP >nul 2>&1
+    echo          [OK] NLTK data installed offline.
+)
+
+REM --- Install pre-bundled sentence-transformers model (offline) ---
+if exist "%~dp0models\sentence_transformers" (
+    echo          Copying bundled sentence-transformers model...
+    if not exist "%APP_DIR%\models\sentence_transformers" mkdir "%APP_DIR%\models\sentence_transformers"
+    robocopy "%~dp0models\sentence_transformers" "%APP_DIR%\models\sentence_transformers" /E /NFL /NDL /NJH /NJS /NC /NS /NP >nul 2>&1
+    echo          [OK] Sentence-Transformers model installed offline.
+)
 
 "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%~dp0wheels" --no-warn-script-location --no-cache-dir -q -q -q ^
     matplotlib==3.10.8 seaborn==0.13.2 requests==2.32.5 diff-match-patch==20241021 ^
@@ -203,6 +220,15 @@ REM Main launcher
     echo echo   [Keep this window open while using AEGIS]
     echo echo   [Press Ctrl+C or close this window to stop]
     echo echo.
+    echo REM === Offline mode - block ALL internet callouts ===
+    echo set HF_HUB_OFFLINE=1
+    echo set TRANSFORMERS_OFFLINE=1
+    echo set HF_HUB_DISABLE_TELEMETRY=1
+    echo set DO_NOT_TRACK=1
+    echo set TOKENIZERS_PARALLELISM=false
+    echo set TWR_ENV=production
+    echo set "NLTK_DATA=%%~dp0app\nltk_data"
+    echo set "SENTENCE_TRANSFORMERS_HOME=%%~dp0app\models\sentence_transformers"
     echo cd /d "%%~dp0app"
     echo start "" "http://localhost:5050" 2^>nul
     echo "%%~dp0python\python.exe" app.py
@@ -226,6 +252,14 @@ REM Restart script
     echo     taskkill /F /PID %%%%a ^>nul 2^>^&1
     echo ^)
     echo timeout /t 2 /nobreak ^>nul
+    echo set HF_HUB_OFFLINE=1
+    echo set TRANSFORMERS_OFFLINE=1
+    echo set HF_HUB_DISABLE_TELEMETRY=1
+    echo set DO_NOT_TRACK=1
+    echo set TOKENIZERS_PARALLELISM=false
+    echo set TWR_ENV=production
+    echo set "NLTK_DATA=%%~dp0app\nltk_data"
+    echo set "SENTENCE_TRANSFORMERS_HOME=%%~dp0app\models\sentence_transformers"
     echo cd /d "%%~dp0app"
     echo start "" "http://localhost:5050" 2^>nul
     echo "%%~dp0python\python.exe" app.py

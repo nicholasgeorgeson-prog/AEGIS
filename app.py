@@ -32,6 +32,47 @@ from datetime import datetime, timezone, timedelta
 
 _APP_START_TIME = time.time()
 
+# ==========================================================================
+# v5.0.0: OFFLINE MODE - Block ALL internet callouts before any imports
+# Corporate/air-gapped networks block external access. These env vars MUST
+# be set before importing any ML/NLP libraries that phone home.
+# ==========================================================================
+os.environ['HF_HUB_OFFLINE'] = '1'              # huggingface_hub: never download
+os.environ['TRANSFORMERS_OFFLINE'] = '1'          # transformers: never download
+os.environ['HF_HUB_DISABLE_TELEMETRY'] = '1'     # disable HF telemetry
+os.environ['HF_HUB_DOWNLOAD_TIMEOUT'] = '5'      # fast fail if somehow attempted
+os.environ['DO_NOT_TRACK'] = '1'                  # general telemetry opt-out
+os.environ['TOKENIZERS_PARALLELISM'] = 'false'    # avoid fork warnings
+# NLTK: point to local data directory (set before nltk is imported)
+_nltk_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'nltk_data')
+if os.path.isdir(_nltk_data_dir):
+    os.environ['NLTK_DATA'] = _nltk_data_dir
+# Sentence-transformers: point to local model cache
+_models_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models', 'sentence_transformers')
+if os.path.isdir(_models_dir):
+    os.environ['SENTENCE_TRANSFORMERS_HOME'] = _models_dir
+
+# v5.0.0: Ensure site-packages is on sys.path for embedded Python (Windows)
+# Embedded Python uses ._pth files which may exclude site-packages by default
+_app_dir = Path(__file__).parent
+_possible_site_packages = [
+    _app_dir / 'python' / 'Lib' / 'site-packages',
+    _app_dir / 'python' / 'lib' / 'site-packages',
+]
+for _sp in _possible_site_packages:
+    if _sp.exists() and str(_sp) not in sys.path:
+        sys.path.insert(0, str(_sp))
+# Also add DLL directory for compiled extensions (spaCy, numpy, etc.)
+if sys.platform == 'win32':
+    _python_dir = _app_dir / 'python'
+    if _python_dir.exists():
+        os.environ.setdefault('PATH', '')
+        os.environ['PATH'] = str(_python_dir) + os.pathsep + os.environ['PATH']
+        try:
+            os.add_dll_directory(str(_python_dir))
+        except (AttributeError, OSError):
+            pass  # add_dll_directory only available in Python 3.8+ on Windows
+
 
 def _capture_startup_error(error: Exception, context: str = ''):
     """Write startup errors to file since logging may not be initialized."""
@@ -315,14 +356,17 @@ def before_request():
                 return auth_result
 
     if config.rate_limit_enabled:
+        client_ip = request.remote_addr or 'unknown'
+        # v5.0.0: Exempt localhost from rate limiting (single-user desktop app)
+        is_localhost = client_ip in ('127.0.0.1', '::1', 'localhost')
         rate_limit_exempt = (
+            is_localhost,
             request.path in ['/api/health', '/api/health/assets', '/api/ready', '/api/version', '/api/csrf-token'],
             request.path.startswith('/static/'),
             request.path.startswith('/vendor/'),
             request.path in ['/favicon.ico', '/logo.png']
         )
         if not any(rate_limit_exempt):
-            client_ip = request.remote_addr or 'unknown'
             rate_limiter = get_rate_limiter()
             if not rate_limiter.is_allowed(client_ip):
                 retry_after = rate_limiter.get_retry_after(client_ip)
@@ -494,9 +538,13 @@ def main():
     start_periodic_cleanup()
     SessionManager.start_auto_cleanup(interval_seconds=3600, max_age_hours=24)
 
-    use_debug = '--debug' in sys.argv and os.environ.get('TWR_ENV') != 'production'
+    # v5.0.0: Debug mode is ONLY allowed when explicitly passing --debug AND
+    # TWR_ENV is NOT set to 'production'. For cyber security compliance,
+    # debug mode is NEVER auto-enabled. The default environment is 'production'
+    # to ensure no debug artifacts leak in deployed installations.
+    env = os.environ.get('TWR_ENV', 'production')
     no_browser = '--no-browser' in sys.argv
-    env = os.environ.get('TWR_ENV', 'development')
+    use_debug = '--debug' in sys.argv and env != 'production'
     if env == 'production':
         use_debug = False
 

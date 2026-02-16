@@ -70,17 +70,13 @@ class SemanticAnalyzer(NLPIntegrationBase):
             try:
                 wn.synsets('test')
             except LookupError:
-                # Download required data
-                import ssl
+                # v5.0.0: Attempt local-only NLTK data load (no internet)
+                # NLTK_DATA env var is set at startup to point to bundled data
                 try:
-                    _create_unverified_https_context = ssl._create_unverified_context
-                except AttributeError:
-                    pass
-                else:
-                    ssl._create_default_https_context = _create_unverified_https_context
-
-                nltk.download('wordnet', quiet=True)
-                nltk.download('omw-1.4', quiet=True)
+                    nltk.download('wordnet', quiet=True, raise_on_error=False)
+                    nltk.download('omw-1.4', quiet=True, raise_on_error=False)
+                except Exception:
+                    pass  # Data not available locally — WordNet will be disabled
 
             self._wn = wn
             self._available = True

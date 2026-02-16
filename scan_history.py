@@ -227,12 +227,28 @@ class ScanHistoryDB:
         """
         return db_connection(self.db_path)
 
-    def _init_database(self):
-        """Initialize database tables."""
-        with self.connection() as (conn, cursor):
+    def _create_table_safe(self, name: str, *statements):
+        """Create a table (and optional extra statements) in its own transaction.
 
-            # Documents table - tracks each unique document
-            cursor.execute('''
+        If any statement fails, only this table's transaction is rolled back,
+        not the entire database initialization.
+        """
+        try:
+            with self.connection() as (conn, cursor):
+                for sql in statements:
+                    cursor.execute(sql)
+        except Exception as e:
+            _log(f"Warning: Could not create/migrate table '{name}': {e}", level='warning')
+
+    def _init_database(self):
+        """Initialize database tables.
+
+        v5.0.0: Each table creation is in its own transaction to prevent
+        a failure in one table (or seed data) from rolling back ALL tables.
+        This is critical for fresh installs on Windows where any single
+        migration issue would leave the entire database empty.
+        """
+        self._create_table_safe('documents', '''
                 CREATE TABLE IF NOT EXISTS documents (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     filename TEXT NOT NULL,
@@ -247,8 +263,7 @@ class ScanHistoryDB:
                 )
             ''')
 
-            # Scans table - each individual scan
-            cursor.execute('''
+        self._create_table_safe('scans', '''
                 CREATE TABLE IF NOT EXISTS scans (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     document_id INTEGER,
@@ -264,8 +279,7 @@ class ScanHistoryDB:
                 )
             ''')
 
-            # Roles table - all roles found across documents
-            cursor.execute('''
+        self._create_table_safe('roles', '''
                 CREATE TABLE IF NOT EXISTS roles (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     role_name TEXT UNIQUE,
@@ -279,8 +293,7 @@ class ScanHistoryDB:
                 )
             ''')
 
-            # Role Dictionary - user-managed known roles for extraction
-            cursor.execute('''
+        self._create_table_safe('role_dictionary', '''
                 CREATE TABLE IF NOT EXISTS role_dictionary (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     role_name TEXT NOT NULL,
@@ -305,34 +318,26 @@ class ScanHistoryDB:
                     baselined INTEGER DEFAULT 0,
                     UNIQUE(normalized_name)
                 )
-            ''')
+            ''',
+            "CREATE INDEX IF NOT EXISTS idx_role_dict_normalized ON role_dictionary(normalized_name)",
+            "CREATE INDEX IF NOT EXISTS idx_role_dict_active ON role_dictionary(is_active)")
 
-            # Create index for faster lookups
-            cursor.execute('''
-                CREATE INDEX IF NOT EXISTS idx_role_dict_normalized
-                ON role_dictionary(normalized_name)
-            ''')
-            cursor.execute('''
-                CREATE INDEX IF NOT EXISTS idx_role_dict_active
-                ON role_dictionary(is_active)
-            ''')
+        # v5.0.0: Ensure role_dictionary has all required columns (migration for older databases)
+        for col_name, col_type in [
+            ('tracings', "TEXT DEFAULT '[]'"),
+            ('role_type', "TEXT DEFAULT ''"),
+            ('role_disposition', "TEXT DEFAULT ''"),
+            ('org_group', "TEXT DEFAULT ''"),
+            ('hierarchy_level', "TEXT DEFAULT ''"),
+            ('baselined', "INTEGER DEFAULT 0"),
+        ]:
+            try:
+                with self.connection() as (conn, cursor):
+                    cursor.execute(f'ALTER TABLE role_dictionary ADD COLUMN {col_name} {col_type}')
+            except Exception:
+                pass  # Column already exists
 
-            # v5.0.0: Ensure role_dictionary has all required columns (migration for older databases)
-            for col_def in [
-                ('tracings', "TEXT DEFAULT '[]'"),
-                ('role_type', "TEXT DEFAULT ''"),
-                ('role_disposition', "TEXT DEFAULT ''"),
-                ('org_group', "TEXT DEFAULT ''"),
-                ('hierarchy_level', "TEXT DEFAULT ''"),
-                ('baselined', "INTEGER DEFAULT 0"),
-            ]:
-                try:
-                    cursor.execute(f'ALTER TABLE role_dictionary ADD COLUMN {col_def[0]} {col_def[1]}')
-                except Exception:
-                    pass  # Column already exists
-
-            # Document-Role relationships
-            cursor.execute('''
+        self._create_table_safe('document_roles', '''
                 CREATE TABLE IF NOT EXISTS document_roles (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     document_id INTEGER,
@@ -346,8 +351,7 @@ class ScanHistoryDB:
                 )
             ''')
 
-            # Scan profiles (saved check configurations)
-            cursor.execute('''
+        self._create_table_safe('scan_profiles', '''
                 CREATE TABLE IF NOT EXISTS scan_profiles (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT UNIQUE NOT NULL,
@@ -359,8 +363,7 @@ class ScanHistoryDB:
                 )
             ''')
 
-            # Issue changes between scans
-            cursor.execute('''
+        self._create_table_safe('issue_changes', '''
                 CREATE TABLE IF NOT EXISTS issue_changes (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     document_id INTEGER,
@@ -375,8 +378,7 @@ class ScanHistoryDB:
                 )
             ''')
 
-            # v5.0.0: Statement Forge persistence
-            cursor.execute('''
+        self._create_table_safe('scan_statements', '''
                 CREATE TABLE IF NOT EXISTS scan_statements (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     scan_id INTEGER NOT NULL,
@@ -394,14 +396,12 @@ class ScanHistoryDB:
                     FOREIGN KEY (scan_id) REFERENCES scans(id),
                     FOREIGN KEY (document_id) REFERENCES documents(id)
                 )
-            ''')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_scan_statements_scan ON scan_statements(scan_id)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_scan_statements_doc ON scan_statements(document_id)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_scan_statements_directive ON scan_statements(directive)')
+            ''',
+            'CREATE INDEX IF NOT EXISTS idx_scan_statements_scan ON scan_statements(scan_id)',
+            'CREATE INDEX IF NOT EXISTS idx_scan_statements_doc ON scan_statements(document_id)',
+            'CREATE INDEX IF NOT EXISTS idx_scan_statements_directive ON scan_statements(directive)')
 
-            # v5.0.0: Function categories, role function tags, document categories
-            # (previously in migrate_function_tags.py, now auto-created on init)
-            cursor.execute('''
+        self._create_table_safe('function_categories', '''
                 CREATE TABLE IF NOT EXISTS function_categories (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     code TEXT UNIQUE NOT NULL,
@@ -416,7 +416,8 @@ class ScanHistoryDB:
                     FOREIGN KEY (parent_code) REFERENCES function_categories(code)
                 )
             ''')
-            cursor.execute('''
+
+        self._create_table_safe('role_function_tags', '''
                 CREATE TABLE IF NOT EXISTS role_function_tags (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     role_id INTEGER,
@@ -429,8 +430,11 @@ class ScanHistoryDB:
                     UNIQUE(role_id, function_code),
                     UNIQUE(role_name, function_code)
                 )
-            ''')
-            cursor.execute('''
+            ''',
+            'CREATE INDEX IF NOT EXISTS idx_role_function_tags_role ON role_function_tags(role_name)',
+            'CREATE INDEX IF NOT EXISTS idx_role_function_tags_function ON role_function_tags(function_code)')
+
+        self._create_table_safe('document_category_types', '''
                 CREATE TABLE IF NOT EXISTS document_category_types (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT UNIQUE NOT NULL,
@@ -440,7 +444,8 @@ class ScanHistoryDB:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
-            cursor.execute('''
+
+        self._create_table_safe('document_categories', '''
                 CREATE TABLE IF NOT EXISTS document_categories (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     document_id INTEGER,
@@ -455,8 +460,11 @@ class ScanHistoryDB:
                     FOREIGN KEY (document_id) REFERENCES documents(id),
                     FOREIGN KEY (function_code) REFERENCES function_categories(code)
                 )
-            ''')
-            cursor.execute('''
+            ''',
+            'CREATE INDEX IF NOT EXISTS idx_document_categories_doc ON document_categories(document_id)',
+            'CREATE INDEX IF NOT EXISTS idx_document_categories_function ON document_categories(function_code)')
+
+        self._create_table_safe('role_required_actions', '''
                 CREATE TABLE IF NOT EXISTS role_required_actions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     role_id INTEGER,
@@ -474,17 +482,21 @@ class ScanHistoryDB:
                     FOREIGN KEY (role_id) REFERENCES roles(id),
                     FOREIGN KEY (source_document_id) REFERENCES documents(id)
                 )
-            ''')
-            # Indexes for function tags
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_role_function_tags_role ON role_function_tags(role_name)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_role_function_tags_function ON role_function_tags(function_code)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_document_categories_doc ON document_categories(document_id)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_document_categories_function ON document_categories(function_code)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_role_required_actions_role ON role_required_actions(role_name)')
+            ''',
+            'CREATE INDEX IF NOT EXISTS idx_role_required_actions_role ON role_required_actions(role_name)')
 
-            # Seed function categories if empty
-            cursor.execute('SELECT COUNT(*) FROM function_categories')
-            if cursor.fetchone()[0] == 0:
+        # Seed function categories if empty (in its own transaction)
+        self._seed_function_categories()
+
+        _log("Database initialized")
+
+    def _seed_function_categories(self):
+        """Seed function categories table with NGC function codes."""
+        try:
+            with self.connection() as (conn, cursor):
+                cursor.execute('SELECT COUNT(*) FROM function_categories')
+                if cursor.fetchone()[0] > 0:
+                    return  # Already seeded
                 _seed_categories = [
                     ('BM', 'Bus Mgmt', 'Business Management', None, 1, '#6366f1'),
                     ('BD', 'Bus Dev', 'Business Development', None, 2, '#8b5cf6'),
@@ -580,16 +592,11 @@ class ScanHistoryDB:
                     ('LEGAL', 'Legal', 'Legal', None, 92, '#6366f1'),
                 ]
                 for code, name, desc, parent, sort_order, color in _seed_categories:
-                    try:
-                        cursor.execute('''INSERT OR IGNORE INTO function_categories
-                            (code, name, description, parent_code, sort_order, color)
-                            VALUES (?, ?, ?, ?, ?, ?)''', (code, name, desc, parent, sort_order, color))
-                    except Exception:
-                        pass
-
-            conn.commit()
-
-        _log("Database initialized")
+                    cursor.execute('''INSERT OR IGNORE INTO function_categories
+                        (code, name, description, parent_code, sort_order, color)
+                        VALUES (?, ?, ?, ?, ?, ?)''', (code, name, desc, parent, sort_order, color))
+        except Exception as e:
+            _log(f"Warning: Could not seed function categories: {e}", level='warning')
     
     def _get_file_hash(self, filepath: str) -> str:
         """Get MD5 hash of file for change detection."""
