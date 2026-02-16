@@ -130,6 +130,11 @@ ADJECTIVAL_PARTICIPLES = {
     'deployed', 'launched', 'propelled', 'guided', 'navigated', 'maneuvered',
     'pressurized', 'depressurized', 'fueled', 'defueled', 'armed', 'disarmed',
     'hardened', 'ruggedized', 'militarized', 'classified', 'declassified',
+    'reinforced', 'strain-hardened', 'age-hardened', 'work-hardened',
+    'surface-treated', 'plasma-treated', 'ion-implanted', 'cathodically-protected',
+    'environmentally-qualified', 'radiation-hardened', 'vibration-tested',
+    'flight-qualified', 'mil-spec', 'flight-proven', 'battle-tested',
+    'field-replaceable', 'man-rated', 'crew-rated',
 
     # v4.0.0: Additional technical/requirements terms (commonly adjectival)
     'prohibited', 'permitted', 'allowed', 'banned', 'restricted', 'limited',

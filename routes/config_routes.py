@@ -215,6 +215,7 @@ def api_preset_get(preset_name):
     except ImportError:
         return (jsonify({'success': False, 'error': {'code': 'MODULE_NOT_FOUND', 'message': 'Style presets module not available'}}), 500)
 @config_bp.route('/api/presets/<preset_name>/apply', methods=['POST'])
+@require_csrf
 @handle_api_errors
 def api_preset_apply(preset_name):
     """Apply a style preset with optional custom overrides.
@@ -244,6 +245,7 @@ def api_preset_apply(preset_name):
     except ImportError:
         return (jsonify({'success': False, 'error': {'code': 'MODULE_NOT_FOUND', 'message': 'Style presets module not available'}}), 500)
 @config_bp.route('/api/auto-fix/preview', methods=['POST'])
+@require_csrf
 @handle_api_errors
 def api_auto_fix_preview():
     """Preview auto-fixes for document issues.
@@ -495,6 +497,7 @@ def api_analyzers_status():
         logger.exception(f'Error getting analyzer status: {e}')
         return (jsonify({'success': False, 'error': {'code': 'ANALYZER_ERROR', 'message': str(e)}}), 500)
 @config_bp.route('/api/analyzers/semantic/similar', methods=['POST'])
+@require_csrf
 @handle_api_errors
 def api_semantic_similar():
     """
@@ -528,6 +531,7 @@ def api_semantic_similar():
         logger.exception(f'Error in semantic search: {e}')
         return (jsonify({'success': False, 'error': {'code': 'SEMANTIC_ERROR', 'message': str(e)}}), 500)
 @config_bp.route('/api/analyzers/acronyms/extract', methods=['POST'])
+@require_csrf
 @handle_api_errors
 def api_acronyms_extract():
     """
@@ -557,6 +561,7 @@ def api_acronyms_extract():
         logger.exception(f'Error in acronym extraction: {e}')
         return (jsonify({'success': False, 'error': {'code': 'ACRONYM_ERROR', 'message': str(e)}}), 500)
 @config_bp.route('/api/analyzers/statistics', methods=['POST'])
+@require_csrf
 @handle_api_errors
 def api_text_statistics():
     """
@@ -587,6 +592,7 @@ def api_text_statistics():
         logger.exception(f'Error in text statistics: {e}')
         return (jsonify({'success': False, 'error': {'code': 'STATISTICS_ERROR', 'message': str(e)}}), 500)
 @config_bp.route('/api/analyzers/lint', methods=['POST'])
+@require_csrf
 @handle_api_errors
 def api_prose_lint():
     """

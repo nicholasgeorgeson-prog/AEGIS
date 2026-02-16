@@ -89,6 +89,35 @@
     margin-top: 2px;
 }
 
+/* Dark mode overrides for radio card styles */
+[data-theme="dark"] .radio-card-content {
+    border-color: #4a4a4a;
+}
+
+[data-theme="dark"] .radio-card input[type="radio"]:checked + .radio-card-content {
+    border-color: #64b5f6;
+    background: rgba(25, 118, 210, 0.15);
+}
+
+[data-theme="dark"] .radio-card-content i {
+    color: #999;
+}
+
+[data-theme="dark"] .radio-card input[type="radio"]:checked + .radio-card-content i {
+    color: #64b5f6;
+}
+
+[data-theme="dark"] .radio-card-title {
+    color: #e0e0e0;
+}
+
+[data-theme="dark"] .radio-card-count {
+    color: #64b5f6;
+}
+
+[data-theme="dark"] .radio-card-desc {
+    color: #999;
+}
 
 /* ============================================================
    ISSUE FAMILIES MODAL STYLES

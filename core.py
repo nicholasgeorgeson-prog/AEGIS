@@ -2386,20 +2386,21 @@ class AEGISEngine:
         """Remove duplicate issues based on paragraph index and message."""
         seen = set()
         unique = []
-        
+
         for issue in issues:
             # Create a unique key from paragraph index, category, and core message
             para_idx = issue.get('paragraph_index', 0)
             category = issue.get('category', '')
-            flagged = issue.get('flagged_text', '')[:50]  # First 50 chars
-            message = issue.get('message', '')[:50]
-            
-            key = (para_idx, category, flagged, message)
-            
+            flagged = issue.get('flagged_text', '')[:80]  # First 80 chars
+            message = issue.get('message', '')[:80]
+            rule_id = issue.get('rule_id', '')
+
+            key = (para_idx, category, flagged, message, rule_id)
+
             if key not in seen:
                 seen.add(key)
                 unique.append(issue)
-        
+
         return unique
     
     def _assign_issue_ids(self):

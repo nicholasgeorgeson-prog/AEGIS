@@ -32,6 +32,7 @@ from routes._shared import (
     ValidationError
 )
 import routes._shared as _shared
+from config_logging import get_version
 
 
 data_bp = Blueprint('data', __name__)
@@ -50,6 +51,7 @@ def db_connection(db_path):
 
 
 @data_bp.route('/api/sow/generate', methods=['POST'])
+@require_csrf
 @handle_api_errors
 def generate_sow():
     """
@@ -93,7 +95,7 @@ def generate_sow():
                 statements = [s for s in statements if s.get('document_id') in selected_set]
             import socket as _socket
             from sow_generator import generate_sow_html
-            metadata = {'version': '4.6.1', 'export_date': datetime.now(timezone.utc).isoformat(), 'hostname': _socket.gethostname()}
+            metadata = {'version': get_version(), 'export_date': datetime.now(timezone.utc).isoformat(), 'hostname': _socket.gethostname()}
             html_content = generate_sow_html(config=config, roles=dictionary, statements=statements, documents=documents, function_categories=function_cats, relationships=relationships, metadata=metadata)
             response = make_response(html_content)
             response.headers['Content-Type'] = 'text/html; charset=utf-8'
@@ -1422,6 +1424,7 @@ def learner_record():
                 result = _shared.decision_learner.record_decision(fix=fix, decision=normalized_decision, note=note, document_id=doc_id)
                 return jsonify({'success': result})
 @data_bp.route('/api/learner/predict', methods=['POST'])
+@require_csrf
 @handle_api_errors
 def learner_predict():
     """Get prediction for a fix based on learned patterns."""

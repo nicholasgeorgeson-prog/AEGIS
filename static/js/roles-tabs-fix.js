@@ -151,6 +151,30 @@
     }
 
     /**
+     * Get a fresh CSRF token from the API response header.
+     * This prevents CSRF token mismatch when Flask debug mode has reloaded with a new secret key.
+     * The response header CSRF token always matches the current session because it's set
+     * in the same request cycle, unlike the meta tag which may be from a previous session.
+     */
+    async function getFreshCSRFToken() {
+        try {
+            const resp = await fetch('/api/version', { credentials: 'same-origin' });
+            const freshCsrf = resp.headers.get('X-CSRF-Token');
+            if (freshCsrf) {
+                window.CSRF_TOKEN = freshCsrf;
+                if (window.State) window.State.csrfToken = freshCsrf;
+                const meta = document.querySelector('meta[name="csrf-token"]');
+                if (meta) meta.setAttribute('content', freshCsrf);
+                return freshCsrf;
+            }
+        } catch (e) {
+            console.warn('[TWR RolesTabs] Failed to fetch fresh CSRF token:', e);
+        }
+        // Fallback to current token if fresh fetch fails
+        return getCSRFToken();
+    }
+
+    /**
      * Fetch dictionary roles (fallback when no scan data)
      */
     async function fetchDictionary() {
@@ -2659,12 +2683,14 @@
             reassignBtn.disabled = true;
             reassignBtn.textContent = 'Reassigning...';
             try {
-                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || window.CSRF_TOKEN || '';
+                // v4.10.0-fix: Use fresh CSRF token from response header to avoid token mismatch after debug reload
+                const csrfToken = await getFreshCSRFToken();
                 const resp = await fetch(`/api/roles/${encodeURIComponent(roleName)}/statements/bulk-reassign`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
                     body: JSON.stringify({ statement_ids: Array.from(selectedIds), new_role: newRole })
                 });
+                syncCSRFFromResponse(resp);
                 const json = await resp.json();
                 if (json.success) {
                     showToast('success', `Reassigned ${json.updated} statement${json.updated !== 1 ? 's' : ''} to "${newRole}"`);
@@ -2686,12 +2712,14 @@
             removeBtn.disabled = true;
             removeBtn.textContent = 'Removing...';
             try {
-                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || window.CSRF_TOKEN || '';
+                // v4.10.0-fix: Use fresh CSRF token from response header to avoid token mismatch after debug reload
+                const csrfToken = await getFreshCSRFToken();
                 const resp = await fetch(`/api/roles/${encodeURIComponent(roleName)}/statements/bulk-reassign`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
                     body: JSON.stringify({ statement_ids: Array.from(selectedIds), new_role: '' })
                 });
+                syncCSRFFromResponse(resp);
                 const json = await resp.json();
                 if (json.success) {
                     showToast('success', `Removed role from ${json.updated} statement${json.updated !== 1 ? 's' : ''}`);

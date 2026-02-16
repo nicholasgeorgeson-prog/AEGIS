@@ -4,7 +4,7 @@ Blueprint name: core
 """
 
 from flask import Blueprint, send_file, request, jsonify, session, g, Response, make_response
-from routes._shared import handle_api_errors, api_error_response, config, logger, sanitize_static_path
+from routes._shared import handle_api_errors, api_error_response, config, logger, sanitize_static_path, require_csrf
 from config_logging import VERSION, get_version, generate_csrf_token, log_production_error, read_recent_error_logs
 from pathlib import Path
 from werkzeug.utils import secure_filename
@@ -217,6 +217,7 @@ def diagnostics_errors():
 
 
 @core_bp.route('/api/diagnostics/export', methods=['POST'])
+@require_csrf
 @handle_api_errors
 def diagnostics_export():
     """

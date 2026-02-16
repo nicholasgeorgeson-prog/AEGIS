@@ -58,6 +58,29 @@ TWR.FunctionTags = (function() {
     }
 
     /**
+     * Get a fresh CSRF token from the API response header.
+     * v4.10.0-fix: This prevents CSRF token mismatch when Flask debug mode has reloaded with a new secret key.
+     * The response header CSRF token always matches the current session because it's set
+     * in the same request cycle, unlike the meta tag which may be from a previous session.
+     */
+    async function getFreshCSRFToken() {
+        try {
+            const resp = await fetch('/api/function-categories', { credentials: 'same-origin', method: 'GET' });
+            const freshCsrf = resp.headers.get('X-CSRF-Token');
+            if (freshCsrf) {
+                // Sync to meta tag for other code paths
+                const meta = document.querySelector('meta[name="csrf-token"]');
+                if (meta) meta.setAttribute('content', freshCsrf);
+                return freshCsrf;
+            }
+        } catch (e) {
+            console.warn('[FunctionTags] Failed to fetch fresh CSRF token:', e);
+        }
+        // Fallback to meta tag if fresh fetch fails
+        return document.querySelector('meta[name="csrf-token"]')?.content || '';
+    }
+
+    /**
      * Build hierarchical function options for select dropdowns.
      * Groups categories by parent and shows indentation.
      *
@@ -149,7 +172,8 @@ TWR.FunctionTags = (function() {
     async function createFunctionCategory(categoryData) {
         const toast = getToast();
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            // v4.10.0-fix: Use fresh CSRF token from response header to avoid token mismatch
+            const csrfToken = await getFreshCSRFToken();
             const res = await fetch('/api/function-categories', {
                 method: 'POST',
                 headers: {
@@ -175,7 +199,8 @@ TWR.FunctionTags = (function() {
     async function updateFunctionCategory(code, categoryData) {
         const toast = getToast();
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            // v4.10.0-fix: Use fresh CSRF token from response header to avoid token mismatch
+            const csrfToken = await getFreshCSRFToken();
             const res = await fetch(`/api/function-categories/${code}`, {
                 method: 'PUT',
                 headers: {
@@ -204,7 +229,8 @@ TWR.FunctionTags = (function() {
             return false;
         }
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            // v4.10.0-fix: Use fresh CSRF token from response header to avoid token mismatch
+            const csrfToken = await getFreshCSRFToken();
             const res = await fetch(`/api/function-categories/${code}`, {
                 method: 'DELETE',
                 headers: { 'X-CSRF-Token': csrfToken }
@@ -247,7 +273,8 @@ TWR.FunctionTags = (function() {
     async function assignRoleFunctionTag(roleName, functionCode) {
         const toast = getToast();
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            // v4.10.0-fix: Use fresh CSRF token from response header to avoid token mismatch
+            const csrfToken = await getFreshCSRFToken();
             const res = await fetch('/api/role-function-tags', {
                 method: 'POST',
                 headers: {
@@ -272,7 +299,8 @@ TWR.FunctionTags = (function() {
     async function removeRoleFunctionTag(tagId) {
         const toast = getToast();
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            // v4.10.0-fix: Use fresh CSRF token from response header to avoid token mismatch
+            const csrfToken = await getFreshCSRFToken();
             const res = await fetch(`/api/role-function-tags/${tagId}`, {
                 method: 'DELETE',
                 headers: { 'X-CSRF-Token': csrfToken }
@@ -309,7 +337,8 @@ TWR.FunctionTags = (function() {
 
     async function autoDetectDocumentCategory(documentName, documentContent = '') {
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            // v4.10.0-fix: Use fresh CSRF token from response header to avoid token mismatch
+            const csrfToken = await getFreshCSRFToken();
             const res = await fetch('/api/document-categories/auto-detect', {
                 method: 'POST',
                 headers: {
@@ -331,7 +360,8 @@ TWR.FunctionTags = (function() {
     async function assignDocumentCategory(docData) {
         const toast = getToast();
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            // v4.10.0-fix: Use fresh CSRF token from response header to avoid token mismatch
+            const csrfToken = await getFreshCSRFToken();
             const res = await fetch('/api/document-categories', {
                 method: 'POST',
                 headers: {
@@ -377,7 +407,8 @@ TWR.FunctionTags = (function() {
     async function extractRoleActionsFromDocument(documentContent, documentName, documentId) {
         const toast = getToast();
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            // v4.10.0-fix: Use fresh CSRF token from response header to avoid token mismatch
+            const csrfToken = await getFreshCSRFToken();
             const res = await fetch('/api/role-required-actions/extract', {
                 method: 'POST',
                 headers: {
@@ -407,7 +438,8 @@ TWR.FunctionTags = (function() {
     async function addRoleRequiredAction(actionData) {
         const toast = getToast();
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            // v4.10.0-fix: Use fresh CSRF token from response header to avoid token mismatch
+            const csrfToken = await getFreshCSRFToken();
             const res = await fetch('/api/role-required-actions', {
                 method: 'POST',
                 headers: {
@@ -432,7 +464,8 @@ TWR.FunctionTags = (function() {
     async function verifyRoleRequiredAction(actionId) {
         const toast = getToast();
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            // v4.10.0-fix: Use fresh CSRF token from response header to avoid token mismatch
+            const csrfToken = await getFreshCSRFToken();
             const res = await fetch(`/api/role-required-actions/${actionId}/verify`, {
                 method: 'POST',
                 headers: {
@@ -456,7 +489,8 @@ TWR.FunctionTags = (function() {
         const toast = getToast();
         if (!confirm('Delete this required action?')) return false;
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            // v4.10.0-fix: Use fresh CSRF token from response header to avoid token mismatch
+            const csrfToken = await getFreshCSRFToken();
             const res = await fetch(`/api/role-required-actions/${actionId}`, {
                 method: 'DELETE',
                 headers: { 'X-CSRF-Token': csrfToken }
@@ -1900,7 +1934,8 @@ TWR.FunctionTags = (function() {
     async function updateDocumentTag(documentId, field, value) {
         const toast = getToast();
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            // v4.10.0-fix: Use fresh CSRF token from response header to avoid token mismatch
+            const csrfToken = await getFreshCSRFToken();
 
             // Find document data
             const doc = _documentTagsData.find(d => d.id === documentId);
@@ -1948,7 +1983,8 @@ TWR.FunctionTags = (function() {
         }
 
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            // v4.10.0-fix: Use fresh CSRF token from response header to avoid token mismatch
+            const csrfToken = await getFreshCSRFToken();
             const encodedName = encodeURIComponent(doc.filename);
 
             const res = await fetch(`/api/document-categories/by-document/${encodedName}`, {
@@ -1987,7 +2023,8 @@ TWR.FunctionTags = (function() {
         if (!doc) return;
 
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            // v4.10.0-fix: Use fresh CSRF token from response header to avoid token mismatch
+            const csrfToken = await getFreshCSRFToken();
 
             const res = await fetch('/api/document-categories/auto-detect', {
                 method: 'POST',
@@ -2048,7 +2085,8 @@ TWR.FunctionTags = (function() {
         let detected = 0;
         for (const doc of untagged) {
             try {
-                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+                // v4.10.0-fix: Use fresh CSRF token from response header to avoid token mismatch
+                const csrfToken = await getFreshCSRFToken();
                 const res = await fetch('/api/document-categories/auto-detect', {
                     method: 'POST',
                     headers: {
@@ -2064,11 +2102,13 @@ TWR.FunctionTags = (function() {
 
                     // Apply detected values
                     if (detectedData.function_code || detectedData.category_type) {
+                        // v4.10.0-fix: Refresh CSRF token for second request
+                        const csrfToken2 = await getFreshCSRFToken();
                         await fetch('/api/document-categories', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
-                                'X-CSRF-Token': csrfToken
+                                'X-CSRF-Token': csrfToken2
                             },
                             body: JSON.stringify({
                                 document_id: doc.id,
@@ -2133,7 +2173,8 @@ TWR.FunctionTags = (function() {
         // Try auto-detection first
         let autoDetected = null;
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            // v4.10.0-fix: Use fresh CSRF token from response header to avoid token mismatch
+            const csrfToken = await getFreshCSRFToken();
             const res = await fetch('/api/document-categories/auto-detect', {
                 method: 'POST',
                 headers: {
@@ -2247,7 +2288,8 @@ TWR.FunctionTags = (function() {
         }
 
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            // v4.10.0-fix: Use fresh CSRF token from response header to avoid token mismatch
+            const csrfToken = await getFreshCSRFToken();
             const res = await fetch('/api/document-categories', {
                 method: 'POST',
                 headers: {
@@ -2444,7 +2486,8 @@ TWR.FunctionTags = (function() {
         const docsWithDetection = await Promise.all(documents.map(async (doc) => {
             let detected = null;
             try {
-                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+                // v4.10.0-fix: Use fresh CSRF token from response header to avoid token mismatch
+                const csrfToken = await getFreshCSRFToken();
                 const res = await fetch('/api/document-categories/auto-detect', {
                     method: 'POST',
                     headers: {
@@ -2587,7 +2630,6 @@ TWR.FunctionTags = (function() {
 
     async function saveBatchTags(documents) {
         const toast = getToast();
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
         let saved = 0;
         let skipped = 0;
@@ -2608,6 +2650,8 @@ TWR.FunctionTags = (function() {
             }
 
             try {
+                // v4.10.0-fix: Use fresh CSRF token for each request to avoid token mismatch
+                const csrfToken = await getFreshCSRFToken();
                 await fetch('/api/document-categories', {
                     method: 'POST',
                     headers: {

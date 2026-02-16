@@ -15,12 +15,6 @@ body.landing-active .app-container {
     display: none !important;
 }
 
-/* v4.6.1: Modals opened from dashboard (Help, Settings, Roles, History, Forge)
-   must render above the landing page overlay (z-index: 9999) */
-body.landing-active .modal.active {
-    z-index: 10000 !important;
-}
-
 body:not(.landing-active) #aegis-landing-page {
     display: none !important;
 }

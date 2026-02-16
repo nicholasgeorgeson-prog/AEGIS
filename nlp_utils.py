@@ -1098,11 +1098,37 @@ class NLPProcessor:
         return results
 
 
+# Module-level cache for spaCy models to prevent multiple loads
+_SPACY_MODEL_CACHE = {}
+
+
+def get_spacy_model(model_name: str):
+    """
+    Get or load a spaCy model with caching.
+
+    Prevents multiple checkers from each loading the model separately,
+    which is expensive and can cause memory issues.
+
+    Args:
+        model_name: Name of the spaCy model (e.g., 'en_core_web_sm')
+
+    Returns:
+        The loaded spaCy model
+    """
+    global _SPACY_MODEL_CACHE
+
+    if model_name not in _SPACY_MODEL_CACHE:
+        import spacy
+        _SPACY_MODEL_CACHE[model_name] = spacy.load(model_name)
+
+    return _SPACY_MODEL_CACHE[model_name]
+
+
 # Convenience function for quick access
 def get_nlp_processor() -> NLPProcessor:
     """Get a shared NLP processor instance."""
     global _nlp_processor
-    if '_nlp_processor' not in globals() or _nlp_processor is None:
+    if _nlp_processor is None:
         _nlp_processor = NLPProcessor()
     return _nlp_processor
 

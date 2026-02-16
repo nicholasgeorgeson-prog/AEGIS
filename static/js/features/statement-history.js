@@ -2438,12 +2438,20 @@ TWR.StatementHistory = (function() {
             });
         });
 
-        // v4.4.0: Export buttons
+        // v4.4.0: Export buttons (use iframe to avoid popup blocker issues after async operations)
         content.querySelector('.sfh-export-csv')?.addEventListener('click', () => {
-            window.open(`/api/statement-forge/compare/${scanId1}/${scanId2}/export-csv`);
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = `/api/statement-forge/compare/${scanId1}/${scanId2}/export-csv`;
+            document.body.appendChild(iframe);
+            setTimeout(() => document.body.removeChild(iframe), 30000);
         });
         content.querySelector('.sfh-export-pdf')?.addEventListener('click', () => {
-            window.open(`/api/statement-forge/compare/${scanId1}/${scanId2}/export-pdf`);
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = `/api/statement-forge/compare/${scanId1}/${scanId2}/export-pdf`;
+            document.body.appendChild(iframe);
+            setTimeout(() => document.body.removeChild(iframe), 30000);
         });
 
         refreshIcons(content);

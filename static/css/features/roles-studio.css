@@ -9443,7 +9443,7 @@ body:not(.dark-mode) .heb-edge {
     border: 1px solid var(--border-default, #e2e8f0);
     border-radius: 8px;
     box-shadow: 0 8px 24px var(--shadow, rgba(0,0,0,0.12));
-    z-index: 200001;
+    z-index: 199999;
     max-height: 340px;
     display: flex;
     flex-direction: column;
