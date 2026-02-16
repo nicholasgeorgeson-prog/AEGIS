@@ -467,10 +467,16 @@ echo pause
 ) > "%INSTALL_DIR%\Export_Bugs.bat"
 echo  [OK] Export_Bugs.bat
 
-:: Create Desktop shortcut
+:: Create Desktop shortcut with AEGIS icon
+set "ICON_FILE=%INSTALL_DIR%\static\img\aegis_icon.ico"
 echo  Creating Desktop shortcut...
-powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\Start AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.Description = 'Start AEGIS v5.1.0 - Document Analysis Tool'; $s.Save()" 2>nul
-echo  [OK] Desktop shortcut created
+if exist "%ICON_FILE%" (
+    powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.IconLocation = '%ICON_FILE%,0'; $s.Description = 'Start AEGIS v5.1.0 - Document Analysis Tool'; $s.Save()" 2>nul
+    echo  [OK] Desktop shortcut created with AEGIS icon
+) else (
+    powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.Description = 'Start AEGIS v5.1.0 - Document Analysis Tool'; $s.Save()" 2>nul
+    echo  [OK] Desktop shortcut created
+)
 
 :: Clean up packaging directory to save space
 echo  Cleaning up temporary files...
