@@ -285,7 +285,52 @@ TWR.Events = (function() {
                 if (typeof applyUnifiedFilters === 'function') applyUnifiedFilters();
             });
         });
-        
+
+        // v5.0.5: Sidebar severity pill click handlers - filter issues by severity
+        document.querySelectorAll('.sidebar .severity-pill').forEach(pill => {
+            pill.style.cursor = 'pointer';
+            pill.addEventListener('click', () => {
+                // Determine which severity was clicked from the pill's class
+                const sev = pill.classList.contains('critical') ? 'critical' :
+                            pill.classList.contains('high') ? 'high' :
+                            pill.classList.contains('medium') ? 'medium' :
+                            pill.classList.contains('low') ? 'low' :
+                            pill.classList.contains('info') ? 'info' : null;
+                if (!sev) return;
+
+                // Toggle active state on pill
+                const wasActive = pill.classList.contains('active');
+
+                if (wasActive) {
+                    // Deactivate - show all severities
+                    pill.classList.remove('active');
+                    // Also sync unified filter bar: activate all toggles
+                    document.querySelectorAll('#unified-severity-toggles .sev-toggle').forEach(btn => {
+                        btn.classList.add('active');
+                    });
+                } else {
+                    // Activate this pill, deactivate others
+                    document.querySelectorAll('.sidebar .severity-pill').forEach(p => p.classList.remove('active'));
+                    pill.classList.add('active');
+                    // Also sync unified filter bar: only activate matching toggle
+                    document.querySelectorAll('#unified-severity-toggles .sev-toggle').forEach(btn => {
+                        const btnSev = btn.dataset.severity || btn.textContent.trim().toLowerCase();
+                        if (btnSev === sev) {
+                            btn.classList.add('active');
+                        } else {
+                            btn.classList.remove('active');
+                        }
+                    });
+                }
+
+                if (typeof applyUnifiedFilters === 'function') {
+                    applyUnifiedFilters();
+                } else if (typeof filterIssuesBySeverity === 'function' && !wasActive) {
+                    filterIssuesBySeverity(sev);
+                }
+            });
+        });
+
         // v3.0.13: Category dropdown toggle
         document.getElementById('btn-category-dropdown')?.addEventListener('click', (e) => {
             e.stopPropagation();

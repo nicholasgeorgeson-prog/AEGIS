@@ -831,7 +831,7 @@ def review_result(job_id):
                 else:
                     results = job.result
                     doc_info = results.get('document_info', {})
-                    response_data = {'issues': results.get('issues', []), 'issue_count': results.get('issue_count', 0), 'score': results.get('score', 100), 'readability': results.get('readability', {}), 'document_info': doc_info, 'roles': results.get('roles', {}), 'paragraph_count': results.get('paragraph_count', 0), 'table_count': results.get('table_count', 0), 'heading_count': doc_info.get('heading_count', 0)}
+                    response_data = {'issues': results.get('issues', []), 'issue_count': results.get('issue_count', 0), 'score': results.get('score', 100), 'readability': results.get('readability', {}), 'document_info': doc_info, 'roles': results.get('roles', {}), 'full_text': results.get('full_text', ''), 'html_preview': results.get('html_preview', 0), 'hyperlink_results': results.get('hyperlink_results', 0), 'word_count': results.get('word_count', 0), 'paragraph_count': results.get('paragraph_count', 0), 'table_count': results.get('table_count', 0), 'heading_count': doc_info.get('heading_count', 0), 'by_severity': results.get('by_severity', {}), 'by_category': results.get('by_category', {})}
                     try:
                         issues = results.get('issues', [])
                         response_data['document_content'] = build_document_content(results)
