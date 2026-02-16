@@ -292,6 +292,9 @@ for %%f in ("%WHEELS%\*.whl") do (
 :: Install colorama (required by Flask/Click on Windows for terminal output)
 "%PYTHON_DIR%\python.exe" -m pip install colorama --no-warn-script-location 2>nul
 
+:: Install Windows SSO auth (required for validating internal/corporate links)
+"%PYTHON_DIR%\python.exe" -m pip install requests-negotiate-sspi --no-warn-script-location 2>nul
+
 echo.
 echo  [OK] All packages installed
 
