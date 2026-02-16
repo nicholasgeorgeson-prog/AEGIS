@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, g, send_file
+from flask import Blueprint, request, jsonify, g, send_file, make_response, current_app
 import io
 import os
 import traceback
@@ -1049,7 +1049,12 @@ def export_csv():
         output.seek(0)
         original_name = session_data.get('original_filename') or 'document'
         csv_name = f'issues_{Path(original_name).stem}.csv'
-        return send_file(io.BytesIO(output.getvalue().encode('utf-8-sig')), as_attachment=True, download_name=csv_name, mimetype='text/csv')
+        csv_bytes = output.getvalue().encode('utf-8-sig')
+        response = make_response(csv_bytes)
+        response.headers['Content-Type'] = 'text/csv; charset=utf-8'
+        response.headers['Content-Disposition'] = f'attachment; filename="{csv_name}"'
+        response.headers['Content-Length'] = len(csv_bytes)
+        return response
 @review_bp.route('/api/export/xlsx', methods=['POST'])
 @require_csrf
 @handle_api_errors
@@ -1119,6 +1124,14 @@ def export_xlsx():
             review_results = {**review_results, 'issues': issues}
             original_name = session_data.get('original_filename') or 'document'
             document_metadata = {'filename': original_name, 'scan_date': session_data.get('scan_timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S')), 'score': review_results.get('score', 100)}
-            from export_module import export_xlsx_enhanced
+            try:
+                from export_module import export_xlsx_enhanced
+            except ImportError as e:
+                current_app.logger.error(f'export_module not available: {e}')
+                raise ValidationError('Excel export module not available. Please ensure export_module.py is installed.')
             filename, content = export_xlsx_enhanced(results=review_results, base_filename=f'review_{Path(original_name).stem}', severities=severities, document_metadata=document_metadata)
-            return send_file(io.BytesIO(content), as_attachment=True, download_name=filename, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response = make_response(content)
+            response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+            response.headers['Content-Length'] = len(content)
+            return response

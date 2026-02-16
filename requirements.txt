@@ -216,3 +216,25 @@ py-readability-metrics>=1.4.0
 #   - Technical writing metrics
 #
 # All modules are air-gap compatible (no external API calls required)
+
+# =============================================================================
+# v5.2.0 ADVANCED NLP ENHANCEMENT SUITE (Optional - graceful fallback if not installed)
+# =============================================================================
+# These optional packages enable advanced semantic and linguistic analysis
+# If not installed, checkers gracefully disable with informative logging
+#
+# Coreference Resolution - Pronoun antecedent detection
+# Uses spaCy pipeline component for ambiguous reference detection
+coreferee>=1.4.0
+
+# Advanced Prose Quality - Clichés, hedging, redundancy detection
+# Extensive pattern database for technical writing issues
+proselint>=0.14.0
+
+# Advanced Text Analysis - Keyword extraction, complexity metrics
+# SGRANK algorithm for technical term identification
+textacy>=0.13.0
+
+# Document Summarization & Verbosity Detection
+# Extractive summarization for information density analysis
+sumy>=0.11.0

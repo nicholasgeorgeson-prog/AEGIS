@@ -979,8 +979,11 @@ def export_role_dictionary():
                     row = {k: role.get(k) for k in fieldnames}
                     row['aliases'] = ','.join(role.get('aliases', []))
                     writer.writerow(row)
-            response = make_response(output.getvalue())
-            response.headers['Content-Type'] = 'text/csv'
+            csv_content = output.getvalue()
+            # Add UTF-8 BOM for proper Excel display on Windows
+            csv_bytes = csv_content.encode('utf-8-sig')
+            response = make_response(csv_bytes)
+            response.headers['Content-Type'] = 'text/csv; charset=utf-8'
             response.headers['Content-Disposition'] = 'attachment; filename=role_dictionary.csv'
             return response
         else:
@@ -1219,7 +1222,8 @@ def export_role_template():
     """
     try:
         from role_template_export import generate_role_template_html
-    except ImportError:
+    except (ImportError, Exception) as e:
+        logger.error(f'Failed to import role_template_export: {e}')
         return jsonify({'success': False, 'error': 'Role template module not available. Ensure role_template_export.py is in the application directory.'})
     function_categories = []
     if _shared.SCAN_HISTORY_AVAILABLE:
@@ -1447,14 +1451,22 @@ def export_adjudication_html():
         for cat in function_cats:
             categories.append({'code': cat.get('code', ''), 'name': cat.get('name', ''), 'description': cat.get('description', ''), 'parent_code': cat.get('parent_code'), 'color': cat.get('color', '#3b82f6'), 'is_active': cat.get('is_active', 1)})
         import socket as _socket
-        from adjudication_export import generate_adjudication_html
-        metadata = {'version': '4.0.3', 'export_date': datetime.now(timezone.utc).isoformat(), 'hostname': _socket.gethostname()}
-        html_content = generate_adjudication_html(export_roles, categories, metadata)
-        response = make_response(html_content)
-        response.headers['Content-Type'] = 'text/html; charset=utf-8'
-        date_str = datetime.now().strftime('%Y-%m-%d')
-        response.headers['Content-Disposition'] = f'attachment; filename=aegis_adjudication_board_{date_str}.html'
-        return response
+        try:
+            from adjudication_export import generate_adjudication_html
+        except (ImportError, Exception) as e:
+            logger.error(f'Failed to import adjudication_export: {e}')
+            return jsonify({'success': False, 'error': 'Adjudication export module not available.'})
+        try:
+            metadata = {'version': '4.0.3', 'export_date': datetime.now(timezone.utc).isoformat(), 'hostname': _socket.gethostname()}
+            html_content = generate_adjudication_html(export_roles, categories, metadata)
+            response = make_response(html_content)
+            response.headers['Content-Type'] = 'text/html; charset=utf-8'
+            date_str = datetime.now().strftime('%Y-%m-%d')
+            response.headers['Content-Disposition'] = f'attachment; filename=aegis_adjudication_board_{date_str}.html'
+            return response
+        except Exception as e:
+            logger.error(f'Failed to generate adjudication HTML: {e}')
+            return jsonify({'success': False, 'error': f'Failed to generate adjudication export: {str(e)}'})
 @roles_bp.route('/api/roles/adjudication/export-pdf', methods=['GET'])
 @handle_api_errors
 def export_adjudication_pdf():
@@ -1506,15 +1518,24 @@ def export_adjudication_pdf():
             s = r.get('status', 'pending')
             summary[s] = summary.get(s, 0) + 1
         import socket as _socket
-        metadata = {'version': VERSION, 'export_date': datetime.now(timezone.utc).isoformat(), 'hostname': _socket.gethostname()}
-        from adjudication_report import AdjudicationReportGenerator
-        generator = AdjudicationReportGenerator()
-        pdf_bytes = generator.generate(export_roles, summary, function_cats, metadata)
-        response = make_response(pdf_bytes)
-        response.headers['Content-Type'] = 'application/pdf'
-        date_str = datetime.now().strftime('%Y-%m-%d')
-        response.headers['Content-Disposition'] = f'attachment; filename=aegis_adjudication_report_{date_str}.pdf'
-        return response
+        try:
+            from adjudication_report import AdjudicationReportGenerator
+        except (ImportError, Exception) as e:
+            logger.error(f'Failed to import adjudication_report: {e}')
+            return jsonify({'success': False, 'error': 'Adjudication report module not available.'})
+        try:
+            from config_logging import get_version
+            metadata = {'version': get_version(), 'export_date': datetime.now(timezone.utc).isoformat(), 'hostname': _socket.gethostname()}
+            generator = AdjudicationReportGenerator()
+            pdf_bytes = generator.generate(export_roles, summary, function_cats, metadata)
+            response = make_response(pdf_bytes)
+            response.headers['Content-Type'] = 'application/pdf'
+            date_str = datetime.now().strftime('%Y-%m-%d')
+            response.headers['Content-Disposition'] = f'attachment; filename=aegis_adjudication_report_{date_str}.pdf'
+            return response
+        except Exception as e:
+            logger.error(f'Failed to generate adjudication PDF: {e}')
+            return jsonify({'success': False, 'error': f'Failed to generate PDF report: {str(e)}'})
 @roles_bp.route('/api/roles/adjudication/import-preview', methods=['POST'])
 @require_csrf
 @handle_api_errors

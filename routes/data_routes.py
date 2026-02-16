@@ -1168,8 +1168,9 @@ def roles_report_by_function():
                     current_app.logger.warning(f'Falling back to basic report: {e}')
                     html = _generate_roles_by_function_html(result_functions)
                 response = make_response(html)
-                response.headers['Content-Type'] = 'text/html'
-                response.headers['Content-Disposition'] = 'attachment; filename=roles_by_function_report.html'
+                response.headers['Content-Type'] = 'text/html; charset=utf-8'
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                response.headers['Content-Disposition'] = f'attachment; filename=roles_by_function_report_{timestamp}.html'
                 return response
             else:
                 return jsonify({'success': True, 'data': {'functions': result_functions, 'total_functions': len(result_functions), 'total_roles': total_roles}})
@@ -1256,8 +1257,9 @@ def roles_report_by_document():
                     current_app.logger.warning(f'Falling back to basic documents report: {e}')
                     html = _generate_docs_by_function_html(result_functions)
                 response = make_response(html)
-                response.headers['Content-Type'] = 'text/html'
-                response.headers['Content-Disposition'] = 'attachment; filename=documents_by_function_report.html'
+                response.headers['Content-Type'] = 'text/html; charset=utf-8'
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                response.headers['Content-Disposition'] = f'attachment; filename=documents_by_function_report_{timestamp}.html'
                 return response
             else:
                 return jsonify({'success': True, 'data': {'functions': result_functions, 'total_documents': len(documents)}})
@@ -1297,8 +1299,9 @@ def roles_report_by_owner():
                     current_app.logger.warning(f'Falling back to basic owners report: {e}')
                     html = _generate_docs_by_owner_html(result_owners)
                 response = make_response(html)
-                response.headers['Content-Type'] = 'text/html'
-                response.headers['Content-Disposition'] = 'attachment; filename=documents_by_owner_report.html'
+                response.headers['Content-Type'] = 'text/html; charset=utf-8'
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                response.headers['Content-Disposition'] = f'attachment; filename=documents_by_owner_report_{timestamp}.html'
                 return response
             else:
                 return jsonify({'success': True, 'data': {'owners': result_owners, 'total_owners': len(result_owners), 'total_documents': total_documents}})
@@ -1524,7 +1527,10 @@ def learner_export():
         return api_error_response('SERVICE_UNAVAILABLE', 'Fix Assistant v2 not available', 503)
     else:
         data = _shared.decision_learner.export_data()
-        return jsonify(data)
+        response = make_response(jsonify(data))
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        response.headers['Content-Disposition'] = f'attachment; filename=learner_export_{timestamp}.json'
+        return response
 @data_bp.route('/api/learner/import', methods=['POST'])
 @require_csrf
 @handle_api_errors
@@ -1757,4 +1763,10 @@ def generate_report():
             if not pdf_bytes:
                 return api_error_response('GENERATION_FAILED', 'Failed to generate report', 500)
             else:
-                return Response(pdf_bytes, mimetype='application/pdf', headers={'Content-Disposition': f'attachment; filename=\"TWR_Report_{document_name}.pdf\"'})
+                # Sanitize document_name for filename (remove illegal Windows characters: < > : " / \ | ? *)
+                import re as _re
+                sanitized_name = _re.sub(r'[<>:"/\\|?*]', '_', document_name)
+                sanitized_name = sanitized_name[:100]  # Limit filename length
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                filename = f'TWR_Report_{sanitized_name}_{timestamp}.pdf'
+                return Response(pdf_bytes, mimetype='application/pdf', headers={'Content-Disposition': f'attachment; filename="{filename}"'})

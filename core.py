@@ -1405,6 +1405,85 @@ class AEGISEngine:
 
         _log(f" v3.4.0 Maximum Coverage Suite: {len(self._v340_checkers)} checkers loaded")
 
+        # =====================================================================
+        # v5.2.0 ADVANCED NLP ENHANCEMENT SUITE
+        # =====================================================================
+        # Load v5.2.0 checkers for semantic and advanced linguistic analysis:
+        # - Coreference Resolution (pronoun antecedent detection)
+        # - Advanced Prose Linting (clichés, hedging, redundancy)
+        # - Document Summarization & Verbosity Detection
+        # - Keyword/Complexity/Information Extraction (textacy)
+        # - INCOSE Requirements Compliance
+        # - Semantic Role Analysis (agent/action/object parsing)
+
+        # Coreference Resolution
+        try:
+            from coreference_checker import get_coreference_checkers
+            coref_checkers = get_coreference_checkers()
+            self.checkers.update(coref_checkers)
+            _log(f"   ✓ Loaded {len(coref_checkers)} coreference checkers (v5.2.0)")
+        except ImportError as e:
+            _log(f"   ✗ Coreference checkers not available: {e}")
+        except Exception as e:
+            _log(f"   ✗ Coreference checkers error: {e}")
+
+        # Prose Quality Checkers
+        try:
+            from prose_quality_checkers import get_prose_quality_checkers
+            prose_checkers = get_prose_quality_checkers()
+            self.checkers.update(prose_checkers)
+            _log(f"   ✓ Loaded {len(prose_checkers)} prose quality checkers (v5.2.0)")
+        except ImportError as e:
+            _log(f"   ✗ Prose quality checkers not available: {e}")
+        except Exception as e:
+            _log(f"   ✗ Prose quality checkers error: {e}")
+
+        # Summarization & Verbosity Checkers
+        try:
+            from summarization_checker import get_summarization_checkers
+            summ_checkers = get_summarization_checkers()
+            self.checkers.update(summ_checkers)
+            _log(f"   ✓ Loaded {len(summ_checkers)} summarization checkers (v5.2.0)")
+        except ImportError as e:
+            _log(f"   ✗ Summarization checkers not available: {e}")
+        except Exception as e:
+            _log(f"   ✗ Summarization checkers error: {e}")
+
+        # Textacy Advanced Analysis Checkers
+        try:
+            from textacy_checkers import get_textacy_checkers
+            textacy_checkers = get_textacy_checkers()
+            self.checkers.update(textacy_checkers)
+            _log(f"   ✓ Loaded {len(textacy_checkers)} textacy analysis checkers (v5.2.0)")
+        except ImportError as e:
+            _log(f"   ✗ Textacy checkers not available: {e}")
+        except Exception as e:
+            _log(f"   ✗ Textacy checkers error: {e}")
+
+        # INCOSE Compliance Checker
+        try:
+            from incose_checker import get_incose_checkers
+            incose_checkers = get_incose_checkers()
+            self.checkers.update(incose_checkers)
+            _log(f"   ✓ Loaded {len(incose_checkers)} INCOSE compliance checkers (v5.2.0)")
+        except ImportError as e:
+            _log(f"   ✗ INCOSE checkers not available: {e}")
+        except Exception as e:
+            _log(f"   ✗ INCOSE checkers error: {e}")
+
+        # Semantic Role Analysis Checker
+        try:
+            from srl_checker import get_srl_checkers
+            srl_checkers = get_srl_checkers()
+            self.checkers.update(srl_checkers)
+            _log(f"   ✓ Loaded {len(srl_checkers)} semantic role analysis checkers (v5.2.0)")
+        except ImportError as e:
+            _log(f"   ✗ SRL checkers not available: {e}")
+        except Exception as e:
+            _log(f"   ✗ SRL checkers error: {e}")
+
+        _log(f" v5.2.0 Advanced NLP Enhancement Suite: 10 new checkers registered")
+
     # Boilerplate patterns to filter out
     BOILERPLATE_PATTERNS = [
         r'^\s*Copyright\s*[©®]?\s*\d{4}',
@@ -2048,6 +2127,17 @@ class AEGISEngine:
             'check_vague_quantifier': 'vague_quantifier',
             'check_verification_method': 'verification_method',
             'check_ambiguous_scope': 'ambiguous_scope',
+            # v5.2.0: Advanced NLP Enhancement Suite
+            'check_coreference': 'coreference_resolution',
+            'check_prose_quality': 'advanced_prose_lint',
+            'check_verbosity': 'verbosity_detection',
+            'check_summarization': 'document_summarization',
+            'check_keywords': 'keyword_extraction',
+            'check_complexity': 'complexity_analysis',
+            'check_info_extraction': 'information_extraction',
+            'check_noun_density': 'noun_phrase_density',
+            'check_incose': 'incose_compliance',
+            'check_srl': 'semantic_role_analysis',
         }
         
         # Build list of enabled checkers first for progress tracking
