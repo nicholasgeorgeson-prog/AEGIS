@@ -109,7 +109,7 @@ class EnhancedPassiveVoiceChecker(BaseEnhancedChecker):
         full_text = kwargs.get('full_text', '')
 
         # Use the enhanced checker
-        result = self._checker.check_document(full_text)
+        result = self._checker.check_text(full_text)
 
         for pv in result.passive_instances:
             # Find paragraph index
@@ -335,14 +335,15 @@ class TerminologyConsistencyChecker(BaseEnhancedChecker):
         issues = []
         full_text = kwargs.get('full_text', '')
 
-        result = self._checker.check_document(full_text)
+        result = self._checker.check_text(full_text)
 
-        for inconsistency in result.inconsistencies:
+        for inconsistency in result:
             # Find a paragraph containing one of the variants
             para_idx = 0
             sample_text = ""
+            variants = inconsistency.variants_found if hasattr(inconsistency, 'variants_found') else getattr(inconsistency, 'variants', [])
             for idx, text in paragraphs:
-                for variant in inconsistency.variants:
+                for variant in variants:
                     if variant.lower() in text.lower():
                         para_idx = idx
                         sample_text = text[:150]
@@ -350,7 +351,7 @@ class TerminologyConsistencyChecker(BaseEnhancedChecker):
                 if para_idx:
                     break
 
-            variants_str = ", ".join(f"'{v}'" for v in inconsistency.variants[:3])
+            variants_str = ", ".join(f"'{v}'" for v in variants[:3])
 
             issue = {
                 'type': 'terminology_inconsistency',
@@ -359,10 +360,10 @@ class TerminologyConsistencyChecker(BaseEnhancedChecker):
                 'message': f"Inconsistent terminology: {variants_str} ({inconsistency.issue_type})",
                 'paragraph': para_idx,
                 'text': sample_text,
-                'suggestion': f"Standardize on one form throughout the document",
+                'suggestion': inconsistency.suggestion if hasattr(inconsistency, 'suggestion') else "Standardize on one form throughout the document",
                 'details': {
-                    'variants': inconsistency.variants,
-                    'occurrences': inconsistency.occurrences,
+                    'variants': variants,
+                    'occurrences': inconsistency.occurrences if hasattr(inconsistency, 'occurrences') else {},
                     'issue_type': inconsistency.issue_type
                 },
                 'source': 'terminology_checker_v3.3.0'
@@ -411,53 +412,45 @@ class CrossReferenceChecker(BaseEnhancedChecker):
         tables = kwargs.get('tables', [])
         figures = kwargs.get('figures', [])
 
-        result = self._validator.validate_document(
-            full_text,
-            headings=headings,
-            tables=tables,
-            figures=figures
-        )
+        ref_issues, statistics = self._validator.validate_text(full_text)
 
-        # Broken references
-        for broken in result.broken_references:
-            para_idx = self._find_paragraph(paragraphs, broken.context)
-            issues.append({
-                'type': 'broken_reference',
-                'category': 'references',
-                'severity': 'high',
-                'message': f"Broken reference: '{broken.reference}' ({broken.ref_type})",
-                'paragraph': para_idx,
-                'text': broken.context[:150] if broken.context else "",
-                'suggestion': f"Verify that {broken.ref_type} '{broken.reference}' exists",
-                'source': 'cross_reference_v3.3.0'
-            })
+        # Process all reference issues from the flat list
+        for ref_issue in ref_issues:
+            para_idx = self._find_paragraph(paragraphs, ref_issue.context)
 
-        # Unreferenced items
-        for unref in result.unreferenced_items:
-            issues.append({
-                'type': 'unreferenced_item',
-                'category': 'references',
-                'severity': 'low',
-                'message': f"Unreferenced {unref.item_type}: '{unref.item_id}'",
-                'paragraph': 0,
-                'text': unref.item_text[:150] if unref.item_text else "",
-                'suggestion': f"Add reference to {unref.item_type} or remove if not needed",
-                'source': 'cross_reference_v3.3.0'
-            })
-
-        # Format inconsistencies
-        for fmt in result.format_issues:
-            para_idx = self._find_paragraph(paragraphs, fmt.context)
-            issues.append({
-                'type': 'reference_format',
-                'category': 'consistency',
-                'severity': 'low',
-                'message': f"Reference format inconsistency: {fmt.issue}",
-                'paragraph': para_idx,
-                'text': fmt.context[:150] if fmt.context else "",
-                'suggestion': fmt.suggestion or "Use consistent reference format",
-                'source': 'cross_reference_v3.3.0'
-            })
+            if ref_issue.issue_type == 'broken':
+                issues.append({
+                    'type': 'broken_reference',
+                    'category': 'references',
+                    'severity': 'high',
+                    'message': f"Broken reference: '{ref_issue.reference_text}' ({ref_issue.reference_type})",
+                    'paragraph': para_idx,
+                    'text': ref_issue.context[:150] if ref_issue.context else "",
+                    'suggestion': ref_issue.suggestion or f"Verify that {ref_issue.reference_type} '{ref_issue.reference_text}' exists",
+                    'source': 'cross_reference_v3.3.0'
+                })
+            elif ref_issue.issue_type == 'unreferenced':
+                issues.append({
+                    'type': 'unreferenced_item',
+                    'category': 'references',
+                    'severity': 'low',
+                    'message': f"Unreferenced {ref_issue.reference_type}: '{ref_issue.reference_text}'",
+                    'paragraph': para_idx,
+                    'text': ref_issue.context[:150] if ref_issue.context else "",
+                    'suggestion': ref_issue.suggestion or f"Add reference to {ref_issue.reference_type} or remove if not needed",
+                    'source': 'cross_reference_v3.3.0'
+                })
+            elif ref_issue.issue_type == 'format_inconsistent':
+                issues.append({
+                    'type': 'reference_format',
+                    'category': 'consistency',
+                    'severity': 'low',
+                    'message': f"Reference format inconsistency: {ref_issue.suggestion}",
+                    'paragraph': para_idx,
+                    'text': ref_issue.context[:150] if ref_issue.context else "",
+                    'suggestion': ref_issue.suggestion or "Use consistent reference format",
+                    'source': 'cross_reference_v3.3.0'
+                })
 
         return issues
 
