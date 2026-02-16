@@ -585,6 +585,9 @@ window.HyperlinkValidator = (function() {
         if (file) {
             loadUrlsFromFile(file);
         }
+        // v4.6.3: Reset file input so the same file can be re-selected
+        // Without this, the change event won't fire if user picks the same file
+        if (el.fileInput) el.fileInput.value = '';
     }
 
     function handleDragOver(e) {
@@ -634,6 +637,10 @@ window.HyperlinkValidator = (function() {
     }
 
     async function handleDocxFile(file) {
+        // v4.6.3: Reset state from any previous scan before starting new one
+        HyperlinkValidatorState.reset();
+        hideResults();
+
         showToast('info', 'Extracting links from DOCX file...');
         showProgress();
 
@@ -708,6 +715,11 @@ window.HyperlinkValidator = (function() {
     }
 
     async function handleExcelFile(file) {
+        // v4.6.3: Reset state from any previous scan before starting new one
+        HyperlinkValidatorState.reset();
+        hideResults();
+        _pendingExcelData = null;
+
         showToast('info', 'Extracting links from Excel file...');
         showProgress();
         showExcelExtractionProgress(file.name);
@@ -873,7 +885,7 @@ window.HyperlinkValidator = (function() {
     }
 
     function _buildValidationSummary(results) {
-        const summary = { working: 0, broken: 0, redirect: 0, timeout: 0, blocked: 0, unknown: 0 };
+        const summary = { working: 0, broken: 0, redirect: 0, timeout: 0, blocked: 0, auth_required: 0, unknown: 0 };
         for (const r of results) {
             const s = (r.status || '').toUpperCase();
             if (s === 'WORKING') summary.working++;
@@ -881,6 +893,7 @@ window.HyperlinkValidator = (function() {
             else if (s === 'REDIRECT') summary.redirect++;
             else if (s === 'TIMEOUT') summary.timeout++;
             else if (s === 'BLOCKED') summary.blocked++;
+            else if (s === 'AUTH_REQUIRED') summary.auth_required++;
             else if (s === 'MAILTO' || s === 'EXTRACTED') { /* skip non-validated */ }
             else summary.unknown++;
         }
@@ -1196,7 +1209,11 @@ window.HyperlinkValidator = (function() {
             'MAILTO': 'mailto',
             'EXTRACTED': 'unknown',
             'TIMEOUT': 'timeout',
-            'REDIRECT': 'redirect'
+            'REDIRECT': 'redirect',
+            'AUTH_REQUIRED': 'auth',
+            'BLOCKED': 'blocked',
+            'DNSFAILED': 'broken',
+            'SSLERROR': 'broken'
         };
         return statusMap[status] || 'unknown';
     }
@@ -1482,6 +1499,7 @@ window.HyperlinkValidator = (function() {
             'hv-count-redirect': summary.redirect,
             'hv-count-timeout': summary.timeout,
             'hv-count-blocked': summary.blocked,
+            'hv-count-auth': summary.auth_required || 0,
             'hv-count-unknown': (summary.unknown || 0) + (summary.dns_failed || 0) + (summary.ssl_error || 0) + (summary.invalid || 0)
         };
 

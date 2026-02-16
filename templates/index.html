@@ -5457,6 +5457,13 @@
                     <div class="hv-stat-card-value" id="hv-count-blocked">0</div>
                     <div class="hv-stat-card-label">Blocked</div>
                 </div>
+                <div class="hv-stat-card stat-auth" data-filter="auth_required" role="button" tabindex="0" title="Click to filter Auth Required links">
+                    <div class="hv-stat-card-icon">
+                        <i data-lucide="lock"></i>
+                    </div>
+                    <div class="hv-stat-card-value" id="hv-count-auth">0</div>
+                    <div class="hv-stat-card-label">Auth Required</div>
+                </div>
                 <div class="hv-stat-card stat-unknown" data-filter="issues" role="button" tabindex="0" title="Click to filter Other issues">
                     <div class="hv-stat-card-icon">
                         <i data-lucide="help-circle"></i>
@@ -5533,6 +5540,7 @@
                         <option value="redirect">Redirects Only</option>
                         <option value="timeout">Timeout Only</option>
                         <option value="blocked">Blocked Only</option>
+                        <option value="auth_required">Auth Required Only</option>
                         <option value="issues">All Issues</option>
                     </select>
                     <select id="hv-filter-domain">

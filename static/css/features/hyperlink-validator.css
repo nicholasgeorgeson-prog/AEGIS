@@ -762,6 +762,7 @@
 .hv-stat-redirect span { color: #3b82f6; }
 .hv-stat-timeout span { color: #f59e0b; }
 .hv-stat-blocked span { color: #8b5cf6; }
+.hv-stat-auth span { color: #d97706; }
 .hv-stat-unknown span { color: #6b7280; }
 
 /* Toolbar */
@@ -959,6 +960,7 @@
 .hv-status-broken { background: #fee2e2; color: #991b1b; }
 .hv-status-timeout { background: #fef3c7; color: #92400e; }
 .hv-status-blocked { background: #ede9fe; color: #5b21b6; }
+.hv-status-auth { background: #fef3c7; color: #92400e; }
 .hv-status-dnsfailed { background: #fce7f3; color: #9d174d; }
 .hv-status-sslerror { background: #ffedd5; color: #c2410c; }
 .hv-status-invalid { background: #f3f4f6; color: #374151; }
@@ -1311,6 +1313,9 @@
 
 .dark-mode .hv-status-blocked,
 [data-theme="dark"] .hv-status-blocked { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
+
+.dark-mode .hv-status-auth,
+[data-theme="dark"] .hv-status-auth { background: rgba(217, 119, 6, 0.2); color: #fbbf24; }
 
 .dark-mode .hv-status-dnsfailed,
 [data-theme="dark"] .hv-status-dnsfailed { background: rgba(236, 72, 153, 0.2); color: #f472b6; }

@@ -179,6 +179,7 @@
 .hv-stat-card.stat-redirect::before { background: var(--hv-gradient-info); }
 .hv-stat-card.stat-timeout::before { background: var(--hv-gradient-warning); }
 .hv-stat-card.stat-blocked::before { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); }
+.hv-stat-card.stat-auth::before { background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); }
 .hv-stat-card.stat-unknown::before { background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%); }
 
 .hv-stat-card-icon {
@@ -202,6 +203,7 @@
 .hv-stat-card.stat-redirect .hv-stat-card-icon { background: rgba(59, 130, 246, 0.15); color: var(--hv-chart-blue); }
 .hv-stat-card.stat-timeout .hv-stat-card-icon { background: rgba(245, 158, 11, 0.15); color: var(--hv-chart-yellow); }
 .hv-stat-card.stat-blocked .hv-stat-card-icon { background: rgba(139, 92, 246, 0.15); color: var(--hv-chart-purple); }
+.hv-stat-card.stat-auth .hv-stat-card-icon { background: rgba(217, 119, 6, 0.15); color: #d97706; }
 .hv-stat-card.stat-unknown .hv-stat-card-icon { background: rgba(107, 114, 128, 0.15); color: #6b7280; }
 
 .hv-stat-card-value {
