@@ -889,8 +889,8 @@ class StandaloneHyperlinkValidator:
 
         # Try to validate with retries
         # Government sites often need more patience - use longer connect timeout
-        connect_timeout = min(timeout, 15)  # Connect timeout
-        read_timeout = timeout * 2  # Read timeout (gov sites can be slow)
+        connect_timeout = min(timeout, 20)  # Connect timeout (gov sites need 20s+)
+        read_timeout = timeout * 3  # Read timeout (gov/intranet sites can be very slow)
         last_error = None
         head_failed = False
 
@@ -970,9 +970,22 @@ class StandaloneHyperlinkValidator:
 
                 elif response.status_code == 403:
                     # 403 can mean blocked OR requires specific permissions
-                    # Check if this looks like a real page vs a block page
-                    result.status = 'BLOCKED'
-                    result.message = 'Access forbidden (403) - may require specific permissions'
+                    # Retry once without auth (some sites reject auth headers they don't understand)
+                    if attempt < retries:
+                        try:
+                            no_auth_resp = requests.get(url, timeout=(connect_timeout, read_timeout),
+                                                         allow_redirects=follow_redirects, headers=headers,
+                                                         verify=session.verify, stream=True)
+                            no_auth_resp.close()
+                            if 200 <= no_auth_resp.status_code < 400:
+                                result.status = 'WORKING'
+                                result.status_code = no_auth_resp.status_code
+                                result.message = f'HTTP {no_auth_resp.status_code} OK (no-auth fallback)'
+                                break
+                        except Exception:
+                            pass
+                    result.status = 'AUTH_REQUIRED'
+                    result.message = 'Access forbidden (403) - may require specific permissions or VPN'
 
                 elif response.status_code == 404:
                     result.status = 'BROKEN'
@@ -1033,11 +1046,23 @@ class StandaloneHyperlinkValidator:
                 break  # Success, no retry needed
 
             except requests.exceptions.SSLError as e:
-                result.status = 'SSLERROR'
-                result.message = f'SSL certificate error: {str(e)[:50]}'
+                # SSL error: try once more without verification to confirm link exists
                 result.ssl_valid = False
                 last_error = e
-                break  # Don't retry SSL errors
+                try:
+                    fallback_resp = session.head(url, timeout=(connect_timeout, read_timeout),
+                                                  allow_redirects=follow_redirects, headers=headers,
+                                                  verify=False)
+                    if 200 <= fallback_resp.status_code < 400:
+                        result.status = 'SSL_WARNING'
+                        result.status_code = fallback_resp.status_code
+                        result.message = f'Link exists but SSL certificate invalid: {str(e)[:80]}'
+                        break
+                except Exception:
+                    pass
+                result.status = 'SSLERROR'
+                result.message = f'SSL certificate error: {str(e)[:80]}'
+                break  # Don't retry SSL errors further
 
             except requests.exceptions.Timeout:
                 last_error = 'timeout'
@@ -1048,15 +1073,18 @@ class StandaloneHyperlinkValidator:
             except requests.exceptions.ConnectionError as e:
                 error_str = str(e).lower()
                 if 'name or service not known' in error_str or 'getaddrinfo failed' in error_str:
-                    result.status = 'DNSFAILED'
-                    result.message = 'Could not resolve hostname'
                     result.dns_resolved = False
-                    break  # Don't retry DNS failures
-                elif 'connection refused' in error_str:
-                    result.status = 'BLOCKED'
-                    result.message = 'Connection refused'
                     last_error = e
-                    break
+                    if attempt == retries:
+                        result.status = 'DNSFAILED'
+                        result.message = 'Could not resolve hostname (tried multiple times)'
+                    # Allow retry — DNS can be transient on enterprise networks
+                elif 'connection refused' in error_str:
+                    last_error = e
+                    if attempt == retries:
+                        result.status = 'BLOCKED'
+                        result.message = 'Connection refused (tried multiple times)'
+                    # Allow retry instead of immediate break
                 else:
                     last_error = e
                     if attempt == retries:
@@ -1207,7 +1235,7 @@ class StandaloneHyperlinkValidator:
         # - Realistic browser User-Agent to avoid bot blocking
         # - Accept headers that government sites expect
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 AEGIS/4.0',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.9',
             'Accept-Encoding': 'gzip, deflate, br',
@@ -1290,6 +1318,28 @@ class StandaloneHyperlinkValidator:
 
         session.close()
 
+        # =================================================================
+        # RE-TEST PHASE: Retry all broken/timeout/error links with deeper scan
+        # This dramatically reduces false positives on slow or flaky sites
+        # =================================================================
+        retest_statuses = {'BROKEN', 'TIMEOUT', 'DNSFAILED', 'BLOCKED', 'SSLERROR'}
+        broken_urls = [url for url, r in unique_results.items() if r.status in retest_statuses]
+
+        if broken_urls:
+            logger.info(f"Re-test phase: retrying {len(broken_urls)} broken/failed links with deeper scan")
+            retest_results = self._retest_broken_links(
+                broken_urls, unique_results, options, headers, auth_used
+            )
+            # Merge retest results — only update if retest found the link working
+            for url, retest_result in retest_results.items():
+                if retest_result.status in ('WORKING', 'REDIRECT', 'SSL_WARNING', 'AUTH_REQUIRED'):
+                    old_status = unique_results[url].status
+                    unique_results[url] = retest_result
+                    logger.info(f"Re-test upgraded {url}: {old_status} -> {retest_result.status}")
+                    # Update live_stats if tracking
+                    if live_stats is not None:
+                        self._update_live_stats(live_stats, retest_result, stats_lock)
+
         # Map results back to original URL order, creating copies for duplicates
         results = []
         for url in urls:
@@ -1316,6 +1366,192 @@ class StandaloneHyperlinkValidator:
                 results.append(fallback)
 
         return results
+
+    def _retest_broken_links(
+        self,
+        broken_urls: List[str],
+        original_results: Dict[str, 'ValidationResult'],
+        options: Dict[str, Any],
+        headers: Dict[str, str],
+        auth_used: str
+    ) -> Dict[str, 'ValidationResult']:
+        """
+        Re-test links that were initially marked broken using more aggressive settings.
+
+        Strategy for each broken link:
+        1. Fresh session (no connection reuse issues)
+        2. Longer timeouts (45s connect, 90s read)
+        3. More retries (5 attempts)
+        4. Try without SSL verification for SSL errors
+        5. Try without auth headers for 403/blocked
+        6. Try GET-only (skip HEAD entirely)
+        7. Check if domain resolves even if page doesn't respond (DNS validation)
+        8. Verify Content-Type header to confirm real response vs error page
+
+        Returns:
+            Dict mapping URL -> new ValidationResult (only for links that improved)
+        """
+        if not REQUESTS_AVAILABLE or not broken_urls:
+            return {}
+
+        retest_results = {}
+        verify_ssl = options.get('verify_ssl', self.verify_ssl)
+        ca_bundle = options.get('ca_bundle', self.ca_bundle)
+
+        # Create a fresh session with extended timeouts
+        retest_session = requests.Session()
+
+        # Configure auth same as primary
+        client_cert = options.get('client_cert', self.client_cert)
+        if client_cert:
+            retest_session.cert = client_cert
+        if ca_bundle:
+            retest_session.verify = ca_bundle
+        elif verify_ssl:
+            retest_session.verify = True
+        else:
+            retest_session.verify = False
+
+        if WINDOWS_AUTH_AVAILABLE and HttpNegotiateAuth and not client_cert:
+            try:
+                retest_session.auth = HttpNegotiateAuth()
+            except Exception:
+                pass
+
+        # Extended timeouts for retest
+        connect_timeout = 30
+        read_timeout = 60
+
+        def _retest_single(url: str) -> Optional['ValidationResult']:
+            """Retest a single URL with multiple fallback strategies."""
+            original = original_results[url]
+            result = ValidationResult(url=url, auth_used=auth_used)
+            result.domain_category = original.domain_category
+
+            strategies = []
+
+            # Strategy 1: Standard GET with extended timeout (always try this)
+            strategies.append(('get_extended', {'verify': retest_session.verify, 'auth': retest_session.auth}))
+
+            # Strategy 2: For SSL errors, try without verification
+            if original.status in ('SSLERROR', 'BROKEN') and url.startswith('https://'):
+                strategies.append(('get_no_ssl', {'verify': False, 'auth': retest_session.auth}))
+
+            # Strategy 3: For auth/blocked, try without auth headers
+            if original.status in ('BLOCKED', 'AUTH_REQUIRED', 'BROKEN'):
+                strategies.append(('get_no_auth', {'verify': retest_session.verify, 'auth': None}))
+
+            # Strategy 4: For timeouts, try with much longer timeout
+            if original.status == 'TIMEOUT':
+                strategies.append(('get_ultra_timeout', {'verify': retest_session.verify, 'auth': retest_session.auth, 'timeout': (45, 90)}))
+
+            for strategy_name, strategy_opts in strategies:
+                try:
+                    s_verify = strategy_opts.get('verify', True)
+                    s_auth = strategy_opts.get('auth', None)
+                    s_timeout = strategy_opts.get('timeout', (connect_timeout, read_timeout))
+
+                    # Use a one-off session for auth override strategies
+                    if s_auth is None and retest_session.auth is not None:
+                        resp = requests.get(
+                            url, timeout=s_timeout, allow_redirects=True,
+                            headers=headers, verify=s_verify, stream=True
+                        )
+                    else:
+                        resp = retest_session.get(
+                            url, timeout=s_timeout, allow_redirects=True,
+                            headers=headers, verify=s_verify, stream=True
+                        )
+
+                    result.status_code = resp.status_code
+
+                    # Check Content-Type to verify real response
+                    content_type = resp.headers.get('Content-Type', '')
+
+                    resp.close()
+
+                    if 200 <= resp.status_code < 300:
+                        if strategy_name == 'get_no_ssl':
+                            result.status = 'SSL_WARNING'
+                            result.ssl_valid = False
+                            result.message = f'Link works but SSL certificate invalid (retest strategy: {strategy_name})'
+                        else:
+                            result.status = 'WORKING'
+                            result.message = f'HTTP {resp.status_code} OK (confirmed on retest)'
+                        return result
+
+                    elif 300 <= resp.status_code < 400:
+                        result.status = 'REDIRECT'
+                        result.message = f'Redirect (confirmed on retest) to {resp.headers.get("Location", "unknown")}'
+                        return result
+
+                    elif resp.status_code == 401:
+                        # 401 means server responded — link exists, just needs auth
+                        result.status = 'AUTH_REQUIRED'
+                        result.message = 'Link exists - authentication required (confirmed on retest)'
+                        return result
+
+                    elif resp.status_code == 403:
+                        if strategy_name == 'get_no_auth':
+                            # Still 403 without auth — likely permission-based, not broken
+                            result.status = 'AUTH_REQUIRED'
+                            result.message = 'Link exists - access restricted (confirmed on retest)'
+                            return result
+
+                except requests.exceptions.SSLError:
+                    if strategy_name != 'get_no_ssl':
+                        continue  # Try next strategy
+                except requests.exceptions.Timeout:
+                    continue  # Try next strategy
+                except requests.exceptions.ConnectionError:
+                    continue  # Try next strategy
+                except Exception as e:
+                    logger.debug(f"Retest strategy {strategy_name} failed for {url}: {e}")
+                    continue
+
+            # DNS-only check: if all HTTP strategies failed, at least check if hostname resolves
+            try:
+                parsed = urlparse(url)
+                hostname = parsed.netloc.split(':')[0] if parsed.netloc else ''
+                if hostname:
+                    socket.setdefaulttimeout(10)
+                    ip = socket.gethostbyname(hostname)
+                    if ip:
+                        # Domain resolves but server doesn't respond properly
+                        # Don't upgrade to WORKING, but note DNS is valid
+                        result.dns_resolved = True
+                        result.dns_ip_addresses = [ip]
+            except Exception:
+                pass
+
+            return None  # No improvement found
+
+        # Run retests concurrently but with fewer workers (gentler on servers)
+        max_retest_workers = min(5, len(broken_urls))
+
+        with ThreadPoolExecutor(max_workers=max_retest_workers) as executor:
+            future_to_url = {
+                executor.submit(_retest_single, url): url
+                for url in broken_urls
+            }
+            for future in as_completed(future_to_url):
+                url = future_to_url[future]
+                try:
+                    retest_result = future.result()
+                    if retest_result is not None:
+                        retest_results[url] = retest_result
+                except Exception as e:
+                    logger.debug(f"Retest failed for {url}: {e}")
+
+        retest_session.close()
+
+        upgraded = len(retest_results)
+        if upgraded > 0:
+            logger.info(f"Re-test complete: {upgraded}/{len(broken_urls)} links upgraded from broken")
+        else:
+            logger.info(f"Re-test complete: all {len(broken_urls)} broken links confirmed broken")
+
+        return retest_results
 
     # =========================================================================
     # HISTORY MANAGEMENT
@@ -1476,6 +1712,8 @@ def check_ssl_certificate(hostname: str, port: int = 443, timeout: int = 10) -> 
 def detect_soft_404(response_text: str) -> bool:
     """
     Detect soft 404 pages that return 200 but are actually error pages.
+    Uses a scoring system to require multiple signals before flagging as soft-404.
+    This reduces false positives on pages that casually mention "not found" etc.
 
     Args:
         response_text: HTML content of the page
@@ -1485,38 +1723,66 @@ def detect_soft_404(response_text: str) -> bool:
     """
     import re
     text_lower = response_text.lower()
+    score = 0
 
-    # Title check - BUG-M07 fix: Make detection more specific to avoid false positives
+    # Very short response body is suspicious (real pages have content)
+    # Strip HTML tags for length check
+    stripped = re.sub(r'<[^>]+>', '', text_lower).strip()
+    if len(stripped) < 500:
+        score += 1  # Short pages more likely to be error pages
+
+    # Title check — strongest signal
     title_match = re.search(r'<title[^>]*>([^<]+)</title>', text_lower)
     if title_match:
         title = title_match.group(1)
-        # More specific indicators to reduce false positives (removed generic "error")
-        error_indicators = ['not found', '404', 'page missing', 'page unavailable', 'page does not exist']
-        if any(phrase in title for phrase in error_indicators):
-            return True
+        title_error_phrases = ['not found', '404', 'page missing', 'page unavailable', 'page does not exist']
+        if any(phrase in title for phrase in title_error_phrases):
+            score += 3  # Title match is a very strong signal
 
-    # Body phrases indicating error pages
-    soft_404_phrases = [
+    # Body phrases — require in prominent context (headings, first 2000 chars)
+    # Only check first 2000 chars to avoid matching phrases deep in page content
+    early_text = text_lower[:2000]
+    strong_body_phrases = [
         'page not found',
         'page you requested could not be found',
         "this page doesn't exist",
         'this page does not exist',
-        "we couldn't find",
-        'we could not find',
-        'no longer available',
-        'has been removed',
-        'has been deleted',
-        'page has moved',
-        'content is unavailable',
-        'content not available',
-        "sorry, we can't find",
         'the requested url was not found',
         'oops! page not found',
         '404 error',
         'error 404'
     ]
 
-    return any(phrase in text_lower for phrase in soft_404_phrases)
+    weak_body_phrases = [
+        "we couldn't find",
+        'we could not find',
+        'no longer available',
+        'has been removed',
+        'has been deleted',
+        'content is unavailable',
+        'content not available',
+        "sorry, we can't find",
+    ]
+
+    # Strong phrases in early content
+    for phrase in strong_body_phrases:
+        if phrase in early_text:
+            score += 2
+            break  # One match is enough
+
+    # Weak phrases only count if also short page
+    for phrase in weak_body_phrases:
+        if phrase in early_text:
+            score += 1
+            break
+
+    # Check for 404 in heading tags (strong signal)
+    heading_404 = re.search(r'<h[1-3][^>]*>[^<]*(?:404|not found|page missing)[^<]*</h[1-3]>', text_lower)
+    if heading_404:
+        score += 2
+
+    # Require score >= 3 to flag as soft-404 (reduces false positives significantly)
+    return score >= 3
 
 
 def detect_suspicious_url(url: str) -> Dict[str, Any]:

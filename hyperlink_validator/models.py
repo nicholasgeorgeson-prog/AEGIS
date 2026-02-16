@@ -21,6 +21,9 @@ class ValidationStatus(Enum):
     REDIRECT = "REDIRECT"         # URL returned 3xx redirect
     TIMEOUT = "TIMEOUT"           # Connection timed out
     BLOCKED = "BLOCKED"           # Access denied or filtered (403, connection refused)
+    AUTH_REQUIRED = "AUTH_REQUIRED"  # Link exists but requires authentication (401/403)
+    SSL_WARNING = "SSL_WARNING"   # Link works but has SSL certificate issues
+    RATE_LIMITED = "RATE_LIMITED"  # Server rate-limited the request (429)
     DNSFAILED = "DNSFAILED"       # Could not resolve hostname
     SSLERROR = "SSLERROR"         # SSL/TLS certificate error
     INVALID = "INVALID"           # Invalid URL format
@@ -325,12 +328,12 @@ class ValidationResult:
     @property
     def is_valid(self) -> bool:
         """Check if URL is valid/working."""
-        return self.status in ['WORKING', 'REDIRECT']
+        return self.status in ['WORKING', 'REDIRECT', 'SSL_WARNING', 'AUTH_REQUIRED']
 
     @property
     def is_error(self) -> bool:
         """Check if URL has an error."""
-        return self.status in ['BROKEN', 'TIMEOUT', 'BLOCKED', 'DNSFAILED', 'SSLERROR', 'INVALID']
+        return self.status in ['BROKEN', 'TIMEOUT', 'DNSFAILED', 'SSLERROR', 'INVALID']
 
     @property
     def domain(self) -> str:
