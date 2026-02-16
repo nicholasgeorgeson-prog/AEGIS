@@ -300,6 +300,196 @@ class AmbiguousScopeChecker(BaseChecker):
         return issues
 
 
+class DirectiveVerbConsistencyChecker(BaseChecker):
+    """
+    v5.8.0: Flags documents that mix directive verbs (shall/should/must/will/require)
+    without a definitions section explaining the convention.
+
+    In requirements engineering, each directive verb has a specific meaning:
+    - "shall" = mandatory requirement (IEEE 830, NASA NPR 7123)
+    - "should" = advisory/recommended
+    - "must" = obligatory (often safety/regulatory)
+    - "will" = statement of fact or future intent
+    - "require" = passive obligation
+
+    Mixing these without a definitions section creates ambiguity about which
+    statements are mandatory vs advisory.
+    """
+
+    CHECKER_NAME = "Directive Verb Consistency"
+    CHECKER_VERSION = "1.0.0"
+
+    # Verbs to track with their standard meaning
+    DIRECTIVE_VERBS = {
+        'shall': 'mandatory requirement',
+        'should': 'advisory/recommended',
+        'must': 'obligatory (regulatory/safety)',
+        'will': 'statement of fact/intent',
+    }
+
+    # Patterns indicating a definitions section exists
+    DEFINITIONS_PATTERNS = [
+        re.compile(r'\b(?:definitions?|conventions?|terminology)\b', re.IGNORECASE),
+        re.compile(r'\bshall\b.*\b(?:means?|indicates?|denotes?)\b', re.IGNORECASE),
+        re.compile(r'\b(?:mandatory|required|advisory|optional)\b.*\b(?:shall|should|must)\b', re.IGNORECASE),
+    ]
+
+    # Also detect "require/requires/required" used as a passive directive
+    PASSIVE_DIRECTIVE = re.compile(r'\b(?:require[sd]?)\b', re.IGNORECASE)
+
+    MIN_VERB_TYPES = 2  # Only flag if 2+ different directive verbs are used
+
+    def check(self, paragraphs: List[Tuple[int, str]], **kwargs) -> List[Dict]:
+        if not self.enabled:
+            return []
+
+        # Scan entire document for directive verb usage
+        verb_usage = {}  # verb -> [paragraph indices]
+        has_definitions_section = False
+
+        for idx, text in paragraphs:
+            # Check for definitions section
+            for pat in self.DEFINITIONS_PATTERNS:
+                if pat.search(text):
+                    has_definitions_section = True
+                    break
+
+            # Count directive verb usage
+            text_lower = text.lower()
+            for verb in self.DIRECTIVE_VERBS:
+                if re.search(r'\b' + verb + r'\b', text_lower):
+                    verb_usage.setdefault(verb, []).append(idx)
+
+            # Check for passive "require/requires" used as directive
+            if self.PASSIVE_DIRECTIVE.search(text):
+                # Only count if it's used as a directive (not "as required by")
+                if not re.search(r'\bas\s+required\b', text_lower):
+                    verb_usage.setdefault('require', []).append(idx)
+
+        # If definitions section exists, no issue
+        if has_definitions_section:
+            return []
+
+        # If fewer than 2 different verb types, no inconsistency
+        active_verbs = {v: idxs for v, idxs in verb_usage.items() if len(idxs) > 0}
+        if len(active_verbs) < self.MIN_VERB_TYPES:
+            return []
+
+        # Build a summary of verb usage
+        verb_summary = ', '.join(
+            f'"{v}" ({len(idxs)}x)' for v, idxs in sorted(active_verbs.items(), key=lambda x: -len(x[1]))
+        )
+
+        issues = [self.create_issue(
+            severity='Medium',
+            message=f'Document mixes {len(active_verbs)} directive verbs ({verb_summary}) without a definitions section. '
+                    f'This creates ambiguity about which statements are mandatory vs advisory.',
+            context='Document-level finding',
+            paragraph_index=0,
+            suggestion='Add a "Definitions" or "Conventions" section that defines each directive verb '
+                       '(e.g., "shall" = mandatory, "should" = advisory, "must" = regulatory obligation). '
+                       'See IEEE 830 or NASA NPR 7123.1 for standard conventions.',
+            rule_id='DVC001',
+            flagged_text='[mixed directive verbs]'
+        )]
+
+        return issues
+
+
+class UnresolvedCrossReferenceChecker(BaseChecker):
+    """
+    v5.8.0: Flags dangling cross-references — phrases that reference external
+    documents, schedules, or standards without citing them by name or number.
+
+    Examples of unresolved references:
+    - "the approved procurement schedule" (which schedule?)
+    - "applicable safety requirements" (which requirements document?)
+    - "per the standard" (which standard?)
+    - "in accordance with the plan" (which plan?)
+
+    A well-written technical document should cite specific document numbers,
+    titles, or identifiers for all external references.
+    """
+
+    CHECKER_NAME = "Unresolved Cross-Reference"
+    CHECKER_VERSION = "1.0.0"
+
+    # Patterns that indicate a vague cross-reference
+    VAGUE_REF_PATTERNS = [
+        (re.compile(r'\bthe\s+approved\s+(\w+(?:\s+\w+)?)\b', re.IGNORECASE), 'the approved {0}'),
+        (re.compile(r'\bapplicable\s+(\w+(?:\s+\w+)?(?:\s+\w+)?)\b', re.IGNORECASE), 'applicable {0}'),
+        (re.compile(r'\bper\s+the\s+(\w+(?:\s+\w+)?)\b', re.IGNORECASE), 'per the {0}'),
+        (re.compile(r'\bin\s+accordance\s+with\s+(?:the\s+)?(\w+(?:\s+\w+)?)\b', re.IGNORECASE), 'in accordance with {0}'),
+        (re.compile(r'\bas\s+specified\s+in\s+(?:the\s+)?(\w+(?:\s+\w+)?)\b', re.IGNORECASE), 'as specified in {0}'),
+        (re.compile(r'\bas\s+defined\s+in\s+(?:the\s+)?(\w+(?:\s+\w+)?)\b', re.IGNORECASE), 'as defined in {0}'),
+        (re.compile(r'\brelevant\s+(\w+(?:\s+\w+)?)\b', re.IGNORECASE), 'relevant {0}'),
+    ]
+
+    # If the referenced thing contains a document ID, it's resolved
+    DOC_ID_PATTERNS = [
+        re.compile(r'[A-Z]{2,10}[-_]\d{2,6}'),      # NPR-7123, MIL-STD-1553
+        re.compile(r'(?:Rev|Version|Issue)\s*[A-Z0-9]', re.IGNORECASE),  # Rev B, Version 3
+        re.compile(r'\d{4}'),                          # Year-based refs (ISO 9001:2015)
+    ]
+
+    # Skip these — they're self-contained concepts, not document references
+    SKIP_SUBJECTS = frozenset({
+        'all', 'any', 'each', 'every', 'no', 'this', 'that', 'these', 'those',
+        'personnel', 'team', 'staff', 'person', 'individual', 'member',
+        'time', 'date', 'manner', 'way', 'means', 'method',
+    })
+
+    MIN_LENGTH = 30  # Skip short labels/headings
+
+    def check(self, paragraphs: List[Tuple[int, str]], **kwargs) -> List[Dict]:
+        if not self.enabled:
+            return []
+
+        issues = []
+
+        for idx, text in paragraphs:
+            if len(text.strip()) < self.MIN_LENGTH:
+                continue
+
+            for pattern, template in self.VAGUE_REF_PATTERNS:
+                match = pattern.search(text)
+                if not match:
+                    continue
+
+                referenced = match.group(1).strip().lower()
+
+                # Skip if the subject is a generic word
+                if referenced.split()[0] in self.SKIP_SUBJECTS:
+                    continue
+
+                # Check if a document ID appears nearby (within 50 chars after match)
+                after_text = text[match.end():match.end() + 50]
+                has_doc_id = any(p.search(after_text) for p in self.DOC_ID_PATTERNS)
+                if has_doc_id:
+                    continue
+
+                # Also check if the match itself contains a doc ID
+                match_text = match.group(0)
+                has_inline_id = any(p.search(match_text) for p in self.DOC_ID_PATTERNS)
+                if has_inline_id:
+                    continue
+
+                flagged = match.group(0)
+                issues.append(self.create_issue(
+                    severity='Low',
+                    message=f'Unresolved cross-reference: "{flagged}" — cite the specific document number or title.',
+                    context=text[:120],
+                    paragraph_index=idx,
+                    suggestion=f'Replace with a specific reference, e.g., "{flagged} [DOC-ID, Title, Rev X]" '
+                               f'or add to an Applicable Documents section.',
+                    rule_id='UCR001',
+                    flagged_text=flagged
+                ))
+                break  # One per paragraph
+
+        return issues
+
+
 def get_requirement_quality_checkers() -> Dict[str, 'BaseChecker']:
     """Factory function returning all requirement quality checkers."""
     return {
@@ -307,6 +497,8 @@ def get_requirement_quality_checkers() -> Dict[str, 'BaseChecker']:
         'vague_quantifier': VagueQuantifierChecker(),
         'verification_method': VerificationMethodChecker(),
         'ambiguous_scope': AmbiguousScopeChecker(),
+        'directive_verb_consistency': DirectiveVerbConsistencyChecker(),
+        'unresolved_cross_reference': UnresolvedCrossReferenceChecker(),
     }
 
 

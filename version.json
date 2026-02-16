@@ -1,12 +1,24 @@
 {
-  "version": "5.7.2",
+  "version": "5.8.0",
   "release_date": "2026-02-16",
-  "core_version": "5.7.2",
+  "core_version": "5.8.0",
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.8.0",
+      "date": "2026-02-16",
+      "changes": [
+        "FEATURE: Cross-checker deduplication now normalizes categories — issues flagged by multiple checkers under different category names (e.g., 'Requirement Traceability' + 'INCOSE Compliance') are properly deduplicated",
+        "FEATURE: Document-type-aware suppression — requirements documents auto-suppress noise issues (noun phrase density, readability scores for domain vocabulary, per-paragraph INCOSE repeats)",
+        "NEW CHECKER: Directive Verb Consistency — flags documents that mix shall/should/must/will/require without a definitions section explaining the convention",
+        "NEW CHECKER: Unresolved Cross-Reference — flags dangling references like 'the approved procurement schedule' or 'applicable safety requirements' that don't cite specific document IDs",
+        "FIX: Spelling dictionary expanded with aerospace/PM terms — 'deliverables', 'baselines', 'procurement', 'workaround', NASA acronyms (CDR, PDR, SRR, FMEA, etc.)",
+        "Total checkers: 111 (was 109)"
+      ]
+    },
     {
       "version": "5.7.2",
       "date": "2026-02-16",

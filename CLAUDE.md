@@ -160,7 +160,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.7.2
+- **Current version**: 5.8.0
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -362,6 +362,12 @@ additional_checkers = [
 **Root Cause**: Three issues: (1) Statement Forge check in `detectCurrentSection()` used `el.style.display !== 'none'` which returns true when display is empty string (no inline style). (2) Landing page check used `el.offsetParent !== null`, but landing page has `position: fixed` which always returns null for offsetParent. (3) `_navigateToSection()` called `closeModals()` but never dismissed the landing page overlay, so modals opened behind it.
 **Fix**: (1) Changed Statement Forge check to only use `.active` class like all other modals. (2) Changed landing page check to `document.body.classList.contains('landing-active')`. (3) Added landing page dismissal at the top of `_navigateToSection()` for all non-landing sections. (4) Added missing `batch` and `portfolio` entries to the detection array.
 **Lesson**: `offsetParent` is null for `position: fixed` elements — don't use it for visibility detection. Use class-based checks consistently. When navigating between sections, always dismiss ALL overlays (including landing page), not just modals.
+
+### 42. Cross-Checker Dedup and Document-Type-Aware Review (v5.8.0)
+**Problem**: AEGIS flagged 71 issues on a 10-sentence test document. Manual review found ~40 were true positives, ~20 were cross-checker duplicates (same issue, different category names), and ~11 were false positives (noise for requirements docs). The automated score was close but inflated by duplicate/noise issues.
+**Root Cause**: (1) `_deduplicate_issues()` keyed on `(para_idx, category, flagged_text)` — but different checkers use different category names for the same finding (e.g., "Requirement Traceability" vs "INCOSE Compliance" both flag missing IDs). (2) Checkers like Noun Phrase Density and Dale-Chall Readability aren't calibrated for requirements documents where high noun density and technical vocabulary are expected. (3) No checker detected mixed directive verbs (shall/should/must) or dangling cross-references.
+**Fix**: (1) Added `_CATEGORY_NORM` normalization map in `_deduplicate_issues()` that maps semantically equivalent categories to a common key before dedup. (2) Added `_suppress_for_requirements_doc()` that downgrades noise categories to Info for auto-detected requirements documents. (3) Created `DirectiveVerbConsistencyChecker` and `UnresolvedCrossReferenceChecker` in `requirement_quality_checkers.py`. (4) Expanded spelling dictionary with aerospace/PM terms.
+**Lesson**: Cross-checker dedup must normalize category names, not just compare them literally. Document-type detection (already present in `_detect_document_type()`) should feed back into issue suppression/downgrading. When comparing automated results to human expert review, the biggest gap is usually noise (false positives from domain-inappropriate thresholds), not missed issues.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

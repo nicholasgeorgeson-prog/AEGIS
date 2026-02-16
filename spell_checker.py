@@ -217,11 +217,23 @@ class EnhancedSpellChecker(BaseChecker):
         'iso', 'cmmi', 'as9100', 'nadcap', 'asme', 'ieee', 'ansi', 'astm', 'sae',
         
         # Project Management
-        'project', 'program', 'portfolio', 'milestone', 'deliverable', 'schedule', 'budget',
+        'project', 'program', 'portfolio', 'milestone', 'deliverable', 'deliverables', 'schedule', 'budget',
         'scope', 'risk', 'issue', 'action', 'decision', 'resource', 'allocation', 'utilization',
-        'baseline', 'variance', 'earned', 'value', 'wbs', 'obs', 'gantt', 'pert', 'cpm',
-        'stakeholder', 'sponsor', 'manager', 'lead', 'coordinator', 'analyst', 'engineer',
+        'baseline', 'baselines', 'variance', 'earned', 'value', 'wbs', 'obs', 'gantt', 'pert', 'cpm',
+        'stakeholder', 'stakeholders', 'sponsor', 'manager', 'lead', 'coordinator', 'analyst', 'engineer',
+        'procurement', 'procurements', 'subcontractor', 'subcontractors', 'workload', 'workstream',
+        'tollgate', 'tollgates', 'kickoff', 'signoff', 'readiness', 'walkthrough',
         
+        # NASA / Aerospace Standards
+        'conops', 'ops', 'cdrl', 'cdr', 'pdr', 'srr', 'sdrl', 'icd', 'sow', 'wbs',
+        'fmea', 'fmeca', 'hazop', 'fracas', 'praca', 'gidep', 'dmsms', 'eol',
+        'trl', 'mrl', 'irl', 'srl', 'raci', 'rasci', 'nfr', 'srs', 'sdd', 'stp',
+        'swimlane', 'swimlanes', 'tradeoff', 'tradeoffs', 'tradespace', 'downtick',
+        'workaround', 'workarounds', 'de-scope', 'descope', 'descoped', 'rebaseline',
+        'rebaselined', 'subsystem', 'subsystems', 'datasheet', 'datasheets',
+        'downselect', 'downselected', 'uplink', 'downlink', 'telemetry',
+        'flyby', 'flyover', 'overflight', 'geosynchronous', 'geostationary',
+
         # Documentation
         'document', 'documentation', 'specification', 'procedure', 'instruction', 'manual',
         'drawing', 'schematic', 'diagram', 'flowchart', 'table', 'figure', 'appendix',

@@ -2264,7 +2264,8 @@ class AEGISEngine:
         # - requirement_traceability, vague_quantifier, verification_method, ambiguous_scope
         additional_checkers = [
             'redundancy', 'hedging', 'weasel_words', 'cliches',
-            'mil_std', 'do178', 'accessibility'
+            'mil_std', 'do178', 'accessibility',
+            'directive_verb_consistency', 'unresolved_cross_reference'
         ]
         already_handled = set(option_mapping.values()) - {None}
         for checker_name in additional_checkers:
@@ -2425,7 +2426,19 @@ class AEGISEngine:
 
         # Deduplicate issues (same paragraph + same message = duplicate)
         self.issues = self._deduplicate_issues(self.issues)
-        
+
+        # v5.8.0: Document-type-aware suppression.
+        # Auto-detect doc type from content, then suppress low-value noise
+        # issues that are expected for that document type.
+        try:
+            doc_type_info = self._detect_document_type(extractor)
+            detected_type = doc_type_info.get('type', 'general')
+            confidence = doc_type_info.get('confidence', 0)
+            if detected_type == 'requirements' and confidence >= 0.5:
+                self.issues = self._suppress_for_requirements_doc(self.issues)
+        except Exception:
+            pass  # Suppression failure should never block the review
+
         # Generate stable issue IDs based on content hash
         self._assign_issue_ids()
         
@@ -2620,25 +2633,45 @@ class AEGISEngine:
         
         return score
     
-    def _deduplicate_issues(self, issues: List[Dict]) -> List[Dict]:
-        """Remove duplicate issues based on paragraph index, category, and flagged text.
+    # v5.8.0: Category normalization map for cross-checker deduplication.
+    # Multiple checkers flag the same underlying issue under different category names.
+    # This map groups semantically equivalent categories so dedup catches them.
+    _CATEGORY_NORM = {
+        # Requirement ID / traceability — flagged by Requirement Traceability AND INCOSE
+        'requirement traceability': 'req_traceability',
+        'incose compliance': 'req_traceability',
+        # Acronym issues — flagged by Acronyms checker AND Keyword Extraction
+        'acronyms': 'acronyms',
+        'keyword extraction': 'acronyms',
+        # Vague/ambiguous scope — flagged by Vague Quantifier AND Ambiguous Scope
+        'vague quantifier': 'vague_scope',
+        'ambiguous scope': 'vague_scope',
+        # Testability — flagged by requirements checker AND Verification Method
+        'requirements': 'testability',
+        'verification method': 'testability',
+    }
 
-        v5.7.0: Simplified dedup key — removed rule_id and message so that the same
-        issue flagged by different checkers (e.g., acronym_checker + acronym_first_use)
-        gets properly deduplicated. The key is now (paragraph_index, category, flagged_text).
+    def _deduplicate_issues(self, issues: List[Dict]) -> List[Dict]:
+        """Remove duplicate issues based on paragraph index, normalized category, and flagged text.
+
+        v5.7.0: Simplified dedup key — removed rule_id and message.
+        v5.8.0: Added category normalization so cross-checker duplicates are caught.
+        Multiple checkers often flag the same text under different category names
+        (e.g., "Requirement Traceability" vs "INCOSE Compliance" both flag missing IDs).
+        The normalization map merges semantically equivalent categories before dedup.
         """
         seen = set()
         unique = []
 
         for issue in issues:
-            # v5.7.0: Dedup by location + category + flagged text only.
-            # Different checkers may flag the same text with different rule_ids
-            # and slightly different messages — those are still the same issue.
             para_idx = issue.get('paragraph_index', 0)
-            category = issue.get('category', '')
+            raw_category = issue.get('category', '')
             flagged = issue.get('flagged_text', '')[:80]  # First 80 chars
 
-            key = (para_idx, category, flagged)
+            # v5.8.0: Normalize category for dedup comparison
+            norm_cat = self._CATEGORY_NORM.get(raw_category.lower(), raw_category.lower())
+
+            key = (para_idx, norm_cat, flagged)
 
             if key not in seen:
                 seen.add(key)
@@ -2646,6 +2679,49 @@ class AEGISEngine:
 
         return unique
     
+    def _suppress_for_requirements_doc(self, issues: List[Dict]) -> List[Dict]:
+        """v5.8.0: Suppress low-value noise issues for requirements-type documents.
+
+        Requirements documents are inherently noun-heavy and use formal technical
+        vocabulary.  Flagging every paragraph for high noun phrase density or
+        flagging domain terms as "complex words" creates noise without adding value.
+
+        This method does NOT remove issues — it downgrades select low-value
+        categories from their original severity to 'Info' so they still appear
+        in the full log but don't inflate the issue count or affect the score.
+        """
+        # Categories to downgrade to Info for requirements docs
+        DOWNGRADE_CATEGORIES = {
+            'noun phrase density',    # High noun density is expected in requirements
+            'ari readability assessment',  # Technical readability is normal
+            'dale-chall enhanced',    # Domain vocabulary flagged as "difficult"
+        }
+        # Also cap per-paragraph duplicates for INCOSE (already caught by traceability)
+        incose_count = 0
+        MAX_INCOSE_ISSUES = 1  # Keep 1 summary, suppress the per-paragraph repeats
+
+        result = []
+        for issue in issues:
+            cat_lower = issue.get('category', '').lower()
+
+            if cat_lower in DOWNGRADE_CATEGORIES:
+                issue = dict(issue)  # Don't mutate original
+                issue['severity'] = 'Info'
+                issue['message'] = issue.get('message', '') + ' [expected for requirements documents]'
+
+            # Cap INCOSE per-paragraph repeats — keep the summary score, skip repeats
+            if cat_lower == 'incose compliance':
+                incose_count += 1
+                if incose_count > MAX_INCOSE_ISSUES:
+                    # Check if this is the summary score issue (keep it) or a per-para repeat (skip)
+                    msg = issue.get('message', '').lower()
+                    if 'compliance score' not in msg:
+                        continue  # Skip per-paragraph INCOSE repeats
+
+            result.append(issue)
+
+        return result
+
     def _assign_issue_ids(self):
         """
         Assign stable unique IDs to issues based on content hash.

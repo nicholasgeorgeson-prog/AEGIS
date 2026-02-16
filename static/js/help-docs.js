@@ -6726,6 +6726,17 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.8.0 <span class="changelog-date">February 16, 2026</span></h3>
+        <p><strong>Smarter Review Engine — Closer to Human Expert Analysis</strong></p>
+        <ul>
+            <li><strong>Cross-Checker Dedup</strong> — Issues flagged by multiple checkers under different category names are now properly deduplicated. Missing requirement IDs flagged by both "Requirement Traceability" and "INCOSE Compliance" now count as one issue.</li>
+            <li><strong>Document-Type Awareness</strong> — Requirements documents auto-suppress noise issues expected for the document type: high noun phrase density, readability scores for domain vocabulary, and repetitive INCOSE per-paragraph warnings.</li>
+            <li><strong>NEW: Directive Verb Consistency</strong> — Detects when documents mix shall/should/must/will without a definitions section.</li>
+            <li><strong>NEW: Unresolved Cross-Reference</strong> — Flags dangling references like "the approved procurement schedule" that don't cite specific document IDs.</li>
+            <li><strong>Spelling Dictionary</strong> — Added aerospace/PM terms: deliverables, baselines, procurement, workaround, NASA acronyms (CDR, PDR, SRR, FMEA, etc.).</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.7.2 <span class="changelog-date">February 16, 2026</span></h3>
         <p><strong>Help Panel Navigation Fixes</strong></p>
         <ul>
