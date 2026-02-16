@@ -1,0 +1,752 @@
+/**
+ * AEGIS - Print Stylesheet
+ * Version: 5.0.0
+ *
+ * Optimizes AEGIS for print output across all modules:
+ * - Document reviews and reports
+ * - Roles Studio data and RACI matrices
+ * - Analysis results and metrics
+ * - Comparison reports
+ *
+ * Print rules apply via @media print and have high specificity
+ * to override screen styles.
+ */
+
+/* =============================================================================
+   PRINT MEDIA QUERY CONTEXT
+   ============================================================================= */
+
+@media print {
+    /**
+     * Root print settings
+     */
+    html {
+        font-size: 12pt;
+        line-height: 1.5;
+    }
+
+    body {
+        background: white;
+        color: #000;
+        font-family: Georgia, 'Times New Roman', serif;
+        margin: 0;
+        padding: 0;
+        overflow: auto !important;
+    }
+
+    /* =============================================================================
+       HIDE NON-PRINTABLE ELEMENTS
+       ============================================================================= */
+
+    /* Sidebar navigation - completely hide */
+    .sidebar,
+    .app-sidebar,
+    nav.sidebar,
+    [class*="sidebar"],
+    aside {
+        display: none !important;
+    }
+
+    /* Top navigation bar */
+    header.top-nav-bar,
+    .top-nav-bar,
+    [class*="top-nav"],
+    [class*="navbar"],
+    nav {
+        display: none !important;
+    }
+
+    /* Landing page */
+    #aegis-landing-page,
+    .lp-page,
+    [class*="lp-"] {
+        display: none !important;
+    }
+
+    /* Particle canvas background */
+    #lp-bg-canvas,
+    canvas {
+        display: none !important;
+    }
+
+    /* Toast notifications */
+    .toast-container,
+    [class*="toast"],
+    .notification,
+    [class*="notification"] {
+        display: none !important;
+    }
+
+    /* Modal backdrops - hide the dark overlay but show modal content if present */
+    .modal-backdrop,
+    .modal-overlay,
+    [class*="backdrop"],
+    [data-role="dialog"]::before {
+        display: none !important;
+        background: none !important;
+    }
+
+    /* Modal dialogs - show if they exist and are open, but without backdrop */
+    .modal.active,
+    .modal.show,
+    [role="dialog"] {
+        position: static !important;
+        display: block !important;
+        background: white !important;
+        border: 1pt solid #000 !important;
+        box-shadow: none !important;
+        margin: 20pt 0 !important;
+        padding: 20pt !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        z-index: auto !important;
+    }
+
+    /* Close buttons */
+    .modal-close,
+    .close-btn,
+    [class*="close"],
+    button[aria-label*="close"],
+    button[aria-label*="Close"],
+    button[title*="close"],
+    button[title*="Close"],
+    .btn-close,
+    .x-button {
+        display: none !important;
+    }
+
+    /* Toolbar and action bars */
+    .toolbar,
+    .action-bar,
+    [class*="toolbar"],
+    [class*="action"],
+    .header-controls {
+        display: none !important;
+    }
+
+    /* Loading spinners and progress indicators */
+    .spinner,
+    .loader,
+    [class*="spinner"],
+    [class*="loader"],
+    [class*="loading"],
+    .progress-ring,
+    .cinematic-progress,
+    [class*="cinematic"],
+    [class*="molten"] {
+        display: none !important;
+    }
+
+    /* Scroll-to-top buttons */
+    .scroll-to-top,
+    [class*="scroll-top"],
+    [class*="back-to-top"],
+    #scroll-to-top {
+        display: none !important;
+    }
+
+    /* Dropdown menus and popovers */
+    .dropdown-menu,
+    .dropdown,
+    [class*="dropdown"],
+    [role="menu"],
+    [role="listbox"],
+    .popover,
+    [class*="popover"] {
+        display: none !important;
+    }
+
+    /* Tab buttons (show content, hide navigation) */
+    .tab-buttons,
+    .tab-nav,
+    [class*="tab-nav"],
+    .nav-tabs,
+    ul[role="tablist"],
+    button[role="tab"] {
+        display: none !important;
+    }
+
+    /* Edit, delete, and context buttons */
+    button[class*="edit"],
+    button[class*="delete"],
+    button[class*="remove"],
+    button[class*="action"],
+    .edit-btn,
+    .delete-btn,
+    .context-menu,
+    [role="button"][class*="edit"],
+    [role="button"][class*="delete"] {
+        display: none !important;
+    }
+
+    /* Help icons and tooltips */
+    [class*="help"],
+    [class*="tooltip"],
+    [title],
+    .info-icon,
+    i[data-lucide="help-circle"],
+    i[data-lucide="info"] {
+        display: none !important;
+    }
+
+    /* Animations and transitions - disable entirely */
+    * {
+        animation: none !important;
+        transition: none !important;
+    }
+
+    /* =============================================================================
+       OPTIMIZE LAYOUT FOR PRINT
+       ============================================================================= */
+
+    /* Main content area - remove sidebar offset and take full width */
+    .app-container,
+    .main-wrapper,
+    [class*="container"],
+    main {
+        margin: 0 !important;
+        padding: 20pt !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* Remove background colors - save ink */
+    * {
+        background-color: white !important;
+        background-image: none !important;
+    }
+
+    /* Preserve intentional backgrounds for semantic content */
+    [class*="alert"],
+    [class*="warning"],
+    [class*="error"],
+    [class*="success"],
+    [class*="info"] {
+        background-color: #f5f5f5 !important;
+        border: 1pt solid #000 !important;
+    }
+
+    /* Remove box shadows */
+    * {
+        box-shadow: none !important;
+        text-shadow: none !important;
+    }
+
+    /* Remove border-radius - cleaner print appearance */
+    * {
+        border-radius: 0 !important;
+    }
+
+    /* Ensure black text on white background */
+    * {
+        color: #000 !important;
+    }
+
+    /* Link colors */
+    a {
+        color: #000 !important;
+        text-decoration: underline !important;
+    }
+
+    /* Headings */
+    h1, h2, h3, h4, h5, h6 {
+        color: #000 !important;
+        page-break-after: avoid;
+        margin-bottom: 12pt !important;
+        margin-top: 12pt !important;
+    }
+
+    h1 {
+        font-size: 24pt !important;
+        font-weight: bold !important;
+        page-break-before: always;
+    }
+
+    h2 {
+        font-size: 18pt !important;
+        font-weight: bold !important;
+        page-break-before: always;
+    }
+
+    h3 {
+        font-size: 14pt !important;
+        font-weight: bold !important;
+    }
+
+    /* Tables - ensure visible borders */
+    table {
+        border-collapse: collapse !important;
+        border: 1pt solid #000 !important;
+        width: 100% !important;
+        margin-bottom: 12pt !important;
+        page-break-inside: avoid;
+    }
+
+    thead {
+        display: table-header-group;
+        background-color: #f0f0f0 !important;
+    }
+
+    tbody {
+        display: table-row-group;
+    }
+
+    tr {
+        page-break-inside: avoid;
+    }
+
+    td, th {
+        border: 1pt solid #000 !important;
+        padding: 8pt !important;
+        text-align: left !important;
+        background-color: white !important;
+    }
+
+    th {
+        background-color: #e0e0e0 !important;
+        font-weight: bold !important;
+    }
+
+    /* Lists - improve readability */
+    ul, ol {
+        margin-left: 20pt !important;
+        margin-bottom: 12pt !important;
+    }
+
+    li {
+        margin-bottom: 4pt !important;
+    }
+
+    /* Code blocks */
+    code, pre {
+        font-family: 'Courier New', monospace !important;
+        font-size: 10pt !important;
+        background-color: #f5f5f5 !important;
+        border: 1pt solid #ccc !important;
+        padding: 8pt !important;
+        overflow-x: auto !important;
+        page-break-inside: avoid;
+    }
+
+    /* Blockquotes */
+    blockquote {
+        margin-left: 20pt !important;
+        padding-left: 12pt !important;
+        border-left: 3pt solid #000 !important;
+        margin-bottom: 12pt !important;
+    }
+
+    /* =============================================================================
+       PAGE BREAK CONTROL
+       ============================================================================= */
+
+    /* Force page breaks before major sections */
+    h1 {
+        page-break-before: always;
+    }
+
+    /* Avoid page breaks inside important containers */
+    .card,
+    [class*="card"],
+    .panel,
+    [class*="panel"],
+    .section,
+    [class*="section"],
+    article {
+        page-break-inside: avoid;
+    }
+
+    /* Avoid page breaks inside table rows */
+    tr {
+        page-break-inside: avoid;
+    }
+
+    /* Avoid page breaks inside figure captions */
+    figure, figcaption {
+        page-break-inside: avoid;
+    }
+
+    /* Keep headers with content */
+    h1, h2, h3, h4, h5, h6 {
+        page-break-after: avoid;
+    }
+
+    /* =============================================================================
+       OPTIMIZE TYPOGRAPHY FOR PRINT
+       ============================================================================= */
+
+    /* Use serif font for body text - better for print readability */
+    body {
+        font-family: Georgia, 'Times New Roman', serif !important;
+        font-size: 12pt !important;
+    }
+
+    /* Use sans-serif for headers */
+    h1, h2, h3, h4, h5, h6 {
+        font-family: Arial, Helvetica, sans-serif !important;
+    }
+
+    /* Ensure sufficient font sizes */
+    p {
+        font-size: 12pt !important;
+        line-height: 1.5 !important;
+        margin-bottom: 12pt !important;
+    }
+
+    small {
+        font-size: 10pt !important;
+    }
+
+    /* Show URLs after links */
+    a[href]:after {
+        content: " (" attr(href) ")";
+        font-size: 10pt !important;
+        word-break: break-all;
+    }
+
+    /* Don't show URLs for anchor links */
+    a[href^="#"]:after {
+        content: "";
+    }
+
+    /* Orphan/widow control */
+    p {
+        orphans: 3;
+        widows: 3;
+    }
+
+    /* =============================================================================
+       AEGIS-SPECIFIC COMPONENT PRINTING
+       ============================================================================= */
+
+    /* Review Results / Issues Table */
+    .issues-table,
+    .review-results,
+    [class*="issues"],
+    [class*="results"] {
+        width: 100% !important;
+        border-collapse: collapse !important;
+    }
+
+    .issue-row,
+    .result-row,
+    [class*="issue"],
+    [class*="result"] {
+        page-break-inside: avoid;
+        border: 1pt solid #000 !important;
+        margin-bottom: 12pt !important;
+    }
+
+    .issue-severity,
+    .severity-badge,
+    [class*="severity"] {
+        font-weight: bold !important;
+    }
+
+    /* Roles Studio - show role cards in print-friendly format */
+    .role-card,
+    [class*="role-card"],
+    .role-item,
+    [class*="role-item"] {
+        page-break-inside: avoid;
+        border: 1pt solid #000 !important;
+        padding: 12pt !important;
+        margin-bottom: 12pt !important;
+    }
+
+    .role-name,
+    .role-title,
+    [class*="role-name"],
+    [class*="role-title"] {
+        font-weight: bold !important;
+        font-size: 14pt !important;
+    }
+
+    .role-description,
+    [class*="role-desc"] {
+        font-size: 11pt !important;
+        line-height: 1.4 !important;
+    }
+
+    /* RACI Matrix */
+    .raci-matrix,
+    [class*="raci"] {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        page-break-inside: avoid;
+        margin: 20pt 0 !important;
+    }
+
+    .raci-matrix th,
+    .raci-matrix td {
+        border: 1pt solid #000 !important;
+        padding: 8pt !important;
+        text-align: center !important;
+        background-color: white !important;
+    }
+
+    .raci-matrix th {
+        background-color: #e0e0e0 !important;
+        font-weight: bold !important;
+    }
+
+    /* RACI cell markers */
+    .raci-cell,
+    [class*="raci-cell"] {
+        font-weight: bold !important;
+        text-align: center !important;
+    }
+
+    /* Graphs and charts - ensure print-friendly colors */
+    canvas,
+    svg,
+    .chart,
+    [class*="chart"],
+    [class*="graph"] {
+        background-color: white !important;
+        color: #000 !important;
+    }
+
+    /* SVG elements */
+    svg * {
+        fill: #000 !important;
+        stroke: #000 !important;
+        color: #000 !important;
+    }
+
+    /* Chart.js canvas */
+    canvas[role="img"] {
+        max-width: 100%;
+        page-break-inside: avoid;
+    }
+
+    /* Landing page tiles - show as simple list */
+    .lp-tiles,
+    [class*="tiles"],
+    .tool-grid,
+    [class*="grid"] {
+        display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .lp-tile,
+    [class*="tile"],
+    .tool-item,
+    [class*="tool-item"] {
+        display: block !important;
+        page-break-inside: avoid;
+        border: 1pt solid #000 !important;
+        padding: 12pt !important;
+        margin-bottom: 12pt !important;
+    }
+
+    /* Reports - full width, clean formatting */
+    .report,
+    [class*="report"],
+    [class*="report-section"] {
+        width: 100% !important;
+        margin: 0 !important;
+    }
+
+    .report-section,
+    [class*="report-section"] {
+        page-break-inside: avoid;
+        border: 1pt solid #000 !important;
+        padding: 12pt !important;
+        margin-bottom: 20pt !important;
+    }
+
+    .report-title,
+    [class*="report-title"] {
+        font-size: 16pt !important;
+        font-weight: bold !important;
+        margin-bottom: 12pt !important;
+    }
+
+    /* Document Compare */
+    .compare-section,
+    [class*="compare"],
+    .document-compare {
+        width: 100% !important;
+        display: block !important;
+        page-break-inside: avoid;
+    }
+
+    .compare-column,
+    [class*="compare-column"] {
+        width: 100% !important;
+        display: block !important;
+        page-break-inside: avoid;
+        border: 1pt solid #000 !important;
+        padding: 12pt !important;
+        margin-bottom: 12pt !important;
+    }
+
+    /* Metrics and statistics */
+    .metrics,
+    .statistics,
+    [class*="metrics"],
+    [class*="statistics"] {
+        width: 100% !important;
+        display: block !important;
+    }
+
+    .metric-item,
+    .stat-item,
+    [class*="metric-item"],
+    [class*="stat-item"] {
+        page-break-inside: avoid;
+        border: 1pt solid #ccc !important;
+        padding: 8pt !important;
+        margin-bottom: 8pt !important;
+    }
+
+    .metric-label,
+    .stat-label {
+        font-weight: bold !important;
+        display: block !important;
+    }
+
+    .metric-value,
+    .stat-value {
+        font-size: 14pt !important;
+        font-weight: bold !important;
+        display: block !important;
+    }
+
+    /* =============================================================================
+       PRINT-SPECIFIC PAGE SETTINGS
+       ============================================================================= */
+
+    @page {
+        size: A4;
+        margin: 0.75in;
+        orphans: 3;
+        widows: 3;
+    }
+
+    @page :first {
+        margin-top: 1in;
+    }
+
+    /* =============================================================================
+       IMAGE HANDLING
+       ============================================================================= */
+
+    img {
+        max-width: 100% !important;
+        height: auto !important;
+        page-break-inside: avoid;
+    }
+
+    /* Hide decorative images */
+    img[alt=""],
+    .decorative,
+    [class*="icon"] {
+        display: none !important;
+    }
+
+    /* Logo image - only print if present */
+    .logo,
+    [class*="logo"] {
+        max-width: 200px !important;
+        margin-bottom: 12pt !important;
+    }
+
+    /* =============================================================================
+       FORM ELEMENTS
+       ============================================================================= */
+
+    form {
+        display: block !important;
+    }
+
+    input,
+    textarea,
+    select {
+        border: 1pt solid #000 !important;
+        background-color: white !important;
+        color: #000 !important;
+        padding: 4pt !important;
+        font-family: inherit !important;
+    }
+
+    button,
+    input[type="button"],
+    input[type="submit"],
+    input[type="reset"] {
+        display: none !important;
+    }
+
+    /* =============================================================================
+       ACCESSIBILITY & SEMANTIC HTML
+       ============================================================================= */
+
+    /* Article-like content */
+    article {
+        page-break-inside: avoid;
+    }
+
+    /* Sections */
+    section {
+        page-break-inside: avoid;
+    }
+
+    /* Description lists */
+    dt {
+        font-weight: bold !important;
+        margin-top: 8pt !important;
+    }
+
+    dd {
+        margin-left: 20pt !important;
+        margin-bottom: 8pt !important;
+    }
+
+    /* =============================================================================
+       UTILITY VISIBILITY CLASSES
+       ============================================================================= */
+
+    .no-print,
+    [class*="no-print"],
+    .hidden-print {
+        display: none !important;
+    }
+
+    .print-only,
+    [class*="print-only"] {
+        display: block !important;
+    }
+
+    /* Spacing utilities for print */
+    .mt-print,
+    [class*="mt-print"] {
+        margin-top: 12pt !important;
+    }
+
+    .mb-print,
+    [class*="mb-print"] {
+        margin-bottom: 12pt !important;
+    }
+
+    .p-print,
+    [class*="p-print"] {
+        padding: 12pt !important;
+    }
+}
+
+/* =============================================================================
+   NON-PRINT STYLES FOR PRINT-SPECIFIC ELEMENTS
+   ============================================================================= */
+
+/* Hide print-only elements on screen */
+.print-only,
+[class*="print-only"] {
+    display: none;
+}
+
+/* Make hidden-print invisible on screen but keep layout */
+.hidden-print {
+    visibility: visible;
+}

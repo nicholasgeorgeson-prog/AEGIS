@@ -42,6 +42,9 @@
     <link rel="stylesheet" href="/static/css/features/mass-statement-review.css">
     <link rel="stylesheet" href="/static/css/features/statement-history.css">
     <link rel="stylesheet" href="/static/css/features/landing-page.css">
+    <link rel="stylesheet" href="/static/css/features/guide-system.css">
+    <!-- v5.0.0: Print stylesheet for optimized document printing -->
+    <link rel="stylesheet" href="/static/css/print.css" media="print">
     <!-- Vendor libraries: all local (v5.0.1 - no external CDN for air-gapped compliance) -->
     <script src="/static/js/vendor/lucide.min.js"></script>
     <script src="/static/js/vendor/chart.min.js"></script>
@@ -67,9 +70,9 @@
                 </div>
             </div>
             <div class="lp-header-actions">
-                <button class="lp-header-btn" id="lp-btn-theme" title="Toggle dark/light mode"><i data-lucide="sun-moon"></i></button>
-                <button class="lp-header-btn" id="lp-btn-help" title="Help & Documentation"><i data-lucide="book-open"></i></button>
-                <button class="lp-header-btn" id="lp-btn-settings" title="Settings"><i data-lucide="settings"></i></button>
+                <button class="lp-header-btn" id="lp-btn-theme" title="Toggle dark/light mode" aria-label="Toggle dark and light mode"><i data-lucide="sun-moon" aria-hidden="true"></i></button>
+                <button class="lp-header-btn" id="lp-btn-help" title="Help & Documentation" aria-label="Open help and documentation"><i data-lucide="book-open" aria-hidden="true"></i></button>
+                <button class="lp-header-btn" id="lp-btn-settings" title="Settings" aria-label="Open settings"><i data-lucide="settings" aria-hidden="true"></i></button>
                 <span class="lp-version" id="lp-version"></span>
             </div>
         </div>
@@ -79,6 +82,17 @@
             <p>Drag & drop .docx, .doc, or .pdf &mdash; or click to browse</p>
         </div>
         <div class="lp-metrics" id="lp-metrics"></div>
+        <!-- Getting Started Card (Guide System v1.0.0) -->
+        <div class="getting-started-card" id="lp-getting-started" style="opacity:0; animation: lp-fadeSlideIn 0.6s ease 0.35s forwards; margin: 24px 0; cursor: pointer;" title="Click for a guided tour">
+            <div class="gs-card-content">
+                <span class="gs-card-icon">🧭</span>
+                <div class="gs-card-text">
+                    <h3 class="gs-card-title">New to AEGIS?</h3>
+                    <p class="gs-card-subtitle">Take a 2-minute guided tour</p>
+                </div>
+                <span class="gs-card-arrow">→</span>
+            </div>
+        </div>
         <h3 class="lp-section-title" style="opacity:0; animation: lp-fadeSlideIn 0.6s ease 0.35s forwards;">Tools</h3>
         <div class="lp-tiles" id="lp-tiles"></div>
         <div class="lp-recent" id="lp-recent"></div>
@@ -101,7 +115,7 @@
     </div>
     
     <!-- v4.6.1: Dashboard-first navigation — single Dashboard button replaces all module links -->
-    <nav class="top-nav-links">
+    <nav class="top-nav-links" role="navigation" aria-label="Main navigation">
         <button class="top-nav-link active" id="nav-dashboard" title="Return to Dashboard" aria-label="Return to Dashboard">
             <i data-lucide="layout-dashboard" aria-hidden="true"></i>
             <span>Dashboard</span>
@@ -122,8 +136,8 @@
     
     <div class="top-nav-actions">
         <!-- Run-state indicator -->
-        <div class="run-state-indicator" id="run-state-indicator">
-            <span class="run-state-icon" id="run-state-icon">
+        <div class="run-state-indicator" id="run-state-indicator" role="status" aria-live="polite" aria-label="Scan state indicator">
+            <span class="run-state-icon" id="run-state-icon" aria-hidden="true">
                 <i data-lucide="circle" class="state-idle"></i>
             </span>
             <span class="run-state-label" id="run-state-label">Idle</span>
@@ -141,7 +155,7 @@
 
 <div class="app-container">
     <!-- Enhanced Sidebar (v3.0.44: Collapsible) -->
-    <aside class="sidebar" id="sidebar">
+    <aside class="sidebar" id="sidebar" role="navigation" aria-label="Review controls and settings">
         <div class="sidebar-header">
             <div class="sidebar-brand">
                 <span class="sidebar-version" id="version-label"></span>
@@ -228,10 +242,10 @@
 
             <!-- Advanced Settings Toggle -->
             <div class="sidebar-section sidebar-advanced-toggle">
-                <button class="btn btn-ghost btn-sm btn-full" id="btn-toggle-advanced" title="Show individual checker options">
-                    <i data-lucide="sliders-horizontal"></i>
+                <button class="btn btn-ghost btn-sm btn-full" id="btn-toggle-advanced" title="Show individual checker options" aria-label="Toggle advanced settings panel" aria-expanded="false" aria-controls="advanced-panel">
+                    <i data-lucide="sliders-horizontal" aria-hidden="true"></i>
                     <span>Advanced Settings</span>
-                    <i data-lucide="chevron-down" class="toggle-chevron"></i>
+                    <i data-lucide="chevron-down" class="toggle-chevron" aria-hidden="true"></i>
                 </button>
             </div>
 
@@ -241,7 +255,7 @@
                 <div class="checker-category">
                     <div class="checker-category-header" data-target="checks-writing">
                         <span>Writing Quality</span>
-                        <span class="checker-count" id="count-writing">7</span>
+                        <span class="checker-count" id="count-writing">12</span>
                     </div>
                     <div class="checker-list" id="checks-writing">
                         <label class="checker-item"><input type="checkbox" data-checker="passive_voice" checked><span>Passive Voice</span></label>
@@ -251,6 +265,11 @@
                         <label class="checker-item"><input type="checkbox" data-checker="jargon" checked><span>Jargon</span></label>
                         <label class="checker-item"><input type="checkbox" data-checker="sentence_length" checked><span>Long Sentences</span></label>
                         <label class="checker-item"><input type="checkbox" data-checker="repeated_words" checked><span>Repeated Words</span></label>
+                        <label class="checker-item"><input type="checkbox" data-checker="dangling_modifiers" checked><span>Dangling Modifiers</span></label>
+                        <label class="checker-item"><input type="checkbox" data-checker="parallel_structure" checked><span>Parallel Structure</span></label>
+                        <label class="checker-item"><input type="checkbox" data-checker="run_on_sentences" checked><span>Run-On Sentences</span></label>
+                        <label class="checker-item"><input type="checkbox" data-checker="sentence_fragments" checked><span>Sentence Fragments</span></label>
+                        <label class="checker-item"><input type="checkbox" data-checker="hyphenation" checked><span>Hyphenation</span></label>
                     </div>
                 </div>
 
@@ -273,7 +292,7 @@
                 <div class="checker-category">
                     <div class="checker-category-header" data-target="checks-technical">
                         <span>Technical Writing</span>
-                        <span class="checker-count" id="count-technical">6</span>
+                        <span class="checker-count" id="count-technical">11</span>
                     </div>
                     <div class="checker-list" id="checks-technical">
                         <label class="checker-item"><input type="checkbox" data-checker="acronyms" checked><span>Undefined Acronyms</span></label>
@@ -282,6 +301,11 @@
                         <label class="checker-item"><input type="checkbox" data-checker="testability" checked><span>Testability</span></label>
                         <label class="checker-item"><input type="checkbox" data-checker="atomicity" checked><span>Atomicity</span></label>
                         <label class="checker-item"><input type="checkbox" data-checker="escape_clauses" checked><span>Escape Clauses</span></label>
+                        <label class="checker-item"><input type="checkbox" data-checker="number_format" checked><span>Number Format</span></label>
+                        <label class="checker-item"><input type="checkbox" data-checker="units" checked><span>Units</span></label>
+                        <label class="checker-item"><input type="checkbox" data-checker="terminology" checked><span>Terminology</span></label>
+                        <label class="checker-item"><input type="checkbox" data-checker="serial_comma" checked><span>Serial Comma</span></label>
+                        <label class="checker-item"><input type="checkbox" data-checker="enhanced_references" checked><span>Enhanced References</span></label>
                     </div>
                 </div>
 
@@ -341,6 +365,10 @@
                         <label class="checker-item"><input type="checkbox" data-checker="gender_language" checked><span>Gender-Neutral</span></label>
                         <label class="checker-item"><input type="checkbox" data-checker="track_changes" checked><span>Track Changes</span></label>
                         <label class="checker-item"><input type="checkbox" data-checker="consistency" checked><span>Consistency</span></label>
+                        <label class="checker-item"><input type="checkbox" data-checker="requirement_traceability" checked><span>Requirement Traceability</span></label>
+                        <label class="checker-item"><input type="checkbox" data-checker="vague_quantifier" checked><span>Vague Quantifiers</span></label>
+                        <label class="checker-item"><input type="checkbox" data-checker="verification_method" checked><span>Verification Method</span></label>
+                        <label class="checker-item"><input type="checkbox" data-checker="ambiguous_scope" checked><span>Ambiguous Scope</span></label>
                     </div>
                 </div>
 
@@ -394,33 +422,33 @@
                 <p class="doc-subtitle" id="doc-subtitle"></p>
             </div>
             <!-- v3.0.43: Persistent run-state indicator -->
-            <div class="run-state-indicator" id="run-state-indicator" style="display:none;">
+            <div class="run-state-indicator" id="run-state-indicator" style="display:none;" role="status" aria-live="polite">
                 <div class="run-state-pulse"></div>
                 <span class="run-state-text" id="run-state-text">Scanning...</span>
-                <button class="btn btn-ghost btn-xs run-state-cancel" id="run-state-cancel" title="Cancel scan">
-                    <i data-lucide="x"></i>
+                <button class="btn btn-ghost btn-xs run-state-cancel" id="run-state-cancel" title="Cancel scan" aria-label="Cancel document scan">
+                    <i data-lucide="x" aria-hidden="true"></i>
                 </button>
             </div>
             <div class="header-actions">
-                <button class="btn btn-ghost btn-icon" id="btn-theme-toggle" title="Toggle dark/light mode">
-                    <i data-lucide="sun" id="theme-icon-light" style="display:none;"></i>
-                    <i data-lucide="moon" id="theme-icon-dark"></i>
+                <button class="btn btn-ghost btn-icon" id="btn-theme-toggle" title="Toggle dark/light mode" aria-label="Toggle dark and light theme">
+                    <i data-lucide="sun" id="theme-icon-light" style="display:none;" aria-hidden="true"></i>
+                    <i data-lucide="moon" id="theme-icon-dark" aria-hidden="true"></i>
                 </button>
-                <button class="btn btn-primary btn-action" id="btn-open" style="gap: 6px;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><path d="M12 11v6"></path><path d="m9 14 3-3 3 3"></path></svg>
+                <button class="btn btn-primary btn-action" id="btn-open" style="gap: 6px;" aria-label="Open and upload a document for analysis">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><path d="M12 11v6"></path><path d="m9 14 3-3 3 3"></path></svg>
                     <span>Open</span>
                 </button>
                 <!-- v2.9.4.2: Batch Load button always visible (#19) -->
-                <button class="btn btn-secondary btn-action" id="btn-batch-load" title="Load multiple documents" style="gap: 6px;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 22h2a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v3"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M4 11l-2 2 2 2"></path><path d="M12 11l2 2-2 2"></path><path d="M5 16l3 6"></path><path d="M11 16l-3 6"></path></svg>
+                <button class="btn btn-secondary btn-action" id="btn-batch-load" title="Load multiple documents" style="gap: 6px;" aria-label="Load multiple documents for batch processing">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 22h2a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v3"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M4 11l-2 2 2 2"></path><path d="M12 11l2 2-2 2"></path><path d="M5 16l3 6"></path><path d="M11 16l-3 6"></path></svg>
                     <span>Batch</span>
                 </button>
-                <button class="btn btn-secondary btn-action" id="btn-review" disabled style="gap: 6px;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+                <button class="btn btn-secondary btn-action" id="btn-review" disabled style="gap: 6px;" aria-label="Start reviewing the selected document">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
                     <span>Review</span>
                 </button>
-                <button class="btn btn-secondary btn-action" id="btn-export" disabled>
-                    <i data-lucide="download"></i><span>Export</span>
+                <button class="btn btn-secondary btn-action" id="btn-export" disabled aria-label="Export review results and findings">
+                    <i data-lucide="download" aria-hidden="true"></i><span>Export</span>
                 </button>
             </div>
         </header>
@@ -429,28 +457,28 @@
         <div class="stats-bar" id="stats-bar" style="display:none;">
             <div class="stat-group stat-group-document">
                 <div class="stat">
-                    <i data-lucide="file-text" class="stat-icon"></i>
+                    <i data-lucide="file-text" class="stat-icon" aria-hidden="true"></i>
                     <div class="stat-content">
                         <span class="stat-value" id="stat-words">0</span>
                         <span class="stat-label">Words</span>
                     </div>
                 </div>
                 <div class="stat">
-                    <i data-lucide="align-justify" class="stat-icon"></i>
+                    <i data-lucide="align-justify" class="stat-icon" aria-hidden="true"></i>
                     <div class="stat-content">
                         <span class="stat-value" id="stat-paragraphs">0</span>
                         <span class="stat-label">Paragraphs</span>
                     </div>
                 </div>
                 <div class="stat">
-                    <i data-lucide="table" class="stat-icon"></i>
+                    <i data-lucide="table" class="stat-icon" aria-hidden="true"></i>
                     <div class="stat-content">
                         <span class="stat-value" id="stat-tables">0</span>
                         <span class="stat-label">Tables</span>
                     </div>
                 </div>
                 <div class="stat">
-                    <i data-lucide="heading" class="stat-icon"></i>
+                    <i data-lucide="heading" class="stat-icon" aria-hidden="true"></i>
                     <div class="stat-content">
                         <span class="stat-value" id="stat-headings">0</span>
                         <span class="stat-label">Headings</span>
@@ -462,13 +490,13 @@
             
             <div class="stat-group stat-group-issues">
                 <div class="stat stat-issues">
-                    <i data-lucide="alert-triangle" class="stat-icon"></i>
+                    <i data-lucide="alert-triangle" class="stat-icon" aria-hidden="true"></i>
                     <div class="stat-content">
                         <span class="stat-value" id="stat-issues">--</span>
                         <span class="stat-label">Issues</span>
                     </div>
                 </div>
-                <div class="stat stat-score-container" id="stat-score-container" style="cursor: pointer;" title="Click to see score breakdown">
+                <button class="stat stat-score-container" id="stat-score-container" style="cursor: pointer; border: none; background: none; padding: 0;" title="Click to see score breakdown" aria-label="View document quality score breakdown">
                     <div class="score-ring" id="score-ring">
                         <svg viewBox="0 0 36 36">
                             <path class="score-ring-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
@@ -477,7 +505,7 @@
                         <span class="score-value" id="stat-score">--</span>
                     </div>
                     <span class="stat-label">Score</span>
-                </div>
+                </button>
                 <div class="stat stat-grade-display">
                     <span class="stat-value grade" id="stat-grade">--</span>
                     <span class="stat-label">Grade</span>
@@ -542,13 +570,13 @@
             </div>
             
             <!-- Batch Upload Modal -->
-            <div class="modal" id="batch-upload-modal">
+            <div class="modal" id="batch-upload-modal" role="dialog" aria-modal="true" aria-labelledby="batch-modal-title">
                 <div class="modal-overlay"></div>
                 <div class="modal-container" style="max-width:700px;">
                     <div class="modal-header">
-                        <h3><i data-lucide="folder-plus"></i> Batch Upload Documents</h3>
-                        <button class="btn btn-ghost" id="btn-close-batch-modal">
-                            <i data-lucide="x"></i>
+                        <h3 id="batch-modal-title"><i data-lucide="folder-plus" aria-hidden="true"></i> Batch Upload Documents</h3>
+                        <button class="btn btn-ghost" id="btn-close-batch-modal" aria-label="Close batch upload dialog">
+                            <i data-lucide="x" aria-hidden="true"></i>
                         </button>
                     </div>
                     <div class="modal-body">
@@ -556,16 +584,16 @@
                         <input type="file" id="batch-file-input" multiple accept=".docx,.pdf,.doc" style="display:none;">
                         <input type="file" id="batch-folder-input" webkitdirectory directory multiple style="display:none;">
 
-                        <div class="batch-dropzone" id="batch-dropzone">
-                            <i data-lucide="upload-cloud"></i>
+                        <div class="batch-dropzone" id="batch-dropzone" role="region" aria-label="Drag and drop zone for uploading documents">
+                            <i data-lucide="upload-cloud" aria-hidden="true"></i>
                             <p>Drop files or folders here</p>
                             <p class="text-muted">Supports .docx, .doc, and .pdf files (including subdirectories)</p>
                             <div class="batch-upload-buttons">
-                                <button type="button" class="btn btn-secondary btn-sm" id="btn-select-files">
-                                    <i data-lucide="file-plus"></i> Select Files
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-select-files" aria-label="Select files from your computer">
+                                    <i data-lucide="file-plus" aria-hidden="true"></i> Select Files
                                 </button>
-                                <button type="button" class="btn btn-secondary btn-sm" id="btn-select-folder">
-                                    <i data-lucide="folder-open"></i> Select Folder
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-select-folder" aria-label="Select a folder from your computer">
+                                    <i data-lucide="folder-open" aria-hidden="true"></i> Select Folder
                                 </button>
                             </div>
                             <p class="text-muted" style="margin-top: 8px; font-size: 11px; opacity: 0.7;">
@@ -928,10 +956,10 @@
                         </button>
                         <div class="category-dropdown-panel" id="category-dropdown-panel" style="display:none;">
                             <div class="category-dropdown-header">
-                                <input type="text" id="unified-category-search" class="form-input form-input-sm" placeholder="Search categories...">
+                                <input type="text" id="unified-category-search" class="form-input form-input-sm" placeholder="Search categories..." aria-label="Search and filter categories">
                                 <div class="category-quick-actions">
-                                    <button class="btn btn-xs btn-ghost" id="unified-cat-all" title="Select All">All</button>
-                                    <button class="btn btn-xs btn-ghost" id="unified-cat-none" title="Select None">None</button>
+                                    <button class="btn btn-xs btn-ghost" id="unified-cat-all" title="Select All" aria-label="Select all categories">All</button>
+                                    <button class="btn btn-xs btn-ghost" id="unified-cat-none" title="Select None" aria-label="Deselect all categories">None</button>
                                 </div>
                             </div>
                             <div class="category-dropdown-list" id="unified-category-list">
@@ -1244,7 +1272,7 @@
 <div class="modal" id="modal-export" role="dialog" aria-modal="true" aria-labelledby="modal-export-title">
     <div class="modal-content">
         <div class="modal-header">
-            <h3 id="modal-export-title"><i data-lucide="download"></i> Export Document</h3>
+            <h3 id="modal-export-title"><i data-lucide="download" aria-hidden="true"></i> Export Document</h3>
             <button class="btn btn-ghost modal-close" aria-label="Close modal"><i data-lucide="x"></i></button>
         </div>
         <div class="modal-body">
@@ -1822,8 +1850,8 @@
 <div class="modal modal-lg" id="modal-settings">
     <div class="modal-content">
         <div class="modal-header">
-        <h3><i data-lucide="settings"></i> Settings</h3>
-        <button class="btn btn-ghost modal-close"><i data-lucide="x"></i></button>
+        <h3><i data-lucide="settings" aria-hidden="true"></i> Settings</h3>
+        <button class="btn btn-ghost modal-close" aria-label="Close settings modal"><i data-lucide="x" aria-hidden="true"></i></button>
     </div>
     <div class="modal-body">
         <div class="settings-tabs">
@@ -2537,11 +2565,11 @@
             <div class="help-header-actions">
                 <!-- v2.9.6: Added search functionality (#55) -->
                 <div class="help-search-container">
-                    <i data-lucide="search"></i>
-                    <input type="text" id="help-search-input" class="help-search-input" placeholder="Search help..." autocomplete="off">
+                    <i data-lucide="search" aria-hidden="true"></i>
+                    <input type="text" id="help-search-input" class="help-search-input" placeholder="Search help..." autocomplete="off" aria-label="Search help documentation">
                 </div>
-                <button class="btn btn-ghost" id="btn-help-print" title="Print this section"><i data-lucide="printer"></i></button>
-                <button class="btn btn-ghost modal-close"><i data-lucide="x"></i></button>
+                <button class="btn btn-ghost" id="btn-help-print" title="Print this section" aria-label="Print help section"><i data-lucide="printer" aria-hidden="true"></i></button>
+                <button class="btn btn-ghost modal-close" aria-label="Close help modal"><i data-lucide="x" aria-hidden="true"></i></button>
             </div>
         </div>
         <div class="modal-body help-modal-body">
@@ -2551,36 +2579,36 @@
                 <!-- Fallback static content below will be replaced on init -->
                 <div class="help-nav-section">
                     <div class="help-nav-title">Getting Started</div>
-                    <button class="help-tab active" data-tab="quick-start"><i data-lucide="zap"></i> Quick Start</button>
-                    <button class="help-tab" data-tab="first-review"><i data-lucide="play-circle"></i> First Review</button>
-                    <button class="help-tab" data-tab="interface-tour"><i data-lucide="layout"></i> Interface Tour</button>
+                    <button class="help-tab active" data-tab="quick-start"><i data-lucide="zap" aria-hidden="true"></i> Quick Start</button>
+                    <button class="help-tab" data-tab="first-review"><i data-lucide="play-circle" aria-hidden="true"></i> First Review</button>
+                    <button class="help-tab" data-tab="interface-tour"><i data-lucide="layout" aria-hidden="true"></i> Interface Tour</button>
                 </div>
                 <div class="help-nav-section">
                     <div class="help-nav-title">Document Review</div>
-                    <button class="help-tab" data-tab="loading-docs"><i data-lucide="upload"></i> Loading Documents</button>
-                    <button class="help-tab" data-tab="review-types"><i data-lucide="sliders"></i> Review Types</button>
-                    <button class="help-tab" data-tab="understanding-results"><i data-lucide="bar-chart-2"></i> Understanding Results</button>
+                    <button class="help-tab" data-tab="loading-docs"><i data-lucide="upload" aria-hidden="true"></i> Loading Documents</button>
+                    <button class="help-tab" data-tab="review-types"><i data-lucide="sliders" aria-hidden="true"></i> Review Types</button>
+                    <button class="help-tab" data-tab="understanding-results"><i data-lucide="bar-chart-2" aria-hidden="true"></i> Understanding Results</button>
                 </div>
                 <div class="help-nav-section">
                     <div class="help-nav-title">Quality Checkers</div>
-                    <button class="help-tab" data-tab="checker-acronyms"><i data-lucide="a-large-small"></i> Acronyms</button>
-                    <button class="help-tab" data-tab="checker-grammar"><i data-lucide="spell-check"></i> Grammar</button>
-                    <button class="help-tab" data-tab="checker-hyperlinks"><i data-lucide="link"></i> Hyperlinks</button>
-                    <button class="help-tab" data-tab="checker-requirements"><i data-lucide="list-checks"></i> Requirements</button>
-                    <button class="help-tab" data-tab="checker-all"><i data-lucide="list"></i> All Checkers</button>
+                    <button class="help-tab" data-tab="checker-acronyms"><i data-lucide="a-large-small" aria-hidden="true"></i> Acronyms</button>
+                    <button class="help-tab" data-tab="checker-grammar"><i data-lucide="spell-check" aria-hidden="true"></i> Grammar</button>
+                    <button class="help-tab" data-tab="checker-hyperlinks"><i data-lucide="link" aria-hidden="true"></i> Hyperlinks</button>
+                    <button class="help-tab" data-tab="checker-requirements"><i data-lucide="list-checks" aria-hidden="true"></i> Requirements</button>
+                    <button class="help-tab" data-tab="checker-all"><i data-lucide="list" aria-hidden="true"></i> All Checkers</button>
                 </div>
                 <div class="help-nav-section">
                     <div class="help-nav-title">Roles & Statement Forge</div>
-                    <button class="help-tab" data-tab="role-detection"><i data-lucide="users"></i> Role Detection</button>
-                    <button class="help-tab" data-tab="role-matrix"><i data-lucide="grid-3x3"></i> RACI Matrix</button>
-                    <button class="help-tab" data-tab="forge-overview"><i data-lucide="hammer"></i> Statement Forge</button>
+                    <button class="help-tab" data-tab="role-detection"><i data-lucide="users" aria-hidden="true"></i> Role Detection</button>
+                    <button class="help-tab" data-tab="role-matrix"><i data-lucide="grid-3x3" aria-hidden="true"></i> RACI Matrix</button>
+                    <button class="help-tab" data-tab="forge-overview"><i data-lucide="hammer" aria-hidden="true"></i> Statement Forge</button>
                 </div>
                 <div class="help-nav-section">
                     <div class="help-nav-title">Reference</div>
-                    <button class="help-tab" data-tab="shortcuts"><i data-lucide="keyboard"></i> Shortcuts</button>
-                    <button class="help-tab" data-tab="trouble-common"><i data-lucide="wrench"></i> Troubleshooting</button>
-                    <button class="help-tab" data-tab="version-history"><i data-lucide="history"></i> Version History</button>
-                    <button class="help-tab" data-tab="about"><i data-lucide="info"></i> About</button>
+                    <button class="help-tab" data-tab="shortcuts"><i data-lucide="keyboard" aria-hidden="true"></i> Shortcuts</button>
+                    <button class="help-tab" data-tab="trouble-common"><i data-lucide="wrench" aria-hidden="true"></i> Troubleshooting</button>
+                    <button class="help-tab" data-tab="version-history"><i data-lucide="history" aria-hidden="true"></i> Version History</button>
+                    <button class="help-tab" data-tab="about"><i data-lucide="info" aria-hidden="true"></i> About</button>
                 </div>
                 <div class="help-nav-footer">
                     <span class="help-version" id="help-version"></span>
@@ -2605,8 +2633,8 @@
 <div class="modal modal-lg" id="modal-issue-detail">
     <div class="modal-content">
         <div class="modal-header">
-        <h3><i data-lucide="alert-circle"></i> Issue Details</h3>
-        <button class="btn btn-ghost modal-close"><i data-lucide="x"></i></button>
+        <h3><i data-lucide="alert-circle" aria-hidden="true"></i> Issue Details</h3>
+        <button class="btn btn-ghost modal-close" aria-label="Close issue details modal"><i data-lucide="x" aria-hidden="true"></i></button>
     </div>
     <div class="modal-body">
         <div class="issue-detail">
@@ -2637,9 +2665,9 @@
         </div>
     </div>
     <div class="modal-footer">
-        <button class="btn btn-secondary" id="btn-prev-issue"><i data-lucide="chevron-left"></i> Previous</button>
-        <button class="btn btn-secondary" id="btn-next-issue">Next <i data-lucide="chevron-right"></i></button>
-        <button class="btn btn-primary modal-close">Close</button>
+        <button class="btn btn-secondary" id="btn-prev-issue" aria-label="Show previous issue"><i data-lucide="chevron-left" aria-hidden="true"></i> Previous</button>
+        <button class="btn btn-secondary" id="btn-next-issue" aria-label="Show next issue">Next <i data-lucide="chevron-right" aria-hidden="true"></i></button>
+        <button class="btn btn-primary modal-close" aria-label="Close triage modal">Close</button>
     </div>
     </div>
 </div>
@@ -2652,13 +2680,13 @@
             <div class="roles-header-actions">
                 <!-- v2.9.7: Search functionality for roles -->
                 <div class="roles-search-container">
-                    <i data-lucide="search"></i>
-                    <input type="text" id="roles-global-search" class="roles-search-input" placeholder="Search roles..." autocomplete="off">
+                    <i data-lucide="search" aria-hidden="true"></i>
+                    <input type="text" id="roles-global-search" class="roles-search-input" placeholder="Search roles..." autocomplete="off" aria-label="Search roles by name">
                 </div>
                 <!-- v3.0.98: Document filter dropdown -->
                 <div class="roles-document-filter">
                     <span class="roles-document-filter-label">Filter by Document:</span>
-                    <select id="roles-document-filter" class="form-select" title="Filter roles by source document">
+                    <select id="roles-document-filter" class="form-select" title="Filter roles by source document" aria-label="Filter roles by document">
                         <option value="all">All Documents</option>
                         <!-- Populated dynamically -->
                     </select>
@@ -2693,35 +2721,35 @@
             <nav class="roles-sidebar" role="tablist">
                 <div class="roles-nav-section">
                     <div class="roles-nav-title">Analysis</div>
-                    <button class="roles-nav-item active" data-tab="overview" role="tab" aria-selected="true">
-                        <i data-lucide="layout-dashboard"></i> Overview
+                    <button class="roles-nav-item active" data-tab="overview" role="tab" aria-selected="true" aria-controls="roles-overview" id="tab-overview">
+                        <i data-lucide="layout-dashboard" aria-hidden="true"></i> Overview
                     </button>
-                    <button class="roles-nav-item" data-tab="graph" role="tab" aria-selected="false">
-                        <i data-lucide="git-branch"></i> Relationship Graph
+                    <button class="roles-nav-item" data-tab="graph" role="tab" aria-selected="false" aria-controls="roles-graph" id="tab-graph">
+                        <i data-lucide="git-branch" aria-hidden="true"></i> Relationship Graph
                     </button>
-                    <button class="roles-nav-item" data-tab="details" role="tab" aria-selected="false">
-                        <i data-lucide="list"></i> Role Details
+                    <button class="roles-nav-item" data-tab="details" role="tab" aria-selected="false" aria-controls="roles-details" id="tab-details">
+                        <i data-lucide="list" aria-hidden="true"></i> Role Details
                     </button>
-                    <button class="roles-nav-item" data-tab="matrix" role="tab" aria-selected="false">
-                        <i data-lucide="grid-3x3"></i> RACI Matrix
+                    <button class="roles-nav-item" data-tab="matrix" role="tab" aria-selected="false" aria-controls="roles-matrix" id="tab-matrix">
+                        <i data-lucide="grid-3x3" aria-hidden="true"></i> RACI Matrix
                     </button>
-                    <button class="roles-nav-item" data-tab="roledocmatrix" role="tab" aria-selected="false">
-                        <i data-lucide="table-2"></i> Role-Doc Matrix
+                    <button class="roles-nav-item" data-tab="roledocmatrix" role="tab" aria-selected="false" aria-controls="roles-roledocmatrix" id="tab-roledocmatrix">
+                        <i data-lucide="table-2" aria-hidden="true"></i> Role-Doc Matrix
                     </button>
                 </div>
                 <div class="roles-nav-section">
                     <div class="roles-nav-title">Workflow</div>
-                    <button class="roles-nav-item" data-tab="adjudication" role="tab" aria-selected="false">
-                        <i data-lucide="check-circle"></i> Adjudication
+                    <button class="roles-nav-item" data-tab="adjudication" role="tab" aria-selected="false" aria-controls="roles-adjudication" id="tab-adjudication">
+                        <i data-lucide="check-circle" aria-hidden="true"></i> Adjudication
                     </button>
                 </div>
                 <div class="roles-nav-section">
                     <div class="roles-nav-title">Management</div>
-                    <button class="roles-nav-item" data-tab="dictionary" role="tab" aria-selected="false">
-                        <i data-lucide="book-open"></i> Role Dictionary
+                    <button class="roles-nav-item" data-tab="dictionary" role="tab" aria-selected="false" aria-controls="roles-dictionary" id="tab-dictionary">
+                        <i data-lucide="book-open" aria-hidden="true"></i> Role Dictionary
                     </button>
-                    <button class="roles-nav-item" data-tab="documents" role="tab" aria-selected="false">
-                        <i data-lucide="file-text"></i> Document Log
+                    <button class="roles-nav-item" data-tab="documents" role="tab" aria-selected="false" aria-controls="roles-documents" id="tab-documents">
+                        <i data-lucide="file-text" aria-hidden="true"></i> Document Log
                     </button>
                 </div>
                 <div class="roles-nav-footer">
@@ -2811,7 +2839,7 @@
             </div>
 
             <!-- Graph Tab -->
-            <div class="roles-section" id="roles-graph" style="display:none;">
+            <div class="roles-section" id="roles-graph" style="display:none;" role="tabpanel" aria-labelledby="tab-graph">
                 <!-- v4.4 Quick Actions Toolbar -->
                 <div class="roles-quick-actions" style="margin-bottom: 8px;">
                     <button class="btn btn-outline btn-sm" onclick="TWR.FunctionTags?.showReportsModal()" title="Generate Reports">
@@ -3114,7 +3142,7 @@
             </div>
             
             <!-- Details Tab -->
-            <div class="roles-section" id="roles-details" style="display:none;">
+            <div class="roles-section" id="roles-details" style="display:none;" role="tabpanel" aria-labelledby="tab-details">
                 <div class="roles-filter-bar">
                     <input type="text" id="roles-search" class="form-input" placeholder="Search roles...">
                     <select id="roles-sort" class="form-select">
@@ -3129,7 +3157,7 @@
             </div>
             
             <!-- Matrix Tab - v2.9.7: Interactive RACI Matrix -->
-            <div class="roles-section" id="roles-matrix" style="display:none;">
+            <div class="roles-section" id="roles-matrix" style="display:none;" role="tabpanel" aria-labelledby="tab-matrix">
                 <div class="raci-header">
                     <h4><i data-lucide="grid-3x3"></i> RACI Responsibility Matrix</h4>
                     <p class="help-text">Click cells to edit RACI assignments. R=Responsible, A=Accountable, C=Consulted, I=Informed.</p>
@@ -3189,7 +3217,7 @@
             </div>
             
             <!-- Role-Document Matrix Tab - v3.0.97: Cross-document role mapping -->
-            <div class="roles-section" id="roles-roledocmatrix" style="display:none;">
+            <div class="roles-section" id="roles-roledocmatrix" style="display:none;" role="tabpanel" aria-labelledby="tab-roledocmatrix">
                 <div class="roledoc-header">
                     <h4><i data-lucide="table-2"></i> Role-Document Matrix</h4>
                     <p class="help-text">Cross-reference showing which roles appear in which documents. ✓ indicates the role was found in that document.</p>
@@ -3230,7 +3258,7 @@
             </div>
             
             <!-- Role Adjudication Tab - v4.0.3: Complete overhaul with dashboard, kanban, auto-classify -->
-            <div class="roles-section" id="roles-adjudication" style="display:none;">
+            <div class="roles-section" id="roles-adjudication" style="display:none;" role="tabpanel" aria-labelledby="tab-adjudication">
                 <!-- Dashboard Header -->
                 <div class="adj-dashboard">
                     <div class="adj-dashboard-left">
@@ -3414,7 +3442,7 @@
             </div>
             
             <!-- Role Dictionary Tab -->
-            <div class="roles-section" id="roles-dictionary" style="display:none;">
+            <div class="roles-section" id="roles-dictionary" style="display:none;" role="tabpanel" aria-labelledby="tab-dictionary">
                 <div class="dictionary-header">
                     <h4><i data-lucide="book-open"></i> Role Dictionary</h4>
                     <p class="text-muted">Manage known roles used for extraction. Changes affect future scans.</p>
@@ -3463,17 +3491,17 @@
                     <span id="dict-filter-count" class="dict-filter-count"></span>
                     <div style="flex:1;"></div>
                     <div class="dict-view-toggle">
-                        <button class="dict-view-btn active" data-view="table" title="Table view (T)"><i data-lucide="list"></i></button>
-                        <button class="dict-view-btn" data-view="card" title="Card view (T)"><i data-lucide="layout-grid"></i></button>
-                        <button class="dict-view-btn" data-view="hierarchy" title="Inheritance view"><i data-lucide="git-branch"></i></button>
+                        <button class="dict-view-btn active" data-view="table" title="Table view (T)" aria-label="Switch to table view"><i data-lucide="list" aria-hidden="true"></i></button>
+                        <button class="dict-view-btn" data-view="card" title="Card view (T)" aria-label="Switch to card view"><i data-lucide="layout-grid" aria-hidden="true"></i></button>
+                        <button class="dict-view-btn" data-view="hierarchy" title="Inheritance view" aria-label="Switch to hierarchy view"><i data-lucide="git-branch" aria-hidden="true"></i></button>
                     </div>
                     <div class="btn-divider"></div>
-                    <div class="btn-group" title="Team Sharing">
-                        <button class="btn btn-secondary btn-sm" id="btn-sync-dictionary" title="Sync from shared master file">
-                            <i data-lucide="refresh-cw"></i> Sync
+                    <div class="btn-group" title="Team Sharing" role="group" aria-label="Team sharing and synchronization">
+                        <button class="btn btn-secondary btn-sm" id="btn-sync-dictionary" title="Sync from shared master file" aria-label="Synchronize dictionary from shared master file">
+                            <i data-lucide="refresh-cw" aria-hidden="true"></i> Sync
                         </button>
-                        <button class="btn btn-secondary btn-sm" id="btn-download-master" title="Download shareable master file">
-                            <i data-lucide="share-2"></i> Share
+                        <button class="btn btn-secondary btn-sm" id="btn-download-master" title="Download shareable master file" aria-label="Download and share master dictionary file">
+                            <i data-lucide="share-2" aria-hidden="true"></i> Share
                         </button>
                     </div>
                     <div class="btn-divider"></div>
@@ -3482,15 +3510,15 @@
                     </button>
                     <div class="dict-import-dropdown" style="position:relative;display:inline-block;">
                         <button class="btn btn-secondary btn-sm" id="btn-import-dictionary" title="Import roles from file">
-                            <i data-lucide="upload"></i> Import <i data-lucide="chevron-down" style="width:12px;height:12px;margin-left:2px;"></i>
+                            <i data-lucide="upload" aria-hidden="true"></i> Import <i data-lucide="chevron-down" style="width:12px;height:12px;margin-left:2px;" aria-hidden="true"></i>
                         </button>
-                        <div class="dict-import-menu" id="dict-import-menu">
-                            <button class="dict-import-option" data-import="csv"><i data-lucide="file-spreadsheet"></i> Import CSV / Excel</button>
-                            <button class="dict-import-option" data-import="sipoc"><i data-lucide="git-branch"></i> Nimbus SIPOC Import</button>
+                        <div class="dict-import-menu" id="dict-import-menu" role="menu">
+                            <button class="dict-import-option" data-import="csv" role="menuitem"><i data-lucide="file-spreadsheet" aria-hidden="true"></i> Import CSV / Excel</button>
+                            <button class="dict-import-option" data-import="sipoc" role="menuitem"><i data-lucide="git-branch" aria-hidden="true"></i> Nimbus SIPOC Import</button>
                         </div>
                     </div>
-                    <button class="btn btn-secondary btn-sm" id="btn-export-dictionary" title="Export to CSV">
-                        <i data-lucide="download"></i> Export CSV
+                    <button class="btn btn-secondary btn-sm" id="btn-export-dictionary" title="Export to CSV" aria-label="Export dictionary to CSV file">
+                        <i data-lucide="download" aria-hidden="true"></i> Export CSV
                     </button>
                     <button class="btn btn-secondary btn-sm" id="btn-download-template" title="Download blank template for manual role entry">
                         <i data-lucide="file-plus"></i> Template
@@ -3521,15 +3549,15 @@
                 <!-- Bulk Operations Bar -->
                 <div id="dict-bulk-bar" class="dict-bulk-bar" style="display:none;">
                     <span class="dict-bulk-count">0 selected</span>
-                    <div class="dict-bulk-actions">
-                        <button class="btn btn-sm btn-secondary" data-bulk="activate"><i data-lucide="eye"></i> Activate</button>
-                        <button class="btn btn-sm btn-secondary" data-bulk="deactivate"><i data-lucide="eye-off"></i> Deactivate</button>
-                        <button class="btn btn-sm btn-secondary" data-bulk="set-category"><i data-lucide="tag"></i> Set Category</button>
-                        <button class="btn btn-sm btn-secondary" data-bulk="mark-deliverable"><i data-lucide="star"></i> Mark Deliverable</button>
-                        <button class="btn btn-sm btn-secondary" data-bulk="unmark-deliverable"><i data-lucide="star-off"></i> Unmark Deliverable</button>
-                        <button class="btn btn-sm btn-danger" data-bulk="delete"><i data-lucide="trash-2"></i> Delete</button>
+                    <div class="dict-bulk-actions" role="group" aria-label="Bulk actions for selected roles">
+                        <button class="btn btn-sm btn-secondary" data-bulk="activate" aria-label="Activate selected roles"><i data-lucide="eye" aria-hidden="true"></i> Activate</button>
+                        <button class="btn btn-sm btn-secondary" data-bulk="deactivate" aria-label="Deactivate selected roles"><i data-lucide="eye-off" aria-hidden="true"></i> Deactivate</button>
+                        <button class="btn btn-sm btn-secondary" data-bulk="set-category" aria-label="Set category for selected roles"><i data-lucide="tag" aria-hidden="true"></i> Set Category</button>
+                        <button class="btn btn-sm btn-secondary" data-bulk="mark-deliverable" aria-label="Mark selected roles as deliverable"><i data-lucide="star" aria-hidden="true"></i> Mark Deliverable</button>
+                        <button class="btn btn-sm btn-secondary" data-bulk="unmark-deliverable" aria-label="Unmark selected roles as deliverable"><i data-lucide="star-off" aria-hidden="true"></i> Unmark Deliverable</button>
+                        <button class="btn btn-sm btn-danger" data-bulk="delete" aria-label="Delete selected roles"><i data-lucide="trash-2" aria-hidden="true"></i> Delete</button>
                     </div>
-                    <button class="btn btn-ghost btn-xs dict-bulk-clear" onclick="TWR.DictFix.bulkAction('clear')"><i data-lucide="x"></i></button>
+                    <button class="btn btn-ghost btn-xs dict-bulk-clear" onclick="TWR.DictFix.bulkAction('clear')" aria-label="Clear selection"><i data-lucide="x" aria-hidden="true"></i></button>
                 </div>
 
                 <!-- Content Area (Table or Card view rendered here) -->
@@ -3552,12 +3580,12 @@
             </div>
             
             <!-- Add/Edit Role Modal -->
-            <div class="modal" id="edit-role-modal" style="display:none;">
+            <div class="modal" id="edit-role-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="edit-role-title">
                 <div class="modal-overlay"></div>
                 <div class="modal-container" style="max-width:540px;">
                     <div class="modal-header">
                         <h3 id="edit-role-title">Add Role</h3>
-                        <button class="btn btn-ghost" id="btn-close-role-modal"><i data-lucide="x"></i></button>
+                        <button class="btn btn-ghost" id="btn-close-role-modal" aria-label="Close edit role dialog"><i data-lucide="x" aria-hidden="true"></i></button>
                     </div>
                     <div class="modal-body">
                         <input type="hidden" id="edit-role-id">
@@ -3633,7 +3661,7 @@
             </div>
             
             <!-- Role Detail Card Modal -->
-            <div class="modal" id="role-detail-modal" style="display:none;">
+            <div class="modal" id="role-detail-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="role-detail-title">
                 <div class="modal-overlay" onclick="document.getElementById('role-detail-modal').style.display='none';document.getElementById('role-detail-modal').classList.remove('active');"></div>
                 <div class="modal-content" style="max-width:760px;padding:0;border-radius:var(--radius-xl, 16px);">
                     <div id="role-detail-body">
@@ -3644,12 +3672,12 @@
 
             <!-- Import Dictionary Modal -->
             <!-- v2.9.1 D2: Smart Import Wizard (5-step flow) -->
-            <div class="modal" id="import-dict-modal" style="display:none;">
+            <div class="modal" id="import-dict-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="import-wizard-title">
                 <div class="modal-overlay"></div>
                 <div class="modal-container" style="max-width:650px;">
                     <div class="modal-header">
                         <h3 id="import-wizard-title">Import Roles - Step 1 of 5</h3>
-                        <button class="btn btn-ghost" id="btn-close-import-modal"><i data-lucide="x"></i></button>
+                        <button class="btn btn-ghost" id="btn-close-import-modal" aria-label="Close import wizard dialog"><i data-lucide="x" aria-hidden="true"></i></button>
                     </div>
                     <div class="modal-body">
                         <!-- Step 1: Select File -->
@@ -3753,12 +3781,12 @@
             </div>
             
             <!-- SIPOC Import Modal (v4.1.0) -->
-            <div class="modal" id="sipoc-import-modal" style="display:none;">
+            <div class="modal" id="sipoc-import-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="sipoc-wizard-title">
                 <div class="modal-overlay"></div>
                 <div class="modal-container" style="max-width:720px;">
                     <div class="modal-header">
-                        <h3 id="sipoc-wizard-title"><i data-lucide="git-branch"></i> Nimbus SIPOC Import</h3>
-                        <button class="btn btn-ghost" onclick="if(window.TWR?.DictFix?.closeSipocModal) TWR.DictFix.closeSipocModal(); else { var m=document.getElementById('sipoc-import-modal'); if(m){m.style.display='none';m.classList.remove('active');} }"><i data-lucide="x"></i></button>
+                        <h3 id="sipoc-wizard-title"><i data-lucide="git-branch" aria-hidden="true"></i> Nimbus SIPOC Import</h3>
+                        <button class="btn btn-ghost" aria-label="Close SIPOC import dialog" onclick="if(window.TWR?.DictFix?.closeSipocModal) TWR.DictFix.closeSipocModal(); else { var m=document.getElementById('sipoc-import-modal'); if(m){m.style.display='none';m.classList.remove('active');} }"><i data-lucide="x" aria-hidden="true"></i></button>
                     </div>
                     <div class="modal-body">
                         <!-- Step 1: Upload -->
@@ -3878,12 +3906,12 @@
             </div>
 
             <!-- Hierarchy Export Filter Modal (v4.1.0) -->
-            <div class="modal" id="hierarchy-export-modal" style="display:none;">
+            <div class="modal" id="hierarchy-export-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="hierarchy-export-title">
                 <div class="modal-overlay"></div>
                 <div class="modal-container" style="max-width:560px;">
                     <div class="modal-header">
-                        <h3><i data-lucide="git-branch"></i> Export Role Inheritance Map</h3>
-                        <button class="btn btn-ghost" onclick="var hm=document.getElementById('hierarchy-export-modal'); if(hm){hm.style.display='none';hm.classList.remove('active');}"><i data-lucide="x"></i></button>
+                        <h3 id="hierarchy-export-title"><i data-lucide="git-branch" aria-hidden="true"></i> Export Role Inheritance Map</h3>
+                        <button class="btn btn-ghost" aria-label="Close hierarchy export dialog" onclick="var hm=document.getElementById('hierarchy-export-modal'); if(hm){hm.style.display='none';hm.classList.remove('active');}"><i data-lucide="x" aria-hidden="true"></i></button>
                     </div>
                     <div class="modal-body">
                         <p class="text-muted" style="margin-bottom:16px;">Configure which roles to include in the interactive HTML export.</p>
@@ -3948,7 +3976,7 @@
             </div>
 
             <!-- Document Log Tab -->
-            <div class="roles-section" id="roles-documents" style="display:none;">
+            <div class="roles-section" id="roles-documents" style="display:none;" role="tabpanel" aria-labelledby="tab-documents">
                 <div class="document-log-header">
                     <h4>Documents Contributing to Role Analysis</h4>
                     <div class="document-log-actions">
@@ -4030,11 +4058,11 @@
 </div>
 
 <!-- Save Profile Modal -->
-<div class="modal" id="modal-save-profile">
+<div class="modal" id="modal-save-profile" role="dialog" aria-modal="true" aria-labelledby="save-profile-title">
     <div class="modal-content">
         <div class="modal-header">
-            <h3><i data-lucide="bookmark"></i> Save Scan Profile</h3>
-            <button class="btn btn-ghost modal-close"><i data-lucide="x"></i></button>
+            <h3 id="save-profile-title"><i data-lucide="bookmark" aria-hidden="true"></i> Save Scan Profile</h3>
+            <button class="btn btn-ghost modal-close" aria-label="Close save profile dialog"><i data-lucide="x" aria-hidden="true"></i></button>
         </div>
         <div class="modal-body">
             <div class="form-group">
@@ -5624,20 +5652,20 @@
 
         <!-- Tab Bar -->
         <nav class="ma-tab-bar" role="tablist">
-            <button class="ma-tab active" data-tab="overview" role="tab" aria-selected="true">
-                <i data-lucide="layout-dashboard"></i> Overview
+            <button class="ma-tab active" data-tab="overview" role="tab" aria-selected="true" aria-controls="ma-tab-overview" id="ma-tab-btn-overview">
+                <i data-lucide="layout-dashboard" aria-hidden="true"></i> Overview
             </button>
-            <button class="ma-tab" data-tab="quality" role="tab" aria-selected="false">
-                <i data-lucide="shield-check"></i> Quality
+            <button class="ma-tab" data-tab="quality" role="tab" aria-selected="false" aria-controls="ma-tab-quality" id="ma-tab-btn-quality">
+                <i data-lucide="shield-check" aria-hidden="true"></i> Quality
             </button>
-            <button class="ma-tab" data-tab="statements" role="tab" aria-selected="false">
-                <i data-lucide="list-checks"></i> Statements
+            <button class="ma-tab" data-tab="statements" role="tab" aria-selected="false" aria-controls="ma-tab-statements" id="ma-tab-btn-statements">
+                <i data-lucide="list-checks" aria-hidden="true"></i> Statements
             </button>
-            <button class="ma-tab" data-tab="roles" role="tab" aria-selected="false">
-                <i data-lucide="users"></i> Roles
+            <button class="ma-tab" data-tab="roles" role="tab" aria-selected="false" aria-controls="ma-tab-roles" id="ma-tab-btn-roles">
+                <i data-lucide="users" aria-hidden="true"></i> Roles
             </button>
-            <button class="ma-tab" data-tab="documents" role="tab" aria-selected="false">
-                <i data-lucide="file-stack"></i> Documents
+            <button class="ma-tab" data-tab="documents" role="tab" aria-selected="false" aria-controls="ma-tab-documents" id="ma-tab-btn-documents">
+                <i data-lucide="file-stack" aria-hidden="true"></i> Documents
             </button>
         </nav>
 
@@ -5645,7 +5673,7 @@
         <div class="ma-content" id="ma-content">
 
             <!-- Overview Tab -->
-            <div class="ma-tab-content active" id="ma-tab-overview" role="tabpanel">
+            <div class="ma-tab-content active" id="ma-tab-overview" role="tabpanel" aria-labelledby="ma-tab-btn-overview">
                 <!-- Hero Stats -->
                 <div class="ma-hero-stats" id="ma-overview-hero">
                     <div class="ma-stat-card" data-metric="documents">
@@ -5749,7 +5777,7 @@
             </div>
 
             <!-- Quality Tab -->
-            <div class="ma-tab-content" id="ma-tab-quality" role="tabpanel">
+            <div class="ma-tab-content" id="ma-tab-quality" role="tabpanel" aria-labelledby="ma-tab-btn-quality">
                 <div class="ma-hero-stats" id="ma-quality-hero"></div>
                 <div class="ma-chart-grid ma-grid-60-40">
                     <div class="ma-chart-box">
@@ -5774,7 +5802,7 @@
             </div>
 
             <!-- Statements Tab -->
-            <div class="ma-tab-content" id="ma-tab-statements" role="tabpanel">
+            <div class="ma-tab-content" id="ma-tab-statements" role="tabpanel" aria-labelledby="ma-tab-btn-statements">
                 <div class="ma-hero-stats" id="ma-statements-hero"></div>
                 <div class="ma-chart-grid ma-grid-50-50">
                     <div class="ma-chart-box">
@@ -5803,7 +5831,7 @@
             </div>
 
             <!-- Roles Tab -->
-            <div class="ma-tab-content" id="ma-tab-roles" role="tabpanel">
+            <div class="ma-tab-content" id="ma-tab-roles" role="tabpanel" aria-labelledby="ma-tab-btn-roles">
                 <div class="ma-hero-stats" id="ma-roles-hero"></div>
                 <div class="ma-chart-grid ma-grid-50-50">
                     <div class="ma-chart-box">
@@ -5834,7 +5862,7 @@
             </div>
 
             <!-- Documents Tab -->
-            <div class="ma-tab-content" id="ma-tab-documents" role="tabpanel">
+            <div class="ma-tab-content" id="ma-tab-documents" role="tabpanel" aria-labelledby="ma-tab-btn-documents">
                 <div class="ma-hero-stats" id="ma-documents-hero"></div>
                 <div class="ma-chart-grid ma-grid-3col">
                     <div class="ma-chart-box">
@@ -5978,5 +6006,7 @@
 <script src="/static/js/features/statement-source-viewer.js"></script>
 <!-- Landing Page (v4.5.1) - Premium standalone landing page with particle animation -->
 <script src="/static/js/features/landing-page.js"></script>
+<!-- Guide System (v1.0.0) - Cinematic contextual help & guided tour system -->
+<script src="/static/js/features/guide-system.js"></script>
 </body>
 </html>

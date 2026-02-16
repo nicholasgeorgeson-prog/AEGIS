@@ -2030,6 +2030,24 @@ class AEGISEngine:
             'check_mil_std_40051': 'mil_std_40051',
             'check_s1000d': 's1000d_basic',
             'check_as9100': 'as9100_doc',
+            # v5.0.0: Hidden checkers now exposed with UI controls
+            # Writing Quality & Structure
+            'check_dangling_modifiers': 'dangling_modifiers',
+            'check_parallel_structure': 'parallel_structure',
+            'check_run_on_sentences': 'run_on_sentences',
+            'check_sentence_fragments': 'sentence_fragments',
+            'check_hyphenation': 'hyphenation',
+            # Technical Writing & Requirements
+            'check_number_format': 'number_format',
+            'check_units': 'units',
+            'check_terminology': 'terminology',
+            'check_serial_comma': 'serial_comma',
+            'check_enhanced_references': 'enhanced_references',
+            # Requirements Quality
+            'check_requirement_traceability': 'requirement_traceability',
+            'check_vague_quantifier': 'vague_quantifier',
+            'check_verification_method': 'verification_method',
+            'check_ambiguous_scope': 'ambiguous_scope',
         }
         
         # Build list of enabled checkers first for progress tracking
@@ -2043,15 +2061,13 @@ class AEGISEngine:
                 enabled_checkers.append(checker_name)
         
         # Add additional checkers that exist
+        # Note: Checkers moved to option_mapping in v5.0.0 are:
+        # - units, number_format, terminology, hyphenation, serial_comma, enhanced_references,
+        # - dangling_modifiers, run_on_sentences, sentence_fragments, parallel_structure,
+        # - requirement_traceability, vague_quantifier, verification_method, ambiguous_scope
         additional_checkers = [
-            'units', 'number_format', 'terminology',
-            'redundancy', 'hyphenation', 'serial_comma', 'enhanced_references',
-            'hedging', 'weasel_words', 'cliches', 'dangling_modifiers',
-            'run_on_sentences', 'sentence_fragments', 'parallel_structure',
-            'mil_std', 'do178', 'accessibility',
-            # v5.0.0: Requirement Quality Checkers
-            'requirement_traceability', 'vague_quantifier',
-            'verification_method', 'ambiguous_scope'
+            'redundancy', 'hedging', 'weasel_words', 'cliches',
+            'mil_std', 'do178', 'accessibility'
         ]
         already_handled = set(option_mapping.values()) - {None}
         for checker_name in additional_checkers:

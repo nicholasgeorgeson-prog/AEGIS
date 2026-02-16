@@ -4,6 +4,54 @@ All notable changes to AEGIS (Aerospace Engineering Governance & Inspection Syst
 
 ---
 
+## [5.1.0] - 2026-02-16 - Security Hardening + Accessibility + Print Support
+
+### Security & CSRF Protection
+- **@require_csrf decorator** added to 9 unprotected POST routes (SOW generation, presets, analyzers, diagnostics email)
+- **Fresh CSRF token pattern** implemented in 18+ JavaScript functions using `_getFreshCsrf()` helper
+- **Data management handlers** fixed to use fresh tokens for clear operations (statements, roles, learning, factory reset)
+- **Popup blocker vulnerability** fixed in statement history exports (replaced window.open after await with iframe pattern)
+
+### Review Engine Quality Improvements
+- **spaCy singleton pattern** fixed for shared model instances (performance improvement, prevents multiple model loads)
+- **Issue deduplication key** improved from 50 to 80 characters (includes rule_id for better uniqueness)
+- **18 aerospace adjectival participles** added to passive voice whitelist (improved accuracy for technical docs)
+- **All 83 checkers verified** with 14 new UI toggles in Settings → Document Profiles
+
+### Accessibility (WCAG 2.1 Level A)
+- **134 aria-label attributes** added across all UI elements
+- **28 modals** updated with `role="dialog"` and `aria-modal="true"`
+- **Tab navigation systems** enhanced with `role="tablist"`, `role="tab"`, `role="tabpanel"`
+- **116 decorative icons** marked with `aria-hidden="true"`
+
+### Print Support
+- **New print.css stylesheet** for optimized document printing
+- **Non-printable elements** hidden (sidebar, toolbar, toasts, modals)
+- **Tables and typography** optimized for print with proper spacing and page breaks
+- **Link URLs displayed** after links for reference in printed documents
+
+### UI/UX Improvements
+- **Folder browse button** now opens native OS folder picker via backend API (instead of file upload dialog)
+- **Dropdown z-index conflict** fixed with toast notifications (raised dropdowns appropriately)
+- **Dark mode overrides** added for modal radio card components
+- **Statement history exports** use fresh CSRF to avoid popup blocker
+
+### Windows Offline Installation
+- **195 Windows x64 wheel files** bundled for air-gapped installation
+- **Dependencies included**: numpy, pandas, scipy, scikit-learn, spaCy, docling, openpyxl, flask, etc.
+- **torch (139MB)** available via GitHub Release download link
+- **download_win_wheels.py** script for connected Windows environments (auto-downloads all wheels)
+- **install_offline.bat** updated to support both wheel directories and verify installation
+
+### Critical Bug Fixes
+- **Landing page 0 roles** fixed with fallback from role_dictionary to roles table
+- **Source document not loading** when clicking roles in Adjudication view
+- **Updater spinning forever** fixed with 15s timeout and AbortController
+- **Diagnostic email export** fixed (changed from GET to POST with fresh CSRF)
+- **Version display stale** after update fixed (removed import-time caching)
+
+---
+
 ## [5.0.0] - 2026-02-15 - Multiprocessing Architecture + Role Extraction Overhaul
 
 ### Multiprocessing Architecture

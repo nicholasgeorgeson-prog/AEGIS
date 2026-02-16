@@ -2,7 +2,7 @@
  * AEGIS Help Documentation System
  * ==========================================
  * Comprehensive documentation for all features.
- * Version: 4.9.9
+ * Version: 5.1.0
  *
  * Complete overhaul with:
  * - Beautiful visual design with icons and illustrations
@@ -10,6 +10,8 @@
  * - Technical deep-dive section for advanced users
  * - Smooth navigation and professional typography
  *
+ * v5.1.0 - Security Hardening + Accessibility + Print Support (CSRF protection, WCAG 2.1 A compliance, print.css, folder browser, Windows wheels)
+ * v5.0.0 - Multiprocessing Architecture + Role Extraction (separate processes, 3-layer filtering, 30+ aerospace roles, NASA 297-page test)
  * v4.9.9 - Statement Source Viewer & Error Handling (highlight-to-select editing, SOW fixes, timezone import, error message extraction)
  * v4.9.5 - Version Management Overhaul (get_version(), cache-busting regex, duplicate version.json fix)
  * v4.9.0 - Landing Page Stability + Offline Distribution (async init race condition, toast z-index, offline wheels)
@@ -32,8 +34,8 @@
 'use strict';
 
 const HelpDocs = {
-    version: '4.9.9',
-    lastUpdated: '2026-02-15',
+    version: '5.1.0',
+    lastUpdated: '2026-02-16',
     
     config: {
         searchEnabled: true,
@@ -6721,6 +6723,43 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.1.0 <span class="changelog-date">February 16, 2026</span></h3>
+        <p><strong>Security Hardening + Accessibility + Print Support</strong></p>
+        <ul>
+            <li><strong>SECURITY: CSRF Protection</strong> — Added @require_csrf to 9 unprotected POST routes (SOW, presets, analyzers, diagnostics)</li>
+            <li><strong>SECURITY: Fresh Token Pattern</strong> — Implemented in 18+ JavaScript functions with _getFreshCsrf() helper</li>
+            <li><strong>SECURITY: Data Management Fixed</strong> — Clear scan history, statements, roles, learning, and factory reset all use fresh CSRF</li>
+            <li><strong>ARCHITECTURE: spaCy Singleton</strong> — Fixed model instance sharing to improve performance, prevent multiple loads</li>
+            <li><strong>QUALITY: Deduplication Key</strong> — Improved from 50 to 80 characters with rule_id for better uniqueness</li>
+            <li><strong>QUALITY: Passive Voice Whitelist</strong> — Added 18 aerospace adjectival participles for technical docs</li>
+            <li><strong>QUALITY: All Checkers Verified</strong> — 83 checkers working with 14 new UI toggles (Writing Quality, Technical, Requirements)</li>
+            <li><strong>ACCESSIBILITY: WCAG 2.1 Level A</strong> — 134 aria-labels, 28 modals with role/aria-modal, 116 aria-hidden, tab roles on all navigation</li>
+            <li><strong>PRINT: print.css Stylesheet</strong> — Optimized for document printing: hidden sidebar/toolbar/toasts, proper page breaks, URL display after links</li>
+            <li><strong>UI: Folder Browse Button</strong> — Now opens native OS folder picker via backend API instead of file dialog</li>
+            <li><strong>UI: Dropdown Z-Index</strong> — Fixed conflict with toast notifications (toasts always on top at z-index 200000)</li>
+            <li><strong>UI: Dark Mode Radio Cards</strong> — Added overrides for modal radio card components in dark mode</li>
+            <li><strong>INSTALL: Windows Wheels</strong> — 195 pre-built x64 wheels for air-gapped installation (numpy, pandas, scipy, scikit-learn, spaCy, docling, etc.)</li>
+            <li><strong>INSTALL: download_win_wheels.py</strong> — Script for connected environments to auto-download all wheels</li>
+            <li><strong>INSTALL: install_offline.bat Updated</strong> — Now supports both wheel directories for flexible deployment</li>
+            <li><strong>FIX: Landing Page 0 Roles</strong> — Fallback from role_dictionary to roles table when not initialized</li>
+            <li><strong>FIX: Source Document Loading</strong> — Clicking roles in Adjudication now correctly loads source document</li>
+            <li><strong>FIX: Updater Timeout</strong> — Added 15s timeout with AbortController to prevent spinning forever</li>
+            <li><strong>FIX: Diagnostic Email Export</strong> — Changed from GET to POST with fresh CSRF token</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.0.0 <span class="changelog-date">February 15, 2026</span></h3>
+        <p><strong>Multiprocessing Architecture + Role Extraction Overhaul</strong></p>
+        <ul>
+            <li><strong>ARCHITECTURE: Multiprocessing</strong> — Review jobs run in separate Process (not thread) for server responsiveness and crash isolation</li>
+            <li><strong>ARCHITECTURE: Per-Doc Timeout</strong> — 600s default with graceful process termination and progress via multiprocessing.Queue</li>
+            <li><strong>ROLE EXTRACTION v3.5.0: 3-Layer Filtering</strong> — Organization entities, confidence threshold, single-word variants removed</li>
+            <li><strong>ROLE EXTRACTION: 30+ New Aerospace Roles</strong> — Technical fellow, mission systems engineer, failure review board, and more</li>
+            <li><strong>ROLE EXTRACTION: Discovery Mode</strong> — Filters organization entities, low-confidence roles, and stopword roles</li>
+            <li><strong>TESTED: NASA SE Handbook</strong> — 297 pages with false positives reduced from 44% to <5%</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v4.9.9 <span class="changelog-date">February 15, 2026</span></h3>
         <p><strong>Statement Source Viewer + Error Handling + Windows Compatibility</strong></p>
         <ul>

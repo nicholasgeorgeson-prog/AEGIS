@@ -595,6 +595,17 @@ TWR.LandingPage = (function() {
             });
         }
 
+        // v1.0.0: Getting Started card (Guide System integration)
+        const gettingStartedCard = page.querySelector('#lp-getting-started');
+        if (gettingStartedCard) {
+            gettingStartedCard.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (window.AEGISGuide && typeof window.AEGISGuide.startFullTour === 'function') {
+                    window.AEGISGuide.startFullTour();
+                }
+            });
+        }
+
         // v4.6.2-fix: Theme toggle button on landing page
         const themeBtn = document.getElementById('lp-btn-theme');
         if (themeBtn) {
