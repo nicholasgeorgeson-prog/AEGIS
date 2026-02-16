@@ -1305,44 +1305,76 @@ const AEGISGuide = {
     },
 
     positionTooltip(tooltip, targetRect, position) {
-        const margin = 20;
+        const margin = 16;
         const vw = window.innerWidth;
         const vh = window.innerHeight;
+        const pad = 12;
 
-        // Reset position to measure
+        // Reset position to measure natural size
         tooltip.style.position = 'fixed';
         tooltip.style.top = '0';
         tooltip.style.left = '0';
         tooltip.style.visibility = 'hidden';
         tooltip.style.display = 'block';
+        tooltip.style.maxWidth = Math.min(420, vw - pad * 2) + 'px';
 
         const tRect = tooltip.getBoundingClientRect();
+        const targetCenterX = targetRect.left + targetRect.width / 2;
+        const targetCenterY = targetRect.top + targetRect.height / 2;
         let top, left;
 
+        // ── Step 1: Calculate preferred position ──
         switch (position) {
             case 'top':
                 top = targetRect.top - tRect.height - margin;
-                left = targetRect.left + (targetRect.width - tRect.width) / 2;
+                left = targetCenterX - tRect.width / 2;
                 break;
             case 'left':
-                top = targetRect.top + (targetRect.height - tRect.height) / 2;
+                top = targetCenterY - tRect.height / 2;
                 left = targetRect.left - tRect.width - margin;
                 break;
             case 'right':
-                top = targetRect.top + (targetRect.height - tRect.height) / 2;
+                top = targetCenterY - tRect.height / 2;
                 left = targetRect.right + margin;
                 break;
             default: // bottom
                 top = targetRect.bottom + margin;
-                left = targetRect.left + (targetRect.width - tRect.width) / 2;
+                left = targetCenterX - tRect.width / 2;
         }
 
-        // Keep in viewport
-        const pad = 15;
-        if (left < pad) left = pad;
-        if (left + tRect.width > vw - pad) left = vw - tRect.width - pad;
-        if (top < pad) top = targetRect.bottom + margin; // flip to bottom
-        if (top + tRect.height > vh - pad) top = targetRect.top - tRect.height - margin; // flip to top
+        // ── Step 2: Horizontal — keep aligned with target, clamp to viewport ──
+        // Prefer centering on target; if that overflows, anchor to target edge; final clamp to viewport
+        if (left < pad) {
+            // Try aligning tooltip's left edge with target's left edge
+            left = Math.max(pad, targetRect.left);
+        }
+        if (left + tRect.width > vw - pad) {
+            // Try aligning tooltip's right edge with target's right edge
+            left = Math.min(vw - tRect.width - pad, targetRect.right - tRect.width);
+            if (left < pad) left = pad; // safety
+        }
+
+        // ── Step 3: Vertical — flip if needed, then hard-clamp ──
+        if (position === 'bottom' || position === 'top') {
+            // If below overflows, try above
+            if (top + tRect.height > vh - pad) {
+                const aboveTop = targetRect.top - tRect.height - margin;
+                top = aboveTop >= pad ? aboveTop : vh - tRect.height - pad;
+            }
+            // If above overflows, try below
+            if (top < pad) {
+                const belowTop = targetRect.bottom + margin;
+                top = (belowTop + tRect.height <= vh - pad) ? belowTop : pad;
+            }
+        } else {
+            // left/right positions — vertical center on target, clamp
+            if (top < pad) top = pad;
+            if (top + tRect.height > vh - pad) top = vh - tRect.height - pad;
+        }
+
+        // ── Step 4: Final safety clamp ──
+        top = Math.max(pad, Math.min(top, vh - tRect.height - pad));
+        left = Math.max(pad, Math.min(left, vw - tRect.width - pad));
 
         tooltip.style.top = top + 'px';
         tooltip.style.left = left + 'px';
