@@ -999,11 +999,17 @@ const AEGISGuide = {
             this.startTour();
         });
 
-        // Section nav buttons
-        this.refs.panel.querySelector('#guide-section-nav').addEventListener('click', (e) => {
+        // Section nav buttons — v5.7.1: Navigate to the actual section FIRST,
+        // then open the help panel. Previously only updated panel content without
+        // switching the visible modal/tab, so you'd see e.g. Statement Forge with
+        // the Landing Page help walkthrough.
+        this.refs.panel.querySelector('#guide-section-nav').addEventListener('click', async (e) => {
             const btn = e.target.closest('.section-nav-btn');
             if (btn) {
                 const sectionId = btn.dataset.section;
+                await this._navigateToSection(sectionId);
+                // Wait for modal transition to complete before updating panel
+                await this._wait(400);
                 this.openPanel(sectionId);
             }
         });
@@ -1630,44 +1636,82 @@ const AEGISGuide = {
     async _navigateToSection(sectionId) {
         console.log('[AEGIS Guide] Navigating to section:', sectionId);
 
+        // v5.7.1: Close all open modals first to prevent stacking.
+        if (typeof closeModals === 'function') closeModals();
+
+        // v5.7.1: Each handler uses the MOST DIRECT method to open its section.
+        // Prefer showModal() or module.open() over clicking hidden nav buttons,
+        // because nav buttons may have side effects or depend on other state.
+        const _showModal = window.TWR?.Modals?.showModal || window.showModal;
+
         const navMap = {
             'landing': () => {
-                // Return to landing page
-                if (window.showLandingPage) window.showLandingPage();
-                else document.querySelector('#nav-dashboard')?.click();
-            },
-            'review': () => {
-                // Just ensure we're in review view (default after upload)
-                const landing = document.getElementById('aegis-landing-page');
-                if (landing && landing.offsetParent !== null) {
-                    // We're on landing, nothing specific to navigate to for review
+                // Return to landing page via the module API
+                if (typeof TWR !== 'undefined' && TWR.LandingPage) {
+                    TWR.LandingPage.show();
+                } else {
+                    document.querySelector('#nav-dashboard')?.click();
                 }
             },
+            'review': () => {
+                // Dismiss landing page to reveal the review view underneath
+                const landing = document.getElementById('aegis-landing-page');
+                if (landing && document.body.classList.contains('landing-active')) {
+                    landing.classList.add('lp-exiting');
+                    document.body.classList.remove('landing-active');
+                }
+            },
+            'batch': () => {
+                // Open batch upload modal directly
+                if (_showModal) _showModal('batch-upload-modal');
+                else document.querySelector('#btn-batch-load')?.click();
+            },
             'roles': () => {
+                // Use the override (loads data) > generic showModal (just shows it)
                 if (window.showRolesModalOverride) window.showRolesModalOverride();
                 else if (window.showRolesModal) window.showRolesModal();
-                else document.querySelector('#nav-roles')?.click();
+                else if (_showModal) _showModal('modal-roles');
             },
             'forge': () => {
-                document.querySelector('#btn-statement-forge')?.click();
+                if (_showModal) _showModal('modal-statement-forge');
+                if (window.StatementForge) {
+                    setTimeout(() => {
+                        window.StatementForge.updateDocumentStatus();
+                        window.StatementForge.loadFromSession();
+                    }, 100);
+                }
             },
             'validator': () => {
-                document.querySelector('#nav-hyperlink-validator')?.click();
+                if (window.HyperlinkValidator && typeof window.HyperlinkValidator.open === 'function') {
+                    window.HyperlinkValidator.open();
+                } else if (_showModal) _showModal('modal-hyperlink-validator');
             },
             'compare': () => {
-                document.querySelector('#nav-compare')?.click();
+                if (typeof openCompareFromNav === 'function') {
+                    openCompareFromNav();
+                } else {
+                    document.querySelector('#nav-compare')?.click();
+                }
             },
             'metrics': () => {
-                document.querySelector('#nav-metrics')?.click();
+                // Open the full metrics modal, not just the sidebar accordion toggle
+                if (_showModal) _showModal('modal-metrics-analytics');
+                else document.querySelector('#nav-metrics')?.click();
             },
             'history': () => {
-                document.querySelector('#nav-history')?.click();
+                if (_showModal) _showModal('modal-scan-history');
+                else document.querySelector('#nav-history')?.click();
             },
             'settings': () => {
-                document.querySelector('#btn-settings')?.click();
+                if (typeof showSettingsModal === 'function') showSettingsModal();
+                else document.querySelector('#btn-settings')?.click();
             },
             'portfolio': () => {
-                document.querySelector('#nav-portfolio')?.click();
+                if (window.Portfolio && typeof window.Portfolio.open === 'function') {
+                    window.Portfolio.open();
+                } else {
+                    document.querySelector('#nav-portfolio')?.click();
+                }
             }
         };
 
