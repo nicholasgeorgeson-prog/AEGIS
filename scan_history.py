@@ -403,6 +403,9 @@ class ScanHistoryDB:
                     is_header INTEGER DEFAULT 0,
                     notes_json TEXT,
                     position_index INTEGER DEFAULT 0,
+                    fingerprint TEXT DEFAULT '',
+                    review_status TEXT DEFAULT '',
+                    confirmed INTEGER DEFAULT 0,
                     FOREIGN KEY (scan_id) REFERENCES scans(id),
                     FOREIGN KEY (document_id) REFERENCES documents(id)
                 )
@@ -515,10 +518,11 @@ class ScanHistoryDB:
             'CREATE INDEX IF NOT EXISTS idx_role_rel_target ON role_relationships(target_role_name)',
             'CREATE INDEX IF NOT EXISTS idx_role_rel_type ON role_relationships(relationship_type)')
 
-        # v5.0.5: Ensure scan_statements has review_status and confirmed columns (migration for older databases)
+        # v5.0.5: Ensure scan_statements has review_status, confirmed, and fingerprint columns (migration for older databases)
         for col_name, col_type in [
             ('review_status', "TEXT DEFAULT ''"),
             ('confirmed', "INTEGER DEFAULT 0"),
+            ('fingerprint', "TEXT DEFAULT ''"),
         ]:
             try:
                 with self.connection() as (conn, cursor):
@@ -4468,24 +4472,28 @@ class ScanHistoryDB:
         with self.connection() as (conn, cursor):
             for idx, stmt in enumerate(statements):
                 try:
+                    # Build fingerprint from description for cross-scan comparison
+                    desc = stmt.get('description', stmt.get('text', ''))
+                    fp = hashlib.md5(desc.encode('utf-8', errors='replace')).hexdigest()[:16] if desc else ''
                     cursor.execute('''
                         INSERT INTO scan_statements
                         (scan_id, document_id, statement_number, title, description,
-                         level, role, directive, section, is_header, notes_json, position_index)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         level, role, directive, section, is_header, notes_json, position_index, fingerprint)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''', (
                         scan_id,
                         document_id,
                         stmt.get('number', stmt.get('statement_number', '')),
                         stmt.get('title', ''),
-                        stmt.get('description', stmt.get('text', '')),
+                        desc,
                         stmt.get('level', 1),
                         stmt.get('role', ''),
                         stmt.get('directive', ''),
                         stmt.get('section', ''),
                         1 if stmt.get('is_header') else 0,
                         _json.dumps(stmt.get('notes', [])) if stmt.get('notes') else None,
-                        stmt.get('position_index', idx)
+                        stmt.get('position_index', idx),
+                        fp
                     ))
                     saved += 1
                 except Exception as e:
