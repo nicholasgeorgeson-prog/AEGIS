@@ -1,12 +1,25 @@
 {
-  "version": "5.7.0",
+  "version": "5.7.1",
   "release_date": "2026-02-16",
-  "core_version": "5.7.0",
+  "core_version": "5.7.1",
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.7.1",
+      "date": "2026-02-16",
+      "changes": [
+        "FIX: Folder scan background thread no longer stalls — added per-file timeout (5 min), chunk-level timeout, and try/except around future.result()",
+        "FIX: Elapsed time now computed LIVE in progress endpoint from started_at — no longer freezes when a file takes a long time",
+        "REFACTOR: Extracted _update_scan_state_with_result() helper — cleaner code, eliminates deep indentation in background thread",
+        "FIX: Current file now shows chunk contents (up to 3 filenames) while processing, not just last-completed file",
+        "FIX: Chunk timeout gracefully marks remaining files as errors and continues to next chunk instead of crashing",
+        "FIX: Spotlight CSS overlay background set to transparent — eliminates double-dimming over SVG mask cutout",
+        "FIX: Tooltip positionTooltip() rewrite — centers on target, prefers target-edge alignment, flips vertically, final viewport safety clamp"
+      ]
+    },
     {
       "version": "5.7.0",
       "date": "2026-02-16",

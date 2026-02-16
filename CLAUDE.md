@@ -160,7 +160,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.7.0
+- **Current version**: 5.7.1
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -350,6 +350,12 @@ additional_checkers = [
 **Fix**: Simplified dedup key in `_deduplicate_issues()` to `(paragraph_index, category, flagged_text[:80])` — removes `rule_id` and `message`. Different checkers flagging the same text at the same location are now properly caught as duplicates.
 **Also fixed**: Broken `option_mapping` entry `'check_enhanced_acronyms': 'enhanced_acronyms'` — the key `'enhanced_acronyms'` doesn't exist as a checker. The enhanced checkers register as `'acronym_first_use'` and `'acronym_multiple_definition'` (which already had proper mappings).
 **Lesson**: Dedup keys should be based on WHAT was flagged and WHERE, not WHO flagged it. Including the checker's rule_id or message text in a dedup key defeats the purpose when multiple checkers cover overlapping territory.
+
+### 40. Background Thread Robustness for Async Scans (v5.7.1)
+**Problem**: Async folder scan background thread stalled after processing 2 of 31 files. `elapsed_seconds` froze at 29.4s despite 90+ real seconds passing. The entire scan appeared dead with no recovery.
+**Root Cause**: Multiple issues: (1) `future.result()` had no timeout — if a worker hung on a file (e.g., large PDF, corrupt .doc), it blocked forever. (2) `elapsed_seconds` was only updated inside the `as_completed` loop — if no futures completed, the timer froze. (3) No try/except around `future.result()`, so unexpected exceptions crashed the entire background thread silently. (4) `current_file` only showed the last-completed file, not what was actively being processed.
+**Fix**: (1) Added per-file timeout (5 min) via `future.result(timeout=30)` and chunk-level timeout via `as_completed(timeout=PER_FILE_TIMEOUT * len(chunk))`. (2) Compute `elapsed_seconds` LIVE in the progress endpoint from `started_at` instead of using the stored value. (3) Wrapped `future.result()` in try/except with error result fallback. (4) Set `current_file` to show chunk contents (up to 3 filenames) at chunk start. (5) Extracted `_update_scan_state_with_result()` helper to clean up deep indentation. (6) Chunk timeout gracefully marks remaining files as errors and continues to next chunk.
+**Lesson**: For background threads with ThreadPoolExecutor: ALWAYS use timeouts on `future.result()` and `as_completed()`. Never store elapsed time statically — compute it live from `started_at`. Wrap all future operations in try/except. Show what's being processed, not just what's done.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

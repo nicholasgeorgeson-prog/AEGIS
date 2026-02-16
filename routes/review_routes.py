@@ -967,13 +967,109 @@ def folder_scan_start():
     })
 
 
+def _update_scan_state_with_result(scan_id, result, options, flask_app):
+    """
+    v5.7.1: Update folder scan state with one file's result.
+    Extracted to a helper to keep the main loop clean and avoid indentation hell.
+    """
+    with _folder_scan_state_lock:
+        state = _folder_scan_state.get(scan_id)
+        if not state:
+            logger.warning(f'[FolderScan-Async] State missing for {scan_id}')
+            return
+
+        state['current_file'] = result['filename']
+        elapsed = time.time() - state['started_at']
+        state['elapsed_seconds'] = round(elapsed, 1)
+
+        if result.get('status') == 'error':
+            state['errors'] += 1
+            state['summary']['errors'] += 1
+            state['documents'].append({
+                'filename': result['filename'],
+                'relative_path': result['relative_path'],
+                'folder': result['folder'],
+                'error': result.get('error', 'Unknown error'),
+                'status': 'error',
+            })
+        else:
+            state['processed'] += 1
+            state['summary']['processed'] += 1
+
+            issues = result.pop('issues', [])
+            actual_roles = result.pop('roles', {})
+            doc_results_full = result.pop('doc_results', {})
+
+            state['summary']['total_issues'] += result['issue_count']
+            state['summary']['total_words'] += result.get('word_count', 0)
+
+            for issue in issues:
+                sev = issue.get('severity', 'Low')
+                state['summary']['issues_by_severity'][sev] = \
+                    state['summary']['issues_by_severity'].get(sev, 0) + 1
+                cat = issue.get('category', 'Unknown')
+                state['summary']['issues_by_category'][cat] = \
+                    state['summary']['issues_by_category'].get(cat, 0) + 1
+
+            grade = result.get('grade', 'N/A')
+            state['summary']['grade_distribution'][grade] = \
+                state['summary']['grade_distribution'].get(grade, 0) + 1
+
+            for role_name, role_data in actual_roles.items():
+                if role_name not in state['roles_found']:
+                    state['roles_found'][role_name] = {
+                        'documents': [], 'total_mentions': 0
+                    }
+                state['roles_found'][role_name]['documents'].append(result['filename'])
+                mention_count = role_data.get('count', 1) if isinstance(role_data, dict) else 1
+                state['roles_found'][role_name]['total_mentions'] += mention_count
+
+            # Record scan in history (needs Flask app context)
+            scan_record_id = None
+            if _shared.SCAN_HISTORY_AVAILABLE and flask_app:
+                try:
+                    with flask_app.app_context():
+                        db = get_scan_history_db()
+                        scan_record = db.record_scan(
+                            filename=result['filename'],
+                            filepath=result.get('relative_path', result['filename']),
+                            results=doc_results_full,
+                            options=options
+                        )
+                        scan_record_id = scan_record.get('scan_id') if scan_record else None
+                except Exception as e:
+                    logger.warning(f'[FolderScan-Async] Scan history error for {result["filename"]}: {e}')
+
+            state['documents'].append({
+                'filename': result['filename'],
+                'relative_path': result['relative_path'],
+                'folder': result['folder'],
+                'extension': result['extension'],
+                'file_size': result.get('file_size', 0),
+                'issue_count': result['issue_count'],
+                'role_count': result['role_count'],
+                'word_count': result.get('word_count', 0),
+                'score': result.get('score', 0),
+                'grade': grade,
+                'scan_id': scan_record_id,
+                'status': 'success',
+            })
+
+        # Estimate remaining time
+        total_done = state['processed'] + state['errors']
+        if total_done > 0:
+            avg_time = elapsed / total_done
+            remaining = state['total_files'] - total_done
+            state['estimated_remaining'] = round(avg_time * remaining, 1)
+
+
 def _process_folder_scan_async(scan_id, discovered, options):
     """
     Background thread: process folder scan documents in chunks.
     Updates _folder_scan_state[scan_id] after each file completes.
     """
     import gc
-    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeoutError
     from flask import current_app
 
     # Get the Flask app reference for context (needed for scan history DB)
@@ -1047,6 +1143,9 @@ def _process_folder_scan_async(scan_id, discovered, options):
         chunks = [discovered[i:i + FOLDER_SCAN_CHUNK_SIZE]
                   for i in range(0, len(discovered), FOLDER_SCAN_CHUNK_SIZE)]
 
+        # v5.7.1: Per-file timeout — 5 minutes max per file to prevent hangs
+        PER_FILE_TIMEOUT = 300
+
         for chunk_idx, chunk in enumerate(chunks):
             logger.info(f'[FolderScan-Async] {scan_id} chunk {chunk_idx + 1}/{len(chunks)} ({len(chunk)} files)')
 
@@ -1054,104 +1153,66 @@ def _process_folder_scan_async(scan_id, discovered, options):
                 state = _folder_scan_state.get(scan_id)
                 if state:
                     state['current_chunk'] = chunk_idx + 1
+                    # Show which files are being processed in this chunk
+                    state['current_file'] = ', '.join(f['filename'] for f in chunk[:3])
+                    if len(chunk) > 3:
+                        state['current_file'] += f' (+{len(chunk) - 3} more)'
 
             max_workers = min(FOLDER_SCAN_MAX_WORKERS, len(chunk))
+            chunk_timed_out = False
+
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 future_to_file = {executor.submit(_review_single_async, f): f for f in chunk}
+                completed_futures = set()
 
-                for future in as_completed(future_to_file):
-                    file_info = future_to_file[future]
-                    result = future.result()
-
-                    with _folder_scan_state_lock:
-                        state = _folder_scan_state.get(scan_id)
-                        if not state:
-                            logger.warning(f'[FolderScan-Async] State missing for {scan_id}, aborting')
-                            return
-
-                        state['current_file'] = result['filename']
-                        elapsed = time.time() - state['started_at']
-                        state['elapsed_seconds'] = round(elapsed, 1)
-
-                        if result.get('status') == 'error':
-                            state['errors'] += 1
-                            state['summary']['errors'] += 1
-                            state['documents'].append({
-                                'filename': result['filename'],
-                                'relative_path': result['relative_path'],
-                                'folder': result['folder'],
-                                'error': result.get('error', 'Unknown error'),
+                try:
+                    for future in as_completed(future_to_file, timeout=PER_FILE_TIMEOUT * len(chunk)):
+                        completed_futures.add(future)
+                        file_info = future_to_file[future]
+                        try:
+                            result = future.result(timeout=30)  # Already complete, just grab it
+                        except Exception as e:
+                            logger.error(f'[FolderScan-Async] Error getting result for {file_info["filename"]}: {e}')
+                            result = {
+                                'filename': file_info['filename'],
+                                'relative_path': file_info['relative_path'],
+                                'folder': file_info['folder'],
+                                'extension': file_info['extension'],
+                                'file_size': file_info['size'],
+                                'error': f'Worker error: {str(e)}',
                                 'status': 'error',
-                            })
-                        else:
-                            state['processed'] += 1
-                            state['summary']['processed'] += 1
+                            }
 
-                            issues = result.pop('issues', [])
-                            actual_roles = result.pop('roles', {})
-                            doc_results_full = result.pop('doc_results', {})
+                        # ── Update state with this file's result ──
+                        _update_scan_state_with_result(scan_id, result, options, flask_app)
 
-                            state['summary']['total_issues'] += result['issue_count']
-                            state['summary']['total_words'] += result.get('word_count', 0)
-
-                            for issue in issues:
-                                sev = issue.get('severity', 'Low')
-                                state['summary']['issues_by_severity'][sev] = \
-                                    state['summary']['issues_by_severity'].get(sev, 0) + 1
-                                cat = issue.get('category', 'Unknown')
-                                state['summary']['issues_by_category'][cat] = \
-                                    state['summary']['issues_by_category'].get(cat, 0) + 1
-
-                            grade = result.get('grade', 'N/A')
-                            state['summary']['grade_distribution'][grade] = \
-                                state['summary']['grade_distribution'].get(grade, 0) + 1
-
-                            for role_name, role_data in actual_roles.items():
-                                if role_name not in state['roles_found']:
-                                    state['roles_found'][role_name] = {
-                                        'documents': [], 'total_mentions': 0
-                                    }
-                                state['roles_found'][role_name]['documents'].append(result['filename'])
-                                mention_count = role_data.get('count', 1) if isinstance(role_data, dict) else 1
-                                state['roles_found'][role_name]['total_mentions'] += mention_count
-
-                            # Record scan in history (needs Flask app context)
-                            scan_record_id = None
-                            if _shared.SCAN_HISTORY_AVAILABLE and flask_app:
-                                try:
-                                    with flask_app.app_context():
-                                        db = get_scan_history_db()
-                                        scan_record = db.record_scan(
-                                            filename=result['filename'],
-                                            filepath=result.get('relative_path', result['filename']),
-                                            results=doc_results_full,
-                                            options=options
-                                        )
-                                        scan_record_id = scan_record.get('scan_id') if scan_record else None
-                                except Exception as e:
-                                    logger.warning(f'[FolderScan-Async] Scan history error for {result["filename"]}: {e}')
-
-                            state['documents'].append({
-                                'filename': result['filename'],
-                                'relative_path': result['relative_path'],
-                                'folder': result['folder'],
-                                'extension': result['extension'],
-                                'file_size': result.get('file_size', 0),
-                                'issue_count': result['issue_count'],
-                                'role_count': result['role_count'],
-                                'word_count': result.get('word_count', 0),
-                                'score': result.get('score', 0),
-                                'grade': grade,
-                                'scan_id': scan_record_id,
-                                'status': 'success',
-                            })
-
-                        # Estimate remaining time
-                        total_done = state['processed'] + state['errors']
-                        if total_done > 0:
-                            avg_time = elapsed / total_done
-                            remaining = state['total_files'] - total_done
-                            state['estimated_remaining'] = round(avg_time * remaining, 1)
+                except FuturesTimeoutError:
+                    # Chunk-level timeout — mark remaining futures as timed out
+                    chunk_timed_out = True
+                    logger.error(f'[FolderScan-Async] Chunk {chunk_idx + 1} timed out after {PER_FILE_TIMEOUT * len(chunk)}s')
+                    for future, file_info in future_to_file.items():
+                        if future not in completed_futures:
+                            timeout_result = {
+                                'filename': file_info['filename'],
+                                'relative_path': file_info['relative_path'],
+                                'folder': file_info['folder'],
+                                'extension': file_info['extension'],
+                                'file_size': file_info['size'],
+                                'error': f'Timed out (chunk timeout after {PER_FILE_TIMEOUT * len(chunk)}s)',
+                                'status': 'error',
+                            }
+                            with _folder_scan_state_lock:
+                                state = _folder_scan_state.get(scan_id)
+                                if state:
+                                    state['errors'] += 1
+                                    state['summary']['errors'] += 1
+                                    state['documents'].append({
+                                        'filename': timeout_result['filename'],
+                                        'relative_path': timeout_result['relative_path'],
+                                        'folder': timeout_result['folder'],
+                                        'error': timeout_result['error'],
+                                        'status': 'error',
+                                    })
 
             gc.collect()
 
@@ -1214,6 +1275,15 @@ def folder_scan_progress(scan_id):
     with _folder_scan_state_lock:
         # Build response — copy to avoid holding lock during jsonify
         docs = state['documents'][since:]  # Only new documents since last poll
+
+        # v5.7.1: Compute elapsed_seconds LIVE from started_at instead of using
+        # the stored value (which only updates on file completion). This ensures
+        # the timer keeps ticking even when a file is taking a long time.
+        if state['phase'] in ('reviewing',) and state.get('started_at'):
+            live_elapsed = round(time.time() - state['started_at'], 1)
+        else:
+            live_elapsed = state['elapsed_seconds']
+
         response = {
             'scan_id': scan_id,
             'phase': state['phase'],
@@ -1223,7 +1293,7 @@ def folder_scan_progress(scan_id):
             'current_file': state['current_file'],
             'current_chunk': state['current_chunk'],
             'total_chunks': state['total_chunks'],
-            'elapsed_seconds': state['elapsed_seconds'],
+            'elapsed_seconds': live_elapsed,
             'estimated_remaining': state['estimated_remaining'],
             'summary': dict(state['summary']),
             'total_documents_ready': len(state['documents']),

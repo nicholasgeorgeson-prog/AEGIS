@@ -6726,6 +6726,18 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.7.1 <span class="changelog-date">February 16, 2026</span></h3>
+        <p><strong>Folder Scan Robustness + Guide System Fixes</strong></p>
+        <ul>
+            <li><strong>FIX: Folder Scan Thread Stalling</strong> — Background thread no longer stalls on slow files. Added per-file timeout (5 min), chunk-level timeout, and error recovery. Timed-out files are marked as errors and the scan continues.</li>
+            <li><strong>FIX: Live Elapsed Time</strong> — Progress endpoint now computes elapsed time live from started_at, instead of using a stored value that only updated on file completion. Timer no longer freezes mid-scan.</li>
+            <li><strong>FIX: Current File Display</strong> — Shows which files are being processed (up to 3 names) at chunk start, not just the last-completed file.</li>
+            <li><strong>REFACTOR: State Update Helper</strong> — Extracted _update_scan_state_with_result() for cleaner code and better error isolation.</li>
+            <li><strong>FIX: Spotlight Double-Dimming</strong> — CSS overlay background set to transparent so SVG mask cutout is properly visible during tours and demos.</li>
+            <li><strong>FIX: Tooltip Positioning</strong> — Complete rewrite: centers on target, prefers target-edge alignment when centering overflows, flips vertically as needed, final viewport safety clamp.</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.7.0 <span class="changelog-date">February 16, 2026</span></h3>
         <p><strong>Scan Infrastructure Overhaul + Accuracy Fixes</strong></p>
         <ul>
