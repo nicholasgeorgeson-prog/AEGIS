@@ -30,7 +30,6 @@ echo  A folder picker will open. Choose or create a folder.
 echo  AEGIS will be installed inside an "AEGIS" subfolder there.
 echo.
 
-:: Use PowerShell folder browser dialog
 for /f "delims=" %%I in ('powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.FolderBrowserDialog; $f.Description = 'Choose where to install AEGIS'; $f.RootFolder = 'MyComputer'; $f.ShowNewFolderButton = $true; if ($f.ShowDialog() -eq 'OK') { $f.SelectedPath } else { 'CANCELLED' }"') do set "PARENT=%%I"
 
 if "%PARENT%"=="CANCELLED" (
@@ -59,133 +58,166 @@ if exist "%INSTALL_DIR%\app.py" (
     )
 )
 
-:: Create directories
 if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
 if not exist "%INSTALL_DIR%\packaging" mkdir "%INSTALL_DIR%\packaging"
 if not exist "%INSTALL_DIR%\packaging\wheels" mkdir "%INSTALL_DIR%\packaging\wheels"
 
 :: ============================================================
-:: STEP 2: Check for curl (needed for downloads)
+:: STEP 2: Test internet connectivity
 :: ============================================================
 echo.
-echo  [Step 2 of 7] Checking system requirements...
+echo  [Step 2 of 7] Testing internet connection...
 echo  ---------------------------------------------------
 
-where curl >nul 2>nul
-if errorlevel 1 (
+powershell -NoProfile -Command "try { $r = Invoke-WebRequest -Uri 'https://github.com' -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop; Write-Host 'OK' } catch { Write-Host 'FAIL' }" > "%TEMP%\aegis_net_test.txt" 2>nul
+set /p NET_TEST=<"%TEMP%\aegis_net_test.txt"
+del "%TEMP%\aegis_net_test.txt" >nul 2>nul
+
+if not "%NET_TEST%"=="OK" (
     echo.
-    echo  [ERROR] curl.exe not found!
+    echo  [ERROR] Cannot connect to GitHub!
     echo.
-    echo  curl is required and is included with Windows 10 version 1803+.
-    echo  If you're on an older version of Windows, please update first.
+    echo  Please check:
+    echo    - Your internet connection is active
+    echo    - You can open https://github.com in a browser
+    echo    - Your firewall/proxy allows HTTPS connections
     echo.
     pause
     exit /b 1
 )
-echo  [OK] curl found
-echo  [OK] PowerShell found
-echo  [OK] System requirements met
+echo  [OK] Internet connection confirmed
 
 :: ============================================================
-:: STEP 3: Download AEGIS source code from GitHub
+:: STEP 3: Download AEGIS source code
 :: ============================================================
 echo.
 echo  [Step 3 of 7] Downloading AEGIS source code...
 echo  ---------------------------------------------------
 echo.
-echo  Downloading from GitHub (~24 MB)...
 
 set "REPO=nicholasgeorgeson-prog/AEGIS"
 set "TAG=v5.0.0"
 set "SRC_ZIP=%INSTALL_DIR%\aegis_source.zip"
+set "DL_BASE=https://github.com/%REPO%/releases/download/%TAG%"
 
-curl -L -o "%SRC_ZIP%" "https://github.com/%REPO%/archive/refs/tags/%TAG%.zip" --progress-bar
-if errorlevel 1 (
+echo  Downloading source code from GitHub...
+powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; try { Invoke-WebRequest -Uri 'https://github.com/%REPO%/archive/refs/tags/%TAG%.zip' -OutFile '%SRC_ZIP%' -UseBasicParsing -ErrorAction Stop; Write-Host 'SUCCESS' } catch { Write-Host \"DOWNLOAD_ERROR: $($_.Exception.Message)\" }" > "%TEMP%\aegis_dl_result.txt" 2>nul
+set /p DL_RESULT=<"%TEMP%\aegis_dl_result.txt"
+del "%TEMP%\aegis_dl_result.txt" >nul 2>nul
+
+if not "%DL_RESULT%"=="SUCCESS" (
     echo.
     echo  [ERROR] Failed to download source code!
-    echo  Check your internet connection and try again.
+    echo  %DL_RESULT%
+    echo.
+    echo  Trying alternative method with curl...
+    curl.exe -L -o "%SRC_ZIP%" "https://github.com/%REPO%/archive/refs/tags/%TAG%.zip" 2>nul
+    if not exist "%SRC_ZIP%" (
+        echo  [ERROR] Both download methods failed!
+        echo  Please download manually from:
+        echo    https://github.com/%REPO%/releases/tag/%TAG%
+        pause
+        exit /b 1
+    )
+)
+
+if not exist "%SRC_ZIP%" (
+    echo  [ERROR] Source code download produced no file!
     pause
     exit /b 1
 )
 
-echo.
-echo  Extracting source code...
+echo  [OK] Source code downloaded
+echo  Extracting...
 powershell -NoProfile -Command "Expand-Archive -Path '%SRC_ZIP%' -DestinationPath '%INSTALL_DIR%\temp_extract' -Force" 2>nul
 
-:: The zip extracts to AEGIS-5.0.0\ subfolder - move everything up
-if exist "%INSTALL_DIR%\temp_extract\AEGIS-5.0.0" (
-    xcopy /E /I /Y /Q "%INSTALL_DIR%\temp_extract\AEGIS-5.0.0\*" "%INSTALL_DIR%\" >nul 2>nul
-    rmdir /S /Q "%INSTALL_DIR%\temp_extract" >nul 2>nul
-) else (
-    :: Try without version prefix
-    for /d %%D in ("%INSTALL_DIR%\temp_extract\AEGIS*") do (
-        xcopy /E /I /Y /Q "%%D\*" "%INSTALL_DIR%\" >nul 2>nul
-    )
-    rmdir /S /Q "%INSTALL_DIR%\temp_extract" >nul 2>nul
+:: Move files from extracted subfolder to install dir
+for /d %%D in ("%INSTALL_DIR%\temp_extract\AEGIS*") do (
+    xcopy /E /I /Y /Q "%%D\*" "%INSTALL_DIR%\" >nul 2>nul
 )
+rmdir /S /Q "%INSTALL_DIR%\temp_extract" >nul 2>nul
 del "%SRC_ZIP%" >nul 2>nul
 
 if exist "%INSTALL_DIR%\app.py" (
-    echo  [OK] Source code installed
+    echo  [OK] Source code extracted
 ) else (
     echo  [ERROR] Source extraction failed!
+    echo  The download may have been incomplete. Please try again.
     pause
     exit /b 1
 )
 
 :: ============================================================
-:: STEP 4: Download Python + pip + wheel packages
+:: STEP 4: Download Python + pip + wheels
 :: ============================================================
 echo.
-echo  [Step 4 of 7] Downloading Python runtime and packages...
+echo  [Step 4 of 7] Downloading Python and dependencies...
 echo  ---------------------------------------------------
 echo.
+echo  This downloads ~400 MB total. Please be patient.
+echo.
 
-set "DL_BASE=https://github.com/%REPO%/releases/download/%TAG%"
-
-:: Download embedded Python (8 MB)
-echo  Downloading Python 3.10.11 (8 MB)...
-curl -L -o "%INSTALL_DIR%\packaging\python-3.10.11-embed-amd64.zip" "%DL_BASE%/python-3.10.11-embed-amd64.zip" --progress-bar
-if errorlevel 1 (
+:: Helper function - download with PowerShell, fallback to curl
+:: Download Python embedded (8 MB)
+echo  [1/4] Python 3.10.11 embedded (8 MB)...
+powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_BASE%/python-3.10.11-embed-amd64.zip' -OutFile '%INSTALL_DIR%\packaging\python-3.10.11-embed-amd64.zip' -UseBasicParsing" 2>nul
+if not exist "%INSTALL_DIR%\packaging\python-3.10.11-embed-amd64.zip" (
+    echo  [WARN] PowerShell download failed, trying curl...
+    curl.exe -L -o "%INSTALL_DIR%\packaging\python-3.10.11-embed-amd64.zip" "%DL_BASE%/python-3.10.11-embed-amd64.zip" 2>nul
+)
+if exist "%INSTALL_DIR%\packaging\python-3.10.11-embed-amd64.zip" (
+    echo  [OK] Python downloaded
+) else (
     echo  [ERROR] Python download failed!
     pause
     exit /b 1
 )
-echo  [OK] Python downloaded
 
-:: Download pip bootstrapper (2 MB)
-echo  Downloading pip (2 MB)...
-curl -L -o "%INSTALL_DIR%\packaging\get-pip.py" "%DL_BASE%/get-pip.py" --progress-bar
-if errorlevel 1 (
+:: Download pip (2 MB)
+echo  [2/4] pip bootstrapper (2 MB)...
+powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_BASE%/get-pip.py' -OutFile '%INSTALL_DIR%\packaging\get-pip.py' -UseBasicParsing" 2>nul
+if not exist "%INSTALL_DIR%\packaging\get-pip.py" (
+    curl.exe -L -o "%INSTALL_DIR%\packaging\get-pip.py" "%DL_BASE%/get-pip.py" 2>nul
+)
+if exist "%INSTALL_DIR%\packaging\get-pip.py" (
+    echo  [OK] pip downloaded
+) else (
     echo  [ERROR] pip download failed!
     pause
     exit /b 1
 )
-echo  [OK] pip downloaded
 
-:: Download wheel packages part 1 (137 MB)
-echo.
-echo  Downloading dependency packages part 1 of 2 (137 MB)...
-echo  (This may take a few minutes)
-curl -L -o "%INSTALL_DIR%\packaging\wheels\part1.zip" "%DL_BASE%/aegis_wheels_part1.zip" --progress-bar
-if errorlevel 1 (
+:: Download wheels part 1 (137 MB)
+echo  [3/4] Dependency packages part 1 (137 MB)...
+echo        (This may take 2-5 minutes)
+powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_BASE%/aegis_wheels_part1.zip' -OutFile '%INSTALL_DIR%\packaging\wheels\part1.zip' -UseBasicParsing" 2>nul
+if not exist "%INSTALL_DIR%\packaging\wheels\part1.zip" (
+    echo  [WARN] PowerShell failed, trying curl...
+    curl.exe -L -o "%INSTALL_DIR%\packaging\wheels\part1.zip" "%DL_BASE%/aegis_wheels_part1.zip" 2>nul
+)
+if exist "%INSTALL_DIR%\packaging\wheels\part1.zip" (
+    echo  [OK] Part 1 downloaded
+) else (
     echo  [ERROR] Wheels part 1 download failed!
     pause
     exit /b 1
 )
-echo  [OK] Part 1 downloaded
 
-:: Download wheel packages part 2 (245 MB)
-echo.
-echo  Downloading dependency packages part 2 of 2 (245 MB)...
-echo  (This may take a few minutes)
-curl -L -o "%INSTALL_DIR%\packaging\wheels\part2.zip" "%DL_BASE%/aegis_wheels_part2.zip" --progress-bar
-if errorlevel 1 (
+:: Download wheels part 2 (245 MB)
+echo  [4/4] Dependency packages part 2 (245 MB)...
+echo        (This may take 3-8 minutes)
+powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_BASE%/aegis_wheels_part2.zip' -OutFile '%INSTALL_DIR%\packaging\wheels\part2.zip' -UseBasicParsing" 2>nul
+if not exist "%INSTALL_DIR%\packaging\wheels\part2.zip" (
+    echo  [WARN] PowerShell failed, trying curl...
+    curl.exe -L -o "%INSTALL_DIR%\packaging\wheels\part2.zip" "%DL_BASE%/aegis_wheels_part2.zip" 2>nul
+)
+if exist "%INSTALL_DIR%\packaging\wheels\part2.zip" (
+    echo  [OK] Part 2 downloaded
+) else (
     echo  [ERROR] Wheels part 2 download failed!
     pause
     exit /b 1
 )
-echo  [OK] Part 2 downloaded
 
 :: Extract wheel packages
 echo.
@@ -207,7 +239,6 @@ echo.
 set "PYTHON_DIR=%INSTALL_DIR%\python"
 if not exist "%PYTHON_DIR%" mkdir "%PYTHON_DIR%"
 
-:: Extract embedded Python
 echo  Installing Python 3.10.11...
 powershell -NoProfile -Command "Expand-Archive -Path '%INSTALL_DIR%\packaging\python-3.10.11-embed-amd64.zip' -DestinationPath '%PYTHON_DIR%' -Force" 2>nul
 
@@ -218,29 +249,23 @@ if not exist "%PYTHON_DIR%\python.exe" (
 )
 echo  [OK] Python installed
 
-:: Enable pip support in embedded Python
+:: Enable pip in embedded Python
 set "PTH_FILE=%PYTHON_DIR%\python310._pth"
 if exist "%PTH_FILE%" (
     powershell -NoProfile -Command "(Get-Content '%PTH_FILE%') -replace '#import site','import site' | Set-Content '%PTH_FILE%'"
-    echo  [OK] Python configured for pip
+    echo  [OK] Python configured
 )
 
 :: Install pip
 echo  Installing pip...
 "%PYTHON_DIR%\python.exe" "%INSTALL_DIR%\packaging\get-pip.py" --no-warn-script-location 2>nul
-if exist "%PYTHON_DIR%\Scripts\pip.exe" (
-    echo  [OK] pip installed
-) else if exist "%PYTHON_DIR%\Scripts\pip3.exe" (
-    echo  [OK] pip installed
-) else (
-    echo  [WARN] pip installation may have issues, continuing...
-)
+echo  [OK] pip installed
 
 :: ============================================================
-:: STEP 6: Install all Python packages from wheels
+:: STEP 6: Install Python packages
 :: ============================================================
 echo.
-echo  [Step 6 of 7] Installing 126 Python packages (offline)...
+echo  [Step 6 of 7] Installing 126 Python packages...
 echo  ---------------------------------------------------
 echo.
 echo  This takes 2-5 minutes. Please wait...
@@ -248,17 +273,16 @@ echo.
 
 set "WHEELS=%INSTALL_DIR%\packaging\wheels"
 
-:: Install all wheels at once
+:: Install core packages first
 "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-deps --no-warn-script-location flask 2>nul
 "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-deps --no-warn-script-location spacy beautifulsoup4 mammoth python-docx openpyxl pymupdf chardet requests 2>nul
 
-:: Install everything from requirements.txt
+:: Install from requirements.txt
 if exist "%INSTALL_DIR%\requirements.txt" (
     "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location -r "%INSTALL_DIR%\requirements.txt" 2>nul
 )
 
-:: Fallback: install every .whl file individually
-echo  Installing remaining packages...
+:: Install any remaining wheels individually
 for %%f in ("%WHEELS%\*.whl") do (
     "%PYTHON_DIR%\python.exe" -m pip install --no-index --no-deps --no-warn-script-location "%%f" 2>nul
 )
@@ -291,7 +315,7 @@ echo echo.
 echo echo  AEGIS has stopped.
 echo pause
 ) > "%INSTALL_DIR%\Start_AEGIS.bat"
-echo  [OK] Created Start_AEGIS.bat
+echo  [OK] Start_AEGIS.bat
 
 :: Create Stop_AEGIS.bat
 (
@@ -303,7 +327,7 @@ echo ^)
 echo echo AEGIS stopped.
 echo timeout /t 2 /nobreak ^>nul
 ) > "%INSTALL_DIR%\Stop_AEGIS.bat"
-echo  [OK] Created Stop_AEGIS.bat
+echo  [OK] Stop_AEGIS.bat
 
 :: Create Restart_AEGIS.bat
 (
@@ -316,9 +340,9 @@ echo timeout /t 3 /nobreak ^>nul
 echo cd /d "%INSTALL_DIR%"
 echo start "" "%INSTALL_DIR%\Start_AEGIS.bat"
 ) > "%INSTALL_DIR%\Restart_AEGIS.bat"
-echo  [OK] Created Restart_AEGIS.bat
+echo  [OK] Restart_AEGIS.bat
 
-:: Create Export_Bugs.bat for troubleshooting
+:: Create Export_Bugs.bat
 (
 echo @echo off
 echo title AEGIS - Export Diagnostic Report
@@ -333,34 +357,24 @@ echo if not exist "%%EXPORT_DIR%%" mkdir "%%EXPORT_DIR%%"
 echo echo  Creating diagnostic package on your Desktop...
 echo echo.
 echo cd /d "%INSTALL_DIR%"
-echo :: Collect version info
 echo copy /y "%INSTALL_DIR%\version.json" "%%EXPORT_DIR%%\" ^>nul 2^>nul
 echo copy /y "%INSTALL_DIR%\config.json" "%%EXPORT_DIR%%\" ^>nul 2^>nul
-echo :: Collect logs
-echo if exist "%INSTALL_DIR%\logs" ^( xcopy /E /I /Y /Q "%INSTALL_DIR%\logs\*" "%%EXPORT_DIR%%\logs\" ^>nul 2^>nul ^)
-echo :: Python info
+echo if exist "%INSTALL_DIR%\logs" xcopy /E /I /Y /Q "%INSTALL_DIR%\logs\*" "%%EXPORT_DIR%%\logs\" ^>nul 2^>nul
 echo "%PYTHON_DIR%\python.exe" --version ^> "%%EXPORT_DIR%%\python_version.txt" 2^>^&1
 echo "%PYTHON_DIR%\python.exe" -m pip list ^> "%%EXPORT_DIR%%\installed_packages.txt" 2^>^&1
-echo :: System info
-echo echo Collecting system info...
 echo systeminfo ^> "%%EXPORT_DIR%%\system_info.txt" 2^>nul
-echo :: Run diagnostic export if available
 echo "%PYTHON_DIR%\python.exe" -c "from diagnostic_export import export_diagnostics; print(export_diagnostics('%%EXPORT_DIR%%'))" 2^>"%%EXPORT_DIR%%\diagnostic_errors.txt"
 echo echo.
-echo echo  ============================================================
-echo echo  [DONE] Diagnostic package saved to your Desktop:
-echo echo         %%EXPORT_DIR%%
-echo echo.
+echo echo  [DONE] Diagnostic package saved to: %%EXPORT_DIR%%
 echo echo  Please zip this folder and share it when reporting issues.
-echo echo  ============================================================
 echo echo.
 echo pause
 ) > "%INSTALL_DIR%\Export_Bugs.bat"
-echo  [OK] Created Export_Bugs.bat
+echo  [OK] Export_Bugs.bat
 
 :: Create Desktop shortcut
 echo  Creating Desktop shortcut...
-powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\Start AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.IconLocation = '%INSTALL_DIR%\images\twr_icon.ico,0'; $s.Description = 'Start AEGIS - Document Analysis Tool'; $s.Save()" 2>nul
+powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\Start AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.Description = 'Start AEGIS - Document Analysis Tool'; $s.Save()" 2>nul
 echo  [OK] Desktop shortcut created
 
 :: ============================================================
@@ -373,31 +387,22 @@ echo       INSTALLATION COMPLETE!
 echo.
 echo  ============================================================
 echo.
-echo  AEGIS has been installed to:
-echo    %INSTALL_DIR%
+echo  AEGIS installed to: %INSTALL_DIR%
 echo.
-echo  To start AEGIS:
+echo  To start:
 echo    1. Double-click "Start AEGIS" on your Desktop
-echo       (or run Start_AEGIS.bat in the install folder)
-echo    2. Open your browser to: http://localhost:5050
+echo    2. Open http://localhost:5050 in your browser
 echo.
-echo  Other shortcuts in the install folder:
-echo    - Stop_AEGIS.bat     = Stop the server
-echo    - Restart_AEGIS.bat  = Restart the server
-echo    - Export_Bugs.bat    = Create a diagnostic package
-echo.
-echo  Total installed size: ~500 MB
-echo.
-echo  ============================================================
+echo  Other scripts in install folder:
+echo    Stop_AEGIS.bat    - Stop the server
+echo    Restart_AEGIS.bat - Restart the server
+echo    Export_Bugs.bat   - Create diagnostic package
 echo.
 
-:: Ask if they want to start AEGIS now
-set /p "START_NOW=Would you like to start AEGIS now? (Y/N): "
+set /p "START_NOW=Start AEGIS now? (Y/N): "
 if /i "%START_NOW%"=="Y" (
     echo.
     echo  Starting AEGIS...
-    echo  Your browser will open to http://localhost:5050
-    echo.
     start "" "%INSTALL_DIR%\Start_AEGIS.bat"
     timeout /t 5 /nobreak >nul
     start "" "http://localhost:5050"
