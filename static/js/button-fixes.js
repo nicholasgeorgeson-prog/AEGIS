@@ -26,12 +26,59 @@
         // Note: This can't actually browse the filesystem from browser,
         // but we can show a helpful message
         // ============================================================
-        document.getElementById('btn-browse-shared')?.addEventListener('click', () => {
+        document.getElementById('btn-browse-shared')?.addEventListener('click', async () => {
             console.log('[TWR] btn-browse-shared clicked');
-            if (typeof toast === 'function') {
-                toast('info', 'Browser cannot browse local folders. Please paste the path manually (e.g., \\\\\\server\\\\share or S:\\\\folder)');
-            } else {
-                alert('Please paste the shared folder path manually.\n\nExample: \\\\\\server\\share\\twr or S:\\Team\\TechWriter');
+            const pathInput = document.getElementById('settings-shared-path');
+
+            // v5.0.5: Use backend folder picker (Flask runs on localhost, can open native dialog)
+            try {
+                if (typeof toast === 'function') {
+                    toast('info', 'Opening folder picker...');
+                }
+
+                // Get fresh CSRF token (Lesson 18)
+                let csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+                try {
+                    const tokenResp = await fetch('/api/version', { credentials: 'same-origin' });
+                    const freshCsrf = tokenResp.headers.get('X-CSRF-Token');
+                    if (freshCsrf) csrfToken = freshCsrf;
+                } catch (_) {}
+
+                const initialPath = pathInput ? pathInput.value : '';
+                const response = await fetch('/api/config/browse-folder', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken
+                    },
+                    body: JSON.stringify({ initial_path: initialPath })
+                });
+
+                const result = await response.json();
+
+                if (result.success && result.data && result.data.path) {
+                    if (pathInput) {
+                        pathInput.value = result.data.path;
+                        pathInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                    if (typeof toast === 'function') {
+                        toast('success', 'Folder selected: ' + result.data.path);
+                    }
+                } else if (result.success && result.data && result.data.cancelled) {
+                    console.log('[TWR] Folder picker cancelled');
+                } else if (!result.success) {
+                    // Fallback: show manual input message
+                    console.warn('[TWR] Folder picker failed:', result.error);
+                    if (typeof toast === 'function') {
+                        toast('info', 'Folder picker unavailable. Please paste the path manually (e.g., \\\\\\server\\\\share or S:\\\\folder)');
+                    }
+                }
+            } catch (e) {
+                console.error('[TWR] Browse folder error:', e);
+                if (typeof toast === 'function') {
+                    toast('info', 'Folder picker unavailable. Please paste the path manually.');
+                }
             }
         });
         
