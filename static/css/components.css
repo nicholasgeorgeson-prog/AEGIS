@@ -6708,6 +6708,76 @@ pre.help-code {
     margin: 0;
 }
 
+/* Severity Legend (help docs) */
+.help-severity-legend {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--space-2);
+    margin: var(--space-3) 0;
+}
+
+.help-severity-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+}
+
+.help-severity-item .severity-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 4px;
+}
+
+.help-severity-item.severity-critical .severity-dot { background: #ef4444; }
+.help-severity-item.severity-high .severity-dot    { background: #ea580c; }
+.help-severity-item.severity-medium .severity-dot   { background: #ca8a04; }
+.help-severity-item.severity-low .severity-dot      { background: #16a34a; }
+.help-severity-item.severity-info .severity-dot     { background: #3b82f6; }
+
+.help-severity-item strong {
+    font-size: 0.85rem;
+    display: block;
+}
+
+.help-severity-item p {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin: 2px 0 0 0;
+}
+
+/* Readability Cards (help docs) */
+.help-readability-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-3);
+    margin: var(--space-3) 0;
+}
+
+.help-readability-card {
+    padding: var(--space-3);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+}
+
+.help-readability-card h4 {
+    font-size: 0.9rem;
+    margin: 0 0 var(--space-1) 0;
+    color: var(--text-primary);
+}
+
+.help-readability-card p {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
 /* Checker items */
 .help-check-list {
     display: flex;

@@ -906,12 +906,12 @@ async function handleFileUpload(file) {
             State.filepath = result.data.filepath;
 
             updateDocumentInfo(result.data);
-            
+
             hide('empty-state');
             show('stats-bar');
 
             document.getElementById('btn-review').disabled = false;
-            
+
             setLoading(false);
             toast('success', `Loaded: ${result.data.filename}`);
 
@@ -923,6 +923,11 @@ async function handleFileUpload(file) {
             setLoading(false);
             toast('error', typeof result.error === 'string' ? result.error : result.error?.message || 'Upload failed');
         }
+    } catch (uploadErr) {
+        // v4.9.9: Ensure loading overlay is always cleared on error
+        console.error('[TWR] Upload error:', uploadErr);
+        setLoading(false);
+        toast('error', 'Upload failed: ' + (uploadErr.message || 'Unknown error'));
     } finally {
         // Reset file input and processing flag after a delay
         setTimeout(() => {
@@ -10884,7 +10889,7 @@ STEPS TO REPRODUCE
         let cinematicProgress = null;
         const cinematicContainer = document.getElementById('cinematic-progress-container');
         if (cinematicContainer && typeof CinematicProgress !== 'undefined') {
-            const savedTheme = localStorage.getItem('cinematicProgressTheme') || 'matrix';
+            const savedTheme = localStorage.getItem('cinematicProgressTheme') || 'circuit';
             cinematicProgress = CinematicProgress.create(cinematicContainer, {
                 theme: savedTheme,
                 width: cinematicContainer.offsetWidth || 620,
@@ -15617,6 +15622,77 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (exportTxtBtn) {
         exportTxtBtn.addEventListener('click', () => exportDiagnostics('txt'));
+    }
+
+    // v4.9.9: Dependency Health Check
+    const healthCheckBtn = document.getElementById('btn-diag-health-check');
+    if (healthCheckBtn) {
+        healthCheckBtn.addEventListener('click', async () => {
+            const resultsDiv = document.getElementById('health-check-results');
+            const contentDiv = document.getElementById('health-check-content');
+            if (!resultsDiv || !contentDiv) return;
+
+            resultsDiv.style.display = 'block';
+            contentDiv.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="loader" class="spin"></i> Running health check...</div>';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            try {
+                const resp = await fetch('/api/diagnostics/health');
+                const json = await resp.json();
+                if (json.success) {
+                    const d = json.data;
+                    const allHealthy = d.summary?.all_healthy;
+                    const statusIcon = allHealthy ? 'check-circle' : 'alert-triangle';
+                    const statusColor = allHealthy ? 'var(--success)' : 'var(--warning)';
+                    const statusText = allHealthy ? 'All dependencies healthy' : 'Some dependencies missing';
+
+                    let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                        <i data-lucide="${statusIcon}" style="color:${statusColor};width:20px;height:20px;"></i>
+                        <strong style="color:${statusColor};">${statusText}</strong>
+                        <span class="help-text" style="margin-left:auto;">${d.summary?.packages || ''} &bull; ${d.summary?.nlp_models || ''}</span>
+                    </div>`;
+
+                    // Packages table
+                    html += '<div style="margin-bottom:12px;"><strong style="font-size:13px;">Python Packages</strong>';
+                    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:4px;margin-top:6px;">';
+                    for (const [name, info] of Object.entries(d.packages || {})) {
+                        const ok = info.status === 'ok';
+                        const color = ok ? 'var(--success)' : 'var(--error)';
+                        const icon = ok ? 'check' : 'x';
+                        const ver = ok ? `v${info.version}` : 'MISSING';
+                        html += `<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;font-size:12px;background:var(--bg-secondary);border-radius:4px;">
+                            <i data-lucide="${icon}" style="width:14px;height:14px;color:${color};flex-shrink:0;"></i>
+                            <span>${name}</span>
+                            <span class="help-text" style="margin-left:auto;">${ver}</span>
+                        </div>`;
+                    }
+                    html += '</div></div>';
+
+                    // NLP Models table
+                    html += '<div><strong style="font-size:13px;">NLP Models &amp; Data</strong>';
+                    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:4px;margin-top:6px;">';
+                    for (const [name, info] of Object.entries(d.nlp_models || {})) {
+                        const ok = info.status === 'ok';
+                        const color = ok ? 'var(--success)' : 'var(--error)';
+                        const icon = ok ? 'check' : 'x';
+                        const extra = info.version ? `v${info.version}` : (ok ? 'OK' : 'MISSING');
+                        html += `<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;font-size:12px;background:var(--bg-secondary);border-radius:4px;">
+                            <i data-lucide="${icon}" style="width:14px;height:14px;color:${color};flex-shrink:0;"></i>
+                            <span>${name}</span>
+                            <span class="help-text" style="margin-left:auto;">${extra}</span>
+                        </div>`;
+                    }
+                    html += '</div></div>';
+
+                    contentDiv.innerHTML = html;
+                } else {
+                    contentDiv.innerHTML = `<span style="color:var(--error);">Health check failed: ${json.error?.message || 'Unknown error'}</span>`;
+                }
+            } catch (e) {
+                contentDiv.innerHTML = `<span style="color:var(--error);">Health check error: ${e.message}</span>`;
+            }
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        });
     }
 
     // Auto-refresh summary when settings modal opens
