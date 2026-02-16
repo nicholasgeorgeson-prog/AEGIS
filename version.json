@@ -11,9 +11,9 @@
       "version": "5.6.1",
       "date": "2026-02-16",
       "changes": [
-        "FIX: Folder scan ReviewIssue .get() error — issues from review_document() are now converted to dicts before aggregation",
-        "FIX: json.dumps() serialization failure for ReviewIssue objects in scan history recording",
-        "FIX: _calculate_changes() fingerprint function now handles both ReviewIssue objects and dicts"
+        "FIX: ReviewIssue .get() crash in core.py — non-NLP checkers produce dataclass objects but scoring/dedup/ID-assignment used dict .get(). Added normalization step in review_document() postprocessing",
+        "FIX: Folder scan _review_single() also normalizes issues to dicts for aggregation and JSON serialization",
+        "FIX: All downstream code (_calculate_score, _deduplicate_issues, _assign_issue_ids, _count_by_severity, _count_by_category, enhance_issue_context) now receives dicts"
       ]
     },
     {

@@ -2393,7 +2393,32 @@ class AEGISEngine:
         
         # Report: Starting postprocessing phase
         report_progress('postprocessing', 0, 'Post-processing results...')
-        
+
+        # v5.6.1: Normalize all issues to dicts — non-NLP checkers produce ReviewIssue
+        # dataclass objects, NLP checkers produce dicts. Downstream code uses .get()
+        # which only works on dicts. Convert everything to dicts here.
+        normalized = []
+        for issue in self.issues:
+            if isinstance(issue, dict):
+                normalized.append(issue)
+            elif hasattr(issue, 'to_dict'):
+                normalized.append(issue.to_dict())
+            else:
+                normalized.append({
+                    'severity': getattr(issue, 'severity', 'Low'),
+                    'category': getattr(issue, 'category', 'Unknown'),
+                    'message': getattr(issue, 'message', str(issue)),
+                    'context': getattr(issue, 'context', ''),
+                    'paragraph_index': getattr(issue, 'paragraph_index', 0),
+                    'suggestion': getattr(issue, 'suggestion', ''),
+                    'rule_id': getattr(issue, 'rule_id', ''),
+                    'original_text': getattr(issue, 'original_text', ''),
+                    'replacement_text': getattr(issue, 'replacement_text', ''),
+                    'flagged_text': getattr(issue, 'flagged_text', ''),
+                    'issue_id': getattr(issue, 'issue_id', ''),
+                })
+        self.issues = normalized
+
         # Deduplicate issues (same paragraph + same message = duplicate)
         self.issues = self._deduplicate_issues(self.issues)
         
