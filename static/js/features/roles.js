@@ -4061,8 +4061,17 @@ TWR.Roles = (function() {
             }
             
             GraphState.data = response.data;
-            
-            const maxEdgeWeight = Math.max(...response.data.links.map(l => l.weight), 1);
+
+            // v5.0.2: Safety check — if no nodes/links, show fallback immediately
+            if (!response.data.nodes || response.data.nodes.length === 0) {
+                console.warn('[TWR Roles] Graph data has no nodes, showing fallback');
+                container.style.display = 'none';
+                fallback.style.display = 'block';
+                await renderGraphFallbackTable();
+                return;
+            }
+
+            const maxEdgeWeight = Math.max(...(response.data.links || []).map(l => l.weight), 1);
             if (weightSlider) { weightSlider.max = Math.min(maxEdgeWeight, 100); weightSlider.disabled = false; }
             if (maxWeightDisplay) maxWeightDisplay.textContent = maxEdgeWeight;
             

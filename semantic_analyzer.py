@@ -160,6 +160,14 @@ class SemanticAnalyzer:
         if load_model and _sbert_available:
             self._load_model()
 
+    def _ensure_model(self) -> bool:
+        """v5.0.2: Lazy-load model on first use for faster startup."""
+        if self.model is not None:
+            return True
+        if _sbert_available:
+            return self._load_model()
+        return False
+
     def _load_model(self) -> bool:
         """Load the sentence-transformers model."""
         global _model
@@ -188,14 +196,21 @@ class SemanticAnalyzer:
                 self.model = SentenceTransformer(local_path)
                 _log(f"Loaded model from local cache: {local_path}", level='info')
             else:
-                # Download and cache
-                self.model = SentenceTransformer(self.model_name)
-                # Save for future offline use
+                # v5.0.0: Set short timeout for download attempts to avoid 160s+ hangs
+                # on air-gapped or corporate networks that block huggingface.co
+                os.environ.setdefault('HF_HUB_DOWNLOAD_TIMEOUT', '10')
                 try:
-                    self.model.save(local_path)
-                    _log(f"Model cached to: {local_path}", level='info')
-                except Exception as e:
-                    _log(f"Could not cache model: {e}", level='warning')
+                    self.model = SentenceTransformer(self.model_name)
+                    # Save for future offline use
+                    try:
+                        self.model.save(local_path)
+                        _log(f"Model cached to: {local_path}", level='info')
+                    except Exception as e:
+                        _log(f"Could not cache model: {e}", level='warning')
+                except Exception as dl_err:
+                    _log(f"Could not download model (network may be restricted): {dl_err}", level='warning')
+                    _log("Semantic analysis will be disabled. To enable offline, place the model in: " + local_path, level='info')
+                    return False
 
             _model = self.model  # Cache globally
             self.is_available = True
@@ -217,6 +232,8 @@ class SemanticAnalyzer:
         Returns:
             numpy array of embeddings or None if not available
         """
+        if not self.is_available:
+            self._ensure_model()  # v5.0.2: Lazy load
         if not self.is_available:
             return None
 
@@ -315,7 +332,12 @@ class SemanticAnalyzer:
         Returns:
             List of DuplicateGroup objects
         """
-        if not self.is_available or not sentences:
+        if not sentences:
+            return []
+        # v5.0.2: Lazy-load model on first use
+        if not self.is_available:
+            self._ensure_model()
+        if not self.is_available:
             return []
 
         try:

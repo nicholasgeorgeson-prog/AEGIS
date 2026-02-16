@@ -74,10 +74,10 @@ class SemanticAnalyzerChecker(BaseChecker):
         self._init_analyzer()
 
     def _init_analyzer(self):
-        """Initialize the semantic analyzer (lazy load)."""
+        """Initialize the semantic analyzer (deferred model loading for fast startup)."""
         try:
             from semantic_analyzer import SemanticAnalyzer
-            self._analyzer = SemanticAnalyzer()
+            self._analyzer = SemanticAnalyzer(load_model=False)  # v5.0.2: Defer model load to first use
             self._available = True
         except ImportError as e:
             self._errors.append(f"Semantic analyzer not available: {e}")

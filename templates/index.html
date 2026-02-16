@@ -35,6 +35,7 @@
     <link rel="stylesheet" href="/static/css/features/hyperlink-enhanced.css">
     <link rel="stylesheet" href="/static/css/features/link-history.css">
     <link rel="stylesheet" href="/static/css/features/cinematic-progress.css">
+    <link rel="stylesheet" href="/static/css/features/batch-progress-dashboard.css">
     <link rel="stylesheet" href="/static/css/features/cinematic-loader.css">
     <link rel="stylesheet" href="/static/css/features/molten-progress.css">
     <link rel="stylesheet" href="/static/css/features/data-explorer.css">
@@ -574,92 +575,77 @@
                         <div class="batch-file-list" id="batch-file-list">
                             <!-- Files will be listed here -->
                         </div>
-                        <!-- Cinematic Progress Display (Lottie + GSAP + Canvas) -->
-                        <div class="cinematic-batch-progress hidden" id="batch-progress">
-                            <!-- Theme selector -->
-                            <div class="cinematic-theme-selector">
-                                <button class="theme-btn active" data-theme="circuit" title="Circuit Board">
-                                    <i data-lucide="cpu"></i>
-                                </button>
-                                <button class="theme-btn" data-theme="cosmic" title="Cosmic">
-                                    <i data-lucide="sparkles"></i>
-                                </button>
-                                <button class="theme-btn" data-theme="matrix" title="Matrix">
-                                    <i data-lucide="binary"></i>
-                                </button>
-                                <button class="theme-btn" data-theme="energy" title="Energy">
-                                    <i data-lucide="zap"></i>
-                                </button>
-                                <button class="theme-btn" data-theme="fire" title="Fire">
-                                    <i data-lucide="flame"></i>
-                                </button>
+                        <!-- v5.0.2: Batch Progress Dashboard (matches ScanProgress style) -->
+                        <div class="bpd-dashboard hidden" id="batch-progress">
+                            <!-- Header -->
+                            <div class="bpd-header">
+                                <div class="bpd-header-icon">
+                                    <i data-lucide="layers"></i>
+                                </div>
+                                <h2 class="bpd-title" id="batch-progress-text">Batch Analysis</h2>
+                                <div class="bpd-subtitle">Processing documents through AEGIS quality engine</div>
                             </div>
 
-                            <!-- Sound toggle button -->
-                            <button class="cinematic-sound-toggle" id="cinematic-sound-toggle" title="Toggle completion sound">
+                            <!-- Stats row -->
+                            <div class="bpd-stats">
+                                <div class="bpd-stat">
+                                    <div class="bpd-stat-value" id="batch-docs-complete">0</div>
+                                    <div class="bpd-stat-label">Complete</div>
+                                </div>
+                                <div class="bpd-stat-divider"></div>
+                                <div class="bpd-stat">
+                                    <div class="bpd-stat-value" id="batch-docs-total">0</div>
+                                    <div class="bpd-stat-label">Total</div>
+                                </div>
+                                <div class="bpd-stat-divider"></div>
+                                <div class="bpd-stat">
+                                    <div class="bpd-stat-value" id="batch-percent-animated">0%</div>
+                                    <div class="bpd-stat-label">Progress</div>
+                                </div>
+                            </div>
+
+                            <!-- Overall progress bar -->
+                            <div class="bpd-overall">
+                                <div class="bpd-overall-bar">
+                                    <div class="bpd-overall-fill" id="batch-progress-fill"></div>
+                                    <div class="bpd-overall-glow" id="batch-progress-glow"></div>
+                                </div>
+                            </div>
+
+                            <!-- Time and speed metrics -->
+                            <div class="bpd-metrics">
+                                <div class="bpd-metric">
+                                    <i data-lucide="clock" class="bpd-metric-icon"></i>
+                                    <span class="bpd-metric-label">Elapsed</span>
+                                    <span class="bpd-metric-value" id="batch-elapsed-time">00:00</span>
+                                </div>
+                                <div class="bpd-metric">
+                                    <i data-lucide="timer" class="bpd-metric-icon"></i>
+                                    <span class="bpd-metric-label">Remaining</span>
+                                    <span class="bpd-metric-value bpd-estimated" id="batch-remaining-time">--:--</span>
+                                </div>
+                                <div class="bpd-metric">
+                                    <i data-lucide="activity" class="bpd-metric-icon"></i>
+                                    <span class="bpd-metric-label">Speed</span>
+                                    <span class="bpd-metric-value" id="batch-speed">--</span>
+                                </div>
+                            </div>
+
+                            <!-- Document queue -->
+                            <div class="bpd-queue">
+                                <div class="bpd-queue-header">
+                                    <span><i data-lucide="file-stack" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px;"></i> Document Queue</span>
+                                    <span class="bpd-queue-status" id="batch-queue-status">Waiting...</span>
+                                </div>
+                                <div class="bpd-queue-list" id="batch-doc-list">
+                                    <!-- Document rows inserted dynamically -->
+                                </div>
+                            </div>
+
+                            <!-- Sound toggle (hidden until processing) -->
+                            <button class="bpd-sound-toggle" id="cinematic-sound-toggle" title="Toggle completion sound">
                                 <i data-lucide="volume-2"></i>
                             </button>
-
-                            <!-- Header with stats -->
-                            <div class="cinematic-header">
-                                <div class="cinematic-title">
-                                    <div class="cinematic-title-icon">
-                                        <i data-lucide="cpu"></i>
-                                    </div>
-                                    <span id="batch-progress-text">Initializing Analysis...</span>
-                                </div>
-                                <div class="cinematic-stats">
-                                    <div class="cinematic-stat">
-                                        <div class="cinematic-stat-value" id="batch-docs-complete">0</div>
-                                        <div class="cinematic-stat-label">Complete</div>
-                                    </div>
-                                    <div class="cinematic-stat">
-                                        <div class="cinematic-stat-value" id="batch-docs-total">0</div>
-                                        <div class="cinematic-stat-label">Total</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- CINEMATIC CANVAS PROGRESS BAR -->
-                            <div class="cinematic-progress-container" id="cinematic-progress-container">
-                                <!-- CinematicProgress will render here -->
-                            </div>
-
-                            <!-- Time display row -->
-                            <div class="cinematic-time-display">
-                                <div class="cinematic-time-item">
-                                    <div class="cinematic-time-icon"><i data-lucide="clock"></i></div>
-                                    <div>
-                                        <div class="cinematic-time-label">Elapsed</div>
-                                        <div class="cinematic-time-value" id="batch-elapsed-time">00:00</div>
-                                    </div>
-                                </div>
-                                <div class="cinematic-time-item">
-                                    <div class="cinematic-time-icon"><i data-lucide="timer"></i></div>
-                                    <div>
-                                        <div class="cinematic-time-label">Remaining</div>
-                                        <div class="cinematic-time-value estimated" id="batch-remaining-time">--:--</div>
-                                    </div>
-                                </div>
-                                <div class="cinematic-time-item">
-                                    <div class="cinematic-time-icon"><i data-lucide="activity"></i></div>
-                                    <div>
-                                        <div class="cinematic-time-label">Speed</div>
-                                        <div class="cinematic-time-value" id="batch-speed">-- docs/min</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Individual document progress rows -->
-                            <div class="cinematic-documents">
-                                <div class="cinematic-documents-header">
-                                    <span>Document Analysis Queue</span>
-                                    <span id="batch-queue-status">Waiting...</span>
-                                </div>
-                                <div id="batch-doc-list">
-                                    <!-- Document rows will be dynamically inserted here -->
-                                </div>
-                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -3281,8 +3267,8 @@
                             <input type="checkbox" id="adj-select-all">
                         </label>
                         <select id="adj-filter" class="form-select adj-filter-select">
-                            <option value="all">All Items</option>
-                            <option value="pending" selected>Pending Review</option>
+                            <option value="all" selected>All Items</option>
+                            <option value="pending">Pending Review</option>
                             <option value="confirmed">Confirmed Roles</option>
                             <option value="deliverable">Deliverables</option>
                             <option value="rejected">Rejected</option>

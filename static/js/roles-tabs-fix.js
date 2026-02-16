@@ -1347,7 +1347,7 @@
         functionCategories: [], // All function categories
         viewMode: localStorage.getItem('adj-view-mode') || 'list',
         focusIndex: -1,         // Currently focused card index
-        activeFilter: 'pending',
+        activeFilter: 'all',  // v5.0.2: Default to 'all' so imported/confirmed roles are visible on first open
         searchText: '',
         selectedRoles: new Set(),
         tagDropdownOpen: null   // Role name of open tag dropdown
@@ -3754,6 +3754,12 @@
             const viewBtns = document.querySelectorAll('.adj-view-btn');
             viewBtns.forEach(b => b.classList.toggle('active', b.dataset.view === AdjState.viewMode));
 
+            // v5.0.2: Sync filter dropdown with AdjState.activeFilter
+            const filterDropdown = document.getElementById('adj-filter');
+            if (filterDropdown && filterDropdown.value !== AdjState.activeFilter) {
+                filterDropdown.value = AdjState.activeFilter;
+            }
+
             // Render the appropriate view
             renderAdjCurrentView();
 
@@ -3997,9 +4003,9 @@
                     }
                     break;
                 case 'dictionary':
-                    // Dictionary uses our other fix
+                    // Dictionary uses our other fix — v5.0.2: force reload for fresh data
                     if (typeof window.TWR?.DictFix?.loadDictionary === 'function') {
-                        window.TWR.DictFix.loadDictionary();
+                        window.TWR.DictFix.loadDictionary(true);
                     }
                     break;
                 case 'crossref':

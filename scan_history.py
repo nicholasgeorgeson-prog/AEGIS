@@ -1893,8 +1893,8 @@ class ScanHistoryDB:
                     if rname in role_info:
                         role_info[rname]['dict_category'] = row[1] or ''
                         role_info[rname]['description'] = row[3] or ''
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f'Hierarchy enrichment from dictionary failed: {e}')
 
             # Roots = roles that appear as parents but never as children
             roots_set = all_role_names - set(parent_of.keys())
@@ -2354,8 +2354,8 @@ class ScanHistoryDB:
                                     VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?)
                                 ''', (rid_row[0], rname, code_to_assign, created_by))
                                 tags_assigned += cursor.rowcount
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logger.warning(f'SIPOC: Failed to assign tag {code_to_assign} to {rname}: {e}')
 
             # Import relationships
             for rel in parsed.get('relationships', []):

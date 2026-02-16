@@ -449,7 +449,16 @@ function generateGlobalDocumentId() {
  */
 function resetStateForNewDocument() {
     console.log('[TWR] Resetting state for new document...');
-    
+
+    // v5.0.2: Force-clear any stuck loading overlays and scan progress dashboards
+    setLoading(false);
+    LoadingTracker.reset();
+    if (typeof TWR !== 'undefined' && TWR.ScanProgress?.isActive()) {
+        try { TWR.ScanProgress.destroy(); } catch(e) {}
+    }
+    // Reset the graph loading guard to prevent "already loading" blocks
+    GraphState.isLoading = false;
+
     // Stop any running D3 simulation
     if (GraphState.simulation) {
         GraphState.simulation.stop();
@@ -1352,6 +1361,11 @@ function processReviewResults(result, duration) {
         setTimeout(() => {
             window.TWR.FunctionTags.showDocumentTagPrompt(scanInfo, State.filename);
         }, 2000); // Slight delay to let user see results first
+    }
+
+    // v5.0.2: Refresh landing page metrics so they show updated counts
+    if (typeof TWR !== 'undefined' && TWR.LandingPage?.refresh) {
+        TWR.LandingPage.refresh().catch(e => console.warn('[TWR] Landing refresh:', e));
     }
 
     // Save state to sessionStorage for back button support
@@ -3202,24 +3216,40 @@ async function executeExport() {
                 endpoint = '/export/csv';
                 body = { issues: issuesToExport, type: 'issues' };
                 break;
-            case 'pdf':
-                endpoint = '/export/pdf';
-                body = {
-                    results: {
-                        ...State.reviewResults,
-                        issues: issuesToExport
-                    }
-                };
-                break;
-            case 'json':
-                endpoint = '/export/json';
-                body = {
-                    results: {
-                        ...State.reviewResults,
-                        issues: issuesToExport
-                    }
-                };
-                break;
+            case 'pdf': {
+                // v5.0.2: Client-side PDF via print dialog (no backend endpoint needed)
+                const pdfHtml = generatePrintableReport(issuesToExport);
+                const pdfWin = window.open('', '_blank');
+                if (pdfWin) {
+                    pdfWin.document.write(pdfHtml);
+                    pdfWin.document.close();
+                    pdfWin.onload = () => { pdfWin.print(); };
+                } else {
+                    // Fallback: download as HTML file for manual print
+                    const htmlBlob = new Blob([pdfHtml], { type: 'text/html' });
+                    downloadBlob(htmlBlob, `${State.filename}_review.html`);
+                    toast('info', 'Report downloaded as HTML — open and use Print → Save as PDF');
+                }
+                setLoading(false);
+                return;
+            }
+            case 'json': {
+                // v5.0.2: Client-side JSON export (no backend endpoint needed)
+                const jsonData = JSON.stringify({
+                    filename: State.filename,
+                    exported: new Date().toISOString(),
+                    score: State.reviewResults?.score,
+                    grade: State.reviewResults?.grade,
+                    issue_count: issuesToExport.length,
+                    document_info: State.reviewResults?.document_info,
+                    issues: issuesToExport
+                }, null, 2);
+                const jsonBlob = new Blob([jsonData], { type: 'application/json' });
+                downloadBlob(jsonBlob, `${State.filename}_review.json`);
+                toast('success', `Exported ${issuesToExport.length} issues to JSON`);
+                setLoading(false);
+                return;
+            }
             case 'docx':
             default:
                 // v3.0.96: Get selected fixes from Fix Assistant if available
@@ -3273,6 +3303,50 @@ async function executeExport() {
     }
 
     setLoading(false);
+}
+
+// v5.0.2: Generate printable HTML report for PDF export via browser print
+function generatePrintableReport(issues) {
+    const severityColors = { critical: '#ef4444', high: '#ea580c', medium: '#ca8a04', low: '#16a34a', info: '#3b82f6' };
+    const issueRows = issues.map(issue => {
+        const sev = (issue.severity || 'info').toLowerCase();
+        const color = severityColors[sev] || '#6b7280';
+        return `<tr>
+            <td><span style="background:${color};color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;">${sev.toUpperCase()}</span></td>
+            <td>${issue.category || '-'}</td>
+            <td>${issue.message || '-'}</td>
+            <td style="font-size:12px;color:#666;">${(issue.flagged_text || '').substring(0, 80)}${(issue.flagged_text || '').length > 80 ? '...' : ''}</td>
+        </tr>`;
+    }).join('');
+
+    return `<!DOCTYPE html><html><head><meta charset="utf-8">
+        <title>AEGIS Review Report</title>
+        <style>
+            body{font-family:'Segoe UI',Arial,sans-serif;margin:40px;color:#1a1a2e}
+            h1{font-size:22px;margin-bottom:4px}
+            .meta{color:#666;font-size:13px;margin-bottom:20px}
+            .summary{display:flex;gap:24px;margin-bottom:24px}
+            .stat{text-align:center;padding:12px 20px;background:#f8f9fa;border-radius:8px}
+            .stat-val{font-size:28px;font-weight:700}.stat-lbl{font-size:11px;color:#666;text-transform:uppercase}
+            table{width:100%;border-collapse:collapse;font-size:13px}
+            th{background:#1a1a2e;color:#fff;padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase}
+            td{padding:8px 12px;border-bottom:1px solid #e5e7eb;vertical-align:top}
+            tr:nth-child(even){background:#f9fafb}
+            @media print{body{margin:20px}.summary{page-break-inside:avoid}}
+        </style>
+    </head><body>
+        <h1>AEGIS Document Review Report</h1>
+        <p class="meta">${State.filename || 'Document'} &bull; ${new Date().toLocaleDateString()} &bull; ${issues.length} issues</p>
+        <div class="summary">
+            <div class="stat"><div class="stat-val">${State.reviewResults?.score ?? '-'}</div><div class="stat-lbl">Score</div></div>
+            <div class="stat"><div class="stat-val">${State.reviewResults?.grade || '-'}</div><div class="stat-lbl">Grade</div></div>
+            <div class="stat"><div class="stat-val">${issues.length}</div><div class="stat-lbl">Issues</div></div>
+            <div class="stat"><div class="stat-val">${State.reviewResults?.word_count?.toLocaleString() || '-'}</div><div class="stat-lbl">Words</div></div>
+        </div>
+        <table><thead><tr><th>Severity</th><th>Category</th><th>Message</th><th>Flagged Text</th></tr></thead>
+        <tbody>${issueRows}</tbody></table>
+        <p style="margin-top:24px;font-size:11px;color:#999;">Generated by AEGIS</p>
+    </body></html>`;
 }
 
 function downloadBlob(blob, filename) {
@@ -10668,16 +10742,14 @@ STEPS TO REPRODUCE
         BatchState.files = [];
         document.getElementById('batch-file-list').innerHTML = '';
         document.getElementById('btn-start-batch').disabled = true;
-        // Reset circuit progress display
+        // v5.0.2: Reset batch progress dashboard
         const progressEl = document.getElementById('batch-progress');
         progressEl.classList.add('hidden');
-        progressEl.classList.remove('scanning');
+        progressEl.classList.remove('bpd-complete');
         const progressFill = document.getElementById('batch-progress-fill');
-        if (progressFill) {
-            progressFill.style.width = '0%';
-            progressFill.style.background = ''; // Reset to CSS default
-            progressFill.style.boxShadow = ''; // Reset to CSS default
-        }
+        if (progressFill) progressFill.style.width = '0%';
+        const glowEl = document.getElementById('batch-progress-glow');
+        if (glowEl) glowEl.style.width = '0%';
         const docList = document.getElementById('batch-doc-list');
         if (docList) docList.innerHTML = '';
         document.getElementById('batch-upload-modal').style.display = 'flex';
@@ -10885,54 +10957,7 @@ STEPS TO REPRODUCE
         let targetPercent = 0;
         let soundEnabled = localStorage.getItem('batchSoundEnabled') !== 'false';
 
-        // Initialize Cinematic Progress Animation (v3.1.6)
-        let cinematicProgress = null;
-        const cinematicContainer = document.getElementById('cinematic-progress-container');
-        if (cinematicContainer && typeof CinematicProgress !== 'undefined') {
-            const savedTheme = localStorage.getItem('cinematicProgressTheme') || 'circuit';
-            cinematicProgress = CinematicProgress.create(cinematicContainer, {
-                theme: savedTheme,
-                width: cinematicContainer.offsetWidth || 620,
-                height: 100,
-                showParticles: true,
-                showTrail: true,
-                showGlow: true,
-                showDataStreams: savedTheme === 'matrix',
-                onComplete: () => {
-                    console.log('[TWR] Cinematic progress complete');
-                }
-            });
-            console.log('[TWR] Cinematic progress initialized with theme:', savedTheme);
-
-            // Set up theme switcher
-            const themeBtns = progressEl.querySelectorAll('.theme-btn');
-            themeBtns.forEach(btn => {
-                if (btn.dataset.theme === savedTheme) {
-                    btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
-                }
-                btn.addEventListener('click', () => {
-                    const theme = btn.dataset.theme;
-                    themeBtns.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    if (cinematicProgress) {
-                        cinematicProgress.setTheme(theme);
-                        // Matrix theme needs data streams
-                        if (theme === 'matrix' && cinematicProgress.dataStreams.length === 0) {
-                            cinematicProgress.options.showDataStreams = true;
-                            cinematicProgress.initDataStreams();
-                        }
-                    }
-                    localStorage.setItem('cinematicProgressTheme', theme);
-                    // Update container theme for CSS
-                    progressEl.setAttribute('data-theme', theme);
-                });
-            });
-
-            // Set initial theme attribute for CSS
-            progressEl.setAttribute('data-theme', savedTheme);
-        }
+        // v5.0.2: Batch progress dashboard initialized (no external animation dependencies)
 
         // Update sound toggle button state
         if (soundToggle) {
@@ -11010,21 +11035,13 @@ STEPS TO REPRODUCE
             }
         };
 
-        // Helper to update main progress
+        // v5.0.2: Update main progress (ScanProgress-style dashboard)
         const updateProgress = (percent, text) => {
-            // Update legacy CSS progress (fallback)
-            if (progressFill) {
-                progressFill.style.width = percent + '%';
-                progressFill.setAttribute('data-percent', Math.round(percent));
-            }
-            if (progressPercent) progressPercent.textContent = Math.round(percent) + '%';
-            if (text) progressText.textContent = text;
+            if (progressFill) progressFill.style.width = percent + '%';
+            const glowEl = document.getElementById('batch-progress-glow');
+            if (glowEl) glowEl.style.width = percent + '%';
+            if (text && progressText) progressText.textContent = text;
             animatePercent(Math.round(percent));
-
-            // Update Cinematic Progress (Lottie + GSAP + Canvas)
-            if (cinematicProgress) {
-                cinematicProgress.setProgress(percent / 100);
-            }
 
             // Update estimated time remaining
             if (percent > 0 && percent < 100) {
@@ -11042,101 +11059,75 @@ STEPS TO REPRODUCE
                 }
             } else if (percent >= 100) {
                 if (remainingTimeEl) remainingTimeEl.textContent = '00:00';
+                // Mark dashboard complete
+                const dashEl = document.getElementById('batch-progress');
+                if (dashEl) dashEl.classList.add('bpd-complete');
             }
         };
 
-        // Helper to create document row HTML
+        // v5.0.2: Document row HTML matching ScanProgress step style
+        const docStartTimes = {};
         const createDocRow = (file, index, status = 'queued', batchNum = null) => {
-            const statusIcons = {
-                queued: 'clock',
-                uploading: 'upload',
-                processing: 'cpu',
-                complete: 'check-circle',
-                error: 'x-circle'
-            };
-            const statusLabels = {
-                queued: 'QUEUED',
-                uploading: 'UPLOADING',
-                processing: 'ANALYZING',
-                complete: 'DONE',
-                error: 'ERROR'
-            };
-            const batchLabel = batchNum !== null ? `<span class="circuit-batch-label">Batch ${batchNum + 1}</span>` : '';
+            const batchLabel = batchNum !== null ? `<span class="bpd-batch-label">Batch ${batchNum + 1}</span>` : '';
+            const iconHTML = status === 'queued'
+                ? '<div class="bpd-pending-dot"></div>'
+                : '<div class="bpd-spinner"></div>';
             return `
-                <div class="circuit-doc-row ${status}" id="batch-doc-${index}">
-                    <div class="circuit-doc-status">
-                        <i data-lucide="${statusIcons[status]}"></i>
+                <div class="bpd-doc-row ${status}" id="batch-doc-${index}">
+                    <div class="bpd-doc-icon">${iconHTML}</div>
+                    <div class="bpd-doc-content">
+                        <div class="bpd-doc-name">${escapeHtml(file.name)} ${batchLabel}</div>
+                        <div class="bpd-doc-detail" id="batch-doc-meta-${index}">Queued for analysis</div>
                     </div>
-                    <div class="circuit-doc-info">
-                        <div class="circuit-doc-name">${escapeHtml(file.name)} ${batchLabel}</div>
-                        <div class="circuit-doc-meta">
-                            <span class="circuit-doc-status-text ${status}" id="batch-doc-status-${index}">${statusLabels[status]}</span>
-                            <span id="batch-doc-meta-${index}">Queued for analysis</span>
-                        </div>
+                    <div class="bpd-doc-bar" id="batch-doc-progress-${index}">
+                        <div class="bpd-doc-bar-fill" id="batch-doc-fill-${index}" style="width: 0%;"></div>
                     </div>
-                    <div class="molten-progress molten-mini" id="batch-doc-progress-${index}">
-                        <div class="molten-rail"></div>
-                        <div class="molten-fill" id="batch-doc-fill-${index}" style="width: 0%;"></div>
-                        <div class="molten-orb" id="batch-doc-orb-${index}"></div>
-                    </div>
-                    <div class="circuit-doc-issues" id="batch-doc-issues-${index}">
-                        <span class="circuit-issue-badge">--</span>
-                    </div>
+                    <div class="bpd-doc-duration" id="batch-doc-duration-${index}"></div>
                 </div>
             `;
         };
 
-        // Helper to update individual doc row
+        // v5.0.2: Update doc row to match ScanProgress style
         const updateDocRow = (index, status, meta, issues = null, progress = 0) => {
             const row = document.getElementById(`batch-doc-${index}`);
             const metaEl = document.getElementById(`batch-doc-meta-${index}`);
-            const statusTextEl = document.getElementById(`batch-doc-status-${index}`);
             const fillEl = document.getElementById(`batch-doc-fill-${index}`);
-            const issuesEl = document.getElementById(`batch-doc-issues-${index}`);
-
-            const statusLabels = {
-                queued: 'QUEUED',
-                uploading: 'UPLOADING',
-                processing: 'ANALYZING',
-                complete: 'DONE',
-                error: 'ERROR'
-            };
+            const durationEl = document.getElementById(`batch-doc-duration-${index}`);
 
             if (row) {
-                row.className = `circuit-doc-row ${status}`;
-                // Update icon based on status
-                const statusIcons = {
-                    queued: 'clock',
-                    uploading: 'upload',
-                    processing: 'cpu',
-                    complete: 'check-circle',
-                    error: 'x-circle'
-                };
-                const statusIcon = row.querySelector('.circuit-doc-status i');
-                if (statusIcon) {
-                    statusIcon.setAttribute('data-lucide', statusIcons[status]);
-                    if (window.lucide) window.lucide.createIcons();
+                row.className = `bpd-doc-row ${status}`;
+                const iconDiv = row.querySelector('.bpd-doc-icon');
+                if (iconDiv) {
+                    if (status === 'processing' || status === 'uploading') {
+                        if (!docStartTimes[index]) docStartTimes[index] = Date.now();
+                        iconDiv.innerHTML = '<div class="bpd-spinner"></div>';
+                    } else if (status === 'complete') {
+                        iconDiv.innerHTML = '<div class="bpd-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg></div>';
+                        // Show duration
+                        if (durationEl && docStartTimes[index]) {
+                            const dur = ((Date.now() - docStartTimes[index]) / 1000).toFixed(1);
+                            durationEl.textContent = dur + 's';
+                        }
+                    } else if (status === 'error') {
+                        iconDiv.innerHTML = '<div class="bpd-error-icon"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></div>';
+                    } else {
+                        iconDiv.innerHTML = '<div class="bpd-pending-dot"></div>';
+                    }
+                }
+                // Auto-scroll to processing row
+                if (status === 'processing' || status === 'uploading') {
+                    row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
             }
-            if (statusTextEl) {
-                statusTextEl.textContent = statusLabels[status] || status.toUpperCase();
-                statusTextEl.className = `circuit-doc-status-text ${status}`;
+            if (metaEl) {
+                if (status === 'complete' && issues !== null) {
+                    metaEl.textContent = `Complete — ${issues} issues found`;
+                } else {
+                    metaEl.textContent = meta;
+                }
             }
-            if (metaEl) metaEl.textContent = meta;
             if (fillEl) {
                 fillEl.style.width = progress + '%';
-                // Update molten orb position
-                const orbEl = document.getElementById(`batch-doc-orb-${index}`);
-                if (orbEl) orbEl.style.left = progress + '%';
-                // Add complete class when done
-                const progressEl = document.getElementById(`batch-doc-progress-${index}`);
-                if (progressEl && progress >= 100) {
-                    progressEl.classList.add('molten-complete');
-                }
-            }
-            if (issuesEl && issues !== null) {
-                const badgeClass = issues > 50 ? 'high' : '';
-                issuesEl.innerHTML = `<span class="circuit-issue-badge ${badgeClass}">${issues} issues</span>`;
             }
         };
 

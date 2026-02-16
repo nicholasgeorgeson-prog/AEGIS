@@ -1216,5 +1216,11 @@ TWR.LandingPage = (function() {
 
     // ── Public Interface ────────────────────────────────────
 
-    return { init, show, hide, destroy };
+    // v5.0.2: Expose refresh for post-review metric updates
+    async function refresh() {
+        await fetchData();
+        updateMetrics();
+    }
+
+    return { init, show, hide, destroy, refresh };
 })();
