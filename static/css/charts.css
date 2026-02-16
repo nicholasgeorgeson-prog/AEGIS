@@ -1618,7 +1618,7 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .top-fixes-list-inline .fix-category {
@@ -1633,12 +1633,13 @@
     font-size: 13px;
     color: var(--text-primary);
     line-height: 1.3;
-    /* Allow text to wrap to 2 lines instead of truncating */
+    /* v5.0.5: Allow text to wrap to 4 lines for readability */
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 4;
     -webkit-box-orient: vertical;
     overflow: hidden;
     white-space: normal;
+    word-break: break-word;
 }
 
 .top-fixes-list-inline .fix-impact {
@@ -1772,4 +1773,3 @@
 }
 
 /* Heatmap tooltip */
-
