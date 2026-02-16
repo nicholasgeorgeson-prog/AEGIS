@@ -253,8 +253,8 @@ echo  [OK] Python installed
 set "PTH_FILE=%PYTHON_DIR%\python310._pth"
 if exist "%PTH_FILE%" (
     powershell -NoProfile -Command "(Get-Content '%PTH_FILE%') -replace '#import site','import site' | Set-Content '%PTH_FILE%'"
-    :: Add current directory to Python path so local modules (config_logging, etc.) are found
-    powershell -NoProfile -Command "Add-Content '%PTH_FILE%' '.'"
+    :: Add parent directory (..) so Python finds app modules one level up from python\ subfolder
+    powershell -NoProfile -Command "Add-Content '%PTH_FILE%' '..'"
     echo  [OK] Python configured
 )
 
