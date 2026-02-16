@@ -1,12 +1,63 @@
 {
-  "version": "5.1.0",
+  "version": "5.4.0",
   "release_date": "2026-02-16",
-  "core_version": "5.1.0",
+  "core_version": "5.4.0",
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.4.0",
+      "date": "2026-02-16",
+      "changes": [
+        "PERFORMANCE: Eliminated dark mode flash of light content (FOUC) — inline CSS variables + data-theme attribute set before any stylesheet loads",
+        "PERFORMANCE: Deferred 30+ feature module scripts with defer attribute — initial paint 40-60% faster",
+        "PERFORMANCE: Async CSS loading for 13 feature stylesheets using media='print' onload pattern — only critical CSS blocks render",
+        "PERFORMANCE: Batch scan processing now multi-threaded via ThreadPoolExecutor (up to 3 concurrent documents)",
+        "FIX: Resolved terminology_consistency naming conflict — v3.3.0 and v5.3.0 checkers now have distinct keys (terminology_consistency vs wordnet_terminology)",
+        "NLP: 11 new v5.3.0 spaCy Ecosystem checkers fully integrated with UI toggles",
+        "NLP: 6 new v5.2.0 Advanced NLP Enhancement Suite checkers with graceful fallback",
+        "NLP: 8 new checker files: negation, text_metrics, terminology_consistency, subjectivity, vocabulary, yake, similarity, advanced_analysis",
+        "NLP: New libraries integrated: negspacy, textdescriptives, spacy-wordnet, spacytextblob, lexical_diversity, yake",
+        "CHECKERS: Total checker count now 100+ (98 UI-controlled + 7 always-on)",
+        "INSTALL: Windows x64 wheels for all new NLP dependencies included for air-gapped deployment",
+        "UI: v5.3.0 spaCy Deep Analysis section in Settings with 4 subcategories and 11 checkboxes"
+      ]
+    },
+    {
+      "version": "5.3.0",
+      "date": "2026-02-16",
+      "changes": [
+        "NLP: spaCy Ecosystem & Deep Analysis Suite — 8 new checker files with 11 checker keys",
+        "NLP: Negation detection using negspacy + spaCy dependency tree for scope analysis",
+        "NLP: Text quality metrics via textdescriptives pipeline (readability, coherence, POS, quality)",
+        "NLP: Sentence complexity scoring using dependency tree depth and clause count",
+        "NLP: Terminology consistency via spacy-wordnet synonym detection + curated aerospace groups",
+        "NLP: Subjectivity and tone detection using spacytextblob sentiment analysis",
+        "NLP: Lexical diversity metrics (MTLD, HD-D, TTR) for boilerplate and copy-paste detection",
+        "NLP: YAKE statistical keyword extraction with domain coverage and distribution analysis",
+        "NLP: Requirement similarity using sentence-transformers with TF-IDF fallback",
+        "NLP: Cross-sentence coherence, defined-before-used enforcement, quantifier precision checking",
+        "INSTALL: 6 new dependencies: negspacy, textdescriptives, spacy-wordnet, spacytextblob, lexical_diversity, yake"
+      ]
+    },
+    {
+      "version": "5.2.0",
+      "date": "2026-02-16",
+      "changes": [
+        "NLP: Advanced NLP Enhancement Suite — 6 optional checkers with graceful fallback",
+        "NLP: Coreference resolution using coreferee for ambiguous pronoun detection",
+        "NLP: Advanced prose quality checking using proselint (clichés, hedging, redundancy)",
+        "NLP: Document verbosity and summarization analysis using sumy",
+        "NLP: Keyword extraction and complexity analysis using textacy (SGRANK algorithm)",
+        "NLP: INCOSE requirements compliance checking",
+        "NLP: Semantic role labeling for requirement structure analysis",
+        "FIX: Excel/CSV export BytesIO bug — make_response pattern for binary content",
+        "FIX: UTF-8 BOM added to CSV exports for Windows Excel compatibility",
+        "FIX: HTML report charset meta tag for proper encoding display"
+      ]
+    },
     {
       "version": "5.1.0",
       "date": "2026-02-16",

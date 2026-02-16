@@ -10,6 +10,7 @@
  * - Technical deep-dive section for advanced users
  * - Smooth navigation and professional typography
  *
+ * v5.4.0 - Performance Optimization + spaCy Ecosystem Deep Analysis (zero dark mode flash, deferred scripts, parallel batch scan, 100+ checkers)
  * v5.1.0 - Security Hardening + Accessibility + Print Support (CSRF protection, WCAG 2.1 A compliance, print.css, folder browser, Windows wheels)
  * v5.0.0 - Multiprocessing Architecture + Role Extraction (separate processes, 3-layer filtering, 30+ aerospace roles, NASA 297-page test)
  * v4.9.9 - Statement Source Viewer & Error Handling (highlight-to-select editing, SOW fixes, timezone import, error message extraction)
@@ -6723,6 +6724,22 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.4.0 <span class="changelog-date">February 16, 2026</span></h3>
+        <p><strong>Performance Optimization + spaCy Ecosystem Deep Analysis</strong></p>
+        <ul>
+            <li><strong>PERFORMANCE: Zero Dark Mode Flash</strong> — Inline CSS variables + data-theme attribute set before any stylesheet loads, eliminating FOUC</li>
+            <li><strong>PERFORMANCE: Deferred Script Loading</strong> — 30+ feature module scripts now use defer attribute; initial paint 40-60% faster</li>
+            <li><strong>PERFORMANCE: Async CSS Loading</strong> — 13 feature stylesheets load asynchronously; only critical CSS blocks render</li>
+            <li><strong>PERFORMANCE: Parallel Batch Scan</strong> — ThreadPoolExecutor processes up to 3 documents concurrently during batch review</li>
+            <li><strong>NLP: 11 New v5.3.0 Checkers</strong> — Negation detection, text metrics, sentence complexity, terminology (WordNet), subjectivity, lexical diversity, YAKE keywords, requirement similarity, coherence, defined-before-used, quantifier precision</li>
+            <li><strong>NLP: 6 New v5.2.0 Checkers</strong> — Coreference resolution, advanced prose lint, verbosity detection, keyword extraction, INCOSE compliance, semantic role analysis</li>
+            <li><strong>NLP: New Libraries</strong> — negspacy, textdescriptives, spacy-wordnet, spacytextblob, lexical_diversity, yake, coreferee, proselint, textacy, sumy</li>
+            <li><strong>CHECKERS: 100+ Total</strong> — 98 UI-controlled + 7 always-on checkers available for document analysis</li>
+            <li><strong>UI: spaCy Deep Analysis Panel</strong> — New Settings section with 4 subcategories and 11 checkboxes for v5.3.0 checkers</li>
+            <li><strong>INSTALL: Windows Wheels Updated</strong> — All new NLP dependency wheels included for air-gapped deployment</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.1.0 <span class="changelog-date">February 16, 2026</span></h3>
         <p><strong>Security Hardening + Accessibility + Print Support</strong></p>
         <ul>

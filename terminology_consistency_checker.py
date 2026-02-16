@@ -278,5 +278,5 @@ class TerminologyConsistencyChecker(BaseChecker):
 def get_terminology_consistency_checkers() -> Dict[str, BaseChecker]:
     """Factory function returning terminology consistency checkers."""
     return {
-        'terminology_consistency': TerminologyConsistencyChecker()
+        'wordnet_terminology': TerminologyConsistencyChecker()
     }

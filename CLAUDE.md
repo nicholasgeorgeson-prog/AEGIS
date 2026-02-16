@@ -10,7 +10,7 @@
 - **Routes**: Modular blueprints in `routes/` package
 - **Static files**: `static/js/`, `static/css/`, `templates/`
 - **Database**: `scan_history.db` (SQLite) - roles, documents, scans, etc.
-- **Quality Checkers**: 83+ document review checkers with UI toggle controls
+- **Quality Checkers**: 100+ document review checkers with UI toggle controls (98 UI + 7 always-on)
 - **Guided Tour System**: Interactive help panels and spotlight tours via `guide-system.js`
 - **Print Support**: Print-optimized stylesheet with URL display and page break controls
 
@@ -160,7 +160,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.1.0
+- **Current version**: 5.4.0
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -268,3 +268,38 @@ additional_checkers = [
 **Problem**: 14 checkers had no UI checkboxes — they ran via `additional_checkers` but users couldn't see/control them.
 **Fix**: Added checkbox HTML in index.html → mapped names in `option_mapping` in core.py → removed from `additional_checkers`.
 **Lesson**: To add a checker toggle: (1) Add `<input type="checkbox" data-checker="name">` in index.html settings panel, (2) Add `'check_name': 'checker_name'` to `option_mapping` in core.py `review_document()`, (3) Remove from `additional_checkers` if it was there. Three files, three changes, all required.
+
+### 29. Checker Naming Conflicts (Duplicate Factory Keys)
+**Problem**: v3.3.0 `terminology_checker.py` and v5.3.0 `terminology_consistency_checker.py` both produced a checker with key `terminology_consistency`. The second one overwrote the first in `self.checkers`.
+**Fix**: Renamed v5.3.0 factory output from `terminology_consistency` to `wordnet_terminology`. Updated `option_mapping` in core.py (`check_term_consistency` → `wordnet_terminology`) and verified index.html checkbox uses matching `data-checker` attribute.
+**Lesson**: Every checker factory function must produce UNIQUE keys. Before creating a new checker, search `core.py` for existing keys with the same name. Use `grep -r "terminology_consistency" *.py` to find all references.
+
+### 30. Dark Mode FOUC (Flash of Unstyled Content)
+**Problem**: User reported "opens in light mode then switches to dark" despite inline script setting `.dark-mode` class before CSS loads.
+**Root Cause**: The inline script only set the CSS class on `<html>`, but CSS variable defaults in `:root` were light values. The dark overrides via `.dark-mode` selector hadn't cascaded yet during first paint.
+**Fix**: Three-part fix: (1) Set `data-theme="dark"` attribute in addition to class (for selectors using `[data-theme="dark"]`). (2) Set critical CSS variables inline (`--bg-deep`, `--bg-primary`, `--text-primary`). (3) Add inline `<style>` block with `html.dark-mode { background-color: #0d1117; color: #e6edf3; }` before any stylesheet link.
+**Lesson**: For FOUC prevention, CSS classes alone aren't enough — you need to set the actual CSS variable VALUES inline before any stylesheet loads. The class needs the stylesheet to define what it means; inline variables are self-contained.
+
+### 31. Script Defer for Faster Initial Paint
+**Problem**: 40+ synchronous `<script>` tags blocked HTML parsing, delaying first meaningful paint by 200-500ms.
+**Fix**: Added `defer` attribute to 30+ feature module scripts that aren't needed for initial landing page. Kept core modules (storage, state, api, modals, app.js, landing-page.js) synchronous since they're needed immediately.
+**Lesson**: `defer` downloads scripts in parallel and executes in order after HTML parsing. Safe for any script that uses `DOMContentLoaded`. NOT safe for scripts that write to DOM during load or that other sync scripts depend on immediately. Test all entry points after adding defer.
+
+### 32. Async CSS Loading Pattern
+**Pattern**: Use `media="print" onload="this.media='all'"` to load non-critical CSS asynchronously. The browser downloads the file immediately (for "print") but doesn't block render. On load, switching to `media="all"` applies the styles.
+**Lesson**: Only the main `style.css` and `landing-page.css` need to be render-blocking. All feature CSS (portfolio, hyperlink-validator, data-explorer, etc.) can load async since those features aren't visible on initial page load.
+
+### 33. Batch Scan Multi-Threading (ThreadPoolExecutor)
+**Problem**: Batch scan processed documents sequentially — 10 documents took 10x the time of one.
+**Fix**: Wrapped each document review in a separate thread via `ThreadPoolExecutor(max_workers=3)`. Each thread creates its own `AEGISEngine()` instance to avoid shared state.
+**Why max_workers=3**: Higher values cause memory pressure from NLP models (spaCy, sentence-transformers). 3 is a safe balance.
+**Why ThreadPoolExecutor not ProcessPoolExecutor**: The individual `review_document()` already spawns a subprocess (multiprocessing.Process). Threading at the batch level + subprocess per review gives us parallelism without the complexity of nested multiprocessing.
+**Lesson**: For batch operations where each item is independent, ThreadPoolExecutor with per-thread engine instances is safe. The key is NO shared mutable state between threads.
+
+## MANDATORY: Documentation with Every Deliverable
+**RULE**: Every code change delivered to the user MUST include:
+1. **Changelog update** in `version.json` (and copy to `static/version.json`)
+2. **Version bump** if warranted
+3. **Help docs update** in `static/js/help-docs.js` if user-facing changes
+4. **CLAUDE.md update** if new patterns, lessons, or architecture changes
+This is a mandatory step, not optional. The user has explicitly requested this be committed to memory.

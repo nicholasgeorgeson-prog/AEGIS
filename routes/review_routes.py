@@ -197,62 +197,128 @@ def upload_batch():
 def review_batch():
     """
     Review multiple documents and aggregate results.
-    
+
+    v5.4.0: Uses ThreadPoolExecutor for parallel document processing.
+    Each thread gets its own AEGISEngine instance to avoid shared state.
+
     Expects JSON body with list of filepaths from batch upload.
     Returns aggregated review results.
     """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     data = request.get_json() or {}
     filepaths = data.get('filepaths', [])
     options = data.get('options', {})
     if not filepaths:
         raise ValidationError('No filepaths provided')
-    else:
-        results = {'documents': [], 'summary': {'total_documents': len(filepaths), 'total_issues': 0, 'issues_by_severity': {'High': 0, 'Medium': 0, 'Low': 0}, 'issues_by_category': {}}, 'roles_found': {}}
-        engine = AEGISEngine()
-        for filepath in filepaths:
-            filepath = Path(filepath)
-            if not filepath.exists():
-                results['documents'].append({'filename': filepath.name, 'error': 'File not found'})
+
+    results = {
+        'documents': [],
+        'summary': {
+            'total_documents': len(filepaths),
+            'total_issues': 0,
+            'issues_by_severity': {'High': 0, 'Medium': 0, 'Low': 0},
+            'issues_by_category': {}
+        },
+        'roles_found': {}
+    }
+
+    def _review_single_doc(fp_str):
+        """Review a single document in its own thread with its own engine."""
+        filepath = Path(fp_str)
+        if not filepath.exists():
+            return {'filename': filepath.name, 'error': 'File not found'}
+        try:
+            engine = AEGISEngine()
+            doc_results = engine.review_document(str(filepath), options)
+            issues = doc_results.get('issues', [])
+            doc_roles = doc_results.get('roles', {})
+            if not isinstance(doc_roles, dict):
+                doc_roles = {}
+            actual_roles = {k: v for k, v in doc_roles.items() if not isinstance(v, dict) or k not in ['success', 'error']}
+            doc_info = doc_results.get('document_info', {})
+            word_count = doc_info.get('word_count', 0) if isinstance(doc_info, dict) else 0
+            return {
+                'filename': filepath.name,
+                'filepath': str(filepath),
+                'issues': issues,
+                'roles': actual_roles,
+                'word_count': word_count,
+                'score': doc_results.get('score', 0),
+                'grade': doc_results.get('grade', 'N/A'),
+                'doc_results': doc_results,
+            }
+        except Exception as e:
+            tb_str = traceback.format_exc()
+            logger.error(f'Batch review error: {filepath.name} - {e}\n{tb_str}')
+            return {
+                'filename': filepath.name,
+                'error': str(e),
+                'traceback': tb_str if config.debug else None
+            }
+
+    # v5.4.0: Parallel batch processing — up to 3 concurrent documents
+    # Limited to 3 to avoid memory pressure from NLP models
+    max_workers = min(3, len(filepaths))
+    doc_entries = []
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_fp = {executor.submit(_review_single_doc, fp): fp for fp in filepaths}
+        for future in as_completed(future_to_fp):
+            result = future.result()
+            if 'error' in result:
+                doc_entries.append(result)
                 continue
-            else:
+
+            # Aggregate issues
+            issues = result.pop('issues', [])
+            actual_roles = result.pop('roles', {})
+            doc_results = result.pop('doc_results', {})
+            issue_count = len(issues)
+            results['summary']['total_issues'] += issue_count
+            for issue in issues:
+                sev = issue.get('severity', 'Low')
+                results['summary']['issues_by_severity'][sev] = results['summary']['issues_by_severity'].get(sev, 0) + 1
+                cat = issue.get('category', 'Unknown')
+                results['summary']['issues_by_category'][cat] = results['summary']['issues_by_category'].get(cat, 0) + 1
+
+            # Aggregate roles
+            for role_name, role_data in actual_roles.items():
+                if role_name not in results['roles_found']:
+                    results['roles_found'][role_name] = {'documents': [], 'total_mentions': 0}
+                results['roles_found'][role_name]['documents'].append(result['filename'])
+                results['roles_found'][role_name]['total_mentions'] += role_data.get('count', 1) if isinstance(role_data, dict) else 1
+
+            doc_entry = {
+                'filename': result['filename'],
+                'filepath': result['filepath'],
+                'issue_count': issue_count,
+                'role_count': len(actual_roles),
+                'word_count': result['word_count'],
+                'score': result['score'],
+                'grade': result['grade'],
+                'scan_id': None
+            }
+
+            # Record scan in history
+            if _shared.SCAN_HISTORY_AVAILABLE:
                 try:
-                    doc_results = engine.review_document(str(filepath), options)
-                    issues = doc_results.get('issues', [])
-                    issue_count = len(issues)
-                    results['summary']['total_issues'] += issue_count
-                    for issue in issues:
-                        sev = issue.get('severity', 'Low')
-                        results['summary']['issues_by_severity'][sev] = results['summary']['issues_by_severity'].get(sev, 0) + 1
-                        cat = issue.get('category', 'Unknown')
-                        results['summary']['issues_by_category'][cat] = results['summary']['issues_by_category'].get(cat, 0) + 1
-                    doc_roles = doc_results.get('roles', {})
-                    if not isinstance(doc_roles, dict):
-                        doc_roles = {}
-                    actual_roles = {k: v for k, v in doc_roles.items() if not isinstance(v, dict) or k not in ['success', 'error']}
-                    for role_name, role_data in actual_roles.items():
-                        if role_name not in results['roles_found']:
-                            results['roles_found'][role_name] = {'documents': [], 'total_mentions': 0}
-                        results['roles_found'][role_name]['documents'].append(filepath.name)
-                        results['roles_found'][role_name]['total_mentions'] += role_data.get('count', 1) if isinstance(role_data, dict) else 1
-                    doc_info = doc_results.get('document_info', {})
-                    word_count = 0
-                    if isinstance(doc_info, dict):
-                        word_count = doc_info.get('word_count', 0)
-                    doc_entry = {'filename': filepath.name, 'filepath': str(filepath), 'issue_count': issue_count, 'role_count': len(actual_roles), 'word_count': word_count, 'score': doc_results.get('score', 0), 'grade': doc_results.get('grade', 'N/A'), 'scan_id': None}
-                    if _shared.SCAN_HISTORY_AVAILABLE:
-                        try:
-                            db = get_scan_history_db()
-                            scan_record = db.record_scan(filename=filepath.name, filepath=str(filepath), results=doc_results, options=options)
-                            if scan_record and isinstance(scan_record, dict):
-                                    doc_entry['scan_id'] = scan_record.get('scan_id')
-                        except Exception as e:
-                            logger.warning(f'Failed to record batch scan: {e}')
-                    results['documents'].append(doc_entry)
+                    db = get_scan_history_db()
+                    scan_record = db.record_scan(
+                        filename=result['filename'],
+                        filepath=result['filepath'],
+                        results=doc_results,
+                        options=options
+                    )
+                    if scan_record and isinstance(scan_record, dict):
+                        doc_entry['scan_id'] = scan_record.get('scan_id')
                 except Exception as e:
-                    tb_str = traceback.format_exc()
-                    logger.error(f'Batch review error: {filepath.name} - {e}\n{tb_str}')
-                    results['documents'].append({'filename': filepath.name, 'error': str(e), 'traceback': tb_str if config.debug else None})
-        return jsonify({'success': True, 'data': results})
+                    logger.warning(f'Failed to record batch scan: {e}')
+
+            doc_entries.append(doc_entry)
+
+    results['documents'] = doc_entries
+    return jsonify({'success': True, 'data': results})
 @review_bp.route('/api/review/single', methods=['POST'])
 @require_csrf
 @handle_api_errors
