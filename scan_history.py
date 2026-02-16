@@ -289,9 +289,18 @@ class ScanHistoryDB:
                     total_mentions INTEGER DEFAULT 1,
                     description TEXT,
                     is_deliverable INTEGER DEFAULT 0,
-                    category TEXT
+                    category TEXT,
+                    role_source TEXT DEFAULT 'discovered'
                 )
             ''')
+
+        # v5.0.5: Ensure roles table has role_source column (migration for older databases)
+        try:
+            with self.connection() as (conn, cursor):
+                cursor.execute("ALTER TABLE roles ADD COLUMN role_source TEXT DEFAULT 'discovered'")
+        except Exception as e:
+            if 'duplicate column' not in str(e).lower():
+                logger.warning(f'Migration: could not add role_source to roles: {e}')
 
         self._create_table_safe('role_dictionary', '''
                 CREATE TABLE IF NOT EXISTS role_dictionary (
