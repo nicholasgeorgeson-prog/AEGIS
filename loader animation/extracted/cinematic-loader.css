@@ -1,0 +1,216 @@
+:root{
+  --navy-0:#040812;
+  --blue:#33B8FF;
+  --gold:#D6A84A;
+  --bronze:#B8743A;
+
+  --text:rgba(210,235,255,.90);
+  --muted:rgba(210,235,255,.70);
+  --panel:rgba(5,10,22,.35);
+  --stroke:rgba(120,170,255,.18);
+  --shadow:rgba(0,0,0,.55);
+}
+
+.aegis-loader{
+  position:fixed; inset:0;
+  background: var(--navy-0);
+  overflow:hidden;
+  display:grid;
+  place-items:center;
+  opacity:1;
+}
+
+.aegis-bg{
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  display:block;
+}
+
+.aegis-center{
+  position:relative;
+  z-index:3;
+  width:min(860px, 92vw);
+  padding:22px 22px 18px;
+  border-radius:18px;
+  background: var(--panel);
+  backdrop-filter: blur(10px);
+  border:1px solid var(--stroke);
+  box-shadow: 0 20px 60px var(--shadow), 0 0 0 1px rgba(255,255,255,.04) inset;
+  text-align:center;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+.aegis-title{
+  letter-spacing:.35em;
+  font-weight:800;
+  font-size:20px;
+  color: var(--text);
+  text-shadow:
+    0 0 18px rgba(51,184,255,.30),
+    0 0 36px rgba(214,168,74,.14);
+}
+
+.aegis-sub{
+  margin-top:10px;
+  font-size:13px;
+  opacity:.86;
+  color: var(--muted);
+}
+
+.aegis-hero{
+  margin-top:16px;
+  position:relative;
+  height:120px;
+  border-radius:16px;
+  overflow:hidden;
+  background:
+    radial-gradient(1200px 260px at 30% 50%, rgba(51,184,255,.12), transparent 60%),
+    radial-gradient(900px 240px at 75% 50%, rgba(214,168,74,.10), transparent 55%),
+    rgba(10,18,38,.22);
+  border:1px solid rgba(120,170,255,.16);
+}
+
+/* Bar (28px thick) */
+.aegis-bar{
+  position:absolute;
+  left:7%; right:7%;
+  top:50%;
+  transform: translateY(-50%);
+  height:28px;
+  border-radius:999px;
+  overflow:hidden;
+}
+
+.aegis-bar .rail{
+  position:absolute; inset:0;
+  background: rgba(140,190,255,.10);
+  border: 1px solid rgba(120,170,255,.20);
+  border-radius:999px;
+}
+
+.aegis-bar .fill{
+  position:absolute;
+  left:0; top:0; bottom:0;
+  width:0%;
+  border-radius:999px;
+  background: linear-gradient(90deg,
+    rgba(51,184,255,.20),
+    rgba(51,184,255,.95),
+    rgba(214,168,74,.90),
+    rgba(184,116,58,.80)
+  );
+  box-shadow:
+    0 0 18px rgba(51,184,255,.25),
+    0 0 52px rgba(214,168,74,.12);
+}
+
+/* Sheen sweep */
+.aegis-bar .sheen{
+  position:absolute;
+  top:-48px; bottom:-48px;
+  width:180px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.32), transparent);
+  transform: skewX(-18deg);
+  opacity:.85;
+  mix-blend-mode: screen;
+}
+
+/* Micro texture */
+.aegis-bar .sparkgrid{
+  position:absolute; inset:0;
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,.10) 0 1px, transparent 1px 12px),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.06) 0 1px, transparent 1px 10px);
+  mix-blend-mode: overlay;
+  opacity:.10;
+  filter: blur(.25px);
+}
+
+/* Orb + trail at progress edge */
+.aegis-bar .orb{
+  position:absolute;
+  top:50%;
+  width:28px; height:28px;
+  border-radius:999px;
+  transform: translate(-50%,-50%);
+  background: radial-gradient(circle at 40% 35%,
+    rgba(255,255,255,.90),
+    rgba(51,184,255,.95) 35%,
+    rgba(214,168,74,.70) 70%,
+    rgba(51,184,255,0) 100%
+  );
+  box-shadow:
+    0 0 18px rgba(51,184,255,.35),
+    0 0 44px rgba(214,168,74,.14);
+}
+
+.aegis-bar .trail{
+  position:absolute;
+  top:50%;
+  height:16px;
+  border-radius:999px;
+  transform: translateY(-50%);
+  background: linear-gradient(90deg,
+    rgba(51,184,255,.00),
+    rgba(51,184,255,.35),
+    rgba(214,168,74,.22),
+    rgba(184,116,58,.00)
+  );
+  filter: blur(.2px);
+  opacity:.55;
+}
+
+.aegis-meta{
+  margin-top:12px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  font-size:12px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color: rgba(210,235,255,.78);
+}
+
+.aegis-pct{
+  font-variant-numeric: tabular-nums;
+  color: rgba(210,235,255,.88);
+  text-shadow: 0 0 14px rgba(51,184,255,.22);
+}
+
+.aegis-status{ opacity:.88; }
+
+/* Cinematic framing */
+.aegis-vignette{
+  position:absolute; inset:0;
+  pointer-events:none;
+  background:
+    radial-gradient(closest-side at 50% 45%, transparent 55%, rgba(0,0,0,.72) 100%),
+    linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.55));
+  z-index:2;
+}
+
+.aegis-grain{
+  position:absolute; inset:-20%;
+  pointer-events:none;
+  opacity:.18;
+  filter: blur(.35px);
+  background:
+    repeating-linear-gradient(0deg,
+      rgba(255,255,255,.03),
+      rgba(255,255,255,.03) 1px,
+      transparent 1px,
+      transparent 3px);
+  animation: aegis-grain 1.2s steps(6) infinite;
+  z-index:2;
+  mix-blend-mode: overlay;
+}
+
+@keyframes aegis-grain{
+  0%{ transform: translate(0,0); }
+  100%{ transform: translate(-6%, 4%); }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .aegis-grain{ animation:none !important; }
+}

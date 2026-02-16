@@ -1,0 +1,523 @@
+/**
+ * SOW Generator Styles
+ * ====================
+ * Styling for the SOW generation modal.
+ * Classes prefixed with .sow-* (statement of work)
+ *
+ * @version 1.0.0 (v4.6.1)
+ */
+
+/* =============================================================================
+   MODAL LAYOUT
+   ============================================================================= */
+
+#modal-sow-generator {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10001; /* v4.6.1: Above landing page (z-index 9999) */
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+}
+
+#modal-sow-generator.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sow-modal-content {
+    display: flex;
+    flex-direction: column;
+    width: 90vw;
+    max-width: 1000px;
+    height: 85vh;
+    max-height: 700px;
+    background: var(--bg-primary, #ffffff);
+    border-radius: var(--radius-lg, 12px);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+}
+
+/* =============================================================================
+   HEADER
+   ============================================================================= */
+
+.sow-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-default, #e5e7eb);
+    background: var(--bg-elevated, #f9fafb);
+    flex-shrink: 0;
+}
+
+.sow-header-info h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-primary, #111827);
+}
+
+.sow-header-info h3 i {
+    width: 20px;
+    height: 20px;
+    color: #D6A84A;
+}
+
+.sow-subtitle {
+    font-size: 0.8125rem;
+    color: var(--text-secondary, #6b7280);
+    margin-left: 1.75rem;
+}
+
+/* =============================================================================
+   BODY (Two-Panel)
+   ============================================================================= */
+
+.sow-modal-body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* Config panel (left) */
+.sow-config-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.25rem 1.5rem;
+    border-right: 1px solid var(--border-default, #e5e7eb);
+}
+
+/* Data panel (right) */
+.sow-data-panel {
+    width: 340px;
+    overflow-y: auto;
+    padding: 1.25rem;
+    background: var(--bg-surface, #f8fafc);
+    flex-shrink: 0;
+}
+
+/* =============================================================================
+   CONFIG SECTIONS
+   ============================================================================= */
+
+.sow-config-section {
+    margin-bottom: 1.5rem;
+}
+
+.sow-config-section h4 {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-primary, #111827);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.375rem;
+    border-bottom: 2px solid #D6A84A;
+}
+
+.sow-hint {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--text-muted, #9ca3af);
+}
+
+.sow-field {
+    margin-bottom: 0.75rem;
+}
+
+.sow-field label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary, #6b7280);
+    margin-bottom: 0.25rem;
+}
+
+.sow-field input,
+.sow-field textarea {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-default, #e5e7eb);
+    border-radius: var(--radius-sm, 6px);
+    background: var(--bg-primary, #ffffff);
+    font-size: 0.875rem;
+    color: var(--text-primary, #111827);
+    font-family: inherit;
+}
+
+.sow-field input:focus,
+.sow-field textarea:focus {
+    outline: none;
+    border-color: #D6A84A;
+    box-shadow: 0 0 0 3px rgba(214, 168, 74, 0.15);
+}
+
+.sow-field textarea {
+    resize: vertical;
+    min-height: 2.5rem;
+}
+
+.sow-field-row {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.sow-field-row .sow-field {
+    flex: 1;
+}
+
+/* Section toggles */
+.sow-toggles {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.sow-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.5rem;
+    border-radius: var(--radius-sm, 6px);
+    cursor: pointer;
+    /* transition: background removed - anti-flicker */
+    font-size: 0.875rem;
+}
+
+.sow-toggle:hover {
+    background: var(--bg-hover, #f3f4f6);
+}
+
+.sow-toggle input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #D6A84A;
+}
+
+.sow-toggle span {
+    color: var(--text-primary, #111827);
+}
+
+/* =============================================================================
+   DATA PANEL
+   ============================================================================= */
+
+.sow-data-section {
+    margin-bottom: 1.25rem;
+}
+
+.sow-data-section h4 {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted, #9ca3af);
+    margin-bottom: 0.625rem;
+}
+
+/* Stat cards */
+.sow-data-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.sow-data-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.75rem;
+    background: var(--bg-primary, #ffffff);
+    border: 1px solid var(--border-default, #e5e7eb);
+    border-radius: var(--radius-md, 8px);
+}
+
+.sow-ds-num {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #D6A84A;
+    line-height: 1;
+}
+
+.sow-ds-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted, #9ca3af);
+    margin-top: 0.25rem;
+}
+
+/* v4.6.1: Document selection controls */
+.sow-doc-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-bottom: 0.5rem;
+}
+
+.sow-doc-ctrl-btn {
+    padding: 0.1875rem 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border: 1px solid var(--border-default, #e5e7eb);
+    border-radius: var(--radius-sm, 6px);
+    background: var(--bg-primary, #ffffff);
+    color: var(--text-secondary, #6b7280);
+    cursor: pointer;
+    transition: color 0.15s, opacity 0.15s, transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.sow-doc-ctrl-btn:hover {
+    border-color: #D6A84A;
+    color: #D6A84A;
+    background: rgba(214, 168, 74, 0.06);
+}
+
+.sow-doc-selected-count {
+    font-size: 0.6875rem;
+    color: var(--text-muted, #9ca3af);
+    margin-left: auto;
+}
+
+/* Document list */
+.sow-doc-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.sow-doc-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.5rem;
+    border-radius: var(--radius-sm, 6px);
+    margin-bottom: 2px;
+}
+
+/* v4.6.1: Selectable doc items are <label> elements */
+.sow-doc-selectable {
+    cursor: pointer;
+    /* transition: background removed - anti-flicker */
+}
+
+.sow-doc-selectable:hover {
+    background: var(--bg-hover, #f3f4f6);
+}
+
+.sow-doc-checkbox {
+    width: 14px;
+    height: 14px;
+    accent-color: #D6A84A;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+/* Dim unchecked documents */
+.sow-doc-selectable:has(input:not(:checked)) .sow-doc-name {
+    opacity: 0.5;
+}
+
+.sow-doc-selectable:has(input:not(:checked)) i {
+    opacity: 0.35;
+}
+
+.sow-doc-item i {
+    width: 14px;
+    height: 14px;
+    color: var(--text-muted, #9ca3af);
+    flex-shrink: 0;
+}
+
+.sow-doc-name {
+    flex: 1;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sow-doc-meta {
+    font-size: 0.6875rem;
+    color: var(--text-muted, #9ca3af);
+    white-space: nowrap;
+}
+
+.sow-placeholder {
+    font-size: 0.8125rem;
+    color: var(--text-muted, #9ca3af);
+    font-style: italic;
+    padding: 0.5rem;
+}
+
+/* Directive chart */
+.sow-directive-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.sow-dir-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.sow-dir-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    width: 50px;
+    text-align: right;
+    color: var(--text-secondary, #6b7280);
+}
+
+.sow-dir-fill {
+    flex: 1;
+    height: 8px;
+    background: var(--bg-elevated, #e5e7eb);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+    transition: width 0.5s ease;
+}
+
+.sow-dir-bar[data-directive="shall"] .sow-dir-fill { background: rgba(239, 68, 68, 0.2); }
+.sow-dir-bar[data-directive="must"] .sow-dir-fill { background: rgba(234, 88, 12, 0.2); }
+.sow-dir-bar[data-directive="will"] .sow-dir-fill { background: rgba(59, 130, 246, 0.2); }
+.sow-dir-bar[data-directive="should"] .sow-dir-fill { background: rgba(34, 197, 94, 0.2); }
+.sow-dir-bar[data-directive="may"] .sow-dir-fill { background: rgba(139, 92, 246, 0.2); }
+
+.sow-dir-count {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-primary, #111827);
+    width: 30px;
+}
+
+/* =============================================================================
+   FOOTER
+   ============================================================================= */
+
+.sow-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--border-default, #e5e7eb);
+    background: var(--bg-elevated, #f9fafb);
+    flex-shrink: 0;
+}
+
+.sow-modal-footer .btn-primary {
+    background: #D6A84A;
+    border-color: #D6A84A;
+    color: white;
+}
+
+.sow-modal-footer .btn-primary:hover:not(:disabled) {
+    background: #B8743A;
+    border-color: #B8743A;
+}
+
+.sow-modal-footer .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.sow-modal-footer .btn-primary i {
+    width: 16px;
+    height: 16px;
+}
+
+/* =============================================================================
+   DARK MODE
+   ============================================================================= */
+
+body.dark-mode .sow-modal-content {
+    background: var(--bg-primary, #1f2937);
+}
+
+body.dark-mode .sow-modal-header,
+body.dark-mode .sow-modal-footer {
+    background: var(--bg-elevated, #111827);
+}
+
+body.dark-mode .sow-config-panel {
+    border-color: var(--border-default, #374151);
+}
+
+body.dark-mode .sow-data-panel {
+    background: var(--bg-surface, #1a1f2e);
+}
+
+body.dark-mode .sow-field input,
+body.dark-mode .sow-field textarea {
+    background: var(--bg-surface, #1f2937);
+    border-color: var(--border-default, #374151);
+    color: var(--text-primary, #f9fafb);
+}
+
+body.dark-mode .sow-data-stat {
+    background: var(--bg-surface, #1f2937);
+    border-color: var(--border-default, #374151);
+}
+
+body.dark-mode .sow-toggle:hover {
+    background: var(--bg-hover, #374151);
+}
+
+body.dark-mode .sow-doc-ctrl-btn {
+    background: var(--bg-surface, #1f2937);
+    border-color: var(--border-default, #374151);
+    color: var(--text-secondary, #9ca3af);
+}
+
+body.dark-mode .sow-doc-ctrl-btn:hover {
+    border-color: #D6A84A;
+    color: #D6A84A;
+    background: rgba(214, 168, 74, 0.1);
+}
+
+body.dark-mode .sow-doc-selectable:hover {
+    background: var(--bg-hover, #374151);
+}
+
+/* =============================================================================
+   RESPONSIVE
+   ============================================================================= */
+
+@media (max-width: 800px) {
+    .sow-modal-content {
+        width: 98vw;
+        height: 95vh;
+        max-height: none;
+    }
+
+    .sow-modal-body {
+        flex-direction: column;
+    }
+
+    .sow-config-panel {
+        border-right: none;
+        border-bottom: 1px solid var(--border-default, #e5e7eb);
+    }
+
+    .sow-data-panel {
+        width: 100%;
+        max-height: 200px;
+    }
+}

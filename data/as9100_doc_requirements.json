@@ -1,0 +1,302 @@
+{
+  "metadata": {
+    "description": "AS9100 Quality Management System Documentation Requirements",
+    "version": "3.4.0",
+    "last_updated": "2026-02-03",
+    "standard": "AS9100D",
+    "standard_title": "Quality Management Systems - Requirements for Aviation, Space, and Defense Organizations",
+    "based_on": "ISO 9001:2015 with aerospace additions"
+  },
+  "document_control_requirements": {
+    "description": "Requirements for controlled documentation",
+    "clause": "7.5",
+    "rules": [
+      {
+        "id": "AS9100-001",
+        "requirement": "Documents must be approved for adequacy prior to use",
+        "check": "approval_signature"
+      },
+      {
+        "id": "AS9100-002",
+        "requirement": "Documents must be reviewed, updated, and re-approved",
+        "check": "revision_history"
+      },
+      {
+        "id": "AS9100-003",
+        "requirement": "Changes and revision status must be identified",
+        "check": "revision_tracking"
+      },
+      {
+        "id": "AS9100-004",
+        "requirement": "Relevant versions must be available at points of use",
+        "check": "distribution"
+      },
+      {
+        "id": "AS9100-005",
+        "requirement": "Documents must remain legible and identifiable",
+        "check": "document_id"
+      },
+      {
+        "id": "AS9100-006",
+        "requirement": "External documents must be identified and controlled",
+        "check": "external_reference"
+      },
+      {
+        "id": "AS9100-007",
+        "requirement": "Obsolete documents must be prevented from unintended use",
+        "check": "obsolete_marking"
+      }
+    ]
+  },
+  "required_documented_information": {
+    "description": "Minimum documentation required by AS9100D",
+    "mandatory_documents": [
+      {
+        "name": "Quality Policy",
+        "clause": "5.2",
+        "description": "Statement of quality objectives and commitment"
+      },
+      {
+        "name": "Quality Objectives",
+        "clause": "6.2",
+        "description": "Measurable quality goals"
+      },
+      {
+        "name": "Scope of QMS",
+        "clause": "4.3",
+        "description": "Boundaries and applicability of QMS"
+      },
+      {
+        "name": "Process Documentation",
+        "clause": "4.4",
+        "description": "Documented processes and interactions"
+      },
+      {
+        "name": "Risk Management",
+        "clause": "8.1.1",
+        "description": "Risk identification and mitigation"
+      },
+      {
+        "name": "Configuration Management",
+        "clause": "8.1.2",
+        "description": "Configuration identification and control"
+      }
+    ],
+    "mandatory_records": [
+      "Training records",
+      "Design and development records",
+      "Supplier evaluation records",
+      "Inspection and test records",
+      "Nonconformance records",
+      "Corrective action records",
+      "Internal audit records",
+      "Management review records"
+    ]
+  },
+  "procedure_requirements": {
+    "description": "Requirements for documented procedures",
+    "rules": [
+      {
+        "id": "AS9100-010",
+        "requirement": "Procedures must define responsibility and authority",
+        "keywords": ["responsible", "responsibility", "authority", "accountable"]
+      },
+      {
+        "id": "AS9100-011",
+        "requirement": "Procedures must specify required inputs and outputs",
+        "keywords": ["input", "output", "result", "deliverable"]
+      },
+      {
+        "id": "AS9100-012",
+        "requirement": "Procedures must reference applicable regulations",
+        "pattern": "\\b(FAR|CFR|DFAR|ITAR|EAR)\\s*\\d+"
+      },
+      {
+        "id": "AS9100-013",
+        "requirement": "Procedures must define verification activities",
+        "keywords": ["verify", "verification", "inspect", "inspection", "test", "check"]
+      },
+      {
+        "id": "AS9100-014",
+        "requirement": "Procedures must include record requirements",
+        "keywords": ["record", "document", "log", "retain"]
+      }
+    ]
+  },
+  "risk_documentation_requirements": {
+    "description": "AS9100D aerospace-specific risk requirements",
+    "clause": "8.1.1",
+    "rules": [
+      {
+        "id": "AS9100-020",
+        "requirement": "Operational risks must be identified",
+        "must_address": [
+          "Product safety",
+          "Operational safety",
+          "Delivery performance",
+          "Cost impacts",
+          "Quality impacts"
+        ]
+      },
+      {
+        "id": "AS9100-021",
+        "requirement": "Risk mitigation actions must be documented"
+      },
+      {
+        "id": "AS9100-022",
+        "requirement": "Risk assessment must be updated when changes occur"
+      }
+    ]
+  },
+  "configuration_management_requirements": {
+    "description": "Configuration management documentation requirements",
+    "clause": "8.1.2",
+    "rules": [
+      {
+        "id": "AS9100-030",
+        "requirement": "Configuration items must be identified",
+        "keywords": ["configuration item", "CI", "baseline"]
+      },
+      {
+        "id": "AS9100-031",
+        "requirement": "Configuration changes must be controlled",
+        "keywords": ["change control", "change request", "ECN", "ECO"]
+      },
+      {
+        "id": "AS9100-032",
+        "requirement": "Configuration status must be recorded",
+        "keywords": ["status", "revision", "version", "effectivity"]
+      }
+    ]
+  },
+  "special_process_requirements": {
+    "description": "Documentation for special processes",
+    "clause": "8.5.1.2",
+    "special_processes": [
+      "Welding",
+      "Heat treatment",
+      "Surface treatment",
+      "Non-destructive testing",
+      "Plating",
+      "Painting/coating",
+      "Bonding",
+      "Composite layup"
+    ],
+    "required_documentation": [
+      "Process parameters",
+      "Equipment calibration",
+      "Personnel qualification",
+      "Process validation results"
+    ]
+  },
+  "product_safety_requirements": {
+    "description": "Product safety documentation requirements",
+    "clause": "8.1.3",
+    "rules": [
+      {
+        "id": "AS9100-040",
+        "requirement": "Safety-critical items must be identified",
+        "keywords": ["safety-critical", "safety critical", "flight safety", "life critical"]
+      },
+      {
+        "id": "AS9100-041",
+        "requirement": "Safety risks must be documented and managed"
+      },
+      {
+        "id": "AS9100-042",
+        "requirement": "Safety notifications must be documented"
+      }
+    ]
+  },
+  "counterfeit_parts_requirements": {
+    "description": "Counterfeit parts prevention documentation",
+    "clause": "8.1.4",
+    "rules": [
+      {
+        "id": "AS9100-050",
+        "requirement": "Sources of parts must be documented",
+        "keywords": ["OCM", "OEM", "authorized distributor", "traceability"]
+      },
+      {
+        "id": "AS9100-051",
+        "requirement": "Authentication methods must be documented"
+      },
+      {
+        "id": "AS9100-052",
+        "requirement": "Suspect/counterfeit parts handling must be documented"
+      }
+    ]
+  },
+  "validation_keywords": {
+    "description": "Keywords indicating compliance language",
+    "strong_compliance": [
+      "shall",
+      "must",
+      "required",
+      "mandatory"
+    ],
+    "recommendations": [
+      "should",
+      "recommended",
+      "preferred"
+    ],
+    "options": [
+      "may",
+      "can",
+      "optional"
+    ]
+  },
+  "document_elements_checklist": {
+    "description": "Standard elements for AS9100 documents",
+    "required_elements": [
+      {
+        "element": "Document Number",
+        "description": "Unique identifier"
+      },
+      {
+        "element": "Revision Level",
+        "description": "Current revision status"
+      },
+      {
+        "element": "Date",
+        "description": "Issue or revision date"
+      },
+      {
+        "element": "Page Numbers",
+        "description": "Page X of Y format"
+      },
+      {
+        "element": "Approval Signatures",
+        "description": "Required approvals"
+      },
+      {
+        "element": "Purpose/Scope",
+        "description": "Document intent and applicability"
+      },
+      {
+        "element": "References",
+        "description": "Related documents"
+      },
+      {
+        "element": "Definitions",
+        "description": "Key terms if needed"
+      },
+      {
+        "element": "Responsibilities",
+        "description": "Who does what"
+      },
+      {
+        "element": "Procedure/Content",
+        "description": "Main body"
+      },
+      {
+        "element": "Records",
+        "description": "Required records"
+      },
+      {
+        "element": "Revision History",
+        "description": "Change log"
+      }
+    ]
+  }
+}

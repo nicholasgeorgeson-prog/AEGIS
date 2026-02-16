@@ -1,0 +1,675 @@
+/**
+ * Link History Module Styles
+ * ==========================
+ * Styles for the exclusions and scan history modal.
+ */
+
+/* ==========================================================================
+   CSS VARIABLES
+   ========================================================================== */
+
+.lh-modal {
+    --lh-bg-primary: #ffffff;
+    --lh-bg-secondary: #f9fafb;
+    --lh-bg-tertiary: #f3f4f6;
+    --lh-text-primary: #111827;
+    --lh-text-secondary: #6b7280;
+    --lh-text-muted: #9ca3af;
+    --lh-border-color: #e5e7eb;
+    --lh-accent: #3b82f6;
+    --lh-accent-hover: #2563eb;
+    --lh-success: #22c55e;
+    --lh-warning: #f59e0b;
+    --lh-error: #ef4444;
+    --lh-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --lh-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --lh-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    --lh-radius-sm: 4px;
+    --lh-radius-md: 8px;
+    --lh-radius-lg: 12px;
+}
+
+/* Dark mode */
+.dark-mode .lh-modal,
+[data-theme="dark"] .lh-modal {
+    --lh-bg-primary: #1f2937;
+    --lh-bg-secondary: #111827;
+    --lh-bg-tertiary: #374151;
+    --lh-text-primary: #f3f4f6;
+    --lh-text-secondary: #9ca3af;
+    --lh-text-muted: #6b7280;
+    --lh-border-color: #374151;
+}
+
+/* ==========================================================================
+   MODAL CONTAINER
+   ========================================================================== */
+
+.lh-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    padding: 2rem;
+}
+
+.lh-modal.lh-active {
+    display: flex;
+}
+
+.lh-modal-content {
+    width: 100%;
+    max-width: 1100px;
+    max-height: 90vh;
+    background: var(--lh-bg-primary);
+    border-radius: var(--lh-radius-lg);
+    box-shadow: var(--lh-shadow-lg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: lh-slide-up 0.2s ease-out;
+}
+
+@keyframes lh-slide-up {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+body.lh-modal-open {
+    overflow: hidden;
+}
+
+/* ==========================================================================
+   HEADER
+   ========================================================================== */
+
+.lh-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--lh-border-color);
+    background: var(--lh-bg-secondary);
+    flex-shrink: 0;
+}
+
+.lh-header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.lh-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.lh-logo svg {
+    color: var(--lh-accent);
+}
+
+.lh-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--lh-text-primary);
+}
+
+.lh-subtitle {
+    font-size: 0.75rem;
+    color: var(--lh-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.lh-header-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.lh-tabs {
+    display: flex;
+    gap: 0.5rem;
+    background: var(--lh-bg-tertiary);
+    padding: 4px;
+    border-radius: var(--lh-radius-md);
+}
+
+.lh-tab {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border: none;
+    background: transparent;
+    color: var(--lh-text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: var(--lh-radius-sm);
+    transition: color 0.15s ease, opacity 0.15s ease, transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.lh-tab:hover {
+    color: var(--lh-text-primary);
+    background: var(--lh-bg-primary);
+}
+
+.lh-tab.lh-tab-active {
+    color: var(--lh-accent);
+    background: var(--lh-bg-primary);
+    box-shadow: var(--lh-shadow-sm);
+}
+
+.lh-tab svg {
+    width: 16px;
+    height: 16px;
+}
+
+.lh-tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--lh-bg-tertiary);
+    color: var(--lh-text-secondary);
+    border-radius: 10px;
+}
+
+.lh-tab.lh-tab-active .lh-tab-count {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--lh-accent);
+}
+
+.lh-header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.lh-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: transparent;
+    color: var(--lh-text-secondary);
+    border-radius: var(--lh-radius-sm);
+    cursor: pointer;
+    transition: color 0.15s ease, opacity 0.15s ease, transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.lh-close-btn:hover {
+    background: var(--lh-bg-tertiary);
+    color: var(--lh-text-primary);
+}
+
+/* ==========================================================================
+   BODY / CONTENT
+   ========================================================================== */
+
+.lh-body {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+}
+
+.lh-content {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+}
+
+.lh-content.lh-content-active {
+    display: flex;
+}
+
+/* ==========================================================================
+   ADD EXCLUSION FORM
+   ========================================================================== */
+
+.lh-add-form {
+    padding: 1rem 1.5rem;
+    background: var(--lh-bg-secondary);
+    border-bottom: 1px solid var(--lh-border-color);
+}
+
+.lh-form-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.lh-form-row-secondary {
+    margin-top: 0.75rem;
+}
+
+.lh-input {
+    flex: 1;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--lh-border-color);
+    border-radius: var(--lh-radius-sm);
+    background: var(--lh-bg-primary);
+    color: var(--lh-text-primary);
+    font-size: 0.875rem;
+    transition: border-color 0.15s ease;
+}
+
+.lh-input:focus {
+    outline: none;
+    border-color: var(--lh-accent);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.lh-input::placeholder {
+    color: var(--lh-text-muted);
+}
+
+.lh-input-small {
+    max-width: 300px;
+}
+
+.lh-select {
+    padding: 0.625rem 2rem 0.625rem 0.875rem;
+    border: 1px solid var(--lh-border-color);
+    border-radius: var(--lh-radius-sm);
+    background: var(--lh-bg-primary);
+    color: var(--lh-text-primary);
+    font-size: 0.875rem;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+}
+
+.lh-select:focus {
+    outline: none;
+    border-color: var(--lh-accent);
+}
+
+.lh-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--lh-text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.lh-checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--lh-accent);
+}
+
+/* ==========================================================================
+   BUTTONS
+   ========================================================================== */
+
+.lh-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    border: none;
+    border-radius: var(--lh-radius-sm);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.15s ease, opacity 0.15s ease, transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    white-space: nowrap;
+}
+
+.lh-btn-primary {
+    background: var(--lh-accent);
+    color: white;
+}
+
+.lh-btn-primary:hover {
+    background: var(--lh-accent-hover);
+}
+
+.lh-btn-danger-subtle {
+    background: transparent;
+    color: var(--lh-error);
+    border: 1px solid var(--lh-error);
+}
+
+.lh-btn-danger-subtle:hover {
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.lh-btn-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--lh-text-muted);
+    border-radius: var(--lh-radius-sm);
+    cursor: pointer;
+    transition: color 0.15s ease, opacity 0.15s ease, transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.lh-btn-icon:hover {
+    background: var(--lh-bg-tertiary);
+    color: var(--lh-text-primary);
+}
+
+.lh-btn-delete:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--lh-error);
+}
+
+/* ==========================================================================
+   STATS BAR
+   ========================================================================== */
+
+.lh-stats-bar {
+    display: flex;
+    gap: 2rem;
+    padding: 0.75rem 1.5rem;
+    background: var(--lh-bg-primary);
+    border-bottom: 1px solid var(--lh-border-color);
+    align-items: center;
+}
+
+.lh-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.lh-stat-value {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--lh-text-primary);
+}
+
+.lh-stat-label {
+    font-size: 0.75rem;
+    color: var(--lh-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.lh-stat-action {
+    margin-left: auto;
+}
+
+/* ==========================================================================
+   TABLE
+   ========================================================================== */
+
+.lh-list-container {
+    flex: 1;
+    overflow: auto;
+    padding: 0;
+}
+
+.lh-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.lh-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.lh-table th {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--lh-text-secondary);
+    background: var(--lh-bg-secondary);
+    border-bottom: 1px solid var(--lh-border-color);
+    white-space: nowrap;
+}
+
+.lh-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--lh-border-color);
+    color: var(--lh-text-primary);
+}
+
+.lh-table tbody tr:hover {
+    background: var(--lh-bg-secondary);
+}
+
+.lh-row-inactive {
+    opacity: 0.5;
+}
+
+.lh-col-pattern code {
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.8125rem;
+    padding: 0.125rem 0.375rem;
+    background: var(--lh-bg-tertiary);
+    border-radius: var(--lh-radius-sm);
+    word-break: break-all;
+}
+
+.lh-col-actions {
+    white-space: nowrap;
+}
+
+.lh-col-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+/* ==========================================================================
+   BADGES
+   ========================================================================== */
+
+.lh-badge {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border-radius: 9999px;
+    text-transform: lowercase;
+}
+
+.lh-badge-exact {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+}
+
+.lh-badge-contains {
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
+}
+
+.lh-badge-prefix {
+    background: rgba(236, 72, 153, 0.1);
+    color: #ec4899;
+}
+
+.lh-badge-suffix {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+}
+
+.lh-badge-regex {
+    background: rgba(20, 184, 166, 0.1);
+    color: #14b8a6;
+}
+
+.lh-source-badge {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border-radius: 9999px;
+    text-transform: capitalize;
+}
+
+.lh-source-paste {
+    background: rgba(107, 114, 128, 0.1);
+    color: #6b7280;
+}
+
+.lh-source-file {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+}
+
+.lh-source-docx {
+    background: rgba(37, 99, 235, 0.1);
+    color: #2563eb;
+}
+
+.lh-source-excel {
+    background: rgba(34, 197, 94, 0.1);
+    color: #22c55e;
+}
+
+.lh-source-name {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--lh-text-muted);
+    margin-top: 0.125rem;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lh-status-badge {
+    display: inline-block;
+    min-width: 36px;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 9999px;
+    text-align: center;
+}
+
+.lh-status-working {
+    background: rgba(34, 197, 94, 0.1);
+    color: #22c55e;
+}
+
+.lh-status-broken {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+/* ==========================================================================
+   EMPTY STATE
+   ========================================================================== */
+
+.lh-empty-row td {
+    padding: 3rem 1rem;
+}
+
+.lh-empty-state {
+    text-align: center;
+    color: var(--lh-text-muted);
+}
+
+.lh-empty-state svg {
+    margin-bottom: 1rem;
+    opacity: 0.3;
+}
+
+.lh-empty-state p {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--lh-text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.lh-empty-state span {
+    font-size: 0.875rem;
+}
+
+.lh-loading-row td {
+    text-align: center;
+    padding: 2rem;
+    color: var(--lh-text-muted);
+}
+
+/* ==========================================================================
+   RESPONSIVE
+   ========================================================================== */
+
+@media (max-width: 768px) {
+    .lh-modal {
+        padding: 0;
+    }
+
+    .lh-modal-content {
+        max-width: 100%;
+        max-height: 100vh;
+        border-radius: 0;
+    }
+
+    .lh-header {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    .lh-header-center {
+        order: 3;
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .lh-tabs {
+        width: 100%;
+    }
+
+    .lh-tab {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .lh-form-row {
+        flex-wrap: wrap;
+    }
+
+    .lh-input,
+    .lh-select {
+        min-width: 100%;
+    }
+
+    .lh-stats-bar {
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .lh-stat {
+        flex: 1;
+        min-width: 80px;
+    }
+}

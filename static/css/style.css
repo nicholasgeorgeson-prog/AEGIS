@@ -1,0 +1,214 @@
+/**
+ * AEGIS - Main Stylesheet
+ * Version: 3.0.103
+ *
+ * This file imports all CSS modules.
+ * IMPORTANT: All @import statements MUST come before any CSS rules.
+ * CSS spec requires @import to precede all rules or they will be ignored.
+ */
+
+/* =============================================================================
+   Foundation
+   ============================================================================= */
+@import url('base.css');
+@import url('layout.css');
+
+/* =============================================================================
+   Components
+   ============================================================================= */
+@import url('components.css');
+@import url('modals.css');
+
+/* =============================================================================
+   Features
+   ============================================================================= */
+@import url('features/fix-assistant.css');
+@import url('features/roles-studio.css');
+@import url('features/statement-forge.css');
+@import url('features/scan-history.css');
+@import url('features/doc-compare.css');
+@import url('features/scan-progress-dashboard.css');
+@import url('features/landing-dashboard.css');
+@import url('features/sow-generator.css');
+@import url('features/metrics-analytics.css');
+
+/* =============================================================================
+   Visualizations
+   ============================================================================= */
+@import url('charts.css');
+
+/* =============================================================================
+   Theme Overrides (must be after base.css which defines light-mode defaults)
+   ============================================================================= */
+@import url('dark-mode.css');
+
+/* =============================================================================
+   Global Adjudication Badges (v4.0.3)
+   Used tool-wide to indicate adjudication status on any role display.
+   NOTE: These rules MUST come after all @import statements.
+   ============================================================================= */
+
+.adj-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    margin-left: 6px;
+    vertical-align: middle;
+    white-space: nowrap;
+    line-height: 1.4;
+}
+
+.adj-badge-sm {
+    padding: 1px 6px;
+    font-size: 9px;
+    margin-left: 4px;
+}
+
+.adj-confirmed {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.adj-deliverable {
+    background: rgba(214, 168, 74, 0.15);
+    color: #D6A84A;
+    border: 1px solid rgba(214, 168, 74, 0.3);
+}
+
+.adj-rejected {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Adjudication summary counter - small inline indicator */
+.adj-summary-counter {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-muted, rgba(255,255,255,0.5));
+    margin-left: 8px;
+}
+
+.adj-summary-counter .adj-count-confirmed {
+    color: #22c55e;
+    font-weight: 600;
+}
+
+.adj-summary-counter .adj-count-rejected {
+    color: #ef4444;
+    font-weight: 600;
+}
+
+/* Light mode overrides for adjudication badges */
+body:not(.dark-mode) .adj-confirmed,
+body.light-mode .adj-confirmed {
+    background: rgba(22, 163, 74, 0.1);
+    color: #16a34a;
+    border-color: rgba(22, 163, 74, 0.3);
+}
+
+body:not(.dark-mode) .adj-deliverable,
+body.light-mode .adj-deliverable {
+    background: rgba(180, 130, 30, 0.1);
+    color: #92700c;
+    border-color: rgba(180, 130, 30, 0.3);
+}
+
+body:not(.dark-mode) .adj-rejected,
+body.light-mode .adj-rejected {
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+    border-color: rgba(220, 38, 38, 0.3);
+}
+
+body:not(.dark-mode) .adj-summary-counter,
+body.light-mode .adj-summary-counter {
+    color: var(--text-muted, rgba(0,0,0,0.5));
+}
+
+/* =============================================================================
+   Statement Review Badges (v4.6.0)
+   Used tool-wide to indicate statement review status.
+   ============================================================================= */
+
+.stmt-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    margin-left: 4px;
+    vertical-align: middle;
+    white-space: nowrap;
+    line-height: 1.4;
+}
+
+.stmt-badge-sm {
+    padding: 1px 6px;
+    font-size: 9px;
+}
+
+.stmt-reviewed {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.stmt-confirmed {
+    background: rgba(214, 168, 74, 0.15);
+    color: #D6A84A;
+    border: 1px solid rgba(214, 168, 74, 0.3);
+}
+
+.stmt-rejected {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.stmt-pending {
+    background: rgba(251, 191, 36, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.stmt-unchanged {
+    background: rgba(148, 163, 184, 0.15);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+/* Statement stat colors for summaries */
+.stmt-stat-reviewed { color: #22c55e; }
+.stmt-stat-confirmed { color: #D6A84A; }
+.stmt-stat-pending { color: #f59e0b; }
+.stmt-stat-rejected { color: #ef4444; }
+
+/* Light mode overrides */
+body:not(.dark-mode) .stmt-reviewed,
+body.light-mode .stmt-reviewed {
+    background: rgba(22, 163, 74, 0.1);
+    color: #16a34a;
+    border-color: rgba(22, 163, 74, 0.3);
+}
+
+body:not(.dark-mode) .stmt-pending,
+body.light-mode .stmt-pending {
+    background: rgba(202, 138, 4, 0.1);
+    color: #ca8a04;
+    border-color: rgba(202, 138, 4, 0.3);
+}
+
+body:not(.dark-mode) .stmt-rejected,
+body.light-mode .stmt-rejected {
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+    border-color: rgba(220, 38, 38, 0.3);
+}

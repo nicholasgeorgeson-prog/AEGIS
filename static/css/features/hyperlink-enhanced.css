@@ -1,0 +1,2205 @@
+/**
+ * Hyperlink Validator - Enhanced Visual Design
+ * =============================================
+ * Modern, cutting-edge UI components for the hyperlink validator.
+ * Version: 3.0.125
+ */
+
+/* ==========================================================================
+   CSS VARIABLES - Enhanced Theme
+   ========================================================================== */
+
+.hv-modal-content {
+    --hv-gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --hv-gradient-success: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    --hv-gradient-warning: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --hv-gradient-danger: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+    --hv-gradient-info: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+
+    --hv-glass-bg: rgba(255, 255, 255, 0.7);
+    --hv-glass-border: rgba(255, 255, 255, 0.3);
+    --hv-shadow-glow: 0 0 40px rgba(102, 126, 234, 0.15);
+    --hv-shadow-card: 0 10px 40px rgba(0, 0, 0, 0.08);
+
+    --hv-chart-green: #22c55e;
+    --hv-chart-red: #ef4444;
+    --hv-chart-yellow: #f59e0b;
+    --hv-chart-blue: #3b82f6;
+    --hv-chart-purple: #8b5cf6;
+    --hv-chart-cyan: #06b6d4;
+    --hv-chart-pink: #ec4899;
+
+    --hv-transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dark mode adjustments */
+.dark-mode .hv-modal-content,
+[data-theme="dark"] .hv-modal-content {
+    --hv-glass-bg: rgba(30, 41, 59, 0.8);
+    --hv-glass-border: rgba(255, 255, 255, 0.1);
+    --hv-shadow-glow: 0 0 40px rgba(102, 126, 234, 0.25);
+    --hv-shadow-card: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+/* ==========================================================================
+   VISUAL DASHBOARD HEADER
+   ========================================================================== */
+
+.hv-dashboard-header {
+    background: var(--hv-gradient-primary);
+    padding: 1.5rem;
+    border-radius: 16px;
+    margin: 1rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.hv-dashboard-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    pointer-events: none;
+}
+
+.hv-dashboard-header h2 {
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    position: relative;
+    z-index: 1;
+}
+
+.hv-dashboard-header .hv-subtitle {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.875rem;
+    position: relative;
+    z-index: 1;
+}
+
+/* ==========================================================================
+   RESULTS CONTAINER - Ensure proper sizing within modal
+   ========================================================================== */
+
+.hv-results {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    box-sizing: border-box;
+    flex: 1;
+    min-height: 0;
+}
+
+/* ==========================================================================
+   ANIMATED STAT CARDS
+   ========================================================================== */
+
+.hv-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.75rem;
+    padding: 0.75rem 1rem 1rem;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Responsive stat cards - adjust columns based on container width */
+@media (max-width: 1400px) {
+    .hv-stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 900px) {
+    .hv-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.hv-stat-card {
+    background: var(--hv-glass-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--hv-glass-border);
+    border-radius: 12px;
+    padding: 0.875rem;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s var(--hv-transition-smooth),
+                box-shadow 0.3s var(--hv-transition-smooth);
+    min-width: 0; /* Allow flex/grid shrinking */
+}
+
+.hv-stat-card[data-filter] {
+    cursor: pointer;
+    user-select: none;
+}
+
+.hv-stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--hv-shadow-card);
+}
+
+/* v4.6.2: Active filter state for clicked stat cards */
+.hv-stat-card.hv-stat-active {
+    transform: translateY(-2px);
+    box-shadow: 0 0 0 2px var(--hv-accent, #D6A84A), var(--hv-shadow-card);
+    border-color: var(--hv-accent, #D6A84A);
+}
+
+.hv-stat-card.hv-stat-active::after {
+    content: '✓';
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    font-size: 0.65rem;
+    color: var(--hv-accent, #D6A84A);
+    font-weight: 700;
+}
+
+.hv-stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    border-radius: 4px 0 0 4px;
+}
+
+.hv-stat-card.stat-working::before { background: var(--hv-gradient-success); }
+.hv-stat-card.stat-broken::before { background: var(--hv-gradient-danger); }
+.hv-stat-card.stat-redirect::before { background: var(--hv-gradient-info); }
+.hv-stat-card.stat-timeout::before { background: var(--hv-gradient-warning); }
+.hv-stat-card.stat-blocked::before { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); }
+.hv-stat-card.stat-unknown::before { background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%); }
+
+.hv-stat-card-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+}
+
+.hv-stat-card-icon svg,
+.hv-stat-card-icon i {
+    width: 18px;
+    height: 18px;
+}
+
+.hv-stat-card.stat-working .hv-stat-card-icon { background: rgba(34, 197, 94, 0.15); color: var(--hv-chart-green); }
+.hv-stat-card.stat-broken .hv-stat-card-icon { background: rgba(239, 68, 68, 0.15); color: var(--hv-chart-red); }
+.hv-stat-card.stat-redirect .hv-stat-card-icon { background: rgba(59, 130, 246, 0.15); color: var(--hv-chart-blue); }
+.hv-stat-card.stat-timeout .hv-stat-card-icon { background: rgba(245, 158, 11, 0.15); color: var(--hv-chart-yellow); }
+.hv-stat-card.stat-blocked .hv-stat-card-icon { background: rgba(139, 92, 246, 0.15); color: var(--hv-chart-purple); }
+.hv-stat-card.stat-unknown .hv-stat-card-icon { background: rgba(107, 114, 128, 0.15); color: #6b7280; }
+
+.hv-stat-card-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 0.25rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.hv-stat-card-value.animating {
+    animation: hv-count-up 0.6s var(--hv-transition-smooth);
+}
+
+@keyframes hv-count-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.hv-stat-card-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.hv-stat-card-trend {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    font-weight: 600;
+}
+
+.hv-stat-card-trend.up {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--hv-chart-green);
+}
+
+.hv-stat-card-trend.down {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--hv-chart-red);
+}
+
+/* ==========================================================================
+   DONUT CHART VISUALIZATION
+   ========================================================================== */
+
+.hv-chart-section {
+    padding: 0 1rem 1rem;
+    display: grid;
+    grid-template-columns: minmax(200px, 1fr) minmax(300px, 2fr);
+    gap: 1rem;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+@media (max-width: 900px) {
+    .hv-chart-section {
+        grid-template-columns: 1fr;
+    }
+}
+
+.hv-chart-card {
+    background: var(--hv-glass-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--hv-glass-border);
+    border-radius: 16px;
+    padding: 1.5rem;
+}
+
+.hv-chart-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.hv-donut-container {
+    position: relative;
+    width: 140px;
+    height: 140px;
+    margin: 0 auto;
+}
+
+.hv-donut-svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.hv-donut-segment {
+    fill: none;
+    stroke-width: 24;
+    stroke-linecap: round;
+    transition: stroke-dasharray 0.6s var(--hv-transition-smooth),
+                stroke-dashoffset 0.6s var(--hv-transition-smooth);
+}
+
+.hv-donut-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+.hv-donut-center-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.hv-donut-center-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.hv-chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 1rem;
+    justify-content: center;
+}
+
+.hv-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+}
+
+.hv-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+/* ==========================================================================
+   RESPONSE TIME HISTOGRAM
+   ========================================================================== */
+
+.hv-histogram-container {
+    height: 120px;
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    padding: 0 0.5rem;
+}
+
+.hv-histogram-bar {
+    flex: 1;
+    min-width: 8px;
+    background: var(--hv-gradient-info);
+    border-radius: 4px 4px 0 0;
+    transition: height 0.4s var(--hv-transition-smooth),
+                opacity 0.2s ease;
+    cursor: pointer;
+    position: relative;
+}
+
+.hv-histogram-bar:hover {
+    opacity: 0.8;
+}
+
+.hv-histogram-bar::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.375rem 0.625rem;
+    background: var(--bg-tooltip, #1f2937);
+    color: white;
+    font-size: 0.75rem;
+    border-radius: 6px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+    z-index: 10;
+    margin-bottom: 4px;
+}
+
+.hv-histogram-bar:hover::after {
+    opacity: 1;
+    visibility: visible;
+}
+
+.hv-histogram-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+    padding: 0 0.5rem;
+}
+
+/* ==========================================================================
+   DOMAIN HEALTH HEATMAP
+   ========================================================================== */
+
+.hv-heatmap-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    max-height: 150px;
+    overflow-y: auto;
+    padding: 0.5rem;
+}
+
+.hv-heatmap-cell {
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    text-align: center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+    flex: 0 0 auto;
+    min-width: 100px;
+    max-width: 150px;
+}
+
+.hv-heatmap-cell:hover {
+    transform: scale(1.05);
+    box-shadow: var(--hv-shadow-card);
+}
+
+.hv-heatmap-cell.health-excellent {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.2) 0%, rgba(34, 197, 94, 0.1) 100%);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.hv-heatmap-cell.health-good {
+    background: linear-gradient(135deg, rgba(132, 204, 22, 0.2) 0%, rgba(132, 204, 22, 0.1) 100%);
+    border: 1px solid rgba(132, 204, 22, 0.3);
+}
+
+.hv-heatmap-cell.health-warning {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(245, 158, 11, 0.1) 100%);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.hv-heatmap-cell.health-critical {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(239, 68, 68, 0.1) 100%);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.hv-heatmap-domain {
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 0.25rem;
+}
+
+.hv-heatmap-stats {
+    font-size: 0.6875rem;
+    color: var(--text-secondary);
+}
+
+/* ==========================================================================
+   REAL-TIME STREAMING RESULTS
+   ========================================================================== */
+
+.hv-streaming-container {
+    position: relative;
+}
+
+.hv-streaming-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%);
+    border-left: 3px solid var(--hv-chart-blue);
+    margin-bottom: 0.5rem;
+    animation: hv-pulse-border 2s ease-in-out infinite;
+}
+
+@keyframes hv-pulse-border {
+    0%, 100% { border-left-color: var(--hv-chart-blue); }
+    50% { border-left-color: var(--hv-chart-cyan); }
+}
+
+.hv-streaming-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--hv-chart-blue);
+    border-radius: 50%;
+    animation: hv-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes hv-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.5); opacity: 0.5; }
+}
+
+.hv-streaming-text {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--hv-chart-blue);
+}
+
+.hv-streaming-url {
+    margin-left: auto;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    max-width: 300px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ==========================================================================
+   ENHANCED RESULT ROW
+   ========================================================================== */
+
+.hv-result-row {
+    display: grid;
+    grid-template-columns: 120px 1fr 80px 200px 80px 60px;
+    gap: 1rem;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    align-items: center;
+    /* transition: background removed - anti-flicker */
+}
+
+.hv-result-row:hover {
+    background: var(--bg-hover);
+}
+
+.hv-result-row.hv-row-new {
+    animation: hv-row-slide-in 0.3s var(--hv-transition-smooth);
+}
+
+@keyframes hv-row-slide-in {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+        background: rgba(59, 130, 246, 0.1);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+        background: transparent;
+    }
+}
+
+/* Enhanced Status Badge */
+.hv-status-badge-enhanced {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.hv-status-badge-enhanced.status-working {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.2) 0%, rgba(34, 197, 94, 0.1) 100%);
+    color: var(--hv-chart-green);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.hv-status-badge-enhanced.status-broken {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(239, 68, 68, 0.1) 100%);
+    color: var(--hv-chart-red);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.hv-status-badge-enhanced.status-redirect {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0.1) 100%);
+    color: var(--hv-chart-blue);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.hv-status-badge-enhanced.status-timeout {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(245, 158, 11, 0.1) 100%);
+    color: var(--hv-chart-yellow);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.hv-status-badge-enhanced.status-blocked {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(139, 92, 246, 0.1) 100%);
+    color: var(--hv-chart-purple);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.hv-status-icon {
+    width: 14px;
+    height: 14px;
+}
+
+/* ==========================================================================
+   EXPANDABLE ERROR DETAILS
+   ========================================================================== */
+
+.hv-result-expandable {
+    cursor: pointer;
+}
+
+.hv-result-details {
+    display: none;
+    grid-column: 1 / -1;
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    margin-top: 0.5rem;
+    animation: hv-expand 0.2s var(--hv-transition-smooth);
+}
+
+@keyframes hv-expand {
+    from { opacity: 0; transform: scaleY(0.95); }
+    to { opacity: 1; transform: scaleY(1); }
+}
+
+.hv-result-row.expanded .hv-result-details {
+    display: block;
+}
+
+.hv-details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.hv-detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.hv-detail-label {
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.hv-detail-value {
+    font-size: 0.875rem;
+    font-family: 'Monaco', 'Menlo', monospace;
+    word-break: break-all;
+}
+
+.hv-detail-value.success { color: var(--hv-chart-green); }
+.hv-detail-value.error { color: var(--hv-chart-red); }
+.hv-detail-value.warning { color: var(--hv-chart-yellow); }
+
+/* Redirect Chain Visualization */
+.hv-redirect-chain {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    margin-top: 0.5rem;
+}
+
+.hv-redirect-step {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.8125rem;
+}
+
+.hv-redirect-arrow {
+    width: 20px;
+    height: 20px;
+    color: var(--text-muted);
+}
+
+.hv-redirect-code {
+    padding: 0.125rem 0.5rem;
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--hv-chart-blue);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.hv-redirect-url {
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    word-break: break-all;
+}
+
+/* ==========================================================================
+   RESCAN BUTTON - ENHANCED
+   ========================================================================== */
+
+.hv-rescan-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    background: var(--hv-gradient-primary);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.hv-rescan-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+.hv-rescan-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+}
+
+.hv-rescan-btn:hover::before {
+    left: 100%;
+}
+
+.hv-rescan-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.hv-rescan-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.hv-rescan-btn.loading svg {
+    animation: hv-spin 1s linear infinite;
+}
+
+@keyframes hv-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   PROGRESS ENHANCEMENT - Animated & Entertaining
+   ========================================================================== */
+
+.hv-progress-enhanced {
+    padding: 1.5rem;
+    background: var(--hv-glass-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--hv-glass-border);
+    border-radius: 16px;
+    margin: 1rem;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Animated background particles */
+.hv-progress-enhanced::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image:
+        radial-gradient(circle at 20% 80%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(34, 197, 94, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(139, 92, 246, 0.08) 0%, transparent 40%);
+    animation: hv-progress-bg-float 8s ease-in-out infinite alternate;
+    pointer-events: none;
+}
+
+@keyframes hv-progress-bg-float {
+    0% { transform: translate(0, 0) scale(1); opacity: 0.5; }
+    50% { transform: translate(10px, -10px) scale(1.1); opacity: 0.8; }
+    100% { transform: translate(-5px, 5px) scale(1); opacity: 0.6; }
+}
+
+.hv-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 1;
+}
+
+.hv-progress-phase {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Animated pulsing dot with ring effect */
+.hv-progress-phase-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--hv-chart-blue);
+    animation: hv-dot-pulse 1.5s ease-in-out infinite;
+    position: relative;
+}
+
+.hv-progress-phase-dot::before,
+.hv-progress-phase-dot::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 2px solid var(--hv-chart-blue);
+    transform: translate(-50%, -50%);
+    animation: hv-dot-ring 1.5s ease-out infinite;
+}
+
+.hv-progress-phase-dot::after {
+    animation-delay: 0.5s;
+}
+
+@keyframes hv-dot-pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+    50% { transform: scale(1.1); box-shadow: 0 0 10px 2px rgba(59, 130, 246, 0.3); }
+}
+
+@keyframes hv-dot-ring {
+    0% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
+    100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; }
+}
+
+.hv-progress-phase-text {
+    font-weight: 600;
+    color: var(--text-primary);
+    position: relative;
+}
+
+/* Fun animated message */
+.hv-progress-message {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-left: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    background: rgba(59, 130, 246, 0.1);
+    border-radius: 9999px;
+    animation: hv-message-fade 0.3s ease-out;
+}
+
+@keyframes hv-message-fade {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.hv-progress-stats {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Animated counter */
+.hv-progress-count {
+    font-weight: 600;
+    color: var(--hv-chart-blue);
+    transition: transform 0.2s ease;
+}
+
+.hv-progress-count.counting {
+    animation: hv-count-bump 0.2s ease;
+}
+
+@keyframes hv-count-bump {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+}
+
+/* Enhanced progress bar container */
+.hv-progress-bar-container {
+    height: 20px;
+    background: var(--bg-tertiary);
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Animated track marks */
+.hv-progress-bar-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 10%,
+        rgba(255, 255, 255, 0.03) 10%,
+        rgba(255, 255, 255, 0.03) 10.5%
+    );
+    pointer-events: none;
+}
+
+/* Animated fill with wave effect */
+.hv-progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        #3b82f6 0%,
+        #8b5cf6 25%,
+        #06b6d4 50%,
+        #22c55e 75%,
+        #3b82f6 100%
+    );
+    background-size: 200% 100%;
+    border-radius: 10px;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    animation: hv-gradient-flow 3s linear infinite;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+}
+
+@keyframes hv-gradient-flow {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
+}
+
+/* Shimmer overlay */
+.hv-progress-bar-fill::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.4) 50%,
+        transparent 100%
+    );
+    animation: hv-shimmer 1.2s ease-in-out infinite;
+}
+
+/* Glowing edge */
+.hv-progress-bar-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 30px;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6));
+    border-radius: 0 10px 10px 0;
+    animation: hv-edge-glow 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes hv-shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(200%); }
+}
+
+@keyframes hv-edge-glow {
+    0% { opacity: 0.5; width: 20px; }
+    100% { opacity: 1; width: 40px; }
+}
+
+/* Floating particles inside progress bar */
+.hv-progress-particles {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    pointer-events: none;
+    border-radius: 10px;
+}
+
+.hv-progress-particle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    animation: hv-particle-float 2s ease-in-out infinite;
+}
+
+.hv-progress-particle:nth-child(1) { left: 10%; animation-delay: 0s; }
+.hv-progress-particle:nth-child(2) { left: 25%; animation-delay: 0.3s; }
+.hv-progress-particle:nth-child(3) { left: 40%; animation-delay: 0.6s; }
+.hv-progress-particle:nth-child(4) { left: 55%; animation-delay: 0.9s; }
+.hv-progress-particle:nth-child(5) { left: 70%; animation-delay: 1.2s; }
+.hv-progress-particle:nth-child(6) { left: 85%; animation-delay: 1.5s; }
+
+@keyframes hv-particle-float {
+    0%, 100% {
+        transform: translateY(100%) scale(0);
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+        transform: translateY(80%) scale(1);
+    }
+    90% {
+        opacity: 1;
+        transform: translateY(-80%) scale(1);
+    }
+    100% {
+        transform: translateY(-100%) scale(0);
+        opacity: 0;
+    }
+}
+
+/* Current URL indicator */
+.hv-progress-current-url {
+    margin-top: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(59, 130, 246, 0.08);
+    border-radius: 8px;
+    border-left: 3px solid var(--hv-chart-blue);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+}
+
+.hv-progress-url-icon {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    animation: hv-url-bounce 0.6s ease infinite;
+}
+
+@keyframes hv-url-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+}
+
+.hv-progress-url-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+    flex: 1;
+}
+
+/* Speed indicator with animated icon */
+.hv-progress-speed {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.5rem;
+    background: rgba(34, 197, 94, 0.1);
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--hv-chart-green);
+}
+
+.hv-progress-speed-icon {
+    width: 14px;
+    height: 14px;
+    animation: hv-speed-spin 1s linear infinite;
+}
+
+@keyframes hv-speed-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ETA countdown */
+.hv-progress-eta {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.hv-progress-eta-icon {
+    animation: hv-clock-tick 1s steps(12) infinite;
+}
+
+@keyframes hv-clock-tick {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.hv-progress-details {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+    position: relative;
+    z-index: 1;
+}
+
+.hv-progress-detail {
+    text-align: center;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    transition: color 0.2s ease, opacity 0.2s ease, transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hv-progress-detail:hover {
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.hv-progress-detail-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    background: linear-gradient(135deg, var(--hv-chart-blue), var(--hv-chart-purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.hv-progress-detail-label {
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+}
+
+/* Milestone celebration animation */
+.hv-progress-milestone {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 2rem;
+    animation: hv-milestone-pop 0.6s ease-out forwards;
+    pointer-events: none;
+    z-index: 10;
+}
+
+@keyframes hv-milestone-pop {
+    0% {
+        transform: translate(-50%, -50%) scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(1.3);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1) translateY(-30px);
+        opacity: 0;
+    }
+}
+
+/* Confetti effect for completion */
+.hv-progress-confetti {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    animation: hv-confetti-fall 1s ease-out forwards;
+}
+
+@keyframes hv-confetti-fall {
+    0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100px) rotate(720deg);
+        opacity: 0;
+    }
+}
+
+/* ==========================================================================
+   VALIDATION COMPARISON VIEW
+   ========================================================================== */
+
+.hv-comparison-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    padding: 1rem;
+}
+
+.hv-comparison-column {
+    background: var(--hv-glass-bg);
+    border: 1px solid var(--hv-glass-border);
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.hv-comparison-header {
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.hv-comparison-title {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.hv-comparison-date {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.hv-comparison-diff {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px dashed var(--hv-chart-blue);
+    border-radius: 12px;
+    padding: 1rem;
+    margin: 1rem;
+    text-align: center;
+}
+
+.hv-comparison-diff-title {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.hv-diff-stats {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+}
+
+.hv-diff-stat {
+    text-align: center;
+}
+
+.hv-diff-stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.hv-diff-stat-value.improved { color: var(--hv-chart-green); }
+.hv-diff-stat-value.degraded { color: var(--hv-chart-red); }
+.hv-diff-stat-value.unchanged { color: var(--text-secondary); }
+
+.hv-diff-stat-label {
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+
+/* ==========================================================================
+   RESPONSIVE ADJUSTMENTS
+   ========================================================================== */
+
+@media (max-width: 768px) {
+    .hv-result-row {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+
+    .hv-comparison-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ==========================================================================
+   SKELETON LOADING
+   ========================================================================== */
+
+.hv-skeleton {
+    background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-secondary) 50%, var(--bg-tertiary) 75%);
+    background-size: 200% 100%;
+    animation: hv-skeleton-shimmer 1.5s infinite;
+    border-radius: 4px;
+}
+
+@keyframes hv-skeleton-shimmer {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+}
+
+.hv-skeleton-stat {
+    height: 60px;
+    border-radius: 16px;
+}
+
+.hv-skeleton-row {
+    height: 60px;
+    margin-bottom: 0.5rem;
+}
+
+.hv-skeleton-chart {
+    height: 200px;
+    border-radius: 16px;
+}
+
+/* ==========================================================================
+   v3.0.125 FIXES - History Panel, URL Display, Modal Centering
+   ========================================================================== */
+
+/* Fix 1: Enhanced History Panel with Smooth Collapse Toggle */
+.hv-history-panel {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 280px;
+    background: var(--hv-glass-bg);
+    backdrop-filter: blur(10px);
+    border-left: 1px solid var(--hv-glass-border);
+    display: none;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.3s var(--hv-transition-smooth), visibility 0s linear 0.3s;
+    visibility: hidden;
+    z-index: 10;
+}
+
+.hv-history-panel.open {
+    display: flex;
+    transform: translateX(0);
+    visibility: visible;
+    transition: transform 0.3s var(--hv-transition-smooth), visibility 0s linear 0s;
+    box-shadow: -5px 0 25px rgba(0, 0, 0, 0.1);
+}
+
+.hv-history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    border-bottom: 1px solid var(--hv-glass-border);
+    background: var(--bg-secondary);
+}
+
+.hv-history-header h4 {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Toggle button styling */
+#hv-btn-toggle-history {
+    padding: 0.375rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-primary);
+    cursor: pointer;
+    transition: color 0.2s ease, opacity 0.2s ease, transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#hv-btn-toggle-history:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--primary);
+}
+
+#hv-btn-toggle-history svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Fix 2: Enhanced URL Cell Display - Show Full URLs */
+.hv-url-cell {
+    max-width: none !important;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    line-height: 1.4;
+}
+
+.hv-url-cell a {
+    color: var(--primary, #2563eb);
+    text-decoration: none;
+    display: inline-block;
+    max-width: 100%;
+    word-break: break-word;
+}
+
+.hv-url-cell a:hover {
+    text-decoration: underline;
+}
+
+/* URL column - allow it to grow and show full URLs */
+.hv-table .hv-col-url {
+    min-width: 300px;
+}
+
+/* Fix 3: Modal Centering and Full Screen Layout */
+#modal-hyperlink-validator.modal-fullscreen {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 10000;
+    background: rgba(0, 0, 0, 0.5);
+    justify-content: center;
+    align-items: center;
+}
+
+#modal-hyperlink-validator.modal-fullscreen.active {
+    display: flex;
+}
+
+#modal-hyperlink-validator .hv-modal-content {
+    width: 95vw;
+    max-width: 95vw;
+    height: 90vh;
+    max-height: 90vh;
+    margin: auto;
+    border-radius: 16px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Ensure results section fills available space */
+.hv-results {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-bottom: 1rem;
+}
+
+/* Table wrapper should scroll */
+.hv-table-wrapper {
+    flex: 1;
+    overflow: auto;
+    max-height: calc(100% - 200px);
+    min-height: 200px;
+}
+
+/* Dark mode for history panel */
+.dark-mode .hv-history-panel,
+[data-theme="dark"] .hv-history-panel {
+    background: rgba(30, 41, 59, 0.95);
+    border-left-color: var(--border-color);
+}
+
+.dark-mode .hv-history-panel.open,
+[data-theme="dark"] .hv-history-panel.open {
+    box-shadow: -5px 0 25px rgba(0, 0, 0, 0.4);
+}
+
+/* Rescan button styling (from v3.0.124) */
+.hv-rescan-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.2s ease, opacity 0.2s ease, transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hv-rescan-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+}
+
+.hv-rescan-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.hv-rescan-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* ==========================================================================
+   v3.0.125 - Domain Filter Indicator & Clear Button
+   ========================================================================== */
+
+/* Filter indicator in heatmap title */
+.hv-filter-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.1) 100%);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--hv-chart-blue);
+    animation: hv-filter-appear 0.2s ease-out;
+}
+
+@keyframes hv-filter-appear {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.hv-filter-text {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hv-clear-filter-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    background: rgba(59, 130, 246, 0.2);
+    border: none;
+    border-radius: 50%;
+    color: var(--hv-chart-blue);
+    font-size: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.15s ease, opacity 0.15s ease, transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hv-clear-filter-btn:hover {
+    background: var(--hv-chart-blue);
+    color: white;
+}
+
+/* "All Domains" cell in heatmap */
+.hv-heatmap-cell.hv-heatmap-all {
+    background: linear-gradient(135deg, rgba(107, 114, 128, 0.15) 0%, rgba(107, 114, 128, 0.1) 100%);
+    border: 1px dashed rgba(107, 114, 128, 0.4);
+}
+
+.hv-heatmap-cell.hv-heatmap-all:hover {
+    border-style: solid;
+    background: linear-gradient(135deg, rgba(107, 114, 128, 0.25) 0%, rgba(107, 114, 128, 0.15) 100%);
+}
+
+/* Active (selected) cell in heatmap */
+.hv-heatmap-cell.hv-heatmap-active {
+    outline: 2px solid var(--hv-chart-blue);
+    outline-offset: 2px;
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+}
+
+/* Dark mode adjustments */
+.dark-mode .hv-filter-indicator,
+[data-theme="dark"] .hv-filter-indicator {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(59, 130, 246, 0.15) 100%);
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+.dark-mode .hv-clear-filter-btn,
+[data-theme="dark"] .hv-clear-filter-btn {
+    background: rgba(59, 130, 246, 0.3);
+}
+
+.dark-mode .hv-heatmap-cell.hv-heatmap-all,
+[data-theme="dark"] .hv-heatmap-cell.hv-heatmap-all {
+    background: linear-gradient(135deg, rgba(107, 114, 128, 0.25) 0%, rgba(107, 114, 128, 0.15) 100%);
+    border-color: rgba(107, 114, 128, 0.5);
+}
+
+/* ==========================================================================
+   v3.0.125 - Large Dataset Support for Domain Heatmap
+   ========================================================================== */
+
+/* Domain count badge */
+.hv-domain-count {
+    margin-left: auto;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    padding: 0.25rem 0.5rem;
+    background: var(--bg-tertiary);
+    border-radius: 9999px;
+}
+
+/* Domain search input */
+.hv-heatmap-search {
+    padding: 0.5rem 0;
+}
+
+.hv-domain-search-input {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 0.8125rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hv-domain-search-input:focus {
+    outline: none;
+    border-color: var(--hv-chart-blue);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.hv-domain-search-input::placeholder {
+    color: var(--text-muted);
+}
+
+/* "Show more" cell */
+.hv-heatmap-more {
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
+    border: 1px dashed rgba(59, 130, 246, 0.3);
+    transition: color 0.2s ease, opacity 0.2s ease, transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    flex: 0 0 auto;
+    min-width: 100px;
+}
+
+.hv-heatmap-more:hover {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0.1) 100%);
+    border-style: solid;
+    transform: scale(1.02);
+}
+
+.hv-heatmap-more .hv-heatmap-domain {
+    font-weight: 600;
+    color: var(--hv-chart-blue);
+}
+
+.hv-heatmap-more .hv-heatmap-stats {
+    font-size: 0.625rem;
+    color: var(--text-muted);
+}
+
+/* Dark mode for large dataset elements */
+.dark-mode .hv-domain-count,
+[data-theme="dark"] .hv-domain-count {
+    background: var(--bg-secondary);
+}
+
+.dark-mode .hv-domain-search-input,
+[data-theme="dark"] .hv-domain-search-input {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+}
+
+.dark-mode .hv-heatmap-more,
+[data-theme="dark"] .hv-heatmap-more {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0.1) 100%);
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+/* ==========================================================================
+   v3.0.125 - 3D Domain Health Carousel
+   ========================================================================== */
+
+/* Carousel wrapper */
+.hv-domain-carousel-wrapper {
+    background: var(--hv-glass-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--hv-glass-border);
+    border-radius: 16px;
+    padding: 1.25rem;
+    padding-top: 0.75rem;
+    position: relative;
+    overflow: hidden;
+    min-height: 320px;
+}
+
+/* Subtle animated background gradient */
+.hv-domain-carousel-wrapper::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background:
+        radial-gradient(ellipse at 20% 20%, rgba(34, 197, 94, 0.05) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(59, 130, 246, 0.05) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(139, 92, 246, 0.03) 0%, transparent 70%);
+    pointer-events: none;
+    animation: hv-carousel-bg-shift 15s ease-in-out infinite alternate;
+}
+
+@keyframes hv-carousel-bg-shift {
+    0% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* Carousel header */
+.hv-carousel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 1;
+}
+
+.hv-carousel-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.hv-carousel-title svg {
+    color: var(--hv-chart-blue);
+}
+
+.hv-carousel-count {
+    margin-left: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    padding: 0.25rem 0.5rem;
+    background: var(--bg-tertiary);
+    border-radius: 9999px;
+}
+
+/* Filter indicator */
+.hv-carousel-filter-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.1) 100%);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--hv-chart-blue);
+    animation: hv-filter-appear 0.2s ease-out;
+}
+
+.hv-carousel-filter-clear {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    background: rgba(59, 130, 246, 0.2);
+    border: none;
+    border-radius: 50%;
+    color: var(--hv-chart-blue);
+    font-size: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.15s ease, opacity 0.15s ease, transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hv-carousel-filter-clear:hover {
+    background: var(--hv-chart-blue);
+    color: white;
+}
+
+/* Main carousel scene */
+.hv-domain-carousel {
+    height: 200px;
+    position: relative;
+    cursor: grab;
+    perspective: 1000px;
+    z-index: 1;
+    margin-top: 20px;
+    padding-top: 15px;
+}
+
+.hv-domain-carousel:active {
+    cursor: grabbing;
+}
+
+.hv-carousel-scene {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    perspective: 1000px;
+}
+
+.hv-carousel-track {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform-style: preserve-3d;
+}
+
+/* Individual carousel cards */
+.hv-carousel-card {
+    position: absolute;
+    width: 120px;
+    height: 160px;
+    cursor: pointer;
+    transform-style: preserve-3d;
+    transition: color 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hv-carousel-card.active {
+    z-index: 10;
+}
+
+.hv-carousel-card:hover:not(.active) {
+    transform: scale(1.02) !important;
+}
+
+.hv-card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+}
+
+.hv-card-front {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    border-radius: 12px;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    box-shadow:
+        0 10px 40px -10px var(--card-glow, rgba(0, 0, 0, 0.3)),
+        0 0 20px -5px var(--card-glow, rgba(0, 0, 0, 0.2));
+    transition: box-shadow 0.3s ease;
+    overflow: hidden;
+}
+
+/* Card glow effect on hover */
+.hv-carousel-card.active .hv-card-front {
+    box-shadow:
+        0 15px 50px -10px var(--card-glow, rgba(0, 0, 0, 0.4)),
+        0 0 30px -5px var(--card-glow, rgba(0, 0, 0, 0.3)),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Filtered card styling */
+.hv-carousel-card.hv-card-filtered .hv-card-front {
+    outline: 3px solid var(--hv-chart-blue);
+    outline-offset: 2px;
+}
+
+/* Health status card colors */
+.hv-carousel-card.carousel-health-excellent .hv-card-front {
+    background: linear-gradient(145deg, #22c55e 0%, #16a34a 100%);
+    border: 1px solid rgba(34, 197, 94, 0.5);
+}
+
+.hv-carousel-card.carousel-health-good .hv-card-front {
+    background: linear-gradient(145deg, #84cc16 0%, #65a30d 100%);
+    border: 1px solid rgba(132, 204, 22, 0.5);
+}
+
+.hv-carousel-card.carousel-health-warning .hv-card-front {
+    background: linear-gradient(145deg, #f59e0b 0%, #d97706 100%);
+    border: 1px solid rgba(245, 158, 11, 0.5);
+}
+
+.hv-carousel-card.carousel-health-critical .hv-card-front {
+    background: linear-gradient(145deg, #ef4444 0%, #dc2626 100%);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+}
+
+/* Card content styling */
+.hv-card-health-ring {
+    position: relative;
+    width: 60px;
+    height: 60px;
+}
+
+.hv-health-circle {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.hv-health-bg {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.2);
+    stroke-width: 3;
+}
+
+.hv-health-fill {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.9);
+    stroke-width: 3;
+    stroke-linecap: round;
+    transition: stroke-dasharray 0.6s ease;
+}
+
+.hv-health-percent {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.hv-card-domain {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.95);
+    text-align: center;
+    word-break: break-all;
+    line-height: 1.2;
+    max-width: 100%;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.hv-card-stats {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: white;
+}
+
+.hv-card-stat-ok {
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.hv-card-stat-divider {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.hv-card-stat-total {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.hv-card-label {
+    font-size: 0.625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(255, 255, 255, 0.8);
+    padding: 0.125rem 0.375rem;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 9999px;
+}
+
+/* Carousel controls */
+.hv-carousel-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    position: relative;
+    z-index: 1;
+}
+
+.hv-carousel-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: color 0.2s ease, opacity 0.2s ease, transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hv-carousel-nav:hover {
+    background: var(--hv-chart-blue);
+    border-color: var(--hv-chart-blue);
+    color: white;
+    transform: scale(1.05);
+}
+
+.hv-carousel-nav:active {
+    transform: scale(0.95);
+}
+
+.hv-carousel-dots {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    max-width: 200px;
+    overflow-x: auto;
+    padding: 0.25rem;
+}
+
+.hv-carousel-dot {
+    width: 8px;
+    height: 8px;
+    border: none;
+    border-radius: 50%;
+    background: var(--border-color);
+    cursor: pointer;
+    transition: color 0.2s ease, opacity 0.2s ease, transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    flex-shrink: 0;
+}
+
+.hv-carousel-dot:hover {
+    background: var(--hv-chart-blue);
+    opacity: 0.7;
+}
+
+.hv-carousel-dot.active {
+    background: var(--hv-chart-blue);
+    transform: scale(1.3);
+}
+
+/* Carousel legend - clickable filter buttons */
+.hv-carousel-legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    position: relative;
+    z-index: 1;
+}
+
+.hv-legend-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 9999px;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.2s ease, opacity 0.2s ease, transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hv-legend-btn:hover:not(:disabled) {
+    background: var(--bg-tertiary);
+    border-color: var(--text-secondary);
+    transform: translateY(-1px);
+}
+
+.hv-legend-btn.active {
+    background: var(--hv-chart-blue);
+    border-color: var(--hv-chart-blue);
+    color: white;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.hv-legend-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.hv-legend-btn .hv-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    flex-shrink: 0;
+}
+
+.hv-legend-btn.active .hv-legend-dot {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.hv-legend-count {
+    padding: 0.125rem 0.375rem;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    min-width: 18px;
+    text-align: center;
+}
+
+.hv-legend-btn.active .hv-legend-count {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Legacy legend item support */
+.hv-carousel-legend .hv-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.hv-carousel-legend .hv-legend-item .hv-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Dark mode adjustments */
+.dark-mode .hv-domain-carousel-wrapper,
+[data-theme="dark"] .hv-domain-carousel-wrapper {
+    background: rgba(30, 41, 59, 0.8);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark-mode .hv-domain-carousel-wrapper::before,
+[data-theme="dark"] .hv-domain-carousel-wrapper::before {
+    background:
+        radial-gradient(ellipse at 20% 20%, rgba(34, 197, 94, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(139, 92, 246, 0.05) 0%, transparent 70%);
+}
+
+.dark-mode .hv-carousel-nav,
+[data-theme="dark"] .hv-carousel-nav {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+}
+
+.dark-mode .hv-carousel-dot,
+[data-theme="dark"] .hv-carousel-dot {
+    background: var(--border-color);
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+    .hv-carousel-card {
+        width: 100px;
+        height: 140px;
+    }
+
+    .hv-card-health-ring {
+        width: 50px;
+        height: 50px;
+    }
+
+    .hv-health-percent {
+        font-size: 0.75rem;
+    }
+
+    .hv-card-domain {
+        font-size: 0.625rem;
+    }
+
+    .hv-carousel-legend {
+        gap: 0.5rem;
+        font-size: 0.6875rem;
+    }
+}

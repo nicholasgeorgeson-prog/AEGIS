@@ -1,0 +1,399 @@
+"""Core application routes (index, static files, error handlers, diagnostics).
+
+Blueprint name: core
+"""
+
+from flask import Blueprint, send_file, request, jsonify, session, g, Response, make_response
+from routes._shared import handle_api_errors, api_error_response, config, logger, sanitize_static_path
+from config_logging import VERSION, get_version, generate_csrf_token, log_production_error, read_recent_error_logs
+from pathlib import Path
+from werkzeug.utils import secure_filename
+from datetime import datetime, timezone
+import platform
+import os
+import re
+
+core_bp = Blueprint('core', __name__)
+
+
+# Error handlers
+@core_bp.app_errorhandler(400)
+def bad_request(e):
+    error_id = log_production_error(e if isinstance(e, Exception) else Exception(str(e)), context={'flask_errorhandler': 400}, include_system_info=False)
+    logger.warning(f'Bad request: {e}', error_id=error_id)
+    return (jsonify({'success': False, 'error': {'code': 'BAD_REQUEST', 'message': str(e), 'error_id': error_id}}), 400)
+
+
+@core_bp.app_errorhandler(404)
+def not_found(e):
+    logger.debug(f'Not found: {request.path}')
+    return (jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Resource not found'}}), 404)
+
+
+@core_bp.app_errorhandler(413)
+def payload_too_large(e):
+    max_mb = config.max_content_length / 1048576
+    error_id = log_production_error(e if isinstance(e, Exception) else Exception(str(e)), context={'flask_errorhandler': 413, 'max_mb': max_mb}, include_system_info=False)
+    logger.warning(f'File too large: max={max_mb}MB', error_id=error_id)
+    return (jsonify({'success': False, 'error': {'code': 'FILE_TOO_LARGE', 'message': f'File exceeds maximum size of {max_mb:.0f}MB', 'error_id': error_id}}), 413)
+
+
+@core_bp.app_errorhandler(429)
+def rate_limit_exceeded(e):
+    logger.warning('Rate limit exceeded (429 handler)')
+    return (jsonify({'success': False, 'error': {'code': 'RATE_LIMIT', 'message': 'Too many requests'}}), 429)
+
+
+@core_bp.app_errorhandler(500)
+def internal_error(e):
+    error_id = log_production_error(e if isinstance(e, Exception) else Exception(str(e)), context={'flask_errorhandler': 500})
+    logger.exception(f'Internal server error: {e}')
+    return (jsonify({'success': False, 'error': {'code': 'INTERNAL_ERROR', 'message': 'An internal error occurred', 'correlation_id': getattr(g, 'correlation_id', 'unknown'), 'error_id': error_id}}), 500)
+
+
+# Diagnostics endpoints
+@core_bp.route('/api/diagnostics/logs')
+def get_error_logs():
+    """
+    Return recent structured error entries from logs/aegis.log.
+
+    Query params:
+      count  - number of entries (default 50, max 200)
+      level  - filter by level (ERROR, WARNING, CRITICAL)
+      search - substring search across error_type, error_message, handler
+    """
+    try:
+        count = min(int(request.args.get('count', 50)), 200)
+        level_filter = request.args.get('level', '').upper()
+        search_term = request.args.get('search', '').lower()
+        entries = read_recent_error_logs(count=count * 2)
+        if level_filter:
+            entries = [e for e in entries if e.get('level', 'ERROR').upper() == level_filter]
+        if search_term:
+            def _matches(entry):
+                searchable = ' '.join([str(entry.get('error_type', '')), str(entry.get('error_message', '')), str(entry.get('context', {}).get('handler', '')), str(entry.get('request', {}).get('filename', ''))]).lower()
+                return search_term in searchable
+            entries = [e for e in entries if _matches(e)]
+        entries = entries[:count]
+        return jsonify({'success': True, 'data': {'entries': entries, 'total': len(entries), 'log_file': str(config.log_dir / 'aegis.log')}})
+    except Exception as e:
+        logger.exception(f'Error reading error logs: {e}')
+        return (jsonify({'success': False, 'error': {'code': 'LOG_READ_ERROR', 'message': str(e)}}), 500)
+
+
+@core_bp.route('/api/diagnostics/logs/<error_id>')
+def get_error_log_detail(error_id):
+    """Look up a specific error entry by its error_id."""
+    try:
+        entries = read_recent_error_logs(count=500)
+        match = next((e for e in entries if e.get('error_id') == error_id), None)
+        if not match:
+            return (jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': f'No error entry with id {error_id}'}}), 404)
+        else:
+            return jsonify({'success': True, 'data': match})
+    except Exception as e:
+        logger.exception(f'Error looking up error {error_id}: {e}')
+        return (jsonify({'success': False, 'error': {'code': 'LOG_READ_ERROR', 'message': str(e)}}), 500)
+
+
+@core_bp.route('/api/diagnostics/summary')
+@handle_api_errors
+def diagnostics_summary():
+    """
+    Get comprehensive diagnostics summary for troubleshooting.
+
+    Returns:
+    - Recent error logs (last 10 errors)
+    - App version and uptime
+    - System information
+    - Configuration status
+    - Feature availability
+    """
+    try:
+        # Collect recent errors
+        entries = read_recent_error_logs(count=10)
+
+        # System info (non-sensitive)
+        system_info = {
+            'platform': platform.platform(),
+            'python_version': platform.python_version(),
+            'app_version': VERSION,
+            'timestamp': datetime.now(timezone.utc).isoformat() + 'Z'
+        }
+
+        # Check log file size
+        log_file = config.log_dir / 'aegis.log'
+        log_size_mb = 0
+        if log_file.exists():
+            log_size_mb = round(log_file.stat().st_size / (1024 * 1024), 2)
+
+        # Error summary
+        error_types = {}
+        for entry in entries:
+            err_type = entry.get('error_type', 'Unknown')
+            error_types[err_type] = error_types.get(err_type, 0) + 1
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'system': system_info,
+                'recent_errors': entries,
+                'error_summary': {
+                    'total_recent': len(entries),
+                    'by_type': error_types
+                },
+                'log_file': {
+                    'path': str(log_file),
+                    'size_mb': log_size_mb
+                },
+                'config': {
+                    'debug_mode': config.debug,
+                    'log_level': config.log_level,
+                    'auth_enabled': config.auth_enabled,
+                    'csrf_enabled': config.csrf_enabled
+                }
+            }
+        })
+    except Exception as e:
+        logger.exception(f'Error generating diagnostics summary: {e}')
+        return (jsonify({'success': False, 'error': {'code': 'DIAGNOSTICS_ERROR', 'message': str(e)}}), 500)
+
+
+@core_bp.route('/api/diagnostics/errors')
+@handle_api_errors
+def diagnostics_errors():
+    """
+    Return recent errors with filtering options.
+
+    Query params:
+      count  - number of entries (default 50, max 200)
+      level  - filter by level (ERROR, WARNING, CRITICAL)
+      type   - filter by error_type
+      search - substring search
+    """
+    try:
+        count = min(int(request.args.get('count', 50)), 200)
+        level_filter = request.args.get('level', '').upper()
+        type_filter = request.args.get('type', '').lower()
+        search_term = request.args.get('search', '').lower()
+
+        entries = read_recent_error_logs(count=count * 2)
+
+        # Apply filters
+        if level_filter:
+            entries = [e for e in entries if e.get('level', 'ERROR').upper() == level_filter]
+
+        if type_filter:
+            entries = [e for e in entries if type_filter in e.get('error_type', '').lower()]
+
+        if search_term:
+            def _matches(entry):
+                searchable = ' '.join([
+                    str(entry.get('error_type', '')),
+                    str(entry.get('error_message', '')),
+                    str(entry.get('context', {}).get('handler', '')),
+                    str(entry.get('request', {}).get('filename', ''))
+                ]).lower()
+                return search_term in searchable
+            entries = [e for e in entries if _matches(e)]
+
+        entries = entries[:count]
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'entries': entries,
+                'total': len(entries),
+                'filters_applied': {
+                    'level': level_filter or None,
+                    'type': type_filter or None,
+                    'search': search_term or None
+                }
+            }
+        })
+    except Exception as e:
+        logger.exception(f'Error fetching diagnostics errors: {e}')
+        return (jsonify({'success': False, 'error': {'code': 'DIAGNOSTICS_ERROR', 'message': str(e)}}), 500)
+
+
+# Demo endpoints
+@core_bp.route('/loader-demo')
+def loader_demo():
+    """Demo page for the AEGIS cinematic loader."""
+    demo_path = config.base_dir / 'templates' / 'loader-demo.html'
+    if demo_path.exists():
+        with open(demo_path, 'r', encoding='utf-8') as f:
+            return Response(f.read(), content_type='text/html')
+    else:
+        return ('Demo not found', 404)
+
+
+# Main index route
+@core_bp.route('/')
+def index():
+    """Serve the main application page.
+
+    v3.0.49: Check templates/index.html first (transport layout),
+    then fall back to index.html (legacy flat layout).
+    """
+    index_path = config.base_dir / 'templates' / 'index.html'
+    if not index_path.exists():
+        index_path = config.base_dir / 'index.html'
+    if not index_path.exists():
+        logger.error('index.html not found', checked_paths=[str(config.base_dir / 'templates' / 'index.html'), str(config.base_dir / 'index.html')])
+        return (jsonify({'success': False, 'error': {'code': 'CONFIG_ERROR', 'message': 'Application not properly installed'}}), 500)
+    try:
+        with open(index_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+    except IOError as e:
+        logger.exception(f'Failed to read index.html: {e}')
+        return (jsonify({'success': False, 'error': {'code': 'IO_ERROR', 'message': 'Failed to load application'}}), 500)
+    csrf_token = session.get('csrf_token') or generate_csrf_token()
+    session['csrf_token'] = csrf_token
+    # v4.9.9: Read version FRESH from version.json every request (never stale)
+    ver = get_version()
+    csrf_meta = f'<meta name="csrf-token" content="{csrf_token}">'
+    version_meta = f'<meta name="aegis-version" content="{ver}">'
+    content = content.replace('<head>', f'<head>\n    {csrf_meta}\n    {version_meta}')
+    # v4.7.0: Inject version into all display elements server-side (single source of truth)
+    # This ensures correct version even when JS files are browser-cached
+    content = content.replace('id="lp-version"></span>', f'id="lp-version">v{ver}</span>')
+    content = content.replace('id="version-label"></span>', f'id="version-label">Enterprise v{ver}</span>')
+    content = content.replace('id="footer-version"></div>', f'id="footer-version">v{ver}</div>')
+    content = content.replace('id="help-version"></span>', f'id="help-version">v{ver}</span>')
+    # v4.9.9: Cache-bust static JS/CSS — replace any existing ?v= with fresh version
+    content = re.sub(r'\.js\?v=[^"\']*(["\'])', rf'.js?v={ver}\1', content)
+    content = re.sub(r'\.css\?v=[^"\']*(["\'])', rf'.css?v={ver}\1', content)
+    # Also add ?v= to any JS/CSS that don't have it yet (negative lookahead for ?)
+    content = re.sub(r'\.js(["\'])(?!\?)', rf'.js?v={ver}\1', content)
+    content = re.sub(r'\.css(["\'])(?!\?)', rf'.css?v={ver}\1', content)
+    # v4.7.0: Prevent browser from caching the HTML page (contains dynamic CSRF + version)
+    from flask import make_response as _make_response
+    resp = _make_response(content)
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    resp.headers['Pragma'] = 'no-cache'
+    resp.headers['Expires'] = '0'
+    return resp
+
+
+# Session management
+@core_bp.route('/api/clear-session')
+def clear_session_endpoint():
+    """Clear session cookie for troubleshooting. v4.0.3 dev utility."""
+    resp = make_response(jsonify({'success': True, 'message': 'Session cleared'}))
+    resp.delete_cookie('session', path='/')
+    session.clear()
+    return resp
+
+
+# Static file serving routes
+@core_bp.route('/static/css/<path:filename>')
+def serve_css(filename):
+    """Serve CSS files.
+    
+    v3.0.49: Uses sanitize_static_path for proper nested path handling.
+    Checks multiple locations for compatibility with different
+    installation layouts (flat vs structured).
+    """
+    safe_name = sanitize_static_path(filename, {'.css'})
+    if not safe_name:
+        return api_error_response('INVALID_PATH', 'Invalid path', 400)
+    else:
+        possible_paths = [config.base_dir / 'static' / 'css' / safe_name, config.base_dir / 'css' / safe_name, config.base_dir / safe_name]
+        for css_path in possible_paths:
+            if css_path.exists():
+                return send_file(css_path, mimetype='text/css')
+        return api_error_response('NOT_FOUND', f'CSS file not found: {safe_name}', 404)
+
+
+@core_bp.route('/static/js/<path:filename>')
+def serve_js(filename):
+    """Serve JavaScript files.
+    
+    v3.0.49: Uses sanitize_static_path to properly handle nested paths
+    like ui/state.js, features/roles.js, api/client.js.
+    """
+    safe_name = sanitize_static_path(filename, {'.js'})
+    if not safe_name:
+        return api_error_response('INVALID_PATH', 'Invalid path', 400)
+    else:
+        possible_paths = [config.base_dir / 'static' / 'js' / safe_name, config.base_dir / 'js' / safe_name, config.base_dir / safe_name]
+        for js_path in possible_paths:
+            if js_path.exists():
+                return send_file(js_path, mimetype='application/javascript')
+        logger.debug('JS file not found', requested=filename, safe_name=safe_name, checked_paths=[str(p) for p in possible_paths])
+        return api_error_response('NOT_FOUND', f'JavaScript file not found: {safe_name}', 404)
+
+
+@core_bp.route('/static/js/vendor/<path:filename>')
+def serve_vendor_js(filename):
+    """Serve vendored JavaScript libraries.
+
+    v3.0.49: Uses sanitize_static_path for security.
+    Checks multiple locations for compatibility with different
+    installation layouts. Returns 404 for missing files so that
+    onerror CDN fallback triggers properly.
+    """
+    safe_name = sanitize_static_path(filename, {'.js', '.mjs'})
+    if not safe_name:
+        return api_error_response('INVALID_PATH', 'Invalid path', 400)
+    else:
+        possible_paths = [config.base_dir / 'vendor' / safe_name, config.base_dir / 'static' / 'js' / 'vendor' / safe_name, config.base_dir / 'js' / 'vendor' / safe_name]
+        mimetype = 'application/javascript'
+        for vendor_path in possible_paths:
+            if vendor_path.exists():
+                return send_file(vendor_path, mimetype=mimetype)
+        return api_error_response('NOT_FOUND', f'Vendor file not found: {safe_name}', 404)
+
+
+@core_bp.route('/static/images/<path:filename>')
+def serve_images(filename):
+    """Serve image files.
+    
+    v3.0.49: Uses sanitize_static_path for consistency.
+    SECURITY: Only serves allowed image extensions and restricts root fallback
+    to a strict allowlist to prevent arbitrary file disclosure.
+    """
+    allowed_extensions = {'.webp', '.gif', '.svg', '.ico', '.jpeg', '.png', '.jpg'}
+    safe_name = sanitize_static_path(filename, allowed_extensions)
+    if not safe_name:
+        logger.warning('Blocked invalid image request to /static/images', requested_file=filename)
+        return api_error_response('NOT_FOUND', 'Image not found', 404)
+    else:
+        ext = Path(safe_name).suffix.lower()
+        root_allowed_files = {'logo.png', 'favicon.ico'}
+        img_path = config.base_dir / 'images' / safe_name
+        if not img_path.exists() and safe_name in root_allowed_files:
+                img_path = config.base_dir / safe_name
+        if img_path.exists():
+            mime_types = {'.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.webp': 'image/webp'}
+            mime = mime_types.get(ext, 'image/png')
+            return send_file(img_path, mimetype=mime)
+        else:
+            return api_error_response('NOT_FOUND', f'Image not found: {safe_name}', 404)
+
+
+@core_bp.route('/favicon.ico')
+def serve_favicon():
+    """Serve favicon with fallback to app root.
+    
+    Checks both /images subdirectory and app root for compatibility
+    with different installation methods.
+    """
+    favicon_path = config.base_dir / 'images' / 'favicon.ico'
+    if not favicon_path.exists():
+        favicon_path = config.base_dir / 'favicon.ico'
+    if favicon_path.exists():
+        return send_file(favicon_path, mimetype='image/x-icon')
+    else:
+        return ('', 204)
+
+
+# CSRF token endpoint
+@core_bp.route('/api/csrf-token', methods=['GET'])
+@handle_api_errors
+def get_csrf_token():
+    """Get a fresh CSRF token."""
+    token = generate_csrf_token()
+    session['csrf_token'] = token
+    return jsonify({'csrf_token': token})

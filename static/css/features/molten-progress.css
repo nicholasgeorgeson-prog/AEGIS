@@ -1,0 +1,456 @@
+/* =============================================================================
+   Molten Progress Bar v1.0
+   =============================================================================
+   Scalable Rive-inspired molten orange progress bar for use throughout the app.
+   Can be used at various sizes: mini (4px), small (8px), medium (16px), large (28px)
+*/
+
+/* =============================================================================
+   BASE MOLTEN PROGRESS BAR
+   ============================================================================= */
+
+.molten-progress {
+  position: relative;
+  width: 100%;
+  height: 8px; /* Default small size */
+  border-radius: 999px;
+  background: rgba(20, 30, 50, 0.6);
+  overflow: visible;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* Rail/track */
+.molten-progress .molten-rail {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: rgba(100, 130, 180, 0.08);
+  border: 1px solid rgba(100, 130, 180, 0.12);
+}
+
+/* Fill bar with molten gradient */
+.molten-progress .molten-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0%;
+  border-radius: 999px;
+  overflow: visible;
+  /* Molten gradient: deep orange -> bright amber -> white-hot */
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0) 50%),
+    linear-gradient(90deg,
+      rgba(180,80,20,0.75) 0%,
+      rgba(230,92,0,0.9) 20%,
+      rgba(255,123,37,0.95) 40%,
+      rgba(255,159,64,0.98) 60%,
+      rgba(255,224,102,0.98) 80%,
+      rgba(255,250,240,1) 95%,
+      rgba(255,255,255,1) 100%
+    );
+  box-shadow:
+    0 0 8px rgba(255,159,64,0.6),
+    0 0 16px rgba(255,123,37,0.4),
+    0 0 24px rgba(230,92,0,0.25);
+  transition: width 0.3s ease-out;
+  animation: molten-breathe 2.5s ease-in-out infinite;
+}
+
+@keyframes molten-breathe {
+  0%, 100% { filter: brightness(1) saturate(1.05); }
+  50% { filter: brightness(1.12) saturate(1.12); }
+}
+
+/* Bloom glow layer */
+.molten-progress .molten-fill::before {
+  content: "";
+  position: absolute;
+  inset: -12px -16px;
+  background: radial-gradient(ellipse 100% 200% at 95% 50%,
+    rgba(255,200,100,0.4) 0%,
+    rgba(255,159,64,0.3) 30%,
+    rgba(255,123,37,0.15) 60%,
+    transparent 100%
+  );
+  filter: blur(8px);
+  opacity: 0.6;
+  pointer-events: none;
+  border-radius: 999px;
+}
+
+/* Leading edge orb */
+.molten-progress .molten-orb {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle at 45% 45%,
+    rgba(255,255,255,1) 0%,
+    rgba(255,255,255,0.95) 25%,
+    rgba(255,240,200,0.9) 40%,
+    rgba(255,180,80,0.7) 60%,
+    rgba(255,130,50,0.4) 80%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 6px rgba(255,255,255,0.9),
+    0 0 12px rgba(255,224,102,0.7),
+    0 0 20px rgba(255,159,64,0.5),
+    0 0 32px rgba(255,123,37,0.3);
+  animation: molten-orb-pulse 1.8s ease-in-out infinite;
+  z-index: 2;
+}
+
+@keyframes molten-orb-pulse {
+  0%, 100% { opacity: 0.9; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+}
+
+/* =============================================================================
+   SIZE VARIANTS
+   ============================================================================= */
+
+/* Mini: 4px height - for inline/table use */
+.molten-progress.molten-mini {
+  height: 4px;
+}
+
+.molten-progress.molten-mini .molten-orb {
+  width: 8px;
+  height: 8px;
+}
+
+.molten-progress.molten-mini .molten-fill::before {
+  inset: -6px -8px;
+  filter: blur(4px);
+}
+
+.molten-progress.molten-mini .molten-fill {
+  box-shadow:
+    0 0 4px rgba(255,159,64,0.5),
+    0 0 8px rgba(255,123,37,0.3);
+}
+
+/* Small: 8px height (default) */
+/* Already defined above */
+
+/* Medium: 16px height */
+.molten-progress.molten-medium {
+  height: 16px;
+}
+
+.molten-progress.molten-medium .molten-orb {
+  width: 22px;
+  height: 22px;
+}
+
+.molten-progress.molten-medium .molten-fill::before {
+  inset: -20px -28px;
+  filter: blur(12px);
+}
+
+.molten-progress.molten-medium .molten-fill {
+  box-shadow:
+    0 0 12px rgba(255,159,64,0.65),
+    0 0 28px rgba(255,123,37,0.45),
+    0 0 48px rgba(230,92,0,0.3);
+}
+
+/* Large: 28px height - matches AEGIS loader */
+.molten-progress.molten-large {
+  height: 28px;
+}
+
+.molten-progress.molten-large .molten-orb {
+  width: 36px;
+  height: 36px;
+  box-shadow:
+    0 0 10px rgba(255,255,255,0.95),
+    0 0 24px rgba(255,240,200,0.8),
+    0 0 44px rgba(255,200,100,0.6),
+    0 0 72px rgba(255,150,60,0.45),
+    0 0 110px rgba(255,100,40,0.3);
+}
+
+.molten-progress.molten-large .molten-fill::before {
+  inset: -40px -60px;
+  filter: blur(24px);
+  opacity: 0.5;
+}
+
+.molten-progress.molten-large .molten-fill {
+  box-shadow:
+    0 0 16px rgba(255,159,64,0.7),
+    0 0 36px rgba(255,123,37,0.5),
+    0 0 64px rgba(230,92,0,0.35),
+    0 0 100px rgba(255,140,66,0.2);
+}
+
+/* =============================================================================
+   REFLECTION (optional - add .molten-with-reflection)
+   ============================================================================= */
+
+.molten-progress.molten-with-reflection::after {
+  content: "";
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  top: 100%;
+  margin-top: 4px;
+  height: 20px;
+  border-radius: 999px;
+  background: radial-gradient(ellipse 90% 100% at 50% 0%,
+    rgba(255,180,80,0.25) 0%,
+    rgba(255,140,50,0.15) 30%,
+    rgba(255,100,30,0.08) 60%,
+    transparent 100%
+  );
+  filter: blur(6px);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.molten-progress.molten-large.molten-with-reflection::after {
+  margin-top: 6px;
+  height: 40px;
+  filter: blur(10px);
+}
+
+/* =============================================================================
+   TRAIL (optional - add .molten-with-trail)
+   ============================================================================= */
+
+.molten-progress.molten-with-trail .molten-trail {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 60px;
+  height: 6px;
+  border-radius: 999px;
+  transform: translateY(-50%);
+  background: linear-gradient(90deg,
+    rgba(180,80,20,0) 0%,
+    rgba(230,92,0,0.2) 20%,
+    rgba(255,123,37,0.35) 40%,
+    rgba(255,159,64,0.5) 60%,
+    rgba(255,224,102,0.65) 80%,
+    rgba(255,255,255,0.5) 100%
+  );
+  filter: blur(1.5px);
+  opacity: 0.8;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.molten-progress.molten-large.molten-with-trail .molten-trail {
+  width: 120px;
+  height: 12px;
+}
+
+.molten-progress.molten-medium.molten-with-trail .molten-trail {
+  width: 80px;
+  height: 8px;
+}
+
+.molten-progress.molten-mini.molten-with-trail .molten-trail {
+  width: 30px;
+  height: 3px;
+}
+
+/* =============================================================================
+   INDETERMINATE/LOADING STATE
+   ============================================================================= */
+
+.molten-progress.molten-indeterminate {
+  overflow: hidden; /* Keep animation inside the bar */
+}
+
+.molten-progress.molten-indeterminate .molten-fill {
+  width: 35%;
+  animation: molten-indeterminate 1.8s ease-in-out infinite;
+}
+
+.molten-progress.molten-indeterminate .molten-fill::before,
+.molten-progress.molten-indeterminate .molten-fill::after {
+  display: none; /* Hide bloom layers that would spill out */
+}
+
+@keyframes molten-indeterminate {
+  0% {
+    left: -35%;
+    opacity: 0.6;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0.6;
+  }
+}
+
+.molten-progress.molten-indeterminate .molten-orb {
+  display: none;
+}
+
+.molten-progress.molten-indeterminate .molten-trail {
+  display: none;
+}
+
+/* =============================================================================
+   THEME VARIANTS
+   ============================================================================= */
+
+/* Blue/Cyan variant */
+.molten-progress.molten-blue .molten-fill {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0) 50%),
+    linear-gradient(90deg,
+      rgba(20,80,180,0.75) 0%,
+      rgba(0,120,230,0.9) 20%,
+      rgba(51,184,255,0.95) 40%,
+      rgba(100,200,255,0.98) 60%,
+      rgba(150,230,255,0.98) 80%,
+      rgba(220,250,255,1) 95%,
+      rgba(255,255,255,1) 100%
+    );
+  box-shadow:
+    0 0 8px rgba(51,184,255,0.6),
+    0 0 16px rgba(0,200,255,0.4),
+    0 0 24px rgba(51,184,255,0.25);
+}
+
+.molten-progress.molten-blue .molten-fill::before {
+  background: radial-gradient(ellipse 100% 200% at 95% 50%,
+    rgba(150,230,255,0.4) 0%,
+    rgba(51,184,255,0.3) 30%,
+    rgba(0,150,255,0.15) 60%,
+    transparent 100%
+  );
+}
+
+.molten-progress.molten-blue .molten-orb {
+  background: radial-gradient(circle at 45% 45%,
+    rgba(255,255,255,1) 0%,
+    rgba(255,255,255,0.95) 25%,
+    rgba(200,240,255,0.9) 40%,
+    rgba(100,200,255,0.7) 60%,
+    rgba(51,184,255,0.4) 80%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 6px rgba(255,255,255,0.9),
+    0 0 12px rgba(150,230,255,0.7),
+    0 0 20px rgba(51,184,255,0.5),
+    0 0 32px rgba(0,150,255,0.3);
+}
+
+/* Green/Success variant */
+.molten-progress.molten-green .molten-fill {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0) 50%),
+    linear-gradient(90deg,
+      rgba(20,100,50,0.75) 0%,
+      rgba(30,150,70,0.9) 20%,
+      rgba(50,200,100,0.95) 40%,
+      rgba(100,220,130,0.98) 60%,
+      rgba(150,240,170,0.98) 80%,
+      rgba(220,255,230,1) 95%,
+      rgba(255,255,255,1) 100%
+    );
+  box-shadow:
+    0 0 8px rgba(50,200,100,0.6),
+    0 0 16px rgba(30,180,80,0.4),
+    0 0 24px rgba(50,200,100,0.25);
+}
+
+.molten-progress.molten-green .molten-orb {
+  background: radial-gradient(circle at 45% 45%,
+    rgba(255,255,255,1) 0%,
+    rgba(255,255,255,0.95) 25%,
+    rgba(220,255,230,0.9) 40%,
+    rgba(100,220,130,0.7) 60%,
+    rgba(50,200,100,0.4) 80%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 6px rgba(255,255,255,0.9),
+    0 0 12px rgba(150,240,170,0.7),
+    0 0 20px rgba(50,200,100,0.5),
+    0 0 32px rgba(30,180,80,0.3);
+}
+
+/* =============================================================================
+   COMPLETION STATE
+   ============================================================================= */
+
+.molten-progress.molten-complete .molten-fill {
+  filter: brightness(1.3) saturate(1.2);
+  animation: none;
+}
+
+.molten-progress.molten-complete .molten-orb {
+  animation: molten-complete-pulse 0.5s ease-out;
+  transform: translate(-50%, -50%) scale(1.15);
+}
+
+@keyframes molten-complete-pulse {
+  0% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-50%, -50%) scale(1.3); }
+  100% { transform: translate(-50%, -50%) scale(1.15); }
+}
+
+/* =============================================================================
+   ACCESSIBILITY
+   ============================================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .molten-progress .molten-fill {
+    animation: none !important;
+    transition: width 0.5s ease-out;
+  }
+
+  .molten-progress .molten-orb {
+    animation: none !important;
+  }
+
+  .molten-progress.molten-indeterminate .molten-fill {
+    animation: none !important;
+    width: 100%;
+    opacity: 0.7;
+  }
+}
+
+/* =============================================================================
+   DARK/LIGHT MODE ADJUSTMENTS
+   ============================================================================= */
+
+@media (prefers-color-scheme: light) {
+  .molten-progress {
+    background: rgba(200, 210, 230, 0.4);
+  }
+
+  .molten-progress .molten-rail {
+    background: rgba(180, 190, 210, 0.2);
+    border-color: rgba(180, 190, 210, 0.3);
+  }
+}
+
+/* Explicit light mode class */
+.light-mode .molten-progress,
+[data-theme="light"] .molten-progress {
+  background: rgba(200, 210, 230, 0.4);
+}
+
+.light-mode .molten-progress .molten-rail,
+[data-theme="light"] .molten-progress .molten-rail {
+  background: rgba(180, 190, 210, 0.2);
+  border-color: rgba(180, 190, 210, 0.3);
+}

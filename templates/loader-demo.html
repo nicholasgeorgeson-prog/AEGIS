@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AEGIS Cinematic Loader Demo</title>
+<link rel="stylesheet" href="/static/css/features/cinematic-loader.css">
+<link rel="stylesheet" href="/static/css/features/molten-progress.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #020406; min-height: 100vh; font-family: ui-sans-serif, system-ui, sans-serif; }
+.aegis-loader { display: grid !important; }
+
+/* Demo layout */
+.demo-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.demo-section {
+  background: rgba(10, 20, 40, 0.6);
+  border: 1px solid rgba(100, 150, 255, 0.15);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.demo-section h2 {
+  color: rgba(210, 235, 255, 0.9);
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  letter-spacing: 0.05em;
+}
+
+.demo-section h3 {
+  color: rgba(210, 235, 255, 0.7);
+  font-size: 13px;
+  font-weight: 500;
+  margin: 16px 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.demo-row {
+  margin-bottom: 20px;
+}
+
+.demo-label {
+  color: rgba(210, 235, 255, 0.6);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+/* Controls */
+.controls {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100000;
+  display: flex;
+  gap: 10px;
+  background: rgba(20, 30, 50, 0.95);
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(100, 150, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+.controls button {
+  padding: 8px 16px;
+  background: rgba(51, 184, 255, 0.2);
+  border: 1px solid rgba(51, 184, 255, 0.4);
+  color: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+.controls button:hover {
+  background: rgba(51, 184, 255, 0.4);
+}
+.controls span {
+  color: rgba(210, 235, 255, 0.5);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+}
+
+/* Mode toggle */
+.mode-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.mode-toggle button {
+  padding: 10px 20px;
+  background: rgba(51, 184, 255, 0.1);
+  border: 1px solid rgba(51, 184, 255, 0.3);
+  color: rgba(210, 235, 255, 0.8);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+.mode-toggle button:hover {
+  background: rgba(51, 184, 255, 0.2);
+}
+.mode-toggle button.active {
+  background: rgba(255, 159, 64, 0.3);
+  border-color: rgba(255, 159, 64, 0.6);
+  color: rgba(255, 224, 150, 1);
+}
+
+/* Full screen mode */
+.fullscreen-mode .demo-container { display: none; }
+.fullscreen-mode .aegis-loader { display: grid !important; }
+.demo-mode .aegis-loader { display: none !important; }
+.demo-mode .demo-container { display: block; }
+</style>
+</head>
+<body class="demo-mode">
+
+<!-- AEGIS Cinematic Loader (Full-screen version) -->
+<div id="aegisLoader" class="aegis-loader" aria-label="Loading application" role="progressbar">
+  <canvas class="aegis-bg" aria-hidden="true"></canvas>
+
+  <div class="aegis-center">
+    <div class="aegis-title">AEGIS LOADER DEMO</div>
+    <div class="aegis-sub" id="aegisSub">Rive-inspired molten orange theme...</div>
+
+    <div class="aegis-hero">
+      <div class="aegis-bar">
+        <div class="rail"></div>
+        <div class="fill"></div>
+        <div class="sheen"></div>
+        <div class="sparkgrid"></div>
+        <div class="orb"></div>
+        <div class="trail"></div>
+        <div class="reflection"></div>
+        <div class="reflection-spot"></div>
+      </div>
+    </div>
+
+    <div class="aegis-meta">
+      <div class="aegis-status" id="aegisStatus">Loading modules</div>
+      <div class="aegis-pct" id="aegisPct">0%</div>
+    </div>
+  </div>
+
+  <div class="aegis-vignette" aria-hidden="true"></div>
+  <div class="aegis-grain" aria-hidden="true"></div>
+</div>
+
+<!-- Demo Container (Component sizes) -->
+<div class="demo-container">
+  <div class="mode-toggle">
+    <button onclick="setMode('demo')" class="active">Component Sizes</button>
+    <button onclick="setMode('fullscreen')">Full-Screen Loader</button>
+  </div>
+
+  <div class="demo-section">
+    <h2>Molten Progress Bar - Size Variants</h2>
+
+    <h3>Large (28px) - with reflection & trail</h3>
+    <div class="demo-row" id="demo-large"></div>
+
+    <h3>Medium (16px) - with trail</h3>
+    <div class="demo-row" id="demo-medium"></div>
+
+    <h3>Small (8px) - default</h3>
+    <div class="demo-row" id="demo-small"></div>
+
+    <h3>Mini (4px) - for inline use</h3>
+    <div class="demo-row" id="demo-mini"></div>
+  </div>
+
+  <div class="demo-section">
+    <h2>Color Variants</h2>
+
+    <h3>Orange (default)</h3>
+    <div class="demo-row" id="demo-orange"></div>
+
+    <h3>Blue</h3>
+    <div class="demo-row" id="demo-blue"></div>
+
+    <h3>Green</h3>
+    <div class="demo-row" id="demo-green"></div>
+  </div>
+
+  <div class="demo-section">
+    <h2>States</h2>
+
+    <h3>Indeterminate (loading)</h3>
+    <div class="demo-row" id="demo-indeterminate"></div>
+
+    <h3>Complete</h3>
+    <div class="demo-row" id="demo-complete"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <button onclick="setAllProgress(0)">0%</button>
+  <button onclick="setAllProgress(0.25)">25%</button>
+  <button onclick="setAllProgress(0.5)">50%</button>
+  <button onclick="setAllProgress(0.75)">75%</button>
+  <button onclick="setAllProgress(1)">100%</button>
+  <span>|</span>
+  <button onclick="autoRun()">Auto Run</button>
+  <button onclick="resetAll()">Reset</button>
+</div>
+
+<script src="/static/js/vendor/gsap.min.js"></script>
+<script src="/static/js/features/cinematic-loader.js"></script>
+<script src="/static/js/features/molten-progress.js"></script>
+<script>
+let loader = null;
+let autoInterval = null;
+let progressBars = [];
+let currentMode = 'demo';
+
+function initLoader() {
+  if (typeof gsap === 'undefined') {
+    setTimeout(initLoader, 50);
+    return;
+  }
+  loader = CinematicLoader.mount('#aegisLoader', { fps: 30, maxDpr: 1.5 });
+  loader.setProgress(0.01);
+}
+
+function initMoltenBars() {
+  if (typeof MoltenProgress === 'undefined') {
+    setTimeout(initMoltenBars, 50);
+    return;
+  }
+
+  // Size variants
+  progressBars.push(MoltenProgress.create('#demo-large', {
+    size: 'large',
+    withReflection: true,
+    withTrail: true,
+    initialProgress: 0.65
+  }));
+
+  progressBars.push(MoltenProgress.create('#demo-medium', {
+    size: 'medium',
+    withTrail: true,
+    initialProgress: 0.65
+  }));
+
+  progressBars.push(MoltenProgress.create('#demo-small', {
+    size: 'small',
+    initialProgress: 0.65
+  }));
+
+  progressBars.push(MoltenProgress.create('#demo-mini', {
+    size: 'mini',
+    initialProgress: 0.65
+  }));
+
+  // Color variants
+  progressBars.push(MoltenProgress.create('#demo-orange', {
+    size: 'small',
+    color: 'orange',
+    initialProgress: 0.65
+  }));
+
+  progressBars.push(MoltenProgress.create('#demo-blue', {
+    size: 'small',
+    color: 'blue',
+    initialProgress: 0.65
+  }));
+
+  progressBars.push(MoltenProgress.create('#demo-green', {
+    size: 'small',
+    color: 'green',
+    initialProgress: 0.65
+  }));
+
+  // States
+  MoltenProgress.create('#demo-indeterminate', {
+    size: 'small',
+    indeterminate: true
+  });
+
+  const completedBar = MoltenProgress.create('#demo-complete', {
+    size: 'small',
+    initialProgress: 1
+  });
+  completedBar.complete();
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  document.body.className = mode + '-mode';
+  document.querySelectorAll('.mode-toggle button').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.toLowerCase().includes(mode === 'fullscreen' ? 'full' : 'component'));
+  });
+
+  if (mode === 'fullscreen' && loader) {
+    loader.setProgress(0.01);
+  }
+}
+
+function setAllProgress(p) {
+  // Update molten bars
+  progressBars.forEach(bar => {
+    if (bar && bar.setProgress) {
+      bar.setProgress(p);
+    }
+  });
+
+  // Update AEGIS loader if in fullscreen mode
+  if (loader) {
+    loader.setProgress(p);
+    const statuses = [
+      'Initializing systems',
+      'Loading modules',
+      'Syncing data',
+      'Processing assets',
+      'Complete'
+    ];
+    const idx = Math.min(Math.floor(p * 5), 4);
+    loader.setStatus(statuses[idx]);
+  }
+}
+
+function autoRun() {
+  if (autoInterval) {
+    clearInterval(autoInterval);
+    autoInterval = null;
+    return;
+  }
+  let p = 0;
+  setAllProgress(0);
+  autoInterval = setInterval(() => {
+    p += 0.005;
+    if (p >= 1) {
+      p = 1;
+      clearInterval(autoInterval);
+      autoInterval = null;
+    }
+    setAllProgress(p);
+  }, 50);
+}
+
+function resetAll() {
+  if (autoInterval) {
+    clearInterval(autoInterval);
+    autoInterval = null;
+  }
+  setAllProgress(0);
+}
+
+initLoader();
+initMoltenBars();
+</script>
+</body>
+</html>

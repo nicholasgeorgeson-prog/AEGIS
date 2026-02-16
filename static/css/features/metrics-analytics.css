@@ -1,0 +1,1040 @@
+/**
+ * Metrics & Analytics Command Center
+ * ===================================
+ * Styling for the full-featured analytics dashboard modal.
+ * Classes prefixed with .ma-* (metrics analytics)
+ *
+ * @version 1.0.0 (v4.6.1)
+ */
+
+/* =============================================================================
+   MODAL LAYOUT
+   ============================================================================= */
+
+/* Override .modal base styles: generic .modal uses opacity/visibility for show/hide,
+   but this modal uses display:none/flex via .active class instead */
+#modal-metrics-analytics {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10001;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+#modal-metrics-analytics.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Override generic .modal > div:first-child rule from modals.css (max-width:500px) */
+#modal-metrics-analytics > .ma-modal-content {
+    display: flex;
+    flex-direction: column;
+    width: 96vw;
+    max-width: 1600px;
+    height: 94vh;
+    max-height: none;
+    background: var(--bg-primary, #ffffff);
+    border-radius: var(--radius-lg, 12px);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+    transform: none;
+    border: none;
+}
+
+/* =============================================================================
+   HEADER
+   ============================================================================= */
+
+.ma-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.5rem;
+    border-bottom: 1px solid var(--border-default, #e5e7eb);
+    background: var(--bg-elevated, #f9fafb);
+    flex-shrink: 0;
+}
+
+.ma-header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.ma-header-left h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-primary, #111827);
+}
+
+.ma-header-left h3 i {
+    width: 20px;
+    height: 20px;
+    color: #10b981;
+}
+
+.ma-last-updated {
+    font-size: 0.6875rem;
+    color: var(--text-muted, #9ca3af);
+}
+
+.ma-header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#ma-btn-refresh {
+    transition: color 0.15s, opacity 0.15s, transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+#ma-btn-refresh:hover {
+    color: #D6A84A;
+}
+
+#ma-btn-refresh.spinning i {
+    animation: ma-spin 1s linear infinite;
+}
+
+@keyframes ma-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* =============================================================================
+   TAB BAR
+   ============================================================================= */
+
+.ma-tab-bar {
+    display: flex;
+    gap: 0;
+    padding: 0 1.5rem;
+    border-bottom: 1px solid var(--border-default, #e5e7eb);
+    background: var(--bg-elevated, #f9fafb);
+    flex-shrink: 0;
+    overflow-x: auto;
+}
+
+.ma-tab {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.625rem 1rem;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary, #6b7280);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, opacity 0.15s, transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    white-space: nowrap;
+}
+
+.ma-tab i {
+    width: 15px;
+    height: 15px;
+}
+
+.ma-tab:hover {
+    color: var(--text-primary, #111827);
+    background: var(--bg-hover, rgba(0,0,0,0.03));
+}
+
+.ma-tab.active {
+    color: #D6A84A;
+    border-bottom-color: #D6A84A;
+    font-weight: 600;
+}
+
+/* =============================================================================
+   CONTENT AREA
+   ============================================================================= */
+
+.ma-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
+    position: relative;
+}
+
+.ma-tab-content {
+    display: none;
+    padding: 1.25rem 1.5rem;
+    animation: ma-fadeIn 0.2s ease;
+}
+
+.ma-tab-content.active {
+    display: block;
+}
+
+@keyframes ma-fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* =============================================================================
+   HERO STAT CARDS
+   ============================================================================= */
+
+.ma-hero-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.ma-stat-card {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    background: var(--bg-surface, #ffffff);
+    border: 1px solid var(--border-default, #e5e7eb);
+    border-radius: var(--radius-md, 8px);
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.ma-stat-card:hover {
+    border-color: var(--border-hover, #d1d5db);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.ma-stat-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.25rem;
+}
+
+.ma-stat-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted, #9ca3af);
+}
+
+.ma-stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary, #111827);
+    line-height: 1.1;
+}
+
+.ma-stat-sub {
+    font-size: 0.6875rem;
+    color: var(--text-muted, #9ca3af);
+    margin-top: 0.25rem;
+}
+
+/* Sparklines (inline SVG in stat cards) */
+.ma-sparkline {
+    flex-shrink: 0;
+    opacity: 0.6;
+}
+
+.ma-sparkline .spark-line {
+    fill: none;
+    stroke: #D6A84A;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.ma-sparkline .spark-area {
+    fill: #D6A84A;
+    opacity: 0.15;
+}
+
+/* Stat card accent colors */
+.ma-stat-accent-green { border-left: 3px solid #22c55e; }
+.ma-stat-accent-blue { border-left: 3px solid #3b82f6; }
+.ma-stat-accent-amber { border-left: 3px solid #D6A84A; }
+.ma-stat-accent-purple { border-left: 3px solid #8b5cf6; }
+.ma-stat-accent-red { border-left: 3px solid #ef4444; }
+.ma-stat-accent-cyan { border-left: 3px solid #06b6d4; }
+
+/* =============================================================================
+   CHART GRID LAYOUTS
+   ============================================================================= */
+
+.ma-chart-grid {
+    display: grid;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.ma-grid-60-40 { grid-template-columns: 3fr 2fr; }
+.ma-grid-50-50 { grid-template-columns: 1fr 1fr; }
+.ma-grid-3col  { grid-template-columns: 1fr 1fr 1fr; }
+
+.ma-chart-box {
+    background: var(--bg-surface, #ffffff);
+    border: 1px solid var(--border-default, #e5e7eb);
+    border-radius: var(--radius-md, 8px);
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow 0.2s;
+}
+
+.ma-chart-box.ma-chart-full {
+    margin-bottom: 1.25rem;
+}
+
+.ma-chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid transparent;
+    border-image: linear-gradient(90deg, #D6A84A 0%, transparent 60%) 1;
+}
+
+.ma-chart-header h4 {
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-primary, #111827);
+}
+
+.ma-chart-subtitle {
+    font-size: 0.6875rem;
+    color: var(--text-muted, #9ca3af);
+}
+
+.ma-chart-body {
+    flex: 1;
+    position: relative;
+    min-height: 200px;
+}
+
+/* Let Chart.js manage canvas sizing via responsive:true — do not override with !important */
+
+/* Doughnut center overlay text */
+.ma-chart-doughnut-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ma-doughnut-center {
+    position: absolute;
+    /* Offset upward to account for Chart.js bottom legend taking ~40px */
+    top: calc(50% - 18px);
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none;
+}
+
+.ma-doughnut-center .ma-center-num {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary, #111827);
+    line-height: 1;
+}
+
+.ma-doughnut-center .ma-center-label {
+    display: block;
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted, #9ca3af);
+    margin-top: 2px;
+}
+
+/* Heatmap container */
+.ma-heatmap-body {
+    min-height: 140px;
+    overflow-x: auto;
+}
+
+.ma-heatmap-body svg {
+    display: block;
+}
+
+.ma-heatmap-body .heatmap-cell {
+    rx: 2;
+    ry: 2;
+    cursor: pointer;
+}
+
+.ma-heatmap-body .heatmap-label {
+    font-size: 9px;
+    fill: var(--text-muted, #9ca3af);
+}
+
+/* Heatmap tooltip — v4.6.1: instant show/hide (no CSS transition) to avoid flicker on tiny cells */
+.ma-heatmap-tooltip {
+    position: fixed;
+    z-index: 10010;
+    pointer-events: none;
+    padding: 0.375rem 0.625rem;
+    border-radius: 6px;
+    background: #1f2937;
+    color: #f9fafb;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+}
+
+.ma-heatmap-tooltip .htt-count {
+    font-weight: 700;
+    color: #4ade80;
+}
+
+.ma-heatmap-tooltip .htt-zero {
+    color: #6b7280;
+}
+
+/* Bubble chart container */
+.ma-bubble-wrap {
+    min-height: 250px;
+    overflow: hidden;
+}
+
+.ma-bubble-wrap .bubble-node {
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.ma-bubble-wrap .bubble-node:hover {
+    opacity: 0.85;
+}
+
+.ma-bubble-wrap .bubble-label {
+    font-size: 10px;
+    fill: white;
+    pointer-events: none;
+    text-anchor: middle;
+    font-weight: 600;
+}
+
+.ma-bubble-wrap .bubble-count {
+    font-size: 8px;
+    fill: rgba(255,255,255,0.75);
+    pointer-events: none;
+    text-anchor: middle;
+}
+
+/* =============================================================================
+   MINI STATS (6-pack)
+   ============================================================================= */
+
+.ma-mini-stats {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.ma-mini-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.625rem;
+    background: var(--bg-surface, #ffffff);
+    border: 1px solid var(--border-default, #e5e7eb);
+    border-radius: var(--radius-sm, 6px);
+    text-align: center;
+}
+
+.ma-mini-card i {
+    width: 16px;
+    height: 16px;
+    color: var(--text-muted, #9ca3af);
+    margin-bottom: 0.25rem;
+}
+
+.ma-mini-value {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--text-primary, #111827);
+    line-height: 1;
+}
+
+.ma-mini-label {
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted, #9ca3af);
+    margin-top: 0.25rem;
+}
+
+/* =============================================================================
+   DATA TABLES
+   ============================================================================= */
+
+.ma-table-wrap {
+    overflow-x: auto;
+    max-height: 350px;
+    overflow-y: auto;
+}
+
+.ma-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+}
+
+.ma-table th {
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted, #9ca3af);
+    background: var(--bg-elevated, #f9fafb);
+    border-bottom: 1px solid var(--border-default, #e5e7eb);
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.ma-table th:hover {
+    color: var(--text-primary, #111827);
+}
+
+.ma-table th.sorted-asc::after { content: ' ▲'; font-size: 0.5rem; }
+.ma-table th.sorted-desc::after { content: ' ▼'; font-size: 0.5rem; }
+
+.ma-table td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border-subtle, #f3f4f6);
+    color: var(--text-secondary, #6b7280);
+}
+
+.ma-table tr:hover td {
+    background: var(--bg-hover, #f9fafb);
+}
+
+.ma-table tr.ma-clickable {
+    cursor: pointer;
+}
+
+.ma-table tr.ma-clickable:hover td {
+    background: rgba(214, 168, 74, 0.06);
+}
+
+.ma-table tr.ma-row-active td {
+    background: rgba(214, 168, 74, 0.10);
+    border-bottom-color: #D6A84A;
+}
+
+.ma-table .ma-col-name {
+    font-weight: 500;
+    color: var(--text-primary, #111827);
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ma-table .ma-col-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.ma-table .ma-col-score {
+    text-align: center;
+    font-weight: 600;
+}
+
+/* Grade badges */
+.ma-grade {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: white;
+}
+
+.ma-grade-A { background: #22c55e; }
+.ma-grade-B { background: #84cc16; }
+.ma-grade-C { background: #eab308; }
+.ma-grade-D { background: #f97316; }
+.ma-grade-F { background: #ef4444; }
+
+/* Score color classes */
+.ma-score-A { color: #22c55e; }
+.ma-score-B { color: #84cc16; }
+.ma-score-C { color: #eab308; }
+.ma-score-D { color: #f97316; }
+.ma-score-F { color: #ef4444; }
+
+/* Directive color classes */
+.ma-dir-shall { color: #ef4444; }
+.ma-dir-must  { color: #ea580c; }
+.ma-dir-will  { color: #3b82f6; }
+.ma-dir-should { color: #22c55e; }
+.ma-dir-may   { color: #8b5cf6; }
+
+/* =============================================================================
+   DRILL-DOWN PANEL
+   ============================================================================= */
+
+.ma-drilldown {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.35s ease, opacity 0.2s ease, padding 0.35s ease;
+    opacity: 0;
+    background: var(--bg-elevated, #f9fafb);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md, 8px);
+    margin-bottom: 0;
+}
+
+.ma-drilldown.open {
+    max-height: 500px;
+    opacity: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    border-color: var(--border-default, #e5e7eb);
+    margin-bottom: 1.25rem;
+}
+
+.ma-drill-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.ma-drill-title {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-primary, #111827);
+}
+
+.ma-drill-close {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    border: none;
+    background: transparent;
+    color: #D6A84A;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.ma-drill-close:hover {
+    text-decoration: underline;
+}
+
+.ma-drill-close i {
+    width: 12px;
+    height: 12px;
+}
+
+/* Inline drill-down rows (appear below table rows) */
+.ma-drill-inline {
+    background: var(--bg-elevated, #f9fafb);
+}
+
+.ma-drill-inline td {
+    padding: 0.75rem 1rem;
+    border-bottom: 2px solid var(--border-default, #e5e7eb);
+}
+
+/* =============================================================================
+   LOADING / SKELETON
+   ============================================================================= */
+
+.ma-loading {
+    position: absolute;
+    inset: 0;
+    padding: 1.25rem 1.5rem;
+    z-index: 2;
+    background: var(--bg-primary, #ffffff);
+}
+
+.ma-loading.hidden {
+    display: none;
+}
+
+.ma-skeleton-row {
+    display: grid;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.ma-skeleton-row:first-child {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.ma-skeleton-row:nth-child(2) {
+    grid-template-columns: 3fr 2fr;
+}
+
+.ma-skeleton-row:nth-child(3) {
+    grid-template-columns: 1fr;
+}
+
+.ma-skeleton {
+    background: linear-gradient(90deg, var(--bg-elevated, #f3f4f6) 25%, var(--bg-hover, #e5e7eb) 50%, var(--bg-elevated, #f3f4f6) 75%);
+    background-size: 200% 100%;
+    animation: ma-shimmer 1.5s infinite;
+    border-radius: var(--radius-sm, 6px);
+}
+
+@keyframes ma-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.ma-skeleton-card { height: 90px; }
+.ma-skeleton-chart-lg { height: 280px; }
+.ma-skeleton-chart-sm { height: 280px; }
+.ma-skeleton-table { height: 200px; }
+
+/* =============================================================================
+   EMPTY STATE
+   ============================================================================= */
+
+.ma-empty {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    text-align: center;
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+.ma-empty.visible {
+    display: flex;
+}
+
+.ma-empty i {
+    width: 48px;
+    height: 48px;
+    color: var(--text-muted, #9ca3af);
+    margin-bottom: 1rem;
+}
+
+.ma-empty h4 {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+    color: var(--text-primary, #111827);
+}
+
+.ma-empty p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary, #6b7280);
+}
+
+/* =============================================================================
+   CHART.JS TOOLTIP OVERRIDES
+   ============================================================================= */
+
+.ma-content .chartjs-tooltip {
+    font-size: 0.75rem !important;
+}
+
+/* =============================================================================
+   DARK MODE
+   v4.6.1: .ma-dark class applied by JS when body.dark-mode OR landing-active
+   (landing page is always dark-styled). Both selectors trigger dark theming.
+   ============================================================================= */
+
+body.dark-mode .ma-modal-content,
+.ma-dark .ma-modal-content,
+#modal-metrics-analytics.ma-dark > .ma-modal-content {
+    background: #1f2937;
+    color: #f9fafb;
+}
+
+body.dark-mode .ma-header,
+body.dark-mode .ma-tab-bar,
+.ma-dark .ma-header,
+.ma-dark .ma-tab-bar {
+    background: #111827;
+    border-color: rgba(255,255,255,0.06);
+}
+
+body.dark-mode .ma-header h3,
+.ma-dark .ma-header h3 {
+    color: #f9fafb;
+}
+
+body.dark-mode .ma-timestamp,
+.ma-dark .ma-timestamp {
+    color: #6b7280;
+}
+
+body.dark-mode .ma-tab,
+.ma-dark .ma-tab {
+    color: #9ca3af;
+}
+
+body.dark-mode .ma-tab:hover,
+.ma-dark .ma-tab:hover {
+    background: rgba(255,255,255,0.05);
+    color: #d1d5db;
+}
+
+body.dark-mode .ma-tab.active,
+.ma-dark .ma-tab.active {
+    color: #D6A84A;
+}
+
+body.dark-mode .ma-stat-card,
+body.dark-mode .ma-mini-card,
+.ma-dark .ma-stat-card,
+.ma-dark .ma-mini-card {
+    background: #1e293b;
+    border-top-color: transparent;
+    border-right-color: transparent;
+    border-bottom-color: transparent;
+}
+
+body.dark-mode .ma-chart-box,
+.ma-dark .ma-chart-box {
+    background: #1e293b;
+    border-color: rgba(214, 168, 74, 0.08);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+body.dark-mode .ma-stat-card,
+.ma-dark .ma-stat-card {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+body.dark-mode .ma-stat-card:hover,
+.ma-dark .ma-stat-card:hover {
+    border-color: rgba(255,255,255,0.08);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(214, 168, 74, 0.1);
+}
+
+body.dark-mode .ma-chart-box:hover,
+.ma-dark .ma-chart-box:hover {
+    border-color: rgba(214, 168, 74, 0.15);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+body.dark-mode .ma-mini-card,
+.ma-dark .ma-mini-card {
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+}
+
+body.dark-mode .ma-stat-label,
+.ma-dark .ma-stat-label {
+    color: #9ca3af;
+}
+
+body.dark-mode .ma-stat-value,
+.ma-dark .ma-stat-value {
+    color: #f9fafb;
+}
+
+body.dark-mode .ma-stat-sub,
+.ma-dark .ma-stat-sub {
+    color: #6b7280;
+}
+
+body.dark-mode .ma-chart-title,
+body.dark-mode .ma-chart-header h4,
+.ma-dark .ma-chart-title,
+.ma-dark .ma-chart-header h4 {
+    color: #f9fafb;
+}
+
+body.dark-mode .ma-chart-subtitle,
+.ma-dark .ma-chart-subtitle {
+    color: #6b7280;
+}
+
+body.dark-mode .ma-mini-label,
+.ma-dark .ma-mini-label {
+    color: #6b7280;
+}
+
+body.dark-mode .ma-mini-value,
+.ma-dark .ma-mini-value {
+    color: #f9fafb;
+}
+
+body.dark-mode .ma-table th,
+.ma-dark .ma-table th {
+    background: #111827;
+    border-color: rgba(255,255,255,0.06);
+    color: #9ca3af;
+}
+
+body.dark-mode .ma-table td,
+.ma-dark .ma-table td {
+    border-color: rgba(255,255,255,0.04);
+    color: #d1d5db;
+}
+
+body.dark-mode .ma-table tr:hover td,
+.ma-dark .ma-table tr:hover td {
+    background: rgba(255,255,255,0.04);
+}
+
+body.dark-mode .ma-table tr.ma-clickable:hover td,
+.ma-dark .ma-table tr.ma-clickable:hover td {
+    background: rgba(214, 168, 74, 0.08);
+}
+
+body.dark-mode .ma-drilldown,
+.ma-dark .ma-drilldown {
+    background: #111827;
+    border-color: transparent;
+}
+
+body.dark-mode .ma-drilldown.open,
+.ma-dark .ma-drilldown.open {
+    border-color: rgba(255,255,255,0.06);
+}
+
+body.dark-mode .ma-drill-title,
+.ma-dark .ma-drill-title {
+    color: #f9fafb;
+}
+
+body.dark-mode .ma-drill-inline,
+.ma-dark .ma-drill-inline {
+    background: #111827;
+}
+
+body.dark-mode .ma-drill-inline td,
+.ma-dark .ma-drill-inline td {
+    border-color: rgba(255,255,255,0.06);
+}
+
+body.dark-mode .ma-loading,
+.ma-dark .ma-loading {
+    background: #1f2937;
+}
+
+body.dark-mode .ma-skeleton,
+.ma-dark .ma-skeleton {
+    background: linear-gradient(90deg, #1f2937 25%, #374151 50%, #1f2937 75%);
+    background-size: 200% 100%;
+}
+
+body.dark-mode .ma-heatmap-body .heatmap-label,
+.ma-dark .ma-heatmap-body .heatmap-label {
+    fill: #6b7280;
+}
+
+
+body.dark-mode .ma-heatmap-tooltip,
+.ma-dark .ma-heatmap-tooltip {
+    background: #374151;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-mode .ma-doughnut-center .ma-center-num,
+.ma-dark .ma-doughnut-center .ma-center-num {
+    color: #f9fafb;
+}
+
+body.dark-mode .ma-doughnut-center .ma-center-label,
+.ma-dark .ma-doughnut-center .ma-center-label {
+    color: #9ca3af;
+}
+
+body.dark-mode #ma-btn-refresh,
+.ma-dark #ma-btn-refresh {
+    color: #9ca3af;
+}
+
+body.dark-mode #ma-btn-refresh:hover,
+.ma-dark #ma-btn-refresh:hover {
+    color: #D6A84A;
+}
+
+body.dark-mode #ma-btn-close,
+.ma-dark #ma-btn-close {
+    color: #9ca3af;
+}
+
+body.dark-mode #ma-btn-close:hover,
+.ma-dark #ma-btn-close:hover {
+    color: #f9fafb;
+}
+
+body.dark-mode .ma-empty p,
+.ma-dark .ma-empty p {
+    color: #6b7280;
+}
+
+body.dark-mode .ma-table .ma-hint,
+.ma-dark .ma-table .ma-hint {
+    color: #6b7280;
+}
+
+/* =============================================================================
+   RESPONSIVE
+   ============================================================================= */
+
+@media (max-width: 1000px) {
+    #modal-metrics-analytics > .ma-modal-content {
+        width: 99vw;
+        height: 96vh;
+    }
+
+    .ma-hero-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .ma-grid-60-40,
+    .ma-grid-50-50,
+    .ma-grid-3col {
+        grid-template-columns: 1fr;
+    }
+
+    .ma-mini-stats {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .ma-hero-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .ma-mini-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .ma-tab {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.75rem;
+    }
+}

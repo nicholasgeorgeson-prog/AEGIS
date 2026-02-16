@@ -1,0 +1,220 @@
+{
+  "metadata": {
+    "description": "S1000D IETM Basic Compliance Rules",
+    "version": "3.4.0",
+    "last_updated": "2026-02-03",
+    "standard": "S1000D",
+    "standard_version": "Issue 5.0",
+    "standard_title": "International Specification for Technical Publications"
+  },
+  "data_module_requirements": {
+    "description": "Data modules must follow structural conventions",
+    "types": [
+      {
+        "code": "D",
+        "name": "Descriptive",
+        "purpose": "Description of system/component operation"
+      },
+      {
+        "code": "P",
+        "name": "Procedural",
+        "purpose": "Step-by-step maintenance procedures"
+      },
+      {
+        "code": "F",
+        "name": "Fault",
+        "purpose": "Fault isolation and troubleshooting"
+      },
+      {
+        "code": "I",
+        "name": "IPD",
+        "purpose": "Illustrated Parts Data"
+      },
+      {
+        "code": "W",
+        "name": "Wiring",
+        "purpose": "Wiring data and diagrams"
+      }
+    ]
+  },
+  "procedural_step_rules": {
+    "description": "S1000D procedural step requirements",
+    "rules": [
+      {
+        "id": "S1000D001",
+        "rule": "Procedural steps must be numbered",
+        "format": "1, 2, 3... or 1., 2., 3..."
+      },
+      {
+        "id": "S1000D002",
+        "rule": "Maximum 10 main steps per procedure",
+        "recommendation": "Break into sub-procedures if exceeds"
+      },
+      {
+        "id": "S1000D003",
+        "rule": "Warnings must precede hazardous steps",
+        "signal_words": ["WARNING", "CAUTION"]
+      },
+      {
+        "id": "S1000D004",
+        "rule": "Each step should have single action",
+        "exceptions": ["Simple related actions"]
+      },
+      {
+        "id": "S1000D005",
+        "rule": "Steps must use imperative mood",
+        "examples_good": ["Remove the panel.", "Disconnect the harness."],
+        "examples_bad": ["The panel should be removed."]
+      }
+    ]
+  },
+  "warning_caution_note_rules": {
+    "description": "Safety messaging requirements",
+    "rules": [
+      {
+        "id": "S1000D010",
+        "type": "WARNING",
+        "definition": "Operating procedure that could result in personal injury or loss of life",
+        "format": "Must state hazard and avoidance action"
+      },
+      {
+        "id": "S1000D011",
+        "type": "CAUTION",
+        "definition": "Operating procedure that could result in equipment damage",
+        "format": "Must state potential damage and avoidance action"
+      },
+      {
+        "id": "S1000D012",
+        "type": "NOTE",
+        "definition": "Essential operating procedure information",
+        "format": "Supporting information only"
+      }
+    ],
+    "prohibited_in_warnings": [
+      "do not",
+      "never",
+      "avoid"
+    ],
+    "required_structure": {
+      "consequence_first": true,
+      "action_second": true
+    }
+  },
+  "cross_reference_rules": {
+    "description": "Cross-reference format requirements",
+    "rules": [
+      {
+        "id": "S1000D020",
+        "rule": "References must use data module codes",
+        "format": "DMC-..."
+      },
+      {
+        "id": "S1000D021",
+        "rule": "Figure references must include number",
+        "format": "Figure 1, Figure 2, ..."
+      },
+      {
+        "id": "S1000D022",
+        "rule": "Table references must include number",
+        "format": "Table 1, Table 2, ..."
+      },
+      {
+        "id": "S1000D023",
+        "rule": "All references must resolve to valid targets"
+      }
+    ]
+  },
+  "terminology_rules": {
+    "description": "Vocabulary and terminology requirements",
+    "rules": [
+      {
+        "id": "S1000D030",
+        "rule": "Use Simplified Technical English (STE) where specified"
+      },
+      {
+        "id": "S1000D031",
+        "rule": "Define acronyms on first use"
+      },
+      {
+        "id": "S1000D032",
+        "rule": "Use consistent terminology throughout"
+      },
+      {
+        "id": "S1000D033",
+        "rule": "Avoid ambiguous terms"
+      }
+    ],
+    "ambiguous_terms": [
+      "adjust", "check", "correct", "ensure", "install",
+      "locate", "monitor", "observe", "perform", "service",
+      "verify"
+    ],
+    "preferred_alternatives": {
+      "adjust": "Set to [value]",
+      "check": "Inspect/Test/Verify",
+      "ensure": "Make sure/Verify",
+      "install": "Attach/Connect/Insert/Position"
+    }
+  },
+  "illustration_rules": {
+    "description": "Graphic and illustration requirements",
+    "rules": [
+      {
+        "id": "S1000D040",
+        "rule": "All graphics must have Information Control Numbers (ICN)"
+      },
+      {
+        "id": "S1000D041",
+        "rule": "Graphics must be referenced before appearing"
+      },
+      {
+        "id": "S1000D042",
+        "rule": "Callouts must match text references"
+      },
+      {
+        "id": "S1000D043",
+        "rule": "Graphics must be in approved formats",
+        "formats": ["CGM", "SVG", "PDF", "PNG", "JPEG"]
+      }
+    ]
+  },
+  "data_restrictions": {
+    "description": "Security and distribution marking requirements",
+    "security_classifications": [
+      "Unclassified",
+      "Restricted",
+      "Confidential",
+      "Secret",
+      "Top Secret"
+    ],
+    "distribution_statements": [
+      "A - Approved for public release",
+      "B - US Government agencies only",
+      "C - US Government agencies and contractors",
+      "D - DoD and contractors only",
+      "E - DoD only",
+      "F - Restricted further"
+    ]
+  },
+  "quality_assurance_rules": {
+    "description": "QA verification requirements",
+    "rules": [
+      {
+        "id": "S1000D050",
+        "rule": "All procedures must be technically verified"
+      },
+      {
+        "id": "S1000D051",
+        "rule": "All content must be editorially reviewed"
+      },
+      {
+        "id": "S1000D052",
+        "rule": "All cross-references must be validated"
+      },
+      {
+        "id": "S1000D053",
+        "rule": "All graphics must be quality checked"
+      }
+    ]
+  }
+}

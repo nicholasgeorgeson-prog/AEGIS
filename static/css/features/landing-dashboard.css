@@ -1,0 +1,344 @@
+/**
+ * AEGIS - Landing Dashboard Styles
+ * v4.5.0: Tool launcher cards, recent documents, system stats
+ */
+
+/* ===== DASHBOARD CONTAINER ===== */
+.ld-dashboard {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 32px 24px;
+    animation: ld-fadeIn 0.6s ease;
+}
+
+@keyframes ld-fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== HERO / DROP ZONE ===== */
+.ld-hero {
+    text-align: center;
+    padding: 40px 24px 32px;
+    border: 2px dashed var(--border-muted);
+    border-radius: 16px;
+    margin-bottom: 32px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    background: var(--bg-surface);
+}
+
+.ld-hero:hover,
+.ld-hero.ld-drag-over {
+    border-color: #D6A84A;
+    background: rgba(214, 168, 74, 0.04);
+}
+
+.ld-hero.ld-drag-over {
+    border-style: solid;
+    box-shadow: 0 0 24px rgba(214, 168, 74, 0.15);
+}
+
+.ld-hero-icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 12px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(214, 168, 74, 0.15), rgba(184, 116, 58, 0.1));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #D6A84A;
+}
+
+.ld-hero-icon svg,
+.ld-hero-icon i {
+    width: 28px;
+    height: 28px;
+}
+
+.ld-hero h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 6px 0;
+}
+
+.ld-hero p {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.ld-hero kbd {
+    background: var(--bg-elevated);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    border: 1px solid var(--border-default);
+}
+
+/* ===== SECTION HEADERS ===== */
+.ld-section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin: 0 0 12px 0;
+}
+
+/* ===== TOOL CARDS GRID ===== */
+.ld-tools {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+}
+
+@media (max-width: 768px) {
+    .ld-tools { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 480px) {
+    .ld-tools { grid-template-columns: 1fr; }
+}
+
+.ld-tool-card {
+    padding: 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: color 0.25s ease, opacity 0.25s ease, transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    text-decoration: none;
+    color: inherit;
+}
+
+.ld-tool-card:hover {
+    border-color: var(--border-strong);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+
+.ld-tool-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.ld-tool-icon svg,
+.ld-tool-icon i {
+    width: 20px;
+    height: 20px;
+}
+
+.ld-tool-icon.ld-icon-review { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+.ld-tool-icon.ld-icon-forge { background: rgba(168, 85, 247, 0.1); color: #a855f7; }
+.ld-tool-icon.ld-icon-roles { background: rgba(214, 168, 74, 0.12); color: #D6A84A; }
+.ld-tool-icon.ld-icon-history { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+.ld-tool-icon.ld-icon-compare { background: rgba(236, 72, 153, 0.1); color: #ec4899; }
+.ld-tool-icon.ld-icon-links { background: rgba(20, 184, 166, 0.1); color: #14b8a6; }
+
+.ld-tool-info {
+    min-width: 0;
+}
+
+.ld-tool-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.ld-tool-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+/* Card entrance animation */
+.ld-tool-card {
+    opacity: 0;
+    transform: translateY(12px);
+    animation: ld-cardIn 0.4s ease forwards;
+}
+
+.ld-tool-card:nth-child(1) { animation-delay: 0.05s; }
+.ld-tool-card:nth-child(2) { animation-delay: 0.1s; }
+.ld-tool-card:nth-child(3) { animation-delay: 0.15s; }
+.ld-tool-card:nth-child(4) { animation-delay: 0.2s; }
+.ld-tool-card:nth-child(5) { animation-delay: 0.25s; }
+.ld-tool-card:nth-child(6) { animation-delay: 0.3s; }
+.ld-tool-card:nth-child(7) { animation-delay: 0.35s; }
+.ld-tool-card:nth-child(8) { animation-delay: 0.4s; }
+.ld-tool-card:nth-child(9) { animation-delay: 0.45s; }
+
+@keyframes ld-cardIn {
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* v4.7.0: Staggered metric stat animations */
+.ld-stats .ld-stat {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+    animation: ld-statIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.ld-stats .ld-stat:nth-child(1) { animation-delay: 0.1s; }
+.ld-stats .ld-stat:nth-child(2) { animation-delay: 0.15s; }
+.ld-stats .ld-stat:nth-child(3) { animation-delay: 0.2s; }
+.ld-stats .ld-stat:nth-child(4) { animation-delay: 0.25s; }
+.ld-stats .ld-stat:nth-child(5) { animation-delay: 0.3s; }
+.ld-stats .ld-stat:nth-child(6) { animation-delay: 0.35s; }
+
+@keyframes ld-statIn {
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* v4.7.0: Subtle shimmer for loading metric values */
+.ld-stat-value[data-loading] {
+    background: linear-gradient(90deg, var(--bg-surface) 25%, var(--bg-elevated) 50%, var(--bg-surface) 75%);
+    background-size: 200% 100%;
+    animation: ld-shimmer 1.5s infinite;
+    border-radius: 6px;
+    color: transparent !important;
+}
+
+@keyframes ld-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* v4.7.0: Tool card active/pressed feedback */
+.ld-tool-card:active {
+    transform: translateY(0) scale(0.98);
+    transition-duration: 0.1s;
+}
+
+/* v4.7.0: Tool card badge pulse on hover */
+.ld-tool-card:hover .ld-tool-stat {
+    transform: scale(1.05);
+    transition: transform 0.2s ease;
+}
+
+/* ===== RECENT DOCUMENTS ===== */
+.ld-recent {
+    margin-bottom: 32px;
+}
+
+.ld-recent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ld-recent-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    /* transition: background removed - anti-flicker */
+    cursor: pointer;
+}
+
+.ld-recent-item:hover {
+    background: var(--bg-hover);
+}
+
+.ld-recent-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--bg-elevated);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 14px;
+}
+
+.ld-recent-icon.ld-ext-pdf { color: #ef4444; }
+.ld-recent-icon.ld-ext-docx { color: #3b82f6; }
+.ld-recent-icon.ld-ext-doc { color: #3b82f6; }
+
+.ld-recent-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.ld-recent-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ld-recent-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.ld-recent-grade {
+    font-size: 13px;
+    font-weight: 700;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.ld-grade-a { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+.ld-grade-b { background: rgba(132, 204, 22, 0.1); color: #84cc16; }
+.ld-grade-c { background: rgba(234, 179, 8, 0.1); color: #eab308; }
+.ld-grade-d { background: rgba(249, 115, 22, 0.1); color: #f97316; }
+.ld-grade-f { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+.ld-recent-empty {
+    text-align: center;
+    padding: 24px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+/* ===== STATS BAR ===== */
+.ld-stats {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    padding: 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: 12px;
+}
+
+.ld-stat {
+    text-align: center;
+}
+
+.ld-stat-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.ld-stat-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}

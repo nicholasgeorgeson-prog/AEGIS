@@ -1,0 +1,1255 @@
+{
+  "version": "5.0.0",
+  "release_date": "2026-02-15",
+  "core_version": "5.0.0",
+  "name": "AEGIS",
+  "full_name": "Aerospace Engineering Governance & Inspection System",
+  "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
+  "legacy_name": "TechWriterReview",
+  "changelog": [
+    {
+      "version": "5.0.0",
+      "date": "2026-02-15",
+      "changes": [
+        "ARCHITECTURE: Review jobs now run in separate PROCESS (multiprocessing.Process) instead of threading.Thread",
+        "ARCHITECTURE: Flask server stays fully responsive during large document analysis (separate GIL)",
+        "ARCHITECTURE: Worker process crash isolation — if review crashes, Flask keeps running",
+        "ARCHITECTURE: Per-document timeout (600s default) with graceful process termination",
+        "ARCHITECTURE: Progress updates via multiprocessing.Queue with monitor thread bridge pattern",
+        "ARCHITECTURE: Results written to temp JSON file (handles large documents without queue limits)",
+        "ARCHITECTURE: Legacy threading fallback if multiprocessing unavailable",
+        "FIX: Role extraction 'Validation' false positive — single-word variants no longer verify compound roles",
+        "FIX: Removed 'nasa' and 'government' from KNOWN_ROLES (moved to ORGANIZATION_ENTITIES filter)",
+        "FIX: Removed duplicate role entries (contracting officer, contractor, technical authority, government)",
+        "FIX: Discovery mode now filters organization entities, low-confidence roles, and stopword roles",
+        "FIX: PDF multi-column layout detection with extraction quality warning",
+        "NEW: ORGANIZATION_ENTITIES filter set — prevents organizations from being extracted as roles",
+        "NEW: 30+ missing aerospace roles added (technical fellow, mission systems engineer, failure review board, etc.)",
+        "NEW: 50+ expanded SINGLE_WORD_EXCLUSIONS preventing common English words from extraction",
+        "NEW: Confidence threshold filter (< 0.4) removes low-quality role extractions",
+        "NEW: Document type classification in Statement Forge export (requirements/guidance/descriptive/informational)",
+        "NEW: Document classification detail text explaining directive distribution",
+        "NEW: Column layout detection in PDF extraction with quality warnings",
+        "IMPROVED: Role extractor v3.5.0 with 3-layer post-verification filtering",
+        "IMPROVED: STRICT mode also skips organization entities",
+        "IMPROVED: pymupdf4llm extraction uses write_images=False for faster processing",
+        "TESTED: Full NASA SE Handbook (297 pages) — role false positives reduced from 44% to <5%"
+      ]
+    },
+    {
+      "version": "4.9.9",
+      "date": "2026-02-15",
+      "changes": [
+        "FEATURE: Statement Source Viewer with highlight-to-select editing for inline statement creation",
+        "FIX: SOW generation 500 error — missing timezone import in datetime operations (timezone.utc)",
+        "FIX: Document Compare now auto-selects oldest doc on left, newest on right when opened",
+        "FIX: Document Compare auto-comparison triggers immediately without manual selection",
+        "FIX: API error responses now include structured format with proper message extraction",
+        "FIX: Toast notifications show meaningful error text instead of '[object Object]'",
+        "FIX: Template files now correctly extract error.message from structured error objects",
+        "NEW: getErrorMessage() utility function for safe message extraction from error objects",
+        "NEW: Statement Source Viewer integrates with Statement Forge history context",
+        "NEW: Document profile settings now persist across server restarts",
+        "NEW: User preferences cached in localStorage with server-side backup",
+        "IMPROVED: Particle effects transparency adjusted for dark background visibility",
+        "IMPROVED: Batch review rendering performance for 100+ statements",
+        "IMPROVED: Session logging with correlation IDs for API response tracking",
+        "IMPROVED: Windows compatibility — file permission operations (chmod) now platform-aware",
+        "IMPROVED: Windows platform detection using os.name == 'nt' for Windows-specific paths",
+        "IMPROVED: Cross-platform path handling with pathlib.Path throughout codebase"
+      ]
+    },
+    {
+      "version": "4.9.5",
+      "date": "2026-02-15",
+      "changes": [
+        "FIX: Version display stuck on 4.7 — root cause was duplicate version.json files (root vs static/)",
+        "FIX: Import-time version caching in config_logging.py — VERSION constant was stale after updates",
+        "FIX: Cache-busting regex in core_routes.py now handles existing ?v= params and adds missing ones",
+        "FIX: Stripped all hardcoded ?v= params from index.html — middleware handles cache-busting dynamically",
+        "NEW: get_version() function in config_logging.py — reads version.json fresh from disk every call",
+        "NEW: Client-side version fetch priority changed to /api/version first, /static/version.json as fallback",
+        "IMPROVED: core_routes.py index() middleware uses regex for consistent ?v= injection on all JS/CSS",
+        "IMPROVED: /api/version and /api/health endpoints now use get_version() instead of stale constant"
+      ]
+    },
+    {
+      "version": "4.9.0",
+      "date": "2026-02-15",
+      "changes": [
+        "FIX: Landing page tiles/metrics empty on load — async init race condition in show()/init() chain",
+        "FIX: Session restore path skipped init(), leaving landing page uninitialized for later navigation",
+        "FIX: Made show() async with await init(); removed redundant init() call in app.js",
+        "FIX: Toast z-index too low (2500) — raised to 200000 so toasts always appear above modals (z-index 10000)",
+        "IMPROVED: Offline wheel packaging for air-gapped deployment (bundled .whl files for all dependencies)",
+        "IMPROVED: restart_aegis.sh script for one-click server restart on macOS"
+      ]
+    },
+    {
+      "version": "4.8.0",
+      "date": "2026-02-14",
+      "changes": [
+        "FIX: Flask blueprint import scope — data_routes.py used bare app.logger instead of current_app.logger",
+        "FIX: Report download popup blocked — replaced window.open() after await with hidden iframe approach",
+        "FIX: Report generation 500 errors — catch Exception instead of just ImportError in three report endpoints",
+        "FIX: Generate Reports SQL queries referenced non-existent roles.document_id — now JOINs through document_roles",
+        "FIX: Roles Studio Overview empty from dashboard tile — landing-page.js now calls showRolesModal() override",
+        "FIX: Inline style.display conflicts with CSS !important — replaced with classList and removeProperty('display')",
+        "IMPROVED: Production logging with structured error tracking and correlation IDs",
+        "IMPROVED: E2E audit across all features — verified all entry points (sidebar + dashboard tiles) call same functions"
+      ]
+    },
+    {
+      "version": "4.7.0",
+      "date": "2026-02-14",
+      "changes": [
+        "REFACTOR: Database Access Layer — replaced 99 scattered sqlite3.connect() calls across 7 files with db_connection() context manager pattern",
+        "NEW: db_connection() context manager in scan_history.py — auto-commits on success, rolls back on exception, always closes, sets row_factory=sqlite3.Row and PRAGMA journal_mode=WAL",
+        "NEW: ScanHistoryDB.connection() convenience method wrapping db_connection(self.db_path)",
+        "NEW: HyperlinkValidatorStorage.connection() method with local db_connection context manager",
+        "MIGRATED: scan_history.py — 23 calls converted to self.connection()",
+        "MIGRATED: app.py — 49 calls converted to db.connection() / db_connection(path)",
+        "MIGRATED: hyperlink_validator/storage.py — 17 calls converted to self.connection()",
+        "MIGRATED: document_compare/routes.py — 6 calls with import fallback pattern",
+        "MIGRATED: role_extractor_v3.py — 2 calls with local context manager",
+        "MIGRATED: update_manager.py — 1 call via imported db_connection",
+        "MIGRATED: diagnostic_export.py — 1 call with local context manager",
+        "FIX: Eliminated ~60% of DB calls that lacked proper exception handling",
+        "FIX: Eliminated ~65% of DB calls that risked connection leaks (no finally: conn.close())",
+        "FIX: Removed decompiler artifact __import__('sqlite3').connect() pattern in app.py",
+        "FIX: CSRF header typo in roles.js and role-source-viewer.js — X-CSRFToken corrected to X-CSRF-Token (3 occurrences)",
+        "FIX: Scan history missing statement_count field in get_scan_history()",
+        "FIX: Document compare missing compare_scan_statements method",
+        "FIX: Heatmap flickering — switched from display:none to visibility:hidden for smooth transitions",
+        "FIX: Graph layout buttons missing event listeners after decompiler recovery",
+        "FIX: Generate reports buttons not working after decompiler recovery",
+        "FIX: RACI matrix and module hover flickering caused by transition:all",
+        "FIX: Role-Doc Matrix Excel export was producing CSV instead of XLSX",
+        "IMPROVED: All database operations now have consistent error handling and automatic cleanup",
+        "IMPROVED: WAL journal mode applied uniformly via context manager (was inconsistent before)"
+      ]
+    },
+    {
+      "version": "4.6.2",
+      "date": "2026-02-13",
+      "changes": [
+        "FEATURE: Deep Validate — headless browser rescan now merges recovered URLs back into results, updating stats, filters, and visualizations in real time",
+        "FEATURE: Domain Filter Dropdown — filter validation results by specific domain with searchable dropdown and clear button",
+        "FEATURE: Clickable Stat Tiles — click any summary stat (Excellent, Broken, Blocked, etc.) to filter results to that status category",
+        "NEW: Export Highlighted fix — ArrayBuffer backup ensures DOCX export works even when original file blob is unavailable",
+        "NEW: Exclusion persistence to server — exclusions created from result rows are saved to the database via API, surviving sessions",
+        "NEW: False positive URL validation — backend test confirmed dcma.mil, faa.gov, tenable.com, cyber.mil all recover via headless browser",
+        "NEW: Status filter pills — click status badges in results to filter by that status type",
+        "NEW: _updateRescanSection() helper — dynamically shows/hides Deep Validate button based on rescan-eligible URL count",
+        "NEW: RESCAN_ELIGIBLE_STATUSES constant — BLOCKED, TIMEOUT, DNSFAILED, AUTH_REQUIRED, SSLERROR all eligible for deep validation",
+        "FIX: Headless rescan results were never merged back into state (TODO comment at line 1668 — now fully implemented)",
+        "FIX: Rescan eligibility was too narrow — only BLOCKED/TIMEOUT/DNSFAILED; now includes AUTH_REQUIRED and SSLERROR",
+        "FIX: Rescan section missing from non-Excel validation flow — renderSummary() now also updates rescan section",
+        "FIX: History panel compressing HV layout on wide displays — translateX(100%) insufficient on 2500px+ viewports; now uses display:none when closed",
+        "FIX: Stat count accuracy — summary counts now correctly reflect merged rescan results",
+        "IMPROVED: Deep Validate UI — renamed from 'Rescan Blocked' to 'Deep Validate' with scan-search icon and purple accent",
+        "IMPROVED: Rescan section description updated to mention blocked, timeout, and auth-wall URLs",
+        "IMPROVED: Domain filter repopulates after rescan to reflect recovered URL domains",
+        "IMPROVED: Recovered URLs preserve Excel-specific fields (sheet_name, cell_address, display_text, link_source, context)"
+      ]
+    },
+    {
+      "version": "4.6.1",
+      "date": "2026-02-13",
+      "changes": [
+        "FEATURE: Metrics & Analytics Command Center — standalone modal with 4-tab layout (Overview, Quality, Roles, Documents)",
+        "NEW: Overview tab with hero stats, quality trend chart, score distribution, severity breakdown, scan activity heatmap",
+        "NEW: Quality tab with score distribution bar chart, issue category radar, top issues table",
+        "NEW: Roles tab with role frequency chart, deliverables vs non-deliverables comparison",
+        "NEW: Documents tab with per-document score history, detail drill-down panels",
+        "NEW: Scan activity heatmap with custom SVG tooltip and hover overlay",
+        "NEW: Drill-down panels on hero stats and document cards for detailed breakdowns",
+        "FIX: Scan cancel button not working — cancelCurrentJob was not exposed as global function",
+        "FIX: Scan Progress Dashboard cancel leaves UI hung — loading overlay and progress dashboard now cleaned up on cancel",
+        "FIX: Scan History/Roles Studio showing doc review background — modals now keep dashboard visible behind them",
+        "FIX: Landing page tiles hiding dashboard when opening modals — stopped calling hide() for windowed module modals",
+        "FIX: Nav bar module buttons not restoring dashboard background — now show landing page when not already active",
+        "FIX: Heatmap hover flicker — SVG overlay rect moved after cells (was rendering behind), tooltip transition removed",
+        "IMPROVED: Heatmap tooltip shows instantly (no CSS opacity transition that caused rapid show/hide flicker)",
+        "IMPROVED: Scan cancel cleanup is comprehensive — destroys progress dashboard, resets loading tracker, clears job state",
+        "BACKEND: GET /api/metrics/analytics — aggregated analytics data from scan history"
+      ]
+    },
+    {
+      "version": "4.6.0",
+      "date": "2026-02-12",
+      "changes": [
+        "FEATURE: Statement Lifecycle Management — deduplication, review, and cleanup system for extracted statements",
+        "FEATURE: Role-Statement Responsibility Interface — view, reassign, and remove statements per role in Roles Studio",
+        "FEATURE: Statement Review Badges — tool-wide review status indicators (Pending/Reviewed/Rejected/Unchanged)",
+        "NEW: Statement fingerprinting and deduplication on rescan (unchanged statements tagged, new ones flagged)",
+        "NEW: Statement duplicate cleanup utility — find and remove duplicate statement groups",
+        "NEW: Bulk statement review — batch approve/reject pending statements from overview dashboard",
+        "NEW: Role statements panel (S key) — modal showing all statements for a role, grouped by document",
+        "NEW: Bulk reassign/remove statements — select statements and reassign to different roles or remove",
+        "NEW: Generic role warning — banner for generic names (Personnel, Staff, etc.) that likely have misassigned statements",
+        "NEW: Statement-to-role tagging with autocomplete during statement edit in Document Viewer",
+        "NEW: AEGIS.StatementReviewLookup global utility — badge rendering with 15s TTL cache",
+        "NEW: Clear Statement Data in Settings → Data Management",
+        "NEW: Clear Role Dictionary handler wired up in Settings → Data Management",
+        "NEW: Clear Learning Data handler wired up in Settings → Data Management",
+        "NEW: Data counts displayed in Data Management (statement count, role count)",
+        "FIX: Impact Analyzer readability — increased font sizes and padding for path-to-100 bars",
+        "FIX: Factory reset now clears ALL tables (was missing role_function_tags, role_relationships, function_categories, etc.)",
+        "FIX: Compare feature CSRF failures — added /status endpoint + retry-after-refresh logic",
+        "FIX: Settings save UX — dirty tracking with pulse animation, unsaved changes warning on close",
+        "BACKEND: 11 new API endpoints for statement review, dedup, role statements, and data management",
+        "BACKEND: Schema migration adds review_status, confirmed, reviewed_by, reviewed_at, fingerprint to scan_statements"
+      ]
+    },
+    {
+      "version": "4.5.2",
+      "date": "2026-02-10",
+      "changes": [
+        "FIX: Quality score always showing N/A — frontend used wrong field name (quality_score vs score)",
+        "FIX: .doc files now return clear error message instead of failing silently when LibreOffice unavailable",
+        "FIX: Infinite recursion crash in _log() fallback when config_logging import fails",
+        "FIX: SessionManager.set() AttributeError — method didn't exist, replaced with update()",
+        "FIX: DoclingAdapter crash when table headers are None — added null-safe guards",
+        "FIX: Missing @app.route decorator on /api/filter endpoint — function was unreachable",
+        "FIX: File handle leaks in html_preview ZIP detection — now uses context manager",
+        "FIX: Docling subprocess queue race condition — replaced empty()+get_nowait() with get(timeout=2)",
+        "FIX: fitz.Document handle leak on corrupt PDFs — now uses context manager",
+        "FIX: Empty/unreadable documents now return a clear warning instead of false 100 score",
+        "IMPROVED: DOCX Docling timeout reduced to 60s (from 120s) — DOCX extracts faster than PDFs",
+        "REMOVED: Deprecated _run_with_timeout() function and ThreadPoolExecutor import (dead code cleanup)",
+        "REMOVED: Unused concurrent.futures import that caused confusion about parallel checker support"
+      ]
+    },
+    {
+      "version": "4.5.1",
+      "date": "2026-02-10",
+      "changes": [
+        "FEATURE: Hierarchical Edge Bundling (HEB) — new default relationship graph layout with circular node arrangement and bundled edges",
+        "FEATURE: Semantic Zoom (Level-of-Detail) — zoom-based progressive disclosure graph with 3 LOD levels",
+        "NEW: Bundling Tension slider — adjusts edge bundling from 0 (straight lines) to 1 (maximum bundling)",
+        "NEW: Document group arcs — colored arc segments around the circle showing which document each role belongs to",
+        "NEW: Bridge role visualization — cross-document relationships appear as long bundled curves spanning the circle",
+        "NEW: Layout dropdown updated with Edge Bundling (default), Semantic Zoom, Force-Directed (Classic), Bipartite options",
+        "NEW: HEB-specific legend with arc, bundled edge, and brightness indicators",
+        "NEW: HEB minimap — circular dot minimap with colored document group arcs",
+        "IMPROVED: All 15 existing interactions preserved in HEB (node click, hover, drill-down, breadcrumbs, weight slider, search, labels, zoom, keyboard, minimap, adjudication badges, performance mode)",
+        "IMPROVED: Semantic Zoom LOD 1 (clusters), LOD 2 (nodes), LOD 3 (labels) with smooth transitions",
+        "IMPROVED: HEB is inherently faster than force-directed (no simulation), thresholds raised to 300/600",
+        "IMPROVED: Dark mode support for all HEB and Semantic Zoom elements"
+      ]
+    },
+    {
+      "version": "4.5.0",
+      "date": "2026-02-09",
+      "changes": [
+        "FEATURE: Scan Progress Dashboard — step-by-step checklist with sub-progress, ETA, and animations",
+        "FEATURE: Landing Page Dashboard — tool launcher cards, recent documents, system stats",
+        "IMPROVED: Granular progress reporting during checker execution phase",
+        "FIX: Statement extraction pipe artifacts (||||||) in PDFs processed by Docling",
+        "FIX: Compare Viewer dark mode — replaced [data-theme=dark] with body.dark-mode selectors",
+        "FIX: Compare Viewer CSRF 403 errors — syncs token from GET responses",
+        "FIX: Document Viewer highlight scroll alignment — uses scrollIntoView with center positioning",
+        "FIX: PDF.js toggle 'not available' — added .mjs to allowed vendor extensions",
+        "FIX: Role Interactions empty page on drill — shows empty state when no data available",
+        "FIX: History tab action column cutoff — fixed table layout with explicit column widths",
+        "FIX: Scan processing hanging — improved cancellation checks between phases",
+        "IMPROVED: Matrix animation is now default for batch processing (slower, more cinematic)",
+        "IMPROVED: Batch processing dark mode text visibility",
+        "IMPROVED: Removed .txt extension bypass from documentation",
+        "NEW: TWR.ScanProgress module — 7-step weighted progress with localStorage ETA history",
+        "NEW: TWR.LandingDashboard module — 6 tool cards with responsive grid layout",
+        "NEW: _sanitize_for_statements() fallback for Docling PDF text cleanup",
+        "IMPROVED: Better progress reporting during checker execution phase"
+      ]
+    },
+    {
+      "version": "4.4.0",
+      "date": "2026-02-09",
+      "changes": [
+        "FEATURE: Statement Quality Improvement — clean text for Statement Forge extraction",
+        "NEW: clean_full_text via mammoth when Docling is primary extractor (eliminates | and ** artifacts)",
+        "NEW: Statement Diff Export — CSV and PDF export from Compare Viewer with AEGIS-branded report",
+        "NEW: Statement Search — cross-scan full-text search with debounced UI and directive filtering",
+        "NEW: Bulk Statement Editing — multi-select statements with batch directive/role updates",
+        "NEW: PDF.js Viewer — pixel-perfect PDF canvas rendering toggle in Document Viewer",
+        "NEW: PDF/HTML view toggle for PDF documents in Statement History",
+        "IMPROVED: Compare Viewer state reset prevents stale document cache between viewer sessions",
+        "IMPROVED: Compare Viewer diff indicators in HTML content no longer inherit strikethrough",
+        "BACKEND: GET /api/scan-history/statements/search — full-text search across all scans",
+        "BACKEND: PUT /api/scan-history/statements/batch — batch update statement fields",
+        "BACKEND: GET /api/scan-history/document-file — serve original document for PDF.js",
+        "BACKEND: GET /api/statement-forge/compare/{id1}/{id2}/export-csv — diff export as CSV",
+        "BACKEND: GET /api/statement-forge/compare/{id1}/{id2}/export-pdf — diff export as PDF"
+      ]
+    },
+    {
+      "version": "4.3.0",
+      "date": "2026-02-09",
+      "changes": [
+        "FEATURE: Document Extraction Overhaul — mammoth for DOCX→HTML, pymupdf4llm for PDF→Markdown",
+        "NEW: MammothDocumentExtractor class with clean semantic HTML output (no table artifacts)",
+        "NEW: Pymupdf4llmExtractor class with structured Markdown extraction for PDFs",
+        "NEW: html_preview field stored in scan results for rich document rendering",
+        "NEW: HTML-based Document Viewer in Statement History with proper tables, headings, formatting",
+        "NEW: DOM text node walking for reliable highlight positioning in HTML content",
+        "NEW: Cross-extractor normalized matching (strips **, |, ---, # artifacts for highlight matching)",
+        "NEW: Install_AEGIS.bat — 7-step Windows installer with user-selectable location (default C:\\AEGIS)",
+        "NEW: Start_AEGIS.bat and Stop_AEGIS.bat launcher scripts with offline dependency installation",
+        "IMPROVED: package_for_distribution.bat renamed to AEGIS_Distribution with mammoth wheel bundling",
+        "IMPROVED: /api/scan-history/document-text returns html_preview and format fields",
+        "IMPROVED: Extraction fallback chain: Docling → mammoth/pymupdf4llm → legacy extractors",
+        "IMPROVED: Old scans gracefully fall back to plain-text highlighting (backward compatible)",
+        "BACKEND: mammoth>=1.6.0 added to requirements.txt",
+        "BACKEND: MAMMOTH_AVAILABLE and PYMUPDF4LLM_AVAILABLE import flags with graceful fallback"
+      ]
+    },
+    {
+      "version": "4.2.0",
+      "date": "2026-02-09",
+      "changes": [
+        "FEATURE: Statement Forge History — track statement extraction results across scans with comparison and document viewer",
+        "NEW: Statement History overview dashboard with stat tiles, trend chart, directive donut, scan timeline",
+        "NEW: Document Viewer with split-panel layout — source text with highlighted statements + detail panel",
+        "NEW: Directive-specific highlight colors (blue=shall, red=must, amber=will, green=should, purple=may)",
+        "NEW: Highlight-to-create — select text in document to create new statements with auto-detected directive",
+        "NEW: Statement editing via inline form with PUT API save",
+        "NEW: Unified Compare Viewer — single document with diff-aware highlights (added/removed/modified/unchanged)",
+        "NEW: Diff summary bar with counts, dual filter system (directive + diff status), field-level diff for modified statements",
+        "NEW: Compare keyboard shortcuts: a=next added, r=next removed, m=next modified",
+        "NEW: Backend compare_scan_statements() enhanced with two-tier fingerprint matching for modified detection",
+        "NEW: _diff_status injection on statements for diff-aware rendering",
+        "FIX: Overlapping statements now share highlight marks via data-stmt-indices attribute with findMarkForIndex() helper",
+        "FIX: Document scroll positioning uses getBoundingClientRect() instead of unreliable offsetTop for cross-container accuracy",
+        "FIX: Forge History button correctly opens history for current document",
+        "FIX: Dark mode highlights, navigation buttons, close button, Escape key handling all fixed",
+        "VERIFIED: Statement extraction logic (statement_forge/extractor.py) confirmed intact and unmodified",
+        "VERIFIED: All changes Windows-compatible (pathlib.Path, proper env var fallbacks, no hardcoded paths)"
+      ]
+    },
+    {
+      "version": "4.1.0",
+      "date": "2026-02-08",
+      "changes": [
+        "FEATURE: Nimbus SIPOC Import - parse Nimbus process model SIPOC exports to build role inheritance",
+        "NEW: Role Inheritance from Resource column with context-dependent parsing modes",
+        "NEW: Hierarchy mode (Roles Hierarchy map) — inherits-from relationships from Resources column",
+        "NEW: Process mode (fallback) — co-performs, supplies-to, receives-from relationships from all columns",
+        "NEW: Auto-fallback when Roles Hierarchy map path not found — processes all rows in process mode",
+        "NEW: Interactive HTML Role Inheritance Map (renamed from Hierarchy) with 4 views: Dashboard, Tree, Graph, Table",
+        "NEW: Inline editing in Inheritance Map — edit all role fields, track changes, export diffs as JSON",
+        "NEW: Export-back workflow — drop edited JSON in updates/ folder, Check for Updates auto-imports changes",
+        "NEW: Function Tag Distribution donut chart with accurate counts from role_function_tags join table",
+        "NEW: Graph View animations — staggered card entrance, SVG node pop-in, arrow draw-in, center pulse",
+        "NEW: Dashboard stat cards with animated counters, Health Metrics, Role Types breakdown",
+        "NEW: Interactive HTML Role Import Template — downloadable standalone form for manual role entry",
+        "NEW: Template supports bulk paste from Excel, CSV, semicolons, or one-per-line with auto-format detection",
+        "NEW: Template exports JSON for re-import into AEGIS with all extended fields",
+        "NEW: SIPOC import wizard with 5-step flow (upload, preview, options, import, complete)",
+        "NEW: Hierarchy view mode in dictionary - collapsible tree visualization of role inheritance",
+        "NEW: Pre-export filter modal - filter by org group, disposition, baselined status before exporting",
+        "NEW: Role Disposition tracking (Sanctioned, To Be Retired, TBD) with visual differentiation",
+        "NEW: Baselined status tracking with green checkmark indicators",
+        "NEW: Role Type classification (Singular-Specific, Singular-Aggregate, Group-Specific, Group-Aggregate)",
+        "NEW: Import dropdown menu - CSV/Excel import and Nimbus SIPOC Import as separate options",
+        "NEW: Template download button in dictionary toolbar for blank role entry form",
+        "NEW: role_relationships database table with inherits-from, uses-tool, co-performs, supplies-to, receives-from types",
+        "NEW: role_template_export.py standalone HTML generator for interactive role import template",
+        "NEW: 6 new API endpoints (import-sipoc, relationships, hierarchy, hierarchy/export-html, clear-sipoc, export-template)",
+        "NEW: sipoc_parser.py standalone module for SIPOC Excel parsing with dual-mode logic",
+        "NEW: hierarchy_export.py standalone HTML generator for offline hierarchy visualization",
+        "IMPROVED: Dictionary cards and table rows show disposition, baselined, and role type badges",
+        "IMPROVED: To Be Retired roles shown with strikethrough, faded, and amber warning styling",
+        "IMPROVED: SIPOC fallback notice — yellow/green info boxes showing parsing mode in preview",
+        "IMPROVED: Extended field import support (role_type, role_disposition, org_group, baselined) from template JSON",
+        "IMPROVED: SIPOC re-import now auto-removes stale roles no longer present in the new SIPOC file",
+        "IMPROVED: Diff-based cleanup compares new SIPOC against existing source='sipoc' roles and removes orphans",
+        "IMPROVED: Import results show removal counts (roles, relationships, tags removed)",
+        "FIX: Dictionary keyboard hints bar no longer overlaps table rows — uses flexbox layout instead of fixed height",
+        "FIX: RACI Matrix click handling — drilldown modal now opens correctly (was silently failing due to showModal signature mismatch)",
+        "FIX: Adjudication card body click now opens Source Viewer — added fallback handler for clicks outside specific buttons",
+        "FIX: Adjudication kanban card click now opens Source Viewer — kanban cards previously had no click handlers",
+        "FIX: Context toggle class name mismatch fixed (adj-card-context-toggle vs adj-context-toggle)",
+        "NEW: showContentModal() function in modals.js for dynamic content modals without pre-existing DOM elements",
+        "FIX: Data Explorer chart.canvas null reference error when switching tabs rapidly",
+        "VERIFIED: All 8 Roles Studio tabs tested end-to-end with zero console errors"
+      ]
+    },
+    {
+      "version": "4.0.5",
+      "date": "2026-02-08",
+      "changes": [
+        "OVERHAUL: Complete rewrite of Role Dictionary tab with dashboard, card view, and bulk operations",
+        "NEW: Dictionary Dashboard - 4 stat tiles (total, deliverables, adjudicated, health score) with donut chart",
+        "NEW: Card View toggle - rich role cards with color-coded adjudication borders and inline actions",
+        "NEW: Bulk Operations - select multiple roles with checkboxes, batch activate/deactivate/delete/set category/mark deliverable",
+        "NEW: Inline Quick Actions - click category badge to change, star toggle for deliverable, click name to copy",
+        "NEW: Role Cloning - duplicate any role with one click for quick creation of similar roles",
+        "NEW: Duplicate Detection - warns when saving roles with similar names or matching aliases",
+        "NEW: Keyboard Navigation - j/k or arrows to navigate, Enter to edit, Space to select, T to toggle view, / to search",
+        "NEW: Enhanced Filtering - filter by adjudication status, has description, has function tags",
+        "NEW: Audit Trail display - shows time ago, updated by info with full date tooltips",
+        "NEW: Sortable columns with sort direction arrows (role name, category, modified date)",
+        "IMPROVED: Adjudication badges on every dictionary row showing confirmed/deliverable/rejected/pending status",
+        "IMPROVED: Health score metric tracking description and tag completeness across the dictionary"
+      ]
+    },
+    {
+      "version": "4.0.4",
+      "date": "2026-02-08",
+      "changes": [
+        "NEW: Dictionary Diff Preview - preview what will change before importing adjudication decisions",
+        "NEW: Package versioning - warns when importing packages from newer AEGIS versions",
+        "NEW: PDF adjudication report export (Export → PDF Report)",
+        "IMPROVED: Import progress indicators with spinner overlay during import operations",
+        "IMPROVED: Two-step import flow: preview diff → confirm → import",
+        "BACKEND: POST /api/roles/adjudication/import-preview - diff preview endpoint",
+        "BACKEND: GET /api/roles/adjudication/export-pdf - PDF report generation"
+      ]
+    },
+    {
+      "version": "4.0.3",
+      "date": "2026-02-08",
+      "changes": [
+        "NEW: Global adjudication badges (✓ Adjudicated, ★ Deliverable, ✗ Rejected) on all role displays tool-wide",
+        "NEW: AEGIS.AdjudicationLookup global utility - fetches role dictionary, caches, provides badge HTML",
+        "NEW: adjudication-lookup.js - standalone utility for any JS file to display adjudication status",
+        "IMPROVED: Adjudication stats shown as green subtitle under Unique Roles tile (not separate tile)",
+        "FIX: Critical dark-mode.css not loading - CSS @import ordering violation in style.css",
+        "FIX: Data Explorer donut chart center text alignment with Chart.js animation timing",
+        "OVERHAUL: Complete rewrite of Adjudication tab in Roles & Responsibilities Studio",
+        "NEW: Auto-Classify button - AI-assisted role classification with pattern matching and confidence scoring",
+        "NEW: Kanban board view with drag-and-drop between Pending/Confirmed/Deliverable/Rejected columns",
+        "NEW: Mini dashboard with animated stat cards, SVG progress ring, and click-to-filter",
+        "NEW: Function tag pills on role cards - assign hierarchical function categories inline",
+        "NEW: Confidence gauge (SVG ring) on each role card showing classification confidence",
+        "NEW: Document chips showing which scanned documents contain each role",
+        "NEW: Undo/Redo system for all adjudication actions (Ctrl+Z / Ctrl+Y)",
+        "NEW: Keyboard navigation (Arrow keys, C=Confirm, D=Deliverable, R=Reject, V=View Source)",
+        "NEW: Batch adjudication API endpoint for processing multiple roles in single transaction",
+        "NEW: Auto-adjudicate API endpoint with deliverable/role pattern matching",
+        "NEW: Adjudication summary API endpoint with status counts and recent activity",
+        "NEW: CSV export of adjudication data with role, status, confidence, documents",
+        "NEW: Bulk selection with select-all checkbox and batch confirm/reject/deliverable",
+        "NEW: View toggle between list and kanban views with localStorage persistence",
+        "NEW: Function tag section in Role Source Viewer with Add/Remove tags and custom tag creation",
+        "IMPROVED: Role cards show context preview with expandable full context",
+        "IMPROVED: Function tags assignable/removable directly from role cards",
+        "IMPROVED: Enhanced search and filter with status, confidence, and tag filtering",
+        "FIX: CSRF token sync between page load and fetch sessions",
+        "FIX: Persistent secret key survives server restarts",
+        "FIX: Localhost server switched from Waitress to Flask threaded (Secure cookie flag fix)",
+        "FIX: Kanban view toggle properly shows/hides list and board containers",
+        "BACKEND: batch_adjudicate() method in scan_history.py for transactional batch operations",
+        "BACKEND: get_adjudication_summary() method for dashboard statistics",
+        "BACKEND: Enhanced /api/roles/adjudicate endpoint with function_tags parameter",
+        "NEW: Interactive HTML Export - standalone kanban board with drag-drop, tags, categories, notes, and import file generation",
+        "NEW: Import Decisions - import adjudication decisions from JSON files generated by HTML board",
+        "NEW: Export dropdown menu with CSV, Interactive HTML Board, and Import options",
+        "NEW: Share button with Export to Shared Folder and Email Package options",
+        "NEW: .aegis-roles package format for team sharing of role dictionaries with function tags",
+        "NEW: Settings > Sharing > Import Package for .aegis-roles file upload",
+        "NEW: FileRouter auto-imports .aegis-roles files from updates/ folder",
+        "IMPROVED: Master file export now includes function_tags per role",
+        "IMPROVED: Master file sync now imports function_tags during sync",
+        "BACKEND: GET /api/roles/adjudication/export-html endpoint",
+        "BACKEND: POST /api/roles/adjudication/import endpoint",
+        "BACKEND: POST /api/roles/share/package endpoint",
+        "BACKEND: POST /api/roles/share/import-package endpoint"
+      ]
+    },
+    {
+      "version": "4.0.1",
+      "date": "2026-02-04",
+      "changes": [
+        "ACCURACY: Role extraction v3.3.3 achieves 99%+ recall across all document types",
+        "ACCURACY: Added ~70 new roles (OSHA, academic, defense, aerospace)",
+        "ACCURACY: Added ~25 false positive filters, removed 3 incorrect entries (contractor, government, quality control)",
+        "ACCURACY: Added domain-specific validation (worker_terms, defense_terms, academic_terms)",
+        "VALIDATED: FAA, OSHA, Stanford documents - 103% average recall",
+        "VALIDATED: Defense/Government (MIL-STD, NIST) - 99.5% average recall",
+        "VALIDATED: Aerospace (NASA, FAA, KSC) - 99.0% average recall",
+        "NEW: defense_role_analysis.py, aerospace_role_analysis.py test scripts",
+        "DOC: Updated ROLE_EXTRACTION_IMPROVEMENTS.md, ROLE_EXTRACTION_TEST_RESULTS.md"
+      ]
+    },
+    {
+      "version": "4.0.0",
+      "date": "2026-02-04",
+      "changes": [
+        "REBRAND: Complete rebrand from TechWriterReview to AEGIS (Aerospace Engineering Governance & Inspection System)",
+        "REBRAND: Updated 163+ files across codebase with new branding",
+        "REBRAND: New AEGIS shield logo with gold/bronze gradient",
+        "REBRAND: Gold accent color palette (#D6A84A, #B8743A) throughout UI",
+        "REBRAND: Updated browser title, navigation, and all UI text",
+        "ACCURACY: Fixed critical GRM002 'Capitalize I' false positives matching 'i' inside words",
+        "ACCURACY: Grammar checker v2.6.0 with case-sensitive lowercase 'i' detection",
+        "ACCURACY: Punctuation checker v2.7.0 filters TOC/table of contents entries",
+        "ACCURACY: Prose linter v1.1.0 with nominalization exceptions for 40+ technical terms",
+        "ACCURACY: Base checker v2.5.0 with word boundary validation for single-char matches",
+        "NEW: Bokeh visualization library added to requirements for interactive charts",
+        "IMPROVED: Dark mode AEGIS brand colors for better visibility",
+        "IMPROVED: Active navigation tabs use gold accent underline",
+        "TEST: All 42 v3.4.0 checker tests passing",
+        "TEST: All 117 core tests passing"
+      ]
+    },
+    {
+      "version": "3.4.5",
+      "date": "2026-02-04",
+      "changes": [
+        "UI: Added 23 new v3.4.0 checker checkboxes to Settings > Document Profiles",
+        "UI: New checker categories - Readability, Procedural Writing, Product & Code, Standards & Compliance",
+        "UI: Style Guide Preset selector in Settings > Review Options (8 presets)",
+        "NEW: static/js/features/style-presets.js - Preset UI module with localStorage persistence",
+        "NEW: tests/test_checker_performance.py - Performance benchmark suite for 84 checkers",
+        "FIX: BUG-M09 - Hyperlink validator HTML export summary now properly handles undefined values",
+        "IMPROVED: Checker grid CSS with scrollable categories and compact layout",
+        "VERIFIED: 84 checkers registered and available for document analysis"
+      ]
+    },
+    {
+      "version": "3.4.4",
+      "date": "2026-02-04",
+      "changes": [
+        "DATABASE: Added universal_acronyms.json with 1,767 well-known acronyms",
+        "DATABASE: Sources include UK MOJ, DOD Dictionary, FDA, IEEE/ISO/ANSI, common tech writing",
+        "DATABASE: Acronyms categorized (technology, government, military, medical, finance, etc.)",
+        "IMPROVED: Acronym checker v4.6.0 now loads external acronym database",
+        "IMPROVED: External database used in permissive mode to auto-skip well-known acronyms",
+        "IMPROVED: Database loading is cached for performance (loaded once per session)",
+        "OFFLINE: All 1,767 acronyms available offline for air-gapped deployments"
+      ]
+    },
+    {
+      "version": "3.4.3",
+      "date": "2026-02-03",
+      "changes": [
+        "ACCURACY: Comprehensive batch testing across 10+ document types",
+        "ACCURACY: Added ALL CAPS sentence detection to prevent false acronym flags",
+        "ACCURACY: Added 50+ well-known regulatory acronyms (NIOSH, CDC, NIH, etc.)",
+        "ACCURACY: Added 30+ engineering/process acronyms (PID, PLC, SCADA, etc.)",
+        "ACCURACY: Added 60+ common words in ALL CAPS instructions (HARD, MUST, etc.)",
+        "ACCURACY: Reduced passive voice false positives with 50+ technical terms",
+        "ACCURACY: Fixed 'is need' and similar false positive patterns",
+        "IMPROVED: Acronym checker v4.5.2 with better ALL CAPS detection",
+        "IMPROVED: Grammar checker v2.6.2 with comprehensive false positive list"
+      ]
+    },
+    {
+      "version": "3.4.2",
+      "date": "2026-02-03",
+      "changes": [
+        "ACCURACY: Reduced false positives in acronym detection by 40%+",
+        "ACCURACY: Section reference codes (A1, B2, C3...) no longer flagged as undefined acronyms",
+        "ACCURACY: Template/instruction text in brackets [GREEN TEXT] now filtered out",
+        "ACCURACY: Added 80+ domain-specific skip words (ROBOTICS, REST, COVID, LASER, etc.)",
+        "ACCURACY: Improved passive voice detection - added 50+ technical/SOP terms to false positives",
+        "FIX: Phantom passive voice detections (are prohibited, must be contacted, etc.) eliminated",
+        "IMPROVED: Acronym checker v4.5.1 with smarter section reference detection",
+        "IMPROVED: Grammar checker v2.6.1 with expanded technical vocabulary"
+      ]
+    },
+    {
+      "version": "3.4.1",
+      "date": "2026-02-03",
+      "changes": [
+        "NEW: Style Guide Presets - One-click configuration for Microsoft, Google, Plain Language, ASD-STE100, Government, Aerospace styles",
+        "NEW: style_presets.py - 8 pre-built style guide configurations with checker settings",
+        "NEW: Full CLI Mode - Run all 84 checkers from command line (python -m AEGIS document.docx)",
+        "NEW: __main__.py - Complete CLI with batch processing, preset selection, JSON/CSV/XLSX export",
+        "NEW: Auto-Fix Engine - Foundation for automatic issue correction",
+        "NEW: auto_fixer.py - Fix generators for Latin abbreviations, contractions, wordy phrases, product names, second person, future tense, link text",
+        "NEW: ASD-STE100 Approved Words - data/ste100_approved_words.json with 875 approved words and writing rules",
+        "NEW: API /api/presets - List and apply style guide presets",
+        "NEW: API /api/presets/<name> - Get specific preset configuration",
+        "NEW: API /api/presets/<name>/apply - Apply preset with custom overrides",
+        "NEW: API /api/auto-fix/preview - Preview available auto-fixes for issues",
+        "CLI: --preset flag for style guide selection (microsoft, google, plain_language, asd_ste100, government, aerospace)",
+        "CLI: --batch flag for processing multiple documents",
+        "CLI: --format flag for output format (json, csv, xlsx, text)",
+        "CLI: --list-presets and --list-checkers info commands",
+        "IMPROVED: Vale-style preset configurations matching industry standards"
+      ]
+    },
+    {
+      "version": "3.4.0",
+      "date": "2026-02-03",
+      "changes": [
+        "NEW: Maximum Coverage Suite - 23 new offline-only checkers for comprehensive analysis",
+        "NEW: style_consistency_checkers.py - 6 checkers (heading case, contractions, Oxford comma, ARI, Spache, Dale-Chall)",
+        "NEW: clarity_checkers.py - 5 checkers (future tense, Latin abbreviations, sentence-initial conjunctions, directional language, time-sensitive language)",
+        "NEW: acronym_enhanced_checkers.py - 2 checkers (first-use enforcement, multiple definition detection)",
+        "NEW: procedural_writing_checkers.py - 3 checkers (imperative mood, second person preference, link text quality)",
+        "NEW: document_quality_checkers.py - 4 checkers (numbered list sequence, product name consistency, cross-reference targets, code formatting)",
+        "NEW: compliance_checkers.py - 3 checkers (MIL-STD-40051, S1000D basic, AS9100 documentation)",
+        "NEW: data/dale_chall_3000.json - Full 3000-word Dale-Chall easy word list for readability analysis",
+        "NEW: data/spache_easy_words.json - 1000+ word Spache formula word list",
+        "NEW: data/product_names.json - 250+ product/technology name capitalizations",
+        "NEW: data/mil_std_40051_patterns.json - MIL-STD-40051-2 compliance patterns and rules",
+        "NEW: data/s1000d_basic_rules.json - S1000D Issue 5.0 structural requirements",
+        "NEW: data/as9100_doc_requirements.json - AS9100D documentation requirements",
+        "NEW: Option mappings for all 23 checkers in core.py for UI checkbox control",
+        "IMPROVED: Vale-style style guide compliance (Microsoft, Google, ASD-STE100)",
+        "IMPROVED: Readability formulas (ARI, Spache, enhanced Dale-Chall)",
+        "IMPROVED: Procedural writing validation per technical writing best practices",
+        "IMPROVED: Aerospace/defense compliance checking (MIL-STD, S1000D, AS9100)",
+        "TEST: Comprehensive unit tests for all 23 new checkers",
+        "TEST: Integration tests verifying checkers load in core.py",
+        "TEST: Data file validation tests",
+        "OFFLINE: All 23 checkers 100% offline-capable with no external API dependencies"
+      ]
+    },
+    {
+      "version": "3.3.0",
+      "date": "2026-02-03",
+      "changes": [
+        "NEW: Maximum Accuracy NLP Enhancement Suite for near-100% accuracy",
+        "NEW: technical_dictionary.py - 10,000+ term master dictionary with aerospace/defense terminology",
+        "NEW: adaptive_learner.py - Unified learning system with SQLite persistence for role/acronym/grammar decisions",
+        "NEW: nlp_enhanced.py - Enhanced NLP processor with EntityRuler, PhraseMatcher, transformer support",
+        "NEW: enhanced_passive_checker.py - Dependency parsing-based passive voice detection (not regex)",
+        "NEW: fragment_checker.py - Syntactic parsing for sentence fragment detection",
+        "NEW: requirements_analyzer.py - Atomicity, testability, escape clause, ambiguous term checking",
+        "NEW: terminology_checker.py - Spelling variant, British/American, abbreviation consistency",
+        "NEW: cross_reference_validator.py - Section/table/figure/requirement reference validation",
+        "NEW: data/aerospace_patterns.json - 80+ EntityRuler patterns for aerospace/defense",
+        "NEW: 300+ adjectival participles whitelist for passive voice false positive reduction",
+        "NEW: 60+ ambiguous terms database for requirements analysis",
+        "NEW: 100+ British/American word pairs for terminology consistency",
+        "NEW: Ensemble extraction combining NER, patterns, and dependency parsing",
+        "NEW: Context-aware confidence boosting from user decisions",
+        "NEW: Export/import JSON for team sharing of learned patterns",
+        "IMPROVED: Role extraction target accuracy 95%+ (from 56.7%)",
+        "IMPROVED: Acronym detection target accuracy 95%+ (from 75%)",
+        "IMPROVED: Passive voice detection target accuracy 88%+ (from 70%)",
+        "IMPROVED: Spelling accuracy target 98%+ (from 85%)",
+        "TEST: 167 new unit tests (40+34+30+35+28) across 5 test files",
+        "TEST: All 356 tests passing (189 existing + 167 new)",
+        "OFFLINE: All features 100% offline-capable for air-gapped deployment"
+      ]
+    },
+    {
+      "version": "3.2.5",
+      "date": "2026-02-03",
+      "changes": [
+        "IMPROVED: Role extraction now filters phone number patterns (###-####, (###), etc.)",
+        "IMPROVED: Role extraction now filters candidates starting with digits",
+        "IMPROVED: Role extraction now filters candidates with >30% numeric characters",
+        "IMPROVED: Role extraction now filters candidates containing ZIP codes",
+        "IMPROVED: Role extraction maximum length validation (>60 chars rejected)",
+        "IMPROVED: Acronyms in parentheses now extracted with roles (e.g., 'Project Manager (PM)' extracts PM)",
+        "IMPROVED: Acronym pattern extended to support 6-word role names and & in acronyms",
+        "IMPROVED: NLP extraction now captures acronyms from context",
+        "IMPROVED: Filter run-together words from PDF extraction (e.g., 'Byasafetydepartment')",
+        "IMPROVED: Filter slash-separated alternatives (e.g., 'Owner/Manager')",
+        "IMPROVED: Filter section headers (e.g., 'C. Scalability')",
+        "IMPROVED: Filter address/location patterns (e.g., 'Suite 670', 'Atlanta Federal Center')",
+        "IMPROVED: More conservative NLP override - requires role indicators to trust NLP",
+        "IMPROVED: Added 20+ single-word exclusions (user, owner, chief, team, group, etc.)",
+        "IMPROVED: Filter 'Other X' and 'Own X' patterns",
+        "NEW: 25+ FAA/Aviation-specific roles (accountable executive, certificate holder, flight crew, etc.)",
+        "NEW: 25+ OSHA/Safety-specific roles (process safety coordinator, plant manager, shift supervisor, etc.)",
+        "ACCURACY: Reduced false positives by 78% (9 → 2) in test documents",
+        "ACCURACY: Improved accuracy from 36.7% to 56.7% on FAA/OSHA documents"
+      ]
+    },
+    {
+      "version": "3.2.4",
+      "date": "2026-02-03",
+      "changes": [
+        "IMPROVED: Enhanced spaCy integration for role extraction (BUG-M11)",
+        "IMPROVED: NLPProcessor v1.1.0 with better noun chunk analysis",
+        "IMPROVED: Added compound noun detection for multi-word roles",
+        "IMPROVED: Added passive voice subject detection for roles",
+        "IMPROVED: Added role-verb association detection (approve, review, coordinate, etc.)",
+        "IMPROVED: Enhanced confidence scoring based on POS tags and linguistic features",
+        "IMPROVED: Better sentence-based context extraction using spaCy",
+        "IMPROVED: Lower threshold for high-confidence NLP detections",
+        "IMPROVED: Added 45+ new role suffixes and modifiers for aerospace/defense",
+        "IMPROVED: Added org unit indicators (directorate, center, facility, etc.)",
+        "IMPROVED: Fuzzy matching in NLP enhancement to boost existing roles",
+        "NEW: semantic_analyzer.py - Sentence-Transformers for semantic similarity",
+        "NEW: acronym_extractor.py - Schwartz-Hearst algorithm for acronym extraction",
+        "NEW: prose_linter.py - Vale-style rules for technical writing",
+        "NEW: structure_analyzer.py - Document structure and cross-reference analysis",
+        "NEW: text_statistics.py - Comprehensive readability and text metrics",
+        "NEW: Semantic similarity search for finding related content",
+        "NEW: Duplicate/near-duplicate detection in documents",
+        "NEW: Sentence clustering for content organization",
+        "NEW: 100+ standard aerospace/defense acronyms in acronym extractor",
+        "NEW: Passive voice, nominalization, and wordy phrase detection",
+        "NEW: Government/aerospace style guide compliance checking",
+        "NEW: Heading hierarchy and cross-reference validation",
+        "NEW: Vocabulary richness metrics (TTR, Hapax Legomena, Yule's K)",
+        "NEW: TF-IDF and noun phrase keyword extraction",
+        "NEW: Technical writing metrics (shall/will/must usage, jargon density)",
+        "UPDATED: requirements.txt with sentence-transformers and rapidfuzz",
+        "NEW: enhanced_analyzers.py - Integration wrapper for all new modules",
+        "INTEGRATED: All 5 analyzers registered as checkers in core.py",
+        "INTEGRATED: Option mappings for UI checkbox control",
+        "NEW: /api/analyzers/status endpoint for analyzer availability",
+        "NEW: /api/analyzers/semantic/similar endpoint for similarity search",
+        "NEW: /api/analyzers/acronyms/extract endpoint for acronym extraction",
+        "NEW: /api/analyzers/statistics endpoint for text metrics",
+        "NEW: /api/analyzers/lint endpoint for prose quality checking",
+        "NEW: Enhanced analyzer metrics in review results"
+      ]
+    },
+    {
+      "version": "3.2.3",
+      "date": "2026-02-03",
+      "changes": [
+        "FIX: BUG-M09 - HTML export now properly escapes URLs and handles None values",
+        "FIX: BUG-M09 - HTML export generates summary from results when summary object is None",
+        "FIX: BUG-M07 - Soft 404 detection less aggressive (removed generic 'error' from title check)",
+        "FIX: BUG-M23 - Version numbers synchronized across all UI components to 3.2.3",
+        "FIX: BUG-M26 - Duplicate element IDs in troubleshooting panel renamed to prevent conflicts",
+        "FIX: BUG-M25 - Troubleshooting export buttons now properly find their elements",
+        "IMPROVED: Hyperlink validator HTML export includes import for html escaping module"
+      ]
+    },
+    {
+      "version": "3.2.2",
+      "date": "2026-02-03",
+      "changes": [
+        "FIX: Adjudicated roles now properly saved to role dictionary via both primary and backup API paths",
+        "FIX: Adjudicated roles removed from pending list - list refreshes correctly after adjudication",
+        "FIX: Adjudication sync now properly updates AdjudicationState.decisions Map with all required fields",
+        "FIX: Role Dictionary delete button now shows proper icon instead of red box",
+        "FIX: Dictionary table action buttons styled correctly (edit, toggle, delete)",
+        "FIX: Status badges (active/inactive) now styled correctly in dictionary table",
+        "NEW: Backup dictionary save via /api/roles/dictionary if primary endpoint fails",
+        "IMPROVED: Better logging for adjudication sync to help diagnose issues",
+        "IMPROVED: State.adjudicatedRoles properly updated for graph visualization sync"
+      ]
+    },
+    {
+      "version": "3.2.1",
+      "date": "2026-02-03",
+      "changes": [
+        "FIX: Per-role adjudication persistence - each role now tracks its own adjudication state",
+        "NEW: API endpoint /api/roles/adjudicate - saves adjudication to role dictionary",
+        "NEW: API endpoint /api/roles/adjudication-status - retrieves saved adjudication state",
+        "NEW: API endpoint /api/roles/update-category - updates role category classification",
+        "NEW: get_role_by_name() method in scan_history.py for role lookup",
+        "NEW: Role extractor learns from rejections - rejected roles added to false_positives",
+        "NEW: Confirmed roles added to known_roles for higher confidence matching",
+        "IMPROVED: Role Source Viewer resets adjudication panel when opening new role",
+        "IMPROVED: Role extraction becomes smarter over time through adjudication feedback"
+      ]
+    },
+    {
+      "version": "3.2.0",
+      "date": "2026-02-03",
+      "changes": [
+        "NEW: Role Source Viewer with Adjudication Controls - unified role review interface",
+        "NEW: View actual document text with highlighted role mentions from historical scans",
+        "NEW: Adjudication panel with Confirm Role, Mark Deliverable, and Reject buttons",
+        "NEW: Status badges showing adjudication state (Pending/Confirmed/Deliverable/Rejected)",
+        "NEW: Category dropdown for role classification (Role, Management, Technical, Organization, Custom)",
+        "NEW: Notes textarea for adjudication comments",
+        "NEW: Multi-document navigation with occurrence counter",
+        "NEW: Click any highlight to jump to that mention",
+        "NEW: API endpoint /api/scan-history/document-text for historical document retrieval",
+        "NEW: Full document text retrieved from results_json.full_text in scan history",
+        "FIX: Document Compare modal sizing - now 95vw × 90vh with proper constraints",
+        "FIX: Browser cache-busting with versioned script loading",
+        "IMPROVED: Role Source Viewer styling with split-panel design matching Statement Review Mode"
+      ]
+    },
+    {
+      "version": "3.1.9",
+      "date": "2026-02-02",
+      "changes": [
+        "NEW: Molten Progress Bar system - scalable Rive-inspired progress bars",
+        "NEW: 4 size variants (mini 4px, small 8px, medium 16px, large 28px)",
+        "NEW: 3 color themes (orange, blue, green) with molten gradients",
+        "NEW: Optional reflection glow and trailing effects",
+        "NEW: Indeterminate loading state (contained within bar)",
+        "NEW: MoltenProgress JavaScript API for dynamic creation",
+        "INTEGRATED: Molten progress in batch document rows (mini)",
+        "INTEGRATED: Molten progress in loading overlay (medium with reflection)",
+        "INTEGRATED: Molten progress in hyperlink validator (small with reflection)",
+        "INTEGRATED: Molten progress in cinematic modal (small with reflection)",
+        "FIX: AEGIS loader no longer blocks clicks after fade-out (pointer-events fix)",
+        "REMOVED: Initial startup loader (app loads fast enough without it)"
+      ]
+    },
+    {
+      "version": "3.1.8",
+      "date": "2026-02-02",
+      "changes": [
+        "NEW: AEGIS Cinematic Loader - Full-screen startup animation",
+        "NEW: Cinematic 28px progress bar with glow effects",
+        "NEW: Particle background canvas with 170 animated particles",
+        "NEW: Blue/gold color scheme with grid overlay",
+        "NEW: Sheen sweep animation with skew effect",
+        "NEW: Progress orb with trailing glow",
+        "NEW: Status text and percentage display",
+        "NEW: Cinematic vignette and film grain overlays",
+        "NEW: Boot sequence simulation during app initialization",
+        "NEW: Smooth fade-out on completion",
+        "IMPROVED: App initialization now shows real-time progress stages"
+      ]
+    },
+    {
+      "version": "3.1.7",
+      "date": "2026-02-02",
+      "changes": [
+        "ENHANCED: Cinematic Progress Animation System - Major visual upgrade",
+        "NEW: Particle trails - 30% of particles now leave fading motion trails",
+        "NEW: Particle connections - Web-like lines between nearby particles",
+        "NEW: Milestone celebrations - Burst effects at 25%, 50%, 75%, 100%",
+        "NEW: Lightning bolts for Circuit theme - Random electrical arcs",
+        "NEW: Twinkling star field for Cosmic theme - 50 stars with cross-shine",
+        "NEW: Rising ember particles for Fire theme - 30 glowing embers",
+        "NEW: Enhanced energy trail - Sparks, ripple effects, larger orb",
+        "NEW: Faster Matrix streams - Depth effect, character trails, speed boost near progress",
+        "NEW: Grand finale explosion at 100% - 80 burst particles with container pulse",
+        "NEW: onMilestone callback for custom milestone handling",
+        "IMPROVED: Energy trail now spawns 8 sparks continuously",
+        "IMPROVED: Matrix characters include full katakana set (46 chars)",
+        "IMPROVED: Percentage display animation with scale bounce on milestones"
+      ]
+    },
+    {
+      "version": "3.1.6",
+      "date": "2026-02-02",
+      "changes": [
+        "NEW: Cinematic Progress Animation System with Lottie + GSAP + Rive + Canvas integration",
+        "NEW: 5 cinematic themes - Circuit (orange), Cosmic (purple), Matrix (green), Energy (teal), Fire (red)",
+        "NEW: Particle system with 150+ animated particles and theme-specific behaviors",
+        "NEW: Energy trail effect that follows progress bar with glowing path",
+        "NEW: Matrix-style data stream effect (configurable per theme)",
+        "NEW: Theme selector with localStorage persistence",
+        "NEW: CDN fallbacks for air-gapped compatibility",
+        "ADDED: static/js/features/cinematic-progress.js (825 lines)",
+        "ADDED: static/css/features/cinematic-progress.css (782 lines)",
+        "ADDED: static/js/vendor/gsap.min.js (72KB)",
+        "ADDED: static/js/vendor/rive.min.js (164KB)"
+      ]
+    },
+    {
+      "version": "3.1.5",
+      "date": "2026-02-02",
+      "changes": [
+        "NEW: Circuit board themed batch progress display with dark navy/orange glow effects",
+        "NEW: Elapsed time counter, estimated remaining time, and processing speed displays",
+        "NEW: Animated percentage counter with smooth counting animation",
+        "NEW: Real-time per-document status labels (QUEUED → UPLOADING → ANALYZING → DONE)",
+        "NEW: Sound notification toggle for batch completion (speaker icon)",
+        "FIX: Dual file dialog bug - Select Files/Select Folder no longer trigger both dialogs",
+        "IMPROVED: Simplified circuit board visuals for cleaner appearance"
+      ]
+    },
+    {
+      "version": "3.1.4",
+      "date": "2026-02-02",
+      "changes": [
+        "NEW: ENH-010 - Clean upgrade path with automatic backup and restore",
+        "NEW: UpgradeManager class for version comparison and update application",
+        "NEW: Automatic user data backup before upgrades (scan_history.db, settings, dictionaries)",
+        "NEW: Rollback capability on upgrade failure",
+        "NEW: update.bat (Windows) and update.sh (macOS/Linux) scripts for easy upgrades",
+        "NEW: CLI interface for backup, restore, list-backups, create-package commands",
+        "NEW: Update package creation with configurable exclusions",
+        "TEST: Comprehensive E2E test suite expanded (75 tests) - all passing"
+      ]
+    },
+    {
+      "version": "3.1.3",
+      "date": "2026-02-02",
+      "changes": [
+        "NEW: ENH-005 - Universal Role Source Viewer for viewing role context in source documents",
+        "NEW: ENH-006 - Statement Forge Review Mode with source context and statement creation",
+        "NEW: ENH-009 - Comprehensive diagnostics/logging system with circular buffer and async queue",
+        "NEW: Frontend logger (frontend-logger.js) with API call timing, action tracking, backend sync",
+        "NEW: Backend diagnostics (diagnostics.py) with performance timer decorator and sampling",
+        "NEW: Statement model extended with source context fields (source_document, char offsets, context)",
+        "NEW: Review mode navigation (prev/next) with keyboard shortcuts",
+        "NEW: Approve/reject/save actions in Statement Review mode",
+        "NEW: Create statement from text selection in source viewer",
+        "TEST: Comprehensive E2E test suite expanded (68 tests) - all passing"
+      ]
+    },
+    {
+      "version": "3.1.2",
+      "date": "2026-02-02",
+      "changes": [
+        "FIX: BUG-C01 - Expanded passive voice FALSE_POSITIVES from ~38 to 300+ words (technical/engineering terms)",
+        "FIX: BUG-C02 - Diagnostic export timeout increased to 60s, errors limited to 500",
+        "FIX: BUG-M10 - Hyperlink flags now include the actual broken URL in error messages",
+        "FIX: BUG-M14 - Document comparison shows helpful message when no documents available",
+        "FIX: BUG-M15 - Portfolio batch categorization time window reduced from 5min to 30sec",
+        "FIX: BUG-M16 - Poll frequency increased from 500ms to 2000ms to prevent rate limiting",
+        "FIX: BUG-M18 - Sidebar collapsed width reduced from 56px to 44px with fully-collapsed mode",
+        "FIX: BUG-M19 - Hyperlink validator history now properly logs with excluded/duration_ms fields",
+        "FIX: BUG-M20 - Carousel dark mode styling added to dark-mode.css",
+        "FIX: BUG-M21 - Heatmap dark mode contrast improvements with white text and shadows",
+        "FIX: BUG-M22 - Docling status check uses AbortController with 5-second timeout",
+        "FIX: BUG-M27 - Print section null reference check added",
+        "FIX: BUG-M28 - Scan profiles load failure null check added",
+        "FIX: BUG-M29 - SortableJS now loaded locally to avoid CSP blocking",
+        "FIX: BUG-M30 - HelpContent click handler uses requestAnimationFrame for performance",
+        "FIX: BUG-L10 - Passive event listeners added to touch/scroll handlers",
+        "NEW: ENH-001 - Role consolidation engine with 25+ built-in rules, fuzzy matching, abbreviations",
+        "NEW: ENH-003 - Graph export module for PNG/SVG export of Chart.js and D3.js visualizations",
+        "NEW: ENH-004 - Role comparison module for multi-document side-by-side role analysis",
+        "NEW: ENH-008 - NLP integration (spaCy) for improved role/deliverable/acronym detection",
+        "TEST: Comprehensive E2E test suite (48 tests) - all passing"
+      ]
+    },
+    {
+      "version": "3.0.125",
+      "date": "2026-02-01",
+      "changes": [
+        "UI: Comprehensive Hyperlink Validator visual overhaul with modern glassmorphism design",
+        "NEW: Animated stat cards with color-coded status icons and hover effects",
+        "NEW: Donut chart showing URL status distribution with smooth animations",
+        "NEW: Response time histogram with color-coded speed bands",
+        "NEW: Domain health heatmap showing success rates by domain (clickable to filter)",
+        "NEW: Enhanced progress bar with shimmer animation and speed stats",
+        "NEW: Expandable error detail panels with redirect chain visualization",
+        "NEW: Real-time streaming indicator showing current URL being validated",
+        "NEW: Skeleton loading states for better UX during data fetching",
+        "NEW: Rescan button UI for bot-protected sites with visual styling",
+        "NEW: 3D Domain Health Carousel - interactive rotating cards showing domain health status",
+        "NEW: Carousel features: drag-to-spin, click-to-filter, auto-rotate, health rings with percentages",
+        "NEW: Domain filter clear functionality with indicator badges",
+        "NEW: Large dataset support - shows top 15 domains with search and expand options",
+        "FIX: History panel can now be collapsed/expanded with toggle button",
+        "FIX: URL text no longer cut off - full URLs display with word wrap",
+        "FIX: Modal window properly centered on screen",
+        "IMPROVED: Setup.bat now includes Playwright installation (Step 8/8)",
+        "CSS: 900+ lines of modern CSS with gradients, animations, dark mode support"
+      ]
+    },
+    {
+      "version": "3.0.124",
+      "date": "2026-02-01",
+      "changes": [
+        "FEATURE: Headless Browser Rescan for bot-protected sites (defense.gov, dla.mil, etc.)",
+        "NEW: /api/hyperlink-validator/rescan endpoint to retry failed URLs with real Chrome browser",
+        "NEW: /api/hyperlink-validator/rescan/job/<id> to rescan all failures from a validation job",
+        "NEW: Stealth mode bypasses sophisticated bot detection (Akamai, Cloudflare, etc.)",
+        "NEW: Automatic HEAD→GET fallback when sites block HEAD requests",
+        "IMPROVED: Uses real Chrome browser channel for better bot protection bypass",
+        "REQUIRES: pip install playwright && playwright install chromium (optional, for rescan feature)"
+      ]
+    },
+    {
+      "version": "3.0.123",
+      "date": "2026-02-01",
+      "changes": [
+        "FEATURE: CAC/PIV Client Certificate Authentication for .mil sites and federal PKI resources",
+        "FEATURE: Custom CA Bundle support for DoD/Federal PKI certificate validation",
+        "FEATURE: Proxy Server support for enterprise network environments",
+        "IMPROVED: Simplified Hyperlink Validation to two modes: Offline (format only) and Validator (full HTTP)",
+        "IMPROVED: Validator mode optimized for government (.mil/.gov) and enterprise sites",
+        "NEW: Advanced Authentication Settings panel in Settings → Hyperlink Validation",
+        "NEW: Windows SSO (NTLM/Negotiate) always enabled when available",
+        "NEW: Extended timeouts and realistic browser headers for slow government servers",
+        "NEW: HEAD/GET fallback when HEAD requests are blocked (common on government sites)",
+        "NEW: Auth Required (401) and Rate Limited (429) status types with appropriate handling",
+        "REMOVED: ps1_validator mode (consolidated into enhanced validator mode)",
+        "DOCS: Comprehensive authentication options documentation with CAC/PIV setup guide"
+      ]
+    },
+    {
+      "version": "3.0.122",
+      "date": "2026-02-01",
+      "changes": [
+        "FEATURE: Persistent Link Exclusions - URL exclusion rules stored in SQLite database",
+        "FEATURE: Scan History Storage - Historical hyperlink scans recorded with summary statistics",
+        "NEW: Link History modal with Exclusions and Scans tabs via 'Links' nav button",
+        "NEW: API endpoints /api/hyperlink-validator/exclusions/* and /history/*",
+        "NEW: HyperlinkValidatorStorage class for database operations",
+        "NEW: Match types: contains, exact, prefix, suffix, regex",
+        "IMPROVED: HyperlinkValidatorState loads exclusions from database on init"
+      ]
+    },
+    {
+      "version": "3.0.121",
+      "date": "2026-02-01",
+      "changes": [
+        "FIX: Portfolio 'Open in Review' now correctly loads documents with full UI display",
+        "IMPROVED: Responsive Hyperlinks Panel - viewport-relative heights (50vh/25vh)",
+        "IMPROVED: Clickable Hyperlinks - click any row to open URL in new tab for verification",
+        "NEW: Visual hover feedback with external-link icon on hyperlink rows",
+        "NEW: Test document hyperlink_test.docx with working and broken link examples"
+      ]
+    },
+    {
+      "version": "3.0.120",
+      "date": "2026-02-01",
+      "changes": [
+        "FEATURE: 3D Carousel for Issues by Section in Document Analytics",
+        "NEW: Drag-to-spin rotation and slider navigation for section boxes",
+        "NEW: Click on carousel box to filter issues to that section",
+        "NEW: Color-coded borders based on issue density (none/low/medium/high)",
+        "IMPROVED: Touch support for mobile devices"
+      ]
+    },
+    {
+      "version": "3.0.119",
+      "date": "2026-02-01",
+      "changes": [
+        "FIX: Document Filter Dropdown - correctly filters roles by document in Roles Studio",
+        "FIX: CSS selector bug in roles tab switching (.roles-nav-btn.active → .roles-nav-item.active)",
+        "IMPROVED: Help Modal sizing - 85vw × 80vh with opaque backdrop",
+        "DOCS: Comprehensive Help Documentation Overhaul with Fix Assistant v2, Hyperlink Health, Batch Processing sections",
+        "DOCS: Added 8 Core Capabilities cards, Checker List table, Keyboard shortcuts tables"
+      ]
+    },
+    {
+      "version": "3.0.116",
+      "date": "2026-02-01",
+      "changes": [
+        "FIX: Batch memory - streaming file uploads to reduce memory usage (BUG-M02)",
+        "FIX: SessionManager - automatic cleanup thread prevents memory growth (BUG-M03)",
+        "FIX: Batch errors - full tracebacks now logged for debugging (BUG-M04)",
+        "FIX: localStorage key collision - unique document IDs prevent overwriting (BUG-M05)",
+        "NEW: MAX_BATCH_SIZE (10) and MAX_BATCH_TOTAL_SIZE (100MB) constants defined (BUG-L07)",
+        "NEW: SessionManager.start_auto_cleanup() runs hourly to remove sessions > 24h old",
+        "NEW: FixAssistantState.generateDocumentId() creates collision-free storage keys"
+      ]
+    },
+    {
+      "version": "3.0.115",
+      "date": "2026-02-01",
+      "changes": [
+        "FEATURE: Document Type Profiles - Customize which checks are performed for PrOP, PAL, FGOST, SOW",
+        "NEW: Settings > Document Profiles tab with checker grid for each document type",
+        "NEW: Custom profiles persist in localStorage across sessions (user-specific)",
+        "NEW: Select All, Clear All, Reset to Default buttons for profile management",
+        "NEW: First-time user prompt to configure document profiles on initial app launch",
+        "IMPROVED: applyPreset now uses custom profiles when available for document type presets"
+      ]
+    },
+    {
+      "version": "3.0.110",
+      "date": "2026-02-01",
+      "changes": [
+        "FEATURE: Hyperlink Validator - Export highlighted DOCX with broken links marked in red/yellow/strikethrough",
+        "FEATURE: Hyperlink Validator - Export highlighted Excel with broken link rows in red background",
+        "NEW: API endpoints /api/hyperlink-validator/export-highlighted/docx and /excel",
+        "NEW: 'Export Highlighted' button in Hyperlink Validator modal (enabled after file validation)"
+      ]
+    },
+    {
+      "version": "3.0.109",
+      "date": "2026-01-28",
+      "changes": [
+        "FIX: Batch Modal - Now opens correctly (Issue #1)",
+        "FIX: Hyperlinks - Now extracts HYPERLINK field codes from DOCX files (Issue #2)",
+        "FIX: Acronym Highlighting - Uses word boundary regex to prevent false positives (Issue #3)",
+        "FIX: Fix Assistant Premium - Complete implementation with working controls (Issue #4)",
+        "FIX: Statement Forge - 'No document loaded' fixed with consistent state checks (Issue #5)",
+        "FIX: Scan History - Added /stats, /clear, /recall API endpoints (Issue #6)",
+        "FIX: Triage Mode - State.documentId now set after fresh review (Issue #7)",
+        "FIX: Document Filter - Now populates from scan history (Issue #8)",
+        "FIX: Role-Document Matrix - Improved response validation and error handling (Issue #9)",
+        "FIX: Export Modal Badge Overflow - Badges now wrap and truncate properly (Issue #10)",
+        "FIX: Comment Placement - Smart quote normalization and multi-strategy matching (Issue #11)",
+        "FIX: Version History - Added missing versions to help documentation (Issue #12)",
+        "FIX: Updater Rollback - Uses correct endpoint, button enable/disable fixed (Issue #13)",
+        "FIX: No Updates Empty State - Proper centered styling with icon (Issue #14)",
+        "FIX: Logo 404 - Fixed missing logo reference (Issue #15)",
+        "IMPROVED: Statement extraction patterns - added responsibility/accountability phrases",
+        "IMPROVED: Fallback extraction for documents without clear section structure",
+        "IMPROVED: Role-Document Matrix error display with retry button"
+      ]
+    },
+    {
+      "version": "3.0.108",
+      "date": "2026-01-28",
+      "changes": [
+        "FIX: Document filter dropdown now populates with scanned document names (BUG-009)",
+        "FIX: Added source_documents field to role extraction data"
+      ]
+    },
+    {
+      "version": "3.0.107",
+      "date": "2026-01-28",
+      "changes": [
+        "FIX: Role Details tab now shows sample_contexts from documents (BUG-007)",
+        "FIX: Role-Doc Matrix shows helpful guidance when empty instead of stuck loading (BUG-008)",
+        "UX: Matrix tab explains how to populate cross-document data"
+      ]
+    },
+    {
+      "version": "3.0.106",
+      "date": "2026-01-28",
+      "changes": [
+        "FIX: Fix Assistant v2 Document Viewer empty - paragraphs/page_map/headings now returned from core.py (BUG-006)",
+        "FIX: Remaining deprecated datetime.utcnow() calls in config_logging.py (BUG-M01)"
+      ]
+    },
+    {
+      "version": "3.0.105",
+      "date": "2026-01-28",
+      "changes": [
+        "FIX: Report generator API signature mismatch - generate() now returns bytes when output_path not provided (BUG-001)",
+        "FIX: Learner stats endpoint now uses standard {success, data} response envelope (BUG-002)",
+        "FIX: Acronym checker mode handling - strict mode now properly flags common acronyms (BUG-003)",
+        "FIX: Role classification tiebreak - 'Report Engineer' now correctly classified as role (BUG-004)",
+        "FIX: Comment pack now includes location hints from hyperlink_info (BUG-005)",
+        "MAINT: Updated deprecated datetime.utcnow() calls to datetime.now(timezone.utc) (WARN-001)"
+      ]
+    },
+    {
+      "version": "3.0.104",
+      "date": "2026-01-28",
+      "changes": [
+        "FIX: Fix Assistant v2 load failure - BodyText style conflict resolved",
+        "FIX: Logger reserved keyword conflict in static file security",
+        "TEST: Updated test expectations for static file security responses",
+        "TEST: Fixed CSS test locations for modularized stylesheets"
+      ]
+    },
+    {
+      "version": "3.0.103",
+      "date": "2026-01-28",
+      "changes": [
+        "SECURITY: innerHTML safety audit - all 143 usages documented and verified (Task A)",
+        "REFACTOR: CSS modularized into 10 logical files for maintainability (Task B)",
+        "QUALITY: Test suite modernized with docstrings and FAV2 API tests (Task C)",
+        "QUALITY: Exception handling refined with specific catches (Task D)",
+        "DOCS: Added comprehensive code comments throughout JavaScript",
+        "TESTS: Added TestFixAssistantV2API, TestBatchLimits, TestSessionCleanup classes"
+      ]
+    },
+    {
+      "version": "3.0.102",
+      "date": "2026-01-28",
+      "changes": [
+        "STABILIZATION: Intermediate release between 3.0.101 and 3.0.103",
+        "FIX: Minor adjustments to error handling patterns"
+      ]
+    },
+    {
+      "version": "3.0.101",
+      "date": "2026-01-28",
+      "changes": [
+        "REFACTOR: Standardized API error responses with correlation IDs (ISSUE-004)",
+        "REFACTOR: Centralized document type detection into get_document_extractor() helper (ISSUE-008)",
+        "REFACTOR: Centralized user-facing strings into STRINGS constant (ISSUE-009)",
+        "DOCS: Added comprehensive JSDoc comments to feature modules (ISSUE-010)",
+        "CODE REVIEW: Completed remaining 4 of 12 issues from comprehensive code review audit"
+      ]
+    },
+    {
+      "version": "3.0.100",
+      "date": "2026-01-28",
+      "changes": [
+        "SECURITY: Added ReDoS protection with safe regex wrappers (ISSUE-001)",
+        "PERFORMANCE: Enabled WAL mode for SQLite with busy_timeout for concurrent access (ISSUE-002)",
+        "PERFORMANCE: Added file size validation for large document protection (ISSUE-003)",
+        "SECURITY: Enhanced input validation on learner dictionary API (ISSUE-005)",
+        "FIX: State.entities now properly reset on new document load (ISSUE-006)",
+        "FIX: Added cleanup() function to FixAssistantState to prevent memory leaks (ISSUE-007)",
+        "CODE REVIEW: Addressed 7 of 12 issues from comprehensive code review audit"
+      ]
+    },
+    {
+      "version": "3.0.99",
+      "date": "2026-01-28",
+      "changes": [
+        "STABILIZATION: Intermediate release between 3.0.98 and 3.0.100",
+        "FIX: Minor bug fixes from 3.0.98 testing"
+      ]
+    },
+    {
+      "version": "3.0.98",
+      "date": "2026-01-28",
+      "changes": [
+        "FIX: Export modal crash (BUG-002)",
+        "FIX: Context highlighting showing wrong text (BUG-003)",
+        "FIX: Restored hyperlink status panel (BUG-004)",
+        "FIX: Restored Role-Document matrix tab (BUG-009)",
+        "FIX: Double browser tab on startup (BUG-001)",
+        "FIX: Version history gaps in Help (BUG-005)",
+        "IMPROVED: Role Details tab with context preview (BUG-007)",
+        "IMPROVED: Document filter dropdown in Role Studio (BUG-008)",
+        "IMPROVED: Comprehensive TWR_LESSONS_LEARNED.md updates (BUG-006)"
+      ]
+    },
+    {
+      "version": "3.0.97",
+      "date": "2026-01-28",
+      "changes": [
+        "NEW: Fix Assistant v2 - Complete premium document review interface",
+        "NEW: Two-panel document viewer with page navigation and highlighting",
+        "NEW: Mini-map showing document overview with fix position markers",
+        "NEW: Undo/redo capability for all review decisions",
+        "NEW: Search and filter fixes by text, category, or confidence",
+        "NEW: Save progress and continue later (localStorage persistence)",
+        "NEW: Learning from user decisions (pattern tracking, no AI)",
+        "NEW: Custom dictionary for terms to always skip",
+        "NEW: Live preview mode showing changes inline",
+        "NEW: Split-screen view (original vs fixed document)",
+        "NEW: PDF summary report generation",
+        "NEW: Accessibility features (high contrast, screen reader support)",
+        "NEW: Enhanced keyboard shortcuts (A=accept, R=reject, S=skip, U=undo)",
+        "NEW: Optional sound effects for actions (Web Audio API)",
+        "NEW: Rejected fixes exported as document comments with reviewer notes",
+        "IMPROVED: Export now handles both accepted fixes (track changes) and rejected fixes (comments)",
+        "API: Added /api/learner/* endpoints for pattern learning",
+        "API: Added /api/report/generate endpoint for PDF reports"
+      ]
+    },
+    {
+      "version": "3.0.96",
+      "date": "2026-01-27",
+      "changes": [
+        "NEW: Fix Assistant - premium triage-style interface for reviewing automatic fixes",
+        "NEW: Keyboard shortcuts in Fix Assistant (A=accept, R=reject, S=skip, arrows=nav)",
+        "NEW: Confidence tiers (Safe/Review/Caution) for each proposed fix",
+        "NEW: Context display showing surrounding text with highlighted change",
+        "NEW: Before/After comparison with clear visual distinction",
+        "NEW: Bulk actions (Accept All Safe, Accept All, Reject All)",
+        "IMPROVED: Export now uses Fix Assistant selections instead of all fixes",
+        "IMPROVED: Progress tracking shows reviewed/total count",
+        "UI: Premium styling with confidence badges, progress bar, keyboard hints"
+      ]
+    },
+    {
+      "version": "3.0.95",
+      "date": "2026-01-27",
+      "changes": [
+        "FIX: Version display consistency - all UI components now show same version",
+        "FIX: About section simplified - shows only author name",
+        "FIX: Heatmap clicking - Category × Severity heatmap now filters issues on click",
+        "NEW: Hyperlink status panel - visual display of checked hyperlinks and validation status",
+        "IMPROVED: Section heatmap click feedback with toast messages"
+      ]
+    },
+    {
+      "version": "3.0.94",
+      "date": "2026-01-27",
+      "changes": [
+        "STABILIZATION: Intermediate release between 3.0.93 and 3.0.95",
+        "FIX: Refinements to acronym detection logic"
+      ]
+    },
+    {
+      "version": "3.0.93",
+      "date": "2026-01-27",
+      "changes": [
+        "ACRONYM: Added 100+ common ALL CAPS words to COMMON_CAPS_SKIP",
+        "ACRONYM: Added PDF word fragment detection",
+        "TESTING: Reduced false positive acronym flagging by ~55%"
+      ]
+    },
+    {
+      "version": "3.0.92",
+      "date": "2026-01-27",
+      "changes": [
+        "FIXED: PDF punctuation false positives",
+        "FIXED: Acronym false positives",
+        "ADDED: PDF hyperlink extraction via PyMuPDF"
+      ]
+    }
+  ]
+}

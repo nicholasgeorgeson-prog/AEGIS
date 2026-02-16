@@ -1,0 +1,218 @@
+# AEGIS v4.6.2 - Complete Dependencies
+# Aerospace Engineering Governance & Inspection System
+# Generated: 2026-02-04
+# Python 3.10+ required (3.12+ recommended)
+
+# =============================================================================
+# CORE DEPENDENCIES (Required)
+# =============================================================================
+
+# Web Framework
+Flask>=2.0.0,<3.0.0
+
+# Production WSGI Server
+waitress>=2.0.0,<3.0.0
+
+# Document Processing - Word Documents
+python-docx>=0.8.11,<1.0.0
+lxml>=4.9.0,<5.0.0
+
+# mammoth - DOCX to clean HTML conversion (v4.3.0)
+# Replaces regex XML parsing with semantic HTML output
+mammoth>=1.6.0,<2.0.0
+
+# Document Processing - Excel
+openpyxl>=3.0.0,<4.0.0
+
+# =============================================================================
+# PDF EXTRACTION (Multiple backends for maximum compatibility)
+# =============================================================================
+
+# PyMuPDF - Best text extraction with font analysis
+PyMuPDF>=1.22.0,<2.0.0
+
+# pdfplumber - Good general-purpose extraction
+pdfplumber>=0.10.0,<1.0.0
+
+# PyPDF2 - Lightweight fallback
+PyPDF2>=3.0.0,<4.0.0
+
+# Camelot - Superior table extraction (bordered tables)
+# Note: Requires ghostscript on system for some features
+camelot-py[base]>=0.11.0
+
+# Tabula - Alternative table extraction
+tabula-py>=2.9.0
+
+# =============================================================================
+# OCR SUPPORT (For scanned documents)
+# =============================================================================
+
+# Python bindings for Tesseract OCR
+# Note: Requires Tesseract engine installed separately:
+#   Windows: https://github.com/UB-Mannheim/tesseract/wiki
+#   Mac: brew install tesseract
+#   Linux: apt install tesseract-ocr
+pytesseract>=0.3.10
+
+# Convert PDF pages to images for OCR
+# Note: Requires Poppler installed separately:
+#   Windows: https://github.com/osber/poppler-windows/releases
+#   Mac: brew install poppler
+#   Linux: apt install poppler-utils
+pdf2image>=1.16.0
+
+# Image processing
+Pillow>=10.0.0
+
+# =============================================================================
+# NLP ENHANCEMENT (Improved role/entity detection)
+# =============================================================================
+
+# spaCy - Named Entity Recognition, POS tagging
+# After install run: python -m spacy download en_core_web_sm
+spacy>=3.7.0,<4.0.0
+
+# scikit-learn - Text clustering, similarity
+scikit-learn>=1.3.0
+
+# NLTK - Tokenization, stemming (optional extras)
+nltk>=3.8.0
+
+# TextBlob - Sentiment analysis, noun phrases
+textblob>=0.18.0
+
+# Readability metrics
+textstat>=0.7.3
+
+# =============================================================================
+# ENHANCED NLP MODULES (v3.2.4)
+# =============================================================================
+
+# Sentence Transformers - Semantic similarity, duplicate detection
+# Air-gap compatible: models cached locally after first download
+# Recommended model: all-MiniLM-L6-v2 (~80MB, good balance of speed/quality)
+sentence-transformers>=2.2.0
+
+# Abbreviation Extraction - Schwartz-Hearst algorithm
+# For improved acronym detection and definition extraction
+# abbreviation-extraction>=0.1.0  # Uncomment if using external package
+
+# Fuzzy string matching for role/acronym matching
+rapidfuzz>=3.0.0
+
+# =============================================================================
+# GRAMMAR CHECKING
+# =============================================================================
+
+# LanguageTool integration (runs local Java server)
+# Note: Requires Java 8+ installed
+language-tool-python>=2.8.0
+
+# =============================================================================
+# FIX ASSISTANT v2 (PDF Reports)
+# =============================================================================
+
+# ReportLab - PDF generation for review summary reports
+reportlab>=4.0.0
+
+# =============================================================================
+# DOCUMENT COMPARISON (v3.0.110)
+# =============================================================================
+
+# Google's diff-match-patch - Word-level diff algorithm
+# Best accuracy for prose document comparison
+diff-match-patch>=20230430
+
+# =============================================================================
+# INTERACTIVE VISUALIZATIONS (v4.0.0)
+# =============================================================================
+
+# Bokeh - Interactive web visualizations
+# Enables rich data visualizations for metrics, analytics, and reports
+# Used for: heatmaps, network graphs, timeline charts, statistical plots
+bokeh>=3.3.0
+
+# =============================================================================
+# DOCLING - AI-Powered Document Extraction (Optional)
+# =============================================================================
+# IBM's open-source document parser with AI models
+# Provides ~95% accuracy on tables vs ~85% without
+#
+# INSTALLATION: Run setup_docling.bat separately
+# DISK SPACE: ~2.7GB additional (packages + models)
+#
+# Uncomment to include in base install:
+# docling>=2.70.0
+
+# =============================================================================
+# UTILITIES
+# =============================================================================
+
+# Data handling
+pandas>=2.0.0
+numpy>=1.24.0
+
+# HTTP requests (for API features)
+requests>=2.31.0
+
+# Date/time handling
+python-dateutil>=2.8.0
+
+# JSON schema validation
+jsonschema>=4.17.0
+
+# =============================================================================
+# ENHANCED ACCURACY MODULES (v4.1.0) - Non-ML Improvements
+# =============================================================================
+
+# PassivePy - Enhanced passive voice detection using spaCy dependency parsing
+# ~90% accuracy vs ~70% for regex-based detection
+passivepy>=0.2.0
+
+# pymupdf4llm - Structured markdown output from PDFs
+# Better table/header extraction than raw PyMuPDF
+pymupdf4llm>=0.2.0
+
+# py-readability-metrics - Comprehensive readability analysis
+# 10+ formulas: Flesch-Kincaid, SMOG, Gunning Fog, Coleman-Liau, etc.
+py-readability-metrics>=1.4.0
+
+# =============================================================================
+# NEW ANALYSIS MODULES (v3.2.4)
+# =============================================================================
+# These modules provide enhanced document analysis capabilities:
+#
+# semantic_analyzer.py - Semantic similarity using Sentence-Transformers
+#   - find_similar(): Find semantically similar sentences
+#   - find_duplicates(): Detect duplicate/near-duplicate content
+#   - cluster_sentences(): Group related content
+#   - compute_document_similarity(): Compare document sections
+#
+# acronym_extractor.py - Enhanced acronym extraction
+#   - Schwartz-Hearst algorithm implementation
+#   - 100+ standard aerospace/defense acronyms
+#   - Consistency checking across document
+#   - Undefined acronym detection
+#
+# prose_linter.py - Technical writing style enforcement
+#   - Vale-style rules for government/aerospace writing
+#   - Passive voice detection
+#   - Nominalization detection
+#   - Wordy phrase identification
+#   - Government jargon flagging
+#
+# structure_analyzer.py - Document structure analysis
+#   - Heading hierarchy extraction
+#   - Cross-reference validation
+#   - TOC verification
+#   - Figure/table tracking
+#
+# text_statistics.py - Comprehensive text metrics
+#   - Readability scores (Flesch, Gunning Fog, SMOG, etc.)
+#   - Vocabulary richness (TTR, Hapax Legomena, Yule's K)
+#   - Keyword extraction (TF-IDF, frequency, noun phrases)
+#   - N-gram analysis
+#   - Technical writing metrics
+#
+# All modules are air-gap compatible (no external API calls required)

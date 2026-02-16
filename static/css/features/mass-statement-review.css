@@ -1,0 +1,681 @@
+/**
+ * AEGIS - Mass Statement Review Styles
+ * v4.9.6 - Particle-style overlay matching AEGIS design language
+ */
+
+/* ============================================================
+   OVERLAY & MODAL - Matches AEGIS glassmorphism design
+   ============================================================ */
+
+.msr-overlay {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at 30% 20%, rgba(15, 25, 45, 0.85), rgba(5, 8, 18, 0.88));
+    z-index: 50000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.msr-overlay.msr-visible {
+    display: flex;
+    opacity: 1;
+}
+
+/* Particle-like animated dots in the overlay background */
+.msr-overlay::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        radial-gradient(2px 2px at 10% 15%, rgba(214, 168, 74, 0.3), transparent),
+        radial-gradient(2px 2px at 25% 40%, rgba(214, 168, 74, 0.2), transparent),
+        radial-gradient(1px 1px at 45% 20%, rgba(214, 168, 74, 0.25), transparent),
+        radial-gradient(2px 2px at 60% 65%, rgba(214, 168, 74, 0.15), transparent),
+        radial-gradient(1px 1px at 75% 35%, rgba(214, 168, 74, 0.3), transparent),
+        radial-gradient(2px 2px at 85% 80%, rgba(214, 168, 74, 0.2), transparent),
+        radial-gradient(1px 1px at 15% 70%, rgba(214, 168, 74, 0.15), transparent),
+        radial-gradient(2px 2px at 50% 90%, rgba(214, 168, 74, 0.25), transparent),
+        radial-gradient(1px 1px at 90% 10%, rgba(214, 168, 74, 0.2), transparent),
+        radial-gradient(2px 2px at 35% 55%, rgba(74, 144, 217, 0.15), transparent),
+        radial-gradient(1px 1px at 70% 45%, rgba(74, 144, 217, 0.12), transparent),
+        radial-gradient(2px 2px at 20% 85%, rgba(74, 144, 217, 0.1), transparent);
+    pointer-events: none;
+    animation: msr-particle-drift 20s linear infinite;
+}
+
+@keyframes msr-particle-drift {
+    0% { transform: translate(0, 0); }
+    25% { transform: translate(5px, -8px); }
+    50% { transform: translate(-3px, 5px); }
+    75% { transform: translate(8px, 3px); }
+    100% { transform: translate(0, 0); }
+}
+
+.msr-modal {
+    position: relative;
+    width: 95vw;
+    max-width: 1600px;
+    height: 90vh;
+    background: rgba(18, 22, 35, 0.97);
+    border-radius: 14px;
+    border: 1px solid rgba(214, 168, 74, 0.15);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow:
+        0 25px 80px rgba(0, 0, 0, 0.6),
+        0 0 60px rgba(214, 168, 74, 0.06),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+
+.msr-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid rgba(214, 168, 74, 0.12);
+    background: linear-gradient(180deg, rgba(214, 168, 74, 0.06) 0%, transparent 100%);
+    flex-shrink: 0;
+}
+
+.msr-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #D6A84A;
+    margin: 0;
+    letter-spacing: 0.5px;
+}
+
+.msr-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.msr-selection-count {
+    font-size: 13px;
+    color: #D6A84A;
+    font-weight: 500;
+    background: rgba(214, 168, 74, 0.12);
+    padding: 3px 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(214, 168, 74, 0.2);
+}
+
+.msr-btn-close {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.msr-btn-close:hover {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+}
+
+/* ============================================================
+   SUMMARY BAR
+   ============================================================ */
+
+.msr-summary-bar {
+    display: flex;
+    gap: 4px;
+    padding: 14px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.015);
+    flex-shrink: 0;
+    overflow-x: auto;
+}
+
+.msr-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 18px;
+    border-radius: 10px;
+    min-width: 75px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    transition: background 0.2s;
+}
+
+.msr-stat:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.msr-stat-num {
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.2;
+}
+
+.msr-stat-label {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.45);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-top: 2px;
+}
+
+.msr-stat-total .msr-stat-num { color: #D6A84A; }
+.msr-stat-reviewed .msr-stat-num { color: #22c55e; }
+.msr-stat-rejected .msr-stat-num { color: #ef4444; }
+.msr-stat-unreviewed .msr-stat-num { color: #f59e0b; }
+.msr-stat-flagged .msr-stat-num { color: #f97316; }
+.msr-stat-flagged { border-color: rgba(249, 115, 22, 0.15); }
+
+/* ============================================================
+   TOOLBAR & FILTERS
+   ============================================================ */
+
+.msr-toolbar {
+    padding: 10px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
+}
+
+.msr-filters {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.msr-filter-input {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    padding: 7px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.msr-filter-input:focus {
+    border-color: #D6A84A;
+    box-shadow: 0 0 0 2px rgba(214, 168, 74, 0.15);
+}
+
+.msr-filter-input::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.msr-search-input { width: 220px; }
+.msr-filter-role, .msr-filter-doc { width: 160px; }
+
+.msr-filter-select {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    padding: 7px 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+}
+
+.msr-filter-select option {
+    background: #1a1f2e;
+    color: #fff;
+}
+
+.msr-filter-check {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(249, 115, 22, 0.2);
+    transition: all 0.2s;
+}
+
+.msr-filter-check:hover {
+    background: rgba(249, 115, 22, 0.08);
+}
+
+.msr-filter-check input {
+    accent-color: #f97316;
+}
+
+/* ============================================================
+   BULK ACTION BAR
+   ============================================================ */
+
+.msr-bulk-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 24px;
+    background: linear-gradient(90deg, rgba(214, 168, 74, 0.08), rgba(74, 144, 217, 0.06));
+    border-bottom: 1px solid rgba(214, 168, 74, 0.15);
+    flex-shrink: 0;
+}
+
+.msr-bulk-label {
+    font-size: 13px;
+    color: #D6A84A;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+
+.msr-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.8);
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.msr-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.msr-btn-sm { padding: 4px 10px; font-size: 12px; }
+
+.msr-btn-icon {
+    padding: 3px 7px;
+    font-size: 14px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    opacity: 0.4;
+    transition: all 0.2s;
+    border-radius: 4px;
+}
+
+.msr-btn-icon:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.msr-btn-save {
+    background: rgba(34, 197, 94, 0.15);
+    border-color: rgba(34, 197, 94, 0.3);
+    color: #22c55e;
+}
+
+.msr-btn-save:hover { background: rgba(34, 197, 94, 0.25); }
+
+.msr-bulk-approve {
+    background: rgba(34, 197, 94, 0.12);
+    border-color: rgba(34, 197, 94, 0.25);
+    color: #4ade80;
+}
+.msr-bulk-approve:hover { background: rgba(34, 197, 94, 0.2); }
+
+.msr-bulk-reject {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.25);
+    color: #f87171;
+}
+.msr-bulk-reject:hover { background: rgba(239, 68, 68, 0.2); }
+
+.msr-bulk-delete {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+}
+.msr-bulk-delete:hover { background: rgba(239, 68, 68, 0.15); }
+
+.msr-btn-refresh {
+    border-color: rgba(214, 168, 74, 0.2);
+    color: #D6A84A;
+}
+.msr-btn-refresh:hover { background: rgba(214, 168, 74, 0.1); }
+
+/* ============================================================
+   TABLE
+   ============================================================ */
+
+.msr-table-wrapper {
+    flex: 1;
+    overflow: auto;
+    padding: 0;
+}
+
+.msr-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.msr-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: rgba(18, 22, 35, 0.98);
+    backdrop-filter: blur(8px);
+}
+
+.msr-table th {
+    padding: 10px 12px;
+    text-align: left;
+    color: rgba(214, 168, 74, 0.7);
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 2px solid rgba(214, 168, 74, 0.1);
+    white-space: nowrap;
+    user-select: none;
+}
+
+.msr-sortable { cursor: pointer; }
+.msr-sortable:hover { color: #D6A84A; }
+.msr-sorted { color: #D6A84A !important; }
+
+.msr-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.8);
+    vertical-align: top;
+}
+
+.msr-row {
+    transition: background 0.15s;
+}
+
+.msr-row:hover {
+    background: rgba(214, 168, 74, 0.04);
+}
+
+.msr-row-selected {
+    background: rgba(74, 144, 217, 0.1) !important;
+    border-left: 2px solid #4A90D9;
+}
+
+.msr-row-flagged .msr-col-statement {
+    border-left: 3px solid rgba(249, 115, 22, 0.6);
+    padding-left: 14px;
+}
+
+/* Column widths */
+.msr-col-check { width: 36px; text-align: center; }
+.msr-col-role { width: 180px; }
+.msr-col-statement { min-width: 300px; }
+.msr-col-doc { width: 180px; }
+.msr-col-action { width: 80px; }
+.msr-col-status { width: 100px; }
+.msr-col-actions { width: 70px; white-space: nowrap; }
+
+.msr-role-name {
+    font-weight: 500;
+    color: #D6A84A;
+    cursor: pointer;
+}
+
+.msr-role-name:hover {
+    text-decoration: underline;
+}
+
+.msr-role-cat {
+    display: block;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.35);
+    margin-top: 2px;
+}
+
+.msr-stmt-text {
+    cursor: pointer;
+    line-height: 1.45;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+/* ============================================================
+   FLAG BADGES - High contrast for dark mode readability
+   ============================================================ */
+
+.msr-flags {
+    margin-top: 5px;
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.msr-flag {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    letter-spacing: 0.2px;
+}
+
+/* Override inline styles from JS with !important for readability */
+.msr-flag[style*="background:#f59e0b"],
+.msr-flag[style*="background: #f59e0b"] {
+    background: rgba(245, 158, 11, 0.2) !important;
+    color: #fbbf24 !important;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.msr-flag[style*="background:#ef4444"],
+.msr-flag[style*="background: #ef4444"] {
+    background: rgba(239, 68, 68, 0.2) !important;
+    color: #fca5a5 !important;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.msr-flag[style*="background:#f97316"],
+.msr-flag[style*="background: #f97316"] {
+    background: rgba(249, 115, 22, 0.2) !important;
+    color: #fdba74 !important;
+    border: 1px solid rgba(249, 115, 22, 0.35);
+}
+
+.msr-flag[style*="background:#8b5cf6"],
+.msr-flag[style*="background: #8b5cf6"] {
+    background: rgba(139, 92, 246, 0.2) !important;
+    color: #c4b5fd !important;
+    border: 1px solid rgba(139, 92, 246, 0.35);
+}
+
+.msr-checkbox {
+    accent-color: #D6A84A;
+    cursor: pointer;
+}
+
+/* ============================================================
+   STATUS BADGES
+   ============================================================ */
+
+.msr-status-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid transparent;
+}
+
+.msr-status-reviewed {
+    background: rgba(34, 197, 94, 0.12);
+    color: #4ade80;
+    border-color: rgba(34, 197, 94, 0.25);
+}
+
+.msr-status-rejected {
+    background: rgba(239, 68, 68, 0.12);
+    color: #fca5a5;
+    border-color: rgba(239, 68, 68, 0.25);
+}
+
+.msr-status-pending {
+    background: rgba(245, 158, 11, 0.12);
+    color: #fbbf24;
+    border-color: rgba(245, 158, 11, 0.25);
+}
+
+.msr-status-unreviewed {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.4);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ============================================================
+   INLINE EDITING
+   ============================================================ */
+
+.msr-edit-textarea {
+    width: 100%;
+    min-height: 60px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid #D6A84A;
+    color: #fff;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    resize: vertical;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(214, 168, 74, 0.15);
+}
+
+.msr-edit-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+/* ============================================================
+   EMPTY / LOADING / ERROR STATES
+   ============================================================ */
+
+.msr-empty, .msr-loading {
+    text-align: center;
+    padding: 60px 20px !important;
+    color: rgba(255, 255, 255, 0.4);
+    font-style: italic;
+    font-size: 14px;
+}
+
+.msr-error {
+    text-align: center;
+    padding: 60px 20px !important;
+    color: #fca5a5;
+    font-style: italic;
+}
+
+.msr-truncation-notice {
+    text-align: center;
+    padding: 12px !important;
+    color: #D6A84A;
+    font-style: italic;
+    font-size: 12px;
+    background: rgba(214, 168, 74, 0.05);
+}
+
+/* ============================================================
+   SCROLLBAR STYLING
+   ============================================================ */
+
+.msr-table-wrapper::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.msr-table-wrapper::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.msr-table-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(214, 168, 74, 0.2);
+    border-radius: 4px;
+}
+
+.msr-table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: rgba(214, 168, 74, 0.35);
+}
+
+/* ============================================================
+   LIGHT MODE
+   ============================================================ */
+
+.msr-light.msr-overlay {
+    background: radial-gradient(ellipse at 30% 20%, rgba(240, 244, 250, 0.95), rgba(225, 230, 240, 0.98));
+}
+
+.msr-light.msr-overlay::before {
+    background-image:
+        radial-gradient(2px 2px at 10% 15%, rgba(180, 140, 40, 0.15), transparent),
+        radial-gradient(2px 2px at 25% 40%, rgba(180, 140, 40, 0.1), transparent),
+        radial-gradient(1px 1px at 45% 20%, rgba(180, 140, 40, 0.12), transparent),
+        radial-gradient(2px 2px at 60% 65%, rgba(180, 140, 40, 0.08), transparent),
+        radial-gradient(1px 1px at 75% 35%, rgba(180, 140, 40, 0.15), transparent);
+}
+
+.msr-light .msr-modal {
+    background: rgba(255, 255, 255, 0.97);
+    border-color: rgba(0, 0, 0, 0.1);
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.15);
+}
+
+.msr-light .msr-header {
+    border-color: rgba(0, 0, 0, 0.08);
+    background: linear-gradient(180deg, rgba(214, 168, 74, 0.06), transparent);
+}
+
+.msr-light .msr-title { color: #92710a; }
+.msr-light .msr-btn-close { color: rgba(0, 0, 0, 0.4); border-color: rgba(0, 0, 0, 0.1); }
+.msr-light .msr-btn-close:hover { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+.msr-light .msr-summary-bar { background: #f8f9fa; border-color: rgba(0, 0, 0, 0.06); }
+.msr-light .msr-stat { background: rgba(0, 0, 0, 0.02); border-color: rgba(0, 0, 0, 0.05); }
+.msr-light .msr-stat-num { color: #1a1a2e; }
+.msr-light .msr-stat-label { color: rgba(0, 0, 0, 0.45); }
+
+.msr-light .msr-toolbar { border-color: rgba(0, 0, 0, 0.06); }
+.msr-light .msr-filter-input,
+.msr-light .msr-filter-select {
+    background: #f1f3f5; border-color: rgba(0, 0, 0, 0.1); color: #1a1a2e;
+}
+.msr-light .msr-filter-input::placeholder { color: rgba(0, 0, 0, 0.35); }
+.msr-light .msr-filter-select option { background: #fff; color: #1a1a2e; }
+.msr-light .msr-filter-check { color: #555; border-color: rgba(249, 115, 22, 0.15); }
+
+.msr-light .msr-btn { background: rgba(0, 0, 0, 0.04); border-color: rgba(0, 0, 0, 0.1); color: #333; }
+.msr-light .msr-btn:hover { background: rgba(0, 0, 0, 0.08); }
+
+.msr-light .msr-table thead { background: rgba(248, 249, 250, 0.98); }
+.msr-light .msr-table th { color: #92710a; border-color: rgba(214, 168, 74, 0.15); }
+.msr-light .msr-table td { color: #333; border-color: rgba(0, 0, 0, 0.05); }
+.msr-light .msr-row:hover { background: rgba(214, 168, 74, 0.04); }
+.msr-light .msr-row-selected { background: rgba(74, 144, 217, 0.08) !important; }
+.msr-light .msr-role-name { color: #92710a; }
+.msr-light .msr-role-cat { color: rgba(0, 0, 0, 0.4); }
+.msr-light .msr-status-unreviewed { background: rgba(0, 0, 0, 0.04); color: rgba(0, 0, 0, 0.4); }
+.msr-light .msr-edit-textarea { background: #f8f9fa; border-color: #D6A84A; color: #1a1a2e; }
+.msr-light .msr-empty, .msr-light .msr-loading { color: rgba(0, 0, 0, 0.4); }
+.msr-light .msr-checkbox { accent-color: #92710a; }

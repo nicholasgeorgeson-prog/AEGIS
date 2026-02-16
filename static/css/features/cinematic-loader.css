@@ -1,0 +1,553 @@
+/* =============================================================================
+   AEGIS Cinematic Loader v2.4
+   =============================================================================
+   Rive-inspired: molten orange glow, white-hot leading edge, intense bloom
+*/
+
+:root{
+  --navy-0:#040812;
+  --navy-deep:#020406;
+  --blue:#33B8FF;
+  --gold:#D6A84A;
+  --bronze:#B8743A;
+  --orange:#FF8C42;
+  --cyan:#00FFFF;
+
+  /* Rive-inspired molten palette */
+  --molten-white:#FFFAF0;
+  --molten-yellow:#FFE066;
+  --molten-orange:#FF9F40;
+  --molten-amber:#FF7B25;
+  --molten-deep:#E65C00;
+
+  --text:rgba(210,235,255,.90);
+  --muted:rgba(210,235,255,.70);
+  --panel:rgba(5,10,22,.50);
+  --stroke:rgba(120,170,255,.22);
+  --shadow:rgba(0,0,0,.70);
+}
+
+/* =============================================================================
+   MAIN CONTAINER + ATMOSPHERE OVERLAY
+   ============================================================================= */
+
+.aegis-loader{
+  position:fixed; inset:0;
+  background: var(--navy-deep);
+  overflow:hidden;
+  display:grid;
+  place-items:center;
+  opacity:1;
+  z-index:99999;
+}
+
+/* Darken overlay - lightened to preserve midtones */
+.aegis-loader::before{
+  content:"";
+  position:absolute; inset:0;
+  background:
+    radial-gradient(1200px 700px at 30% 30%, rgba(51,184,255,.08), transparent 60%),
+    radial-gradient(900px 600px at 75% 40%, rgba(214,168,74,.06), transparent 55%),
+    rgba(0,0,0,.22); /* reduced from .35 */
+  z-index:1;
+  pointer-events:none;
+}
+
+/* =============================================================================
+   BACKGROUND CANVAS (particles, circuit traces, nebula)
+   - Less aggressive blur/dim to avoid fogged lens look
+   ============================================================================= */
+
+.aegis-bg{
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  display:block;
+  z-index:0;
+  /* balanced atmosphere - not too foggy */
+  filter: blur(1.1px) brightness(0.70) contrast(0.88) saturate(0.82);
+  opacity: 0.70;
+  transform: scale(1.02); /* hides blur edges */
+}
+
+/* =============================================================================
+   CENTER PANEL (glass card) - ensure no parent filter affects it
+   ============================================================================= */
+
+.aegis-center{
+  position:relative;
+  z-index:3;
+  width:min(920px, 94vw);
+  padding:28px 28px 22px;
+  border-radius:20px;
+  background: var(--panel);
+  backdrop-filter: blur(16px);
+  border:1px solid var(--stroke);
+  box-shadow:
+    0 30px 80px var(--shadow),
+    0 0 0 1px rgba(255,255,255,.06) inset,
+    0 0 140px rgba(51,184,255,.10);
+  text-align:center;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  filter: none !important; /* safety: prevent parent filter blur */
+}
+
+/* =============================================================================
+   TITLE & SUBTITLE
+   ============================================================================= */
+
+.aegis-title{
+  letter-spacing:.4em;
+  font-weight:900;
+  font-size:22px;
+  color: var(--text);
+  text-shadow:
+    0 0 24px rgba(51,184,255,.40),
+    0 0 48px rgba(214,168,74,.20),
+    0 2px 4px rgba(0,0,0,.5);
+}
+
+.aegis-sub{
+  margin-top:12px;
+  font-size:13px;
+  opacity:.80;
+  color: var(--muted);
+  letter-spacing:.05em;
+}
+
+/* =============================================================================
+   HERO AREA (contains bar + glow backdrop)
+   ============================================================================= */
+
+.aegis-hero{
+  margin-top:20px;
+  position:relative;
+  height:160px; /* Slightly taller to accommodate reflection */
+  border-radius:18px;
+  overflow:visible; /* Allow bloom to spill out */
+  /* Darker background to let the molten glow pop */
+  background:
+    radial-gradient(1200px 350px at 50% 40%, rgba(255,159,64,.05), transparent 50%),
+    radial-gradient(800px 250px at 70% 45%, rgba(255,123,37,.04), transparent 55%),
+    radial-gradient(600px 200px at 30% 50%, rgba(51,184,255,.03), transparent 60%),
+    rgba(4,8,18,.55);
+  border:1px solid rgba(255,159,64,.08);
+}
+
+/* =============================================================================
+   CINEMATIC PROGRESS BAR (28px thick with punch-through bloom)
+   ============================================================================= */
+
+.aegis-bar{
+  position:absolute;
+  left:7%; right:7%;
+  top:50%;
+  transform: translateY(-50%) translateZ(0);
+  height:28px;
+  border-radius:999px;
+  overflow:visible; /* Allow bloom spill */
+}
+
+/* Rail (background track) */
+.aegis-bar .rail{
+  position:absolute; inset:0;
+  background: rgba(140,190,255,.05);
+  border: 1px solid rgba(120,170,255,.12);
+  border-radius:999px;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,.40);
+}
+
+/* Fill (progress) - Rive-inspired molten gradient with intense orange bloom */
+.aegis-bar .fill{
+  position:absolute;
+  left:0; top:0; bottom:0;
+  width:0%;
+  border-radius:999px;
+  overflow:visible;
+  /* Molten gradient: deep orange to bright amber to white-hot at edge */
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.35), rgba(255,255,255,0) 50%),
+    linear-gradient(90deg,
+      rgba(180,80,20,.70) 0%,
+      rgba(230,92,0,.90) 15%,
+      rgba(255,123,37,.95) 35%,
+      rgba(255,159,64,.98) 55%,
+      rgba(255,224,102,.98) 75%,
+      rgba(255,250,240,.99) 92%,
+      rgba(255,255,255,1) 100%
+    );
+  /* Intense orange/amber bloom to match Rive's molten glow */
+  box-shadow:
+    0 0 20px rgba(255,159,64,.70),
+    0 0 45px rgba(255,123,37,.55),
+    0 0 80px rgba(230,92,0,.40),
+    0 0 120px rgba(255,140,66,.25),
+    inset 0 1px 3px rgba(255,255,255,.50);
+  /* Let GSAP handle interpolation - no CSS transition */
+  transition: none;
+  animation: fill-breathe 2.5s ease-in-out infinite;
+}
+
+@keyframes fill-breathe{
+  0%, 100%{ filter: brightness(1) saturate(1.05); }
+  50%{ filter: brightness(1.15) saturate(1.15); }
+}
+
+/* BLOOM LAYER 1 = large diffuse orange glow (Rive-style) */
+.aegis-bar .fill::before{
+  content:"";
+  position:absolute;
+  inset:-70px -90px;
+  background: radial-gradient(ellipse 100% 180% at 95% 50%,
+    rgba(255,200,100,.50) 0%,
+    rgba(255,159,64,.40) 25%,
+    rgba(255,123,37,.25) 50%,
+    rgba(230,92,0,.12) 75%,
+    transparent 100%
+  );
+  filter: blur(40px) brightness(1.4);
+  opacity:.50;
+  pointer-events:none;
+  border-radius:999px;
+}
+
+/* BLOOM LAYER 2 = concentrated core glow */
+.aegis-bar .fill::after{
+  content:"";
+  position:absolute;
+  inset:-28px -40px;
+  background: inherit;
+  filter: blur(18px) brightness(1.35);
+  opacity:.55;
+  pointer-events:none;
+  border-radius:999px;
+}
+
+/* SHEEN sweep animation - CSS fallback (GSAP handles primary) */
+.aegis-bar .sheen{
+  position:absolute;
+  top:-80px; bottom:-80px;
+  width:180px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.30), transparent);
+  transform: skewX(-18deg);
+  mix-blend-mode: screen;
+  opacity:.55;
+  pointer-events:none;
+  filter: blur(.2px);
+  animation: sheen-sweep 1.35s ease-in-out infinite;
+}
+
+@keyframes sheen-sweep{
+  0%{ left:-25%; opacity:.35; }
+  40%{ opacity:.65; }
+  100%{ left:110%; opacity:.35; }
+}
+
+/* Micro sparkle texture */
+.aegis-bar .sparkgrid{
+  position:absolute; inset:0;
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,.10) 0 1px, transparent 1px 14px),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.06) 0 1px, transparent 1px 12px);
+  mix-blend-mode: overlay;
+  opacity:.08;
+  filter: blur(.2px);
+  border-radius:999px;
+}
+
+/* =============================================================================
+   ORB (glowing sphere at progress edge) - filmic flicker, softer bloom
+   ============================================================================= */
+
+.aegis-bar .orb{
+  position:absolute;
+  top:50%;
+  left:0;
+  width:40px;
+  height:40px;
+  border-radius:999px;
+  transform: translate(-50%,-50%);
+  /* White-hot molten core with orange/amber outer glow - Rive-style intense */
+  background: radial-gradient(circle at 45% 45%,
+    rgba(255,255,255,1) 0%,
+    rgba(255,255,255,1) 20%,
+    rgba(255,252,240,.98) 30%,
+    rgba(255,230,150,.92) 45%,
+    rgba(255,180,80,.80) 60%,
+    rgba(255,130,50,.55) 75%,
+    rgba(220,90,20,.30) 88%,
+    transparent 100%
+  );
+  /* Even more intense molten glow - white-hot center */
+  box-shadow:
+    0 0 12px rgba(255,255,255,.95),
+    0 0 28px rgba(255,240,200,.85),
+    0 0 50px rgba(255,200,100,.65),
+    0 0 85px rgba(255,150,60,.50),
+    0 0 130px rgba(255,100,40,.35),
+    0 0 180px rgba(220,80,20,.20);
+  z-index:10;
+  /* Slower, filmic flicker (not electric bug) */
+  animation: orb-flicker 0.55s ease-in-out infinite alternate;
+}
+
+/* Filmic flicker keyframes */
+@keyframes orb-flicker{
+  0%{ opacity: 0.92; transform: translate(-50%,-50%) scale(1); }
+  100%{ opacity: 1; transform: translate(-50%,-50%) scale(1.02); }
+}
+
+/* Orb inner glow pulse - white-hot core */
+.aegis-bar .orb::before{
+  content:"";
+  position:absolute;
+  inset:3px;
+  border-radius:999px;
+  background: radial-gradient(circle,
+    rgba(255,255,255,1) 0%,
+    rgba(255,255,255,.85) 30%,
+    rgba(255,250,230,.50) 55%,
+    transparent 70%
+  );
+  animation: orb-pulse 1.8s ease-in-out infinite;
+}
+
+/* Orb outer bloom - intense orange/amber halo */
+.aegis-bar .orb::after{
+  content:"";
+  position:absolute;
+  inset:-55px;
+  border-radius:999px;
+  background: radial-gradient(circle,
+    rgba(255,224,102,.45) 0%,
+    rgba(255,159,64,.35) 20%,
+    rgba(255,123,37,.25) 40%,
+    rgba(230,92,0,.12) 60%,
+    transparent 80%
+  );
+  pointer-events:none;
+  filter: blur(4px);
+  opacity:.70;
+  animation: orb-bloom 2.6s ease-in-out infinite;
+}
+
+@keyframes orb-pulse{
+  0%, 100%{ opacity:.85; transform:scale(1); }
+  50%{ opacity:1; transform:scale(1.12); }
+}
+
+@keyframes orb-bloom{
+  0%, 100%{ opacity:.50; transform:scale(1); }
+  50%{ opacity:.70; transform:scale(1.15); }
+}
+
+/* =============================================================================
+   TRAIL (glowing tail behind orb)
+   ============================================================================= */
+
+.aegis-bar .trail{
+  position:absolute;
+  top:50%;
+  left:0;
+  width:200px;
+  height:20px;
+  border-radius:999px;
+  transform: translateY(-50%);
+  /* Molten orange trail fading from deep to bright */
+  background: linear-gradient(90deg,
+    rgba(180,80,20,0) 0%,
+    rgba(230,92,0,.25) 15%,
+    rgba(255,123,37,.40) 35%,
+    rgba(255,159,64,.55) 55%,
+    rgba(255,224,102,.70) 80%,
+    rgba(255,250,240,.85) 95%,
+    rgba(255,255,255,.75) 100%
+  );
+  filter: blur(2.5px);
+  opacity:.75;
+  pointer-events:none;
+  z-index:5;
+}
+
+/* Trail inner bright core - white-hot */
+.aegis-bar .trail::after{
+  content:"";
+  position:absolute;
+  top:50%;
+  right:0;
+  width:50%;
+  height:8px;
+  transform:translateY(-50%);
+  border-radius:999px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(255,250,230,.45) 30%,
+    rgba(255,255,255,.80) 100%
+  );
+  filter: blur(1px);
+}
+
+/* =============================================================================
+   REFLECTION GLOW (Rive-inspired glow below bar)
+   ============================================================================= */
+
+.aegis-bar .reflection{
+  position:absolute;
+  left:5%; right:5%;
+  top:100%;
+  margin-top:8px;
+  height:60px;
+  border-radius:999px;
+  pointer-events:none;
+  /* More intense orange reflection/glow below the bar - Rive-style */
+  background: radial-gradient(ellipse 90% 120% at 50% 0%,
+    rgba(255,180,80,.35) 0%,
+    rgba(255,140,50,.25) 25%,
+    rgba(255,100,30,.15) 50%,
+    rgba(200,70,20,.08) 75%,
+    transparent 100%
+  );
+  filter: blur(14px);
+  opacity:.75;
+  z-index:0;
+}
+
+/* Reflection bright spot that follows progress - more intense */
+.aegis-bar .reflection-spot{
+  position:absolute;
+  top:100%;
+  margin-top:4px;
+  left:0;
+  width:160px;
+  height:55px;
+  border-radius:999px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse 100% 100% at 50% 0%,
+    rgba(255,240,200,.55) 0%,
+    rgba(255,200,100,.40) 25%,
+    rgba(255,150,60,.25) 50%,
+    transparent 100%
+  );
+  filter: blur(12px);
+  pointer-events:none;
+  z-index:1;
+}
+
+/* =============================================================================
+   META INFO (status + percentage)
+   ============================================================================= */
+
+.aegis-meta{
+  margin-top:16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  font-size:12px;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color: rgba(210,235,255,.75);
+}
+
+.aegis-pct{
+  font-variant-numeric: tabular-nums;
+  font-weight:600;
+  font-size:14px;
+  color: rgba(210,235,255,.92);
+  text-shadow:
+    0 0 18px rgba(51,184,255,.30),
+    0 0 36px rgba(255,140,66,.15);
+}
+
+.aegis-status{
+  opacity:.85;
+  font-weight:500;
+}
+
+/* =============================================================================
+   LENS TREATMENT (balanced vignette + subtle grain)
+   ============================================================================= */
+
+/* Vignette - reduced strength to keep center bright */
+.aegis-vignette{
+  position:absolute; inset:0;
+  pointer-events:none;
+  z-index:9;
+  background:
+    radial-gradient(closest-side at 50% 45%, transparent 60%, rgba(0,0,0,.62) 100%),
+    linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.38));
+}
+
+/* Film grain overlay - subtle, not hazing */
+.aegis-grain{
+  position:absolute;
+  inset:-20%;
+  pointer-events:none;
+  z-index:10;
+  opacity:.10; /* reduced from .15 */
+  filter: blur(.35px);
+  mix-blend-mode: overlay;
+  /* film grain pattern */
+  background:
+    repeating-linear-gradient(0deg,
+      rgba(255,255,255,.03),
+      rgba(255,255,255,.03) 1px,
+      transparent 1px,
+      transparent 3px);
+  animation: aegis-grain 1.2s steps(6) infinite;
+}
+
+@keyframes aegis-grain{
+  0%{ transform: translate(0,0); }
+  100%{ transform: translate(-6%, 4%); }
+}
+
+/* =============================================================================
+   SCAN LINE (subtle retro effect)
+   ============================================================================= */
+
+.aegis-scanline{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    rgba(0,0,0,.05) 2px,
+    rgba(0,0,0,.05) 4px
+  );
+  z-index:8;
+  opacity:.30;
+}
+
+/* =============================================================================
+   ACCESSIBILITY
+   ============================================================================= */
+
+@media (prefers-reduced-motion: reduce){
+  .aegis-grain{ animation:none !important; }
+  .aegis-bar .fill{ animation:none !important; }
+  .aegis-bar .orb{ animation:none !important; }
+  .aegis-bar .orb::before,
+  .aegis-bar .orb::after{ animation:none !important; }
+  .aegis-bar .sheen{ display:none; }
+}
+
+/* =============================================================================
+   COMPLETION STATE
+   ============================================================================= */
+
+.aegis-loader.complete .aegis-bar .fill{
+  filter: brightness(1.40) saturate(1.25);
+  animation: none;
+}
+
+.aegis-loader.complete .aegis-bar .orb{
+  transform: translate(-50%,-50%) scale(1.25);
+  animation: none;
+  box-shadow:
+    0 0 25px rgba(255,255,255,.90),
+    0 0 50px rgba(255,224,102,.75),
+    0 0 90px rgba(255,159,64,.55),
+    0 0 150px rgba(255,123,37,.35);
+}

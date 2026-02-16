@@ -1,0 +1,784 @@
+/**
+ * Cinematic Progress Animation Styles
+ * AEGIS v3.1.6
+ *
+ * Supports: Lottie, GSAP, Rive, and Canvas-based cinematic effects
+ */
+
+/* ========================================
+   Container & Layout
+   ======================================== */
+
+.cinematic-batch-progress {
+    background: linear-gradient(135deg, #0a1520 0%, #1e3a5f 50%, #0a1520 100%);
+    border-radius: 16px;
+    padding: 24px;
+    margin-top: 16px;
+    position: relative;
+    overflow: hidden;
+    box-shadow:
+        0 4px 24px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 149, 0, 0.2);
+    color: #fff;
+    color-scheme: dark;
+}
+
+.cinematic-batch-progress::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background:
+        radial-gradient(ellipse at 20% 20%, rgba(255, 149, 0, 0.1) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(0, 255, 136, 0.05) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+/* ========================================
+   Theme Selector
+   ======================================== */
+
+.cinematic-theme-selector {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    display: flex;
+    gap: 4px;
+    z-index: 10;
+}
+
+.cinematic-theme-selector .theme-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease, opacity 0.2s ease, transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cinematic-theme-selector .theme-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+    transform: translateY(-1px);
+}
+
+.cinematic-theme-selector .theme-btn.active {
+    background: rgba(255, 149, 0, 0.2);
+    border-color: rgba(255, 149, 0, 0.5);
+    color: #ff9500;
+    box-shadow: 0 0 10px rgba(255, 149, 0, 0.3);
+}
+
+.cinematic-theme-selector .theme-btn svg,
+.cinematic-theme-selector .theme-btn i {
+    width: 14px;
+    height: 14px;
+}
+
+/* Theme-specific active states */
+.cinematic-theme-selector .theme-btn[data-theme="cosmic"].active {
+    background: rgba(139, 92, 246, 0.2);
+    border-color: rgba(139, 92, 246, 0.5);
+    color: #8b5cf6;
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.3);
+}
+
+.cinematic-theme-selector .theme-btn[data-theme="matrix"].active {
+    background: rgba(0, 255, 0, 0.15);
+    border-color: rgba(0, 255, 0, 0.4);
+    color: #00ff00;
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+}
+
+.cinematic-theme-selector .theme-btn[data-theme="energy"].active {
+    background: rgba(0, 255, 136, 0.15);
+    border-color: rgba(0, 255, 136, 0.4);
+    color: #00ff88;
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+}
+
+.cinematic-theme-selector .theme-btn[data-theme="fire"].active {
+    background: rgba(255, 69, 0, 0.2);
+    border-color: rgba(255, 69, 0, 0.5);
+    color: #ff4500;
+    box-shadow: 0 0 10px rgba(255, 69, 0, 0.3);
+}
+
+/* ========================================
+   Sound Toggle
+   ======================================== */
+
+.cinematic-sound-toggle {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease, opacity 0.2s ease, transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    z-index: 10;
+}
+
+.cinematic-sound-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.cinematic-sound-toggle.enabled {
+    background: rgba(0, 255, 136, 0.15);
+    border-color: rgba(0, 255, 136, 0.4);
+    color: #00ff88;
+}
+
+.cinematic-sound-toggle svg,
+.cinematic-sound-toggle i {
+    width: 16px;
+    height: 16px;
+}
+
+/* ========================================
+   Header Section
+   ======================================== */
+
+.cinematic-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-top: 20px;
+    position: relative;
+    z-index: 5;
+}
+
+.cinematic-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.cinematic-title-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(255, 149, 0, 0.2), rgba(255, 179, 71, 0.1));
+    border: 1px solid rgba(255, 149, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ff9500;
+    animation: iconPulse 2s ease-in-out infinite;
+}
+
+@keyframes iconPulse {
+    0%, 100% {
+        box-shadow: 0 0 10px rgba(255, 149, 0, 0.3);
+        transform: scale(1);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(255, 149, 0, 0.5);
+        transform: scale(1.05);
+    }
+}
+
+.cinematic-title-icon svg,
+.cinematic-title-icon i {
+    width: 20px;
+    height: 20px;
+}
+
+.cinematic-title span {
+    font-size: 16px;
+    font-weight: 600;
+    color: #ffffff;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.cinematic-stats {
+    display: flex;
+    gap: 20px;
+}
+
+.cinematic-stat {
+    text-align: center;
+}
+
+.cinematic-stat-value {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 24px;
+    font-weight: 700;
+    color: #ff9500;
+    line-height: 1;
+    text-shadow: 0 0 10px rgba(255, 149, 0, 0.5);
+}
+
+.cinematic-stat-label {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+}
+
+/* ========================================
+   Cinematic Progress Container (Canvas)
+   ======================================== */
+
+.cinematic-progress-container {
+    width: 100%;
+    height: 100px;
+    margin: 20px 0;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    z-index: 5;
+}
+
+/* Fallback styling when canvas not ready */
+.cinematic-progress-container:empty {
+    background: linear-gradient(90deg, rgba(255, 149, 0, 0.1), rgba(255, 179, 71, 0.05));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cinematic-progress-container:empty::after {
+    content: 'Initializing cinematic effects...';
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 12px;
+}
+
+/* ========================================
+   Time Display Row
+   ======================================== */
+
+.cinematic-time-display {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin: 20px 0;
+    position: relative;
+    z-index: 5;
+}
+
+.cinematic-time-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.cinematic-time-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(255, 149, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ff9500;
+}
+
+.cinematic-time-icon svg,
+.cinematic-time-icon i {
+    width: 16px;
+    height: 16px;
+}
+
+.cinematic-time-label {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.cinematic-time-value {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 18px;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+.cinematic-time-value.estimated {
+    color: #ffb347;
+}
+
+/* ========================================
+   Document Queue
+   ======================================== */
+
+.cinematic-documents {
+    margin-top: 20px;
+    position: relative;
+    z-index: 5;
+}
+
+.cinematic-documents-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+#batch-doc-list {
+    max-height: 200px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 149, 0, 0.3) transparent;
+}
+
+#batch-doc-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+#batch-doc-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#batch-doc-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 149, 0, 0.3);
+    border-radius: 3px;
+}
+
+/* Document row styling */
+.cinematic-doc-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    transition: color 0.3s ease, opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.cinematic-doc-row:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.cinematic-doc-row.processing {
+    border-color: rgba(255, 149, 0, 0.3);
+    background: rgba(255, 149, 0, 0.05);
+}
+
+.cinematic-doc-row.complete {
+    border-color: rgba(0, 255, 136, 0.2);
+}
+
+.cinematic-doc-row .doc-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: rgba(255, 149, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ff9500;
+    flex-shrink: 0;
+}
+
+.cinematic-doc-row.complete .doc-icon {
+    background: rgba(0, 255, 136, 0.1);
+    color: #00ff88;
+}
+
+.cinematic-doc-row .doc-icon svg,
+.cinematic-doc-row .doc-icon i {
+    width: 16px;
+    height: 16px;
+}
+
+.cinematic-doc-row .doc-name {
+    flex: 1;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.8);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cinematic-doc-row .doc-status {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 10px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.cinematic-doc-row .doc-status.queued {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.cinematic-doc-row .doc-status.uploading {
+    background: rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+    animation: statusPulse 1s ease-in-out infinite;
+}
+
+.cinematic-doc-row .doc-status.analyzing {
+    background: rgba(255, 149, 0, 0.2);
+    color: #ff9500;
+    animation: statusPulse 1s ease-in-out infinite;
+}
+
+.cinematic-doc-row .doc-status.done {
+    background: rgba(0, 255, 136, 0.15);
+    color: #00ff88;
+}
+
+.cinematic-doc-row .doc-status.error {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+@keyframes statusPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* ========================================
+   Theme Variations (Background colors)
+   ======================================== */
+
+.cinematic-batch-progress[data-theme="cosmic"] {
+    background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #0f0f23 100%);
+    border-color: rgba(139, 92, 246, 0.2);
+}
+
+.cinematic-batch-progress[data-theme="cosmic"]::before {
+    background:
+        radial-gradient(ellipse at 20% 20%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(6, 182, 212, 0.05) 0%, transparent 50%);
+}
+
+.cinematic-batch-progress[data-theme="matrix"] {
+    background: linear-gradient(135deg, #000000 0%, #001100 50%, #000000 100%);
+    border-color: rgba(0, 255, 0, 0.2);
+}
+
+.cinematic-batch-progress[data-theme="matrix"]::before {
+    background:
+        radial-gradient(ellipse at 50% 50%, rgba(0, 255, 0, 0.05) 0%, transparent 70%);
+}
+
+.cinematic-batch-progress[data-theme="energy"] {
+    background: linear-gradient(135deg, #0a1a10 0%, #0d2818 50%, #0a1a10 100%);
+    border-color: rgba(0, 255, 136, 0.2);
+}
+
+.cinematic-batch-progress[data-theme="fire"] {
+    background: linear-gradient(135deg, #1a0a00 0%, #2a1500 50%, #1a0a00 100%);
+    border-color: rgba(255, 69, 0, 0.2);
+}
+
+/* ========================================
+   Rive Animation Container
+   ======================================== */
+
+.rive-container {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}
+
+.rive-container canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* ========================================
+   Lottie Animation Container
+   ======================================== */
+
+.lottie-container {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.lottie-container svg {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* ========================================
+   Dark Mode Adjustments
+   ======================================== */
+
+.dark-mode .cinematic-batch-progress {
+    /* Already dark themed, minimal changes needed */
+}
+
+/* ========================================
+   Responsive Design
+   ======================================== */
+
+@media (max-width: 600px) {
+    .cinematic-batch-progress {
+        padding: 16px;
+    }
+
+    .cinematic-theme-selector {
+        top: 8px;
+        left: 8px;
+    }
+
+    .cinematic-theme-selector .theme-btn {
+        width: 24px;
+        height: 24px;
+    }
+
+    .cinematic-header {
+        flex-direction: column;
+        gap: 16px;
+        text-align: center;
+    }
+
+    .cinematic-time-display {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .cinematic-time-item {
+        flex: 1;
+        min-width: 100px;
+        justify-content: center;
+    }
+
+    .cinematic-stat-value {
+        font-size: 20px;
+    }
+}
+
+/* ========================================
+   Animation Utilities
+   ======================================== */
+
+.cinematic-fade-in {
+    animation: cinematicFadeIn 0.5s ease-out forwards;
+}
+
+@keyframes cinematicFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.cinematic-glow {
+    animation: cinematicGlow 2s ease-in-out infinite;
+}
+
+@keyframes cinematicGlow {
+    0%, 100% {
+        filter: drop-shadow(0 0 5px currentColor);
+    }
+    50% {
+        filter: drop-shadow(0 0 15px currentColor);
+    }
+}
+
+/* ========================================
+   Circuit-* Aliases (backward compatibility)
+   The JS uses circuit-doc-* classes for document rows
+   ======================================== */
+
+.circuit-doc-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    transition: color 0.3s ease, opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.circuit-doc-row:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.circuit-doc-row.processing,
+.circuit-doc-row.uploading {
+    border-color: rgba(255, 149, 0, 0.3);
+    background: rgba(255, 149, 0, 0.05);
+}
+
+.circuit-doc-row.complete {
+    border-color: rgba(0, 255, 136, 0.2);
+}
+
+.circuit-doc-row.error {
+    border-color: rgba(239, 68, 68, 0.3);
+    background: rgba(239, 68, 68, 0.05);
+}
+
+.circuit-doc-status {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: rgba(255, 149, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ff9500;
+    flex-shrink: 0;
+}
+
+.circuit-doc-row.complete .circuit-doc-status {
+    background: rgba(0, 255, 136, 0.1);
+    color: #00ff88;
+}
+
+.circuit-doc-row.error .circuit-doc-status {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+.circuit-doc-status svg,
+.circuit-doc-status i {
+    width: 16px;
+    height: 16px;
+}
+
+.circuit-doc-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.circuit-doc-name {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.8);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+}
+
+.circuit-doc-meta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 11px;
+}
+
+.circuit-doc-status-text {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.circuit-doc-status-text.queued {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.circuit-doc-status-text.uploading {
+    background: rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+    animation: statusPulse 1s ease-in-out infinite;
+}
+
+.circuit-doc-status-text.processing {
+    background: rgba(255, 149, 0, 0.2);
+    color: #ff9500;
+    animation: statusPulse 1s ease-in-out infinite;
+}
+
+.circuit-doc-status-text.complete {
+    background: rgba(0, 255, 136, 0.15);
+    color: #00ff88;
+}
+
+.circuit-doc-status-text.error {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.circuit-doc-progress {
+    width: 60px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.circuit-doc-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff9500, #ffb347);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+.circuit-doc-row.complete .circuit-doc-progress-fill {
+    background: linear-gradient(90deg, #00ff88, #22c55e);
+}
+
+.circuit-doc-issues {
+    min-width: 70px;
+    text-align: right;
+}
+
+.circuit-issue-badge {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.circuit-issue-badge.high {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.circuit-batch-label {
+    font-size: 9px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: rgba(139, 92, 246, 0.2);
+    color: #a78bfa;
+    margin-left: 6px;
+}

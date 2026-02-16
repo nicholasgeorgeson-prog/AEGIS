@@ -1,0 +1,193 @@
+# AEGIS - Claude Session Notes
+
+## Project Overview
+**AEGIS** (Aerospace Engineering Governance & Inspection System) is a Flask-based document review/QA application for technical writing. Created by Nicholas Georgeson. Runs on localhost:5050 on the user's Mac.
+
+## Architecture
+- **Backend**: Flask (Python 3), SQLite databases
+- **Frontend**: Vanilla JS, CSS, HTML (no framework)
+- **Entry point**: `app.py` → calls `main()` which starts Flask server
+- **Routes**: Modular blueprints in `routes/` package
+- **Static files**: `static/js/`, `static/css/`, `templates/`
+- **Database**: `scan_history.db` (SQLite) - roles, documents, scans, etc.
+
+## Server Management - CRITICAL
+- **The user does NOT manage the server.** Everything is done through Claude sessions.
+- **Flask runs on the user's Mac** at `localhost:5050`. The Cowork VM can edit files (mounted at `/mnt/TechWriterReview`) but CANNOT restart processes on the host Mac.
+- **Static files (JS, CSS, HTML)** are served fresh from disk — changes take effect on browser refresh WITHOUT server restart.
+- **Python file changes REQUIRE a server restart.** The app runs with `debug=False` by default.
+- **Debug mode**: Pass `--debug` flag to `app.py` to enable auto-reload for Python changes: `python3 app.py --debug`
+- **Restart script**: `restart_aegis.sh` exists in the project root — kills port 5050 process and starts fresh.
+- **Project path on Mac**: `~/Desktop/Work_Tools/TechWriterReview`
+- **To restart**: The user must either:
+  1. Double-click `restart_aegis.sh` in Finder
+  2. Or in Terminal: `cd ~/Desktop/Work_Tools/TechWriterReview && lsof -ti :5050 | xargs kill -9 && sleep 2 && python3 app.py --debug`
+  3. Or: Ctrl+C the running server, then `python3 app.py --debug`
+- **Recommendation**: Run with `python3 app.py --debug` during development sessions so Python changes auto-reload.
+
+## Database Schema (scan_history.db)
+- **roles**: `id, role_name, normalized_name, first_seen, document_count, total_mentions, description, is_deliverable, category, role_source`
+  - Does NOT have: `document_id`, `occurrence_count`, `responsibilities`
+- **document_roles** (join table): `id, document_id, role_id, mention_count, responsibilities_json, last_updated`
+- **documents**: `id, filename, filepath, file_hash, first_scan, last_scan, scan_count, word_count, paragraph_count`
+- **function_categories**: 112 rows
+- **role_function_tags**: 1126 rows
+- **document_categories**: 12 rows
+
+## Key Files
+| File | Purpose |
+|------|---------|
+| `app.py` | Flask entry point, middleware, server startup |
+| `routes/data_routes.py` | API routes for roles reports, data endpoints |
+| `routes/roles_routes.py` | Roles API endpoints |
+| `routes/scan_history.py` | Scan history API |
+| `static/js/roles-tabs-fix.js` | Roles Studio tab management (very large file, ~4500 lines) |
+| `static/js/features/landing-page.js` | Dashboard landing page tile click handlers |
+| `static/js/function-tags.js` | Function tags, report generation, tag management |
+| `static/css/features/roles-studio.css` | Roles Studio styling |
+| `config.json` | App configuration |
+
+## CSS Patterns
+- Roles sections use class-based visibility: `.roles-section { display: none !important }` / `.roles-section.active { display: flex !important }`
+- NEVER set inline `style.display` on role sections — it conflicts with `!important` CSS rules. Use `classList.add/remove('active')` and `style.removeProperty('display')`.
+
+## Navigation Patterns
+- **Landing page tiles** (in `landing-page.js`) use their OWN modal-opening code, separate from sidebar nav
+- **Sidebar nav** buttons call the proper override functions (e.g., `showRolesModalOverride()`)
+- When adding new modal-opening logic, ensure BOTH landing page tiles AND sidebar buttons call the same override functions
+
+## Lessons Learned
+
+### 1. Landing Page vs Sidebar Entry Points (Roles Studio Overview Bug)
+**Problem**: Roles Studio Overview tab loaded fine from sidebar but was empty when opened from dashboard tile.
+**Root Cause**: `landing-page.js` called generic `showModal('modal-roles')` which only toggles visibility without loading data. The sidebar called `window.showRolesModal()` which is the proper override that loads data and renders the overview.
+**Fix**: Changed `landing-page.js` to call `window.showRolesModal()` instead of `showModal('modal-roles')`.
+**Lesson**: Always check ALL entry points to a feature. Dashboard tiles and sidebar nav may have completely separate code paths.
+
+### 2. Inline Styles vs CSS !important (Display Conflicts)
+**Problem**: Sections not showing even with `.active` class added.
+**Root Cause**: JavaScript was setting `section.style.display = 'none'` inline, which competed with CSS `.roles-section.active { display: flex !important }`. While `!important` should win, some browsers/timing issues caused conflicts.
+**Fix**: Replace `section.style.display = 'none'` with `section.style.removeProperty('display')` and rely solely on CSS class toggling.
+**Lesson**: Never set inline display styles when CSS uses `!important` class-based visibility. Use `classList` and `removeProperty('display')`.
+
+### 3. SQL Queries Must Match Actual Schema (Generate Reports 500)
+**Problem**: Report API endpoints returned 500 Internal Server Error.
+**Root Cause**: SQL queries in `data_routes.py` referenced `roles.document_id` which doesn't exist. The role-document relationship goes through the `document_roles` join table.
+**Fix**: Updated queries to JOIN through `document_roles` table.
+**Lesson**: Always verify column names against actual database schema. The `roles` table has no foreign keys — all relationships go through join tables.
+
+### 4. Python Changes Need Server Restart
+**Problem**: After fixing Python files, changes don't take effect.
+**Root Cause**: Flask runs with `debug=False`, no auto-reload.
+**Fix**: User must restart server. Recommend using `--debug` flag during development.
+**Lesson**: For Python backend changes, always remind about server restart. JS/CSS/HTML changes are picked up on browser refresh.
+
+### 5. Console Logging is Your Best Friend
+**Pattern**: All major functions in roles-tabs-fix.js log with `[TWR RolesTabs]` prefix. When debugging, check console for these markers to confirm which code paths are actually executing.
+**Example**: When the override wasn't being called, console showed `[TWR RolesExport]` messages but NO `[TWR RolesTabs]` messages — proving the override function wasn't being triggered.
+
+### 6. Dark Mode Considerations
+**Pattern**: When fixing UI components, always check both light and dark mode. Text colors that work in light mode (black text) become invisible in dark mode.
+**Key CSS**: Dark mode uses `[data-theme="dark"]` selector. Text in modals/selects needs explicit white color in dark mode.
+
+### 7. Document Compare Auto-Load Pattern
+**Pattern**: When user clicks Document Compare, it should auto-select oldest doc on left, newest on right, and immediately run comparison without requiring a manual "Compare" button click.
+
+### 8. Flask Import Scope in Blueprints (app vs current_app)
+**Problem**: `data_routes.py` used `app.logger` but `app` was never imported — only Blueprint-related imports existed.
+**Root Cause**: In Flask blueprints, the `app` object isn't directly available. You must use `current_app` from flask, which is a proxy to the active application.
+**Fix**: Added `current_app` to the flask import and replaced `app.logger` with `current_app.logger`.
+**Lesson**: In any blueprint file, NEVER use bare `app.` — always use `current_app.` and ensure it's imported.
+
+### 9. Popup Blockers Kill window.open() After Async Operations
+**Problem**: `downloadReport()` in `function-tags.js` used `window.open()` to open the report in a new tab, but Chrome's popup blocker silently killed it because the call happened after an `await fetch()`.
+**Root Cause**: User gesture context expires after async operations. `window.open()` must be called synchronously within a click handler to avoid popup blocking.
+**Fix**: Replaced `window.open()` with a hidden `<iframe>` approach that loads the URL. Since the server returns `Content-Disposition: attachment`, the iframe triggers a download without navigating away.
+**Lesson**: Never use `window.open()` after `await`. Use iframe downloads or blob+link patterns instead.
+
+### 10. Error Handling: Catch Exception, Not Just ImportError
+**Problem**: Report endpoints in `data_routes.py` caught only `ImportError` in the except clause, so any other exception (TypeError, KeyError, etc.) from the HTML generator would escape to the generic error handler.
+**Fix**: Changed `except ImportError:` to `except Exception as e:` with proper logging for all three report endpoints.
+**Lesson**: When providing a fallback for external module calls, catch broad `Exception`, not just `ImportError`. The module may import fine but fail during execution.
+
+### 11. Toast Z-Index Must Be Higher Than All Modals
+**Problem**: Toast notifications were hidden behind modals (reports modal z-index: 10000, toast: 2500).
+**Fix**: Changed toast container z-index to 200000 in `components.css`, `dark-mode.css`, and `base.css` (`--z-toast` variable).
+**Lesson**: The toast system must be the highest z-index in the app. When adding new modals, never exceed the toast z-index.
+
+### 12. Async Init Race Condition (Landing Page Empty Tiles)
+**Problem**: Landing page tiles/metrics rendered empty on page load, especially after server restart or when session-restore was active.
+**Root Cause**: Two issues combined: (1) `show()` called `init()` without `await`, so the async `fetchData()`→`render()` chain hadn't completed when the page became visible. (2) `app.js` called `init()` then immediately `show()` — but `init()` sets `initialized = true` synchronously before `fetchData()` resolves, so `show()` saw `initialized === true` and skipped the full render path. (3) When `sessionRestored` was true, `init()` was never called at all, leaving the landing page module uninitialized for later navigation.
+**Fix**: Made `show()` async with `await init()`. Removed redundant `init()` call in `app.js` (let `show()` handle it). Added `init()` pre-load even on session-restore path so tiles are ready when user navigates back to landing.
+**Lesson**: When an async `init()` sets a guard flag (`initialized = true`) synchronously, any caller must `await` it or the dependent render won't have completed. Always audit all code paths that skip initialization (like session restore) to ensure deferred initialization still happens.
+
+### 13. Structured Error Objects in handle_api_errors (Missing Message Extraction)
+**Problem**: Error toast notifications showed "[object Object]" instead of meaningful error messages after API failures with structured error handling.
+**Root Cause**: `handle_api_errors()` in `api-utils.js` returns a structured error object `{success: false, error: {...}}`, but callers were logging/displaying the entire object instead of extracting the `.message` property. Template files and some JS modules forgot to extract `.error.message` from the response.
+**Fix**: Always extract the message field when handling errors: `const msg = error.error?.message || 'Unknown error'; showToast(msg, 'error');`
+**Lesson**: Structured error responses require message extraction at every call site. Consider adding a wrapper function like `getErrorMessage(errorObj)` that safely extracts the message, or return plain strings from error handlers. If returning objects, always document the expected extraction pattern.
+
+### 14. Document Compare Auto-Picker (No Document Selected on Open)
+**Problem**: Document Compare modal opened but showed empty state even when documents existed, requiring user to manually select documents from dropdown.
+**Root Cause**: Compare modal opened without checking if a document was pre-selected or if this was the first-time open. The modal should auto-select oldest doc on left, newest on right when opened without a docId parameter, then immediately run comparison.
+**Fix**: Added fallback auto-picker in Document Compare open handler: if no docId in URL, query available docs and auto-select oldest/newest pair, then call `runComparison()` without waiting for user interaction.
+**Lesson**: Modal features that depend on data selection should auto-load sensible defaults (oldest/newest, first/last, etc.) when opened without explicit parameters. Test all entry points (sidebar, landing tile, URL hash) to ensure consistent behavior.
+
+### 15. Missing Timezone Import in datetime Operations (SOW Generation 500 Error)
+**Problem**: Statement of Work generation endpoint returned 500 Internal Server Error when generating templates with dates.
+**Root Cause**: Python code used `datetime.now(timezone.utc)` to get current time, but `timezone` was never imported from the `datetime` module. Python 3.9+ removed implicit timezone support; explicit import required.
+**Fix**: Added `from datetime import datetime, timezone` to import statements. Verified all datetime operations include explicit timezone parameter when creating UTC timestamps.
+**Lesson**: Python 3.9+ requires explicit `from datetime import timezone` for `timezone.utc`. When refactoring legacy datetime code that used deprecated `utcnow()`, always include timezone imports. Test date/time operations on startup to catch import errors early.
+
+### 16. Version Display Stale After Update (Import-Time Caching)
+**Problem**: After updating `version.json` to 4.9.9, the UI still displayed "4.7" even after server restart and hard refresh.
+**Root Cause**: Three issues compounded: (1) `config_logging.py` read `version.json` at **import time** and stored it as `VERSION = _load_version()`. Python bytecode cache (`.pyc`) could serve stale values. (2) The `index()` middleware used the import-time `VERSION` constant, not a fresh read. (3) `index.html` had hardcoded `?v=4.8.3` etc. on script tags, and the middleware's `.js"` replacement couldn't match `.js?v=4.8.3"`, so cache-busting was inconsistent.
+**Fix**: (1) Added `get_version()` function to `config_logging.py` that reads `version.json` fresh on every call. (2) Changed `index()` route and `/api/version` to call `get_version()` instead of using the stale `VERSION` constant. (3) Stripped all hardcoded `?v=` from `index.html` — the middleware now uses regex to replace/add version params uniformly. (4) The regex first replaces existing `?v=` params, then adds them to any files that don't have one yet.
+**Lesson**: Never cache version strings at import time. Use a function (`get_version()`) that reads from disk on each call. For cache-busting, let the server middleware handle all `?v=` injection — never hardcode version params in HTML templates. The single source of truth is `version.json`, and `get_version()` is the single access point.
+
+### 17. Duplicate version.json Files (Static vs Root)
+**Problem**: After all the import-time caching fixes (Lesson 16), version STILL showed 4.7.0 in the browser UI.
+**Root Cause**: There are TWO copies of `version.json` — one in the project root (read by Python `get_version()` and `/api/version`) and one in `static/` (served to the browser JS). The root copy was updated to 4.9.9 but `static/version.json` was still 4.7.0. Both `app.js` and `landing-page.js` fetched from `/static/version.json` as their primary source.
+**Fix**: (1) Copied root `version.json` to `static/version.json`. (2) Changed `app.js` and `landing-page.js` to use `/api/version` as primary source (which reads fresh from root via `get_version()`) with `/static/version.json` as fallback only.
+**Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
+
+## Version Management
+- **Single source of truth**: `version.json` in project root
+- **Access function**: `from config_logging import get_version` — reads fresh from disk every call
+- **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
+- **Server-side injection**: `core_routes.py index()` reads `get_version()` each request and injects into HTML elements + cache-bust params
+- **Client-side**: `app.js loadVersionLabel()` and `landing-page.js` both fetch `/api/version` as primary source (reads fresh from root `version.json` via `get_version()`), with `/static/version.json` as fallback
+- **IMPORTANT**: There are TWO copies of `version.json` — root and `static/`. Always update BOTH when changing version, or better yet just update root and copy: `cp version.json static/version.json`
+- **To update version**: Edit `version.json` in project root, then `cp version.json static/version.json` to sync the static copy.
+
+### 18. CSRF Token Mismatch When Using MCP Browser / Programmatic fetch()
+**Problem**: Programmatic `fetch('/api/upload', ...)` from MCP browser JavaScript fails with `CSRF_ERROR` even after page refresh and cookie clearing.
+**Root Cause**: Flask debug auto-reload creates a new server process with a new secret key, invalidating all existing sessions. The page's `<meta name="csrf-token">` stores the token from when the HTML was rendered (old session), but `fetch()` uses the cookie from the current session (new, different token). The meta CSRF and session CSRF are out of sync.
+**Fix (for MCP programmatic uploads)**: Two-step approach:
+1. First make a GET request to get the fresh CSRF from the **response header**: `const resp = await fetch('/api/version', {credentials: 'same-origin'}); const freshCsrf = resp.headers.get('X-CSRF-Token');`
+2. Use that fresh token in subsequent POST requests: `headers: {'X-CSRF-Token': freshCsrf}`
+The response header CSRF (set by `app.py` after_request at line 382) always matches the current session because it's set in the same request cycle.
+**Key Insight**: `meta[name="csrf-token"]` ≠ `response.headers['X-CSRF-Token']` after debug reloads. Always use the response header for programmatic API calls.
+**Lesson**: When doing programmatic uploads via MCP browser, never trust the meta tag CSRF. Always fetch a fresh token from any API response header first. This is a recurring issue during development sessions with `--debug` mode.
+
+### 19. New Checkers Must Be Added to `additional_checkers` List (core.py)
+**Problem**: New checkers registered in `_init_checkers()` and loaded into `self.checkers` were NOT being run during reviews. Checker count showed 88 but issues from new checkers were missing.
+**Root Cause**: `review_document()` in `core.py` builds `enabled_checkers` from two sources: (1) `option_mapping` dict (lines 1960-2033) mapping UI checkbox names to checker names, and (2) `additional_checkers` list (lines 2046-2052) for checkers without UI toggles. New checkers were in `self.checkers` but not in either list, so they were never added to `enabled_checkers`.
+**Fix**: Added new checker names to the `additional_checkers` list:
+```python
+additional_checkers = [
+    ...,
+    'requirement_traceability', 'vague_quantifier',
+    'verification_method', 'ambiguous_scope'
+]
+```
+**Lesson**: Registering a checker in `_init_checkers()` is NOT enough. The checker name must ALSO appear in either `option_mapping` (if it needs a UI toggle) or `additional_checkers` (if it should always run). Three places to touch: (1) checker file with factory function, (2) `_init_checkers()` import block, (3) `additional_checkers` list or `option_mapping` dict.
+
+### 20. Duplicate Responsibility Statements from Repeated Document Scans
+**Problem**: RACI numbers and responsibility counts were inflated (2713 vs 1993 actual unique statements). Distribution was wrong.
+**Root Cause**: When a document is scanned multiple times, `document_roles.responsibilities_json` accumulates duplicate entries within the same JSON blob. Each scan appends statements without checking for existing ones. Methods like `get_all_roles()`, `get_role_context()`, and `get_raci_matrix()` counted every entry without deduplication.
+**Fix**: Added `seen_texts` set-based deduplication in three methods in `scan_history.py`:
+1. `get_all_roles()` — powers Roles Studio Overview "Responsibilities" count
+2. `get_role_context()` — powers the RACI detail popup statements list
+3. `get_raci_matrix()` — powers RACI matrix verb classification counts
+**Lesson**: Any method that reads from `responsibilities_json` MUST deduplicate by statement text. Multiple scans of the same document create duplicates within the JSON array. Always use a `seen_texts = set()` pattern when iterating over responsibility entries. The two separate counting systems (scan_statements table vs responsibilities_json) may produce different totals — this is expected since they count different things (extracted requirements vs role-linked responsibilities).

@@ -1,0 +1,55 @@
+{
+  "roles": [
+    {
+      "role_name": "Administrator",
+      "normalized_name": "administrator",
+      "aliases": [],
+      "category": "Role",
+      "is_deliverable": false,
+      "source": "adjudication",
+      "notes": "Adjudicated as rejected via Roles Studio"
+    },
+    {
+      "role_name": "Principal Investigator",
+      "normalized_name": "principal investigator",
+      "aliases": [],
+      "category": "Role",
+      "is_deliverable": false,
+      "source": "adjudication",
+      "notes": "Adjudicated as confirmed via Roles Studio"
+    },
+    {
+      "role_name": "Project Manager",
+      "normalized_name": "project manager",
+      "aliases": [],
+      "category": "Role",
+      "is_deliverable": false,
+      "source": "adjudication",
+      "source_document": "",
+      "notes": "Adjudicated as confirmed via Roles Studio"
+    },
+    {
+      "role_name": "Stakeholders",
+      "normalized_name": "stakeholders",
+      "aliases": [],
+      "category": "Role",
+      "is_deliverable": true,
+      "source": "adjudication",
+      "notes": "Adjudicated as deliverable via Roles Studio"
+    },
+    {
+      "role_name": "Test Role",
+      "normalized_name": "test role",
+      "aliases": [],
+      "category": "Technical",
+      "is_deliverable": false,
+      "source": "adjudication",
+      "notes": "Batch adjudicated as confirmed"
+    }
+  ],
+  "version": "1.0",
+  "format": "twr_role_dictionary",
+  "exported_at": "2026-02-07T22:50:57.432491",
+  "exported_by": "nick",
+  "role_count": 5
+}

@@ -1,0 +1,182 @@
+{
+  "metadata": {
+    "description": "MIL-STD-40051-2 Technical Manual Compliance Patterns",
+    "version": "3.4.0",
+    "last_updated": "2026-02-03",
+    "standard": "MIL-STD-40051-2",
+    "standard_title": "Requirements for the Preparation of Technical Manuals"
+  },
+  "warning_requirements": {
+    "description": "Warnings must precede hazardous procedures and follow specific format",
+    "signal_words": ["WARNING", "CAUTION", "NOTE", "DANGER"],
+    "warning_format": {
+      "required_elements": ["signal_word", "consequence_statement", "avoidance_action"],
+      "signal_word_position": "first",
+      "consequence_first": true
+    },
+    "hazard_keywords": [
+      "death", "injury", "serious injury", "could result in",
+      "may cause", "will cause", "can cause", "hazardous",
+      "dangerous", "lethal", "fatal", "explosion", "fire",
+      "electrical shock", "electrocution", "burn", "toxic",
+      "poison", "radiation", "asphyxiation", "suffocation"
+    ],
+    "procedures_requiring_warnings": [
+      "high voltage", "high pressure", "heavy lift", "confined space",
+      "hazardous material", "explosive", "flammable", "corrosive",
+      "radioactive", "laser", "pressurized", "cryogenic", "pyrotechnic"
+    ]
+  },
+  "procedural_step_requirements": {
+    "description": "Procedural steps must be clear, actionable, and properly numbered",
+    "rules": [
+      {
+        "id": "MILSTD001",
+        "rule": "Steps must begin with imperative verb",
+        "examples_good": ["Remove the cover.", "Connect the cable.", "Verify the connection."],
+        "examples_bad": ["The cover should be removed.", "You need to connect the cable."]
+      },
+      {
+        "id": "MILSTD002",
+        "rule": "One action per step",
+        "max_actions": 1,
+        "conjunction_limit": true
+      },
+      {
+        "id": "MILSTD003",
+        "rule": "Steps must be numbered sequentially",
+        "allow_substeps": true,
+        "substep_format": "alpha"
+      },
+      {
+        "id": "MILSTD004",
+        "rule": "Warnings/Cautions must precede relevant step",
+        "position": "before_step"
+      }
+    ]
+  },
+  "terminology_requirements": {
+    "description": "Consistent terminology throughout document",
+    "rules": [
+      {
+        "id": "MILSTD010",
+        "rule": "Use approved nomenclature",
+        "check": "consistency"
+      },
+      {
+        "id": "MILSTD011",
+        "rule": "Define acronyms on first use",
+        "exceptions": ["universally_known"]
+      },
+      {
+        "id": "MILSTD012",
+        "rule": "Use active voice",
+        "passive_threshold": 0.15
+      }
+    ]
+  },
+  "illustration_requirements": {
+    "description": "Figures must be properly referenced and numbered",
+    "rules": [
+      {
+        "id": "MILSTD020",
+        "rule": "All figures must be referenced in text",
+        "reference_pattern": "Figure \\d+"
+      },
+      {
+        "id": "MILSTD021",
+        "rule": "Figures must be numbered sequentially"
+      },
+      {
+        "id": "MILSTD022",
+        "rule": "Figure references must precede figure"
+      }
+    ]
+  },
+  "table_requirements": {
+    "description": "Tables must be properly formatted and referenced",
+    "rules": [
+      {
+        "id": "MILSTD030",
+        "rule": "All tables must be referenced in text",
+        "reference_pattern": "Table \\d+"
+      },
+      {
+        "id": "MILSTD031",
+        "rule": "Tables must have titles"
+      },
+      {
+        "id": "MILSTD032",
+        "rule": "Tables must be numbered sequentially"
+      }
+    ]
+  },
+  "prohibited_patterns": {
+    "description": "Patterns that violate MIL-STD-40051-2",
+    "patterns": [
+      {
+        "pattern": "\\bdo not\\b",
+        "context": "in_warning",
+        "message": "Warnings should state what TO do, not what NOT to do",
+        "rule_id": "MILSTD040"
+      },
+      {
+        "pattern": "\\betc\\.?\\b",
+        "message": "Avoid 'etc.' - be specific",
+        "rule_id": "MILSTD041"
+      },
+      {
+        "pattern": "\\bcarefully\\b",
+        "message": "Avoid subjective terms like 'carefully' - specify the action",
+        "rule_id": "MILSTD042"
+      },
+      {
+        "pattern": "\\bproperly\\b",
+        "message": "Avoid 'properly' - define correct procedure explicitly",
+        "rule_id": "MILSTD043"
+      },
+      {
+        "pattern": "\\bapproximately\\b",
+        "message": "Avoid 'approximately' - provide specific tolerances",
+        "rule_id": "MILSTD044"
+      },
+      {
+        "pattern": "\\bas\\s+required\\b",
+        "message": "Specify the requirement instead of 'as required'",
+        "rule_id": "MILSTD045"
+      },
+      {
+        "pattern": "\\bif\\s+necessary\\b",
+        "message": "Define when it is necessary",
+        "rule_id": "MILSTD046"
+      },
+      {
+        "pattern": "\\bperiodically\\b",
+        "message": "Specify the time interval instead of 'periodically'",
+        "rule_id": "MILSTD047"
+      }
+    ]
+  },
+  "safety_criticality_levels": {
+    "DANGER": {
+      "description": "Immediate hazard WILL cause death or serious injury",
+      "color": "Red with white text",
+      "position": "Before procedure"
+    },
+    "WARNING": {
+      "description": "Potential hazard COULD cause death or serious injury",
+      "color": "Orange with black text",
+      "position": "Before step"
+    },
+    "CAUTION": {
+      "description": "Potential hazard COULD cause damage to equipment",
+      "color": "Yellow with black text",
+      "position": "Before step"
+    },
+    "NOTE": {
+      "description": "Essential information for procedure success",
+      "color": "Blue or neutral",
+      "position": "Before or after related text"
+    }
+  }
+}

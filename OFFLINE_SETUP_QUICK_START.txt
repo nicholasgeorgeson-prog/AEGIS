@@ -1,0 +1,249 @@
+AEGIS v4.6.2 - Quick Start Guide for Offline Installation
+Generated: 2026-02-15
+
+================================================================================
+WHAT WAS DOWNLOADED
+================================================================================
+
+Directory: ./wheels/
+Size: 398 MB
+Files: 122 packages (all dependencies for AEGIS)
+
+All packages are ready for offline installation - NO INTERNET needed.
+
+================================================================================
+FOR WINDOWS USERS
+================================================================================
+
+STEP 1: Navigate to TechWriterReview folder
+
+STEP 2: Double-click "install_offline.bat"
+
+STEP 3: Wait for installation to complete (5-10 minutes)
+
+STEP 4: Start AEGIS:
+        Command Prompt: python app.py
+        Browser: http://localhost:5050
+
+That's it! No other steps needed.
+
+TROUBLESHOOTING:
+- If "Python not found": Install Python 3.10+ from python.org
+- If script closes: Check for errors, take screenshot, share error message
+- If installation fails: Run from Command Prompt to see full error messages
+
+================================================================================
+FOR MAC/LINUX USERS
+================================================================================
+
+STEP 1: Open Terminal
+
+STEP 2: Navigate to TechWriterReview:
+        cd /path/to/TechWriterReview
+
+STEP 3: Run installation script:
+        bash install_offline.sh
+
+STEP 4: Wait for installation (5-10 minutes)
+
+STEP 5: Start AEGIS:
+        python3 app.py
+
+STEP 6: Open browser:
+        http://localhost:5050
+
+OPTIONAL - Use Virtual Environment:
+        bash install_offline.sh --venv
+
+TROUBLESHOOTING:
+- If "bash: python3: command not found": Install Python 3.10+
+  - macOS: brew install python
+  - Ubuntu: sudo apt install python3
+- If "Permission denied": Run: chmod +x install_offline.sh
+- If installation hangs: Press Ctrl+C and try again
+
+================================================================================
+MANUAL INSTALLATION (ALL PLATFORMS)
+================================================================================
+
+For advanced users or if scripts don't work:
+
+1. Open Command Prompt (Windows) or Terminal (Mac/Linux)
+
+2. Navigate to project folder:
+   cd C:\path\to\TechWriterReview  (Windows)
+   cd /path/to/TechWriterReview    (Mac/Linux)
+
+3. Install packages:
+   python -m pip install --no-index --find-links=wheels -r requirements.txt
+
+4. Verify installation:
+   python -c "import flask; print('Flask OK')"
+   python -c "import pandas; print('Pandas OK')"
+
+5. Start application:
+   python app.py
+
+6. Open: http://localhost:5050
+
+================================================================================
+SYSTEM REQUIREMENTS
+================================================================================
+
+MUST HAVE:
+- Python 3.10 or higher (3.12 recommended)
+- 500 MB disk space available
+- 4 GB RAM minimum
+
+OPTIONAL (for advanced features):
+- Tesseract OCR (for scanned PDFs)
+- Ghostscript (for table extraction)
+- Poppler (for PDF conversion)
+- Java 8+ (for grammar checking)
+
+================================================================================
+WHAT GETS INSTALLED
+================================================================================
+
+Core Framework:
+✓ Flask (web server)
+✓ Werkzeug (web utilities)
+✓ Jinja2 (templates)
+
+Document Processing:
+✓ python-docx (Word files)
+✓ openpyxl (Excel files)
+✓ PyMuPDF (PDF extraction)
+✓ pdfplumber (PDF parsing)
+
+Natural Language Processing:
+✓ spaCy (NER, POS tagging)
+✓ NLTK (text analysis)
+✓ TextBlob (sentiment analysis)
+✓ sentence-transformers (semantic similarity)
+
+Machine Learning:
+✓ PyTorch (deep learning)
+✓ scikit-learn (ML algorithms)
+✓ numpy/scipy (scientific computing)
+✓ pandas (data analysis)
+
+Other:
+✓ bokeh (interactive visualizations)
+✓ reportlab (PDF generation)
+✓ language-tool-python (grammar checking)
+✓ And 100+ supporting libraries
+
+Total: 122 packages
+
+================================================================================
+AFTER INSTALLATION
+================================================================================
+
+1. VERIFY INSTALLATION:
+   
+   Test Flask:
+   python -c "import flask; print(f'Flask {flask.__version__}')"
+   
+   Test pandas:
+   python -c "import pandas; print(f'Pandas {pandas.__version__}')"
+   
+   Test spaCy (optional):
+   python -c "import spacy; print('spaCy installed')"
+
+2. START THE SERVER:
+
+   Development mode (with auto-reload):
+   python app.py --debug
+   
+   Production mode:
+   python app.py
+
+3. OPEN IN BROWSER:
+
+   http://localhost:5050
+
+4. STOP THE SERVER:
+
+   Press Ctrl+C in the terminal
+
+================================================================================
+COMMON QUESTIONS
+================================================================================
+
+Q: Do I need internet to run the installation?
+A: No! All packages are pre-downloaded. Install without internet.
+
+Q: Where should I put the wheels folder?
+A: Keep it in the same directory as install_offline.bat/install_offline.sh
+
+Q: Can I delete the wheels folder after installation?
+A: Yes, after successful installation you can delete it (saves 398 MB)
+
+Q: What if a package fails to install?
+A: Note the package name and try installing it manually:
+   pip install --no-index --find-links=wheels PACKAGE_NAME
+
+Q: How do I create a virtual environment?
+A: macOS/Linux: bash install_offline.sh --venv
+   Windows: python -m venv venv
+
+Q: Can I use this on a different computer?
+A: Yes! Copy the wheels folder to the new computer and run install script.
+
+Q: How long does installation take?
+A: Typically 5-10 minutes depending on disk speed.
+
+Q: Do I need administrator rights?
+A: Usually no, unless installing system-level dependencies like Tesseract.
+
+Q: Is the installation reversible?
+A: Yes! Uninstall with: pip uninstall -r requirements.txt -y
+
+================================================================================
+FILES IN THIS PACKAGE
+================================================================================
+
+wheels/                          - 398 MB of all Python packages
+requirements.txt                 - List of packages to install
+install_offline.bat              - Windows installation script (DOUBLE-CLICK)
+install_offline.sh               - Mac/Linux installation script (bash ...)
+WHEELS_INSTALLATION_REPORT.md    - Detailed documentation
+WHEELS_MANIFEST.txt              - Complete list of all packages
+OFFLINE_SETUP_QUICK_START.txt    - This file
+
+================================================================================
+GETTING HELP
+================================================================================
+
+Installation Failed?
+1. Check that wheels/ folder exists (should have 122 files)
+2. Check Python version: python --version (must be 3.10+)
+3. Check disk space: Need 500+ MB available
+4. Try manual installation (see MANUAL INSTALLATION section above)
+
+Application Won't Start?
+1. Server not running? Run: python app.py --debug
+2. Can't access http://localhost:5050? Wait 10 seconds, try again
+3. Port 5050 already in use? Kill other processes or change port
+
+Specific Package Missing?
+1. Run: pip list | grep PACKAGE_NAME
+2. If not listed, reinstall: pip install --no-index --find-links=wheels PACKAGE_NAME
+3. Check error messages for dependency issues
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+Once installation is complete:
+
+1. Read README.md for application overview
+2. Review CLAUDE.md for project architecture
+3. Check Install_AEGIS.bat for full setup details
+4. Visit http://localhost:5050 to start using AEGIS
+
+================================================================================
+Support: See documentation in ./docs/ folder
+Version: 4.6.2
+Updated: 2026-02-15

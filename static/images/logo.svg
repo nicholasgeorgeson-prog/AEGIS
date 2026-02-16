@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs>
+    <!-- Gold/Bronze gradient matching AEGIS branding -->
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#D6A84A;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#B8743A;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#D6A84A;stop-opacity:1" />
+    </linearGradient>
+    <!-- Blue accent gradient -->
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#33B8FF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1a7abd;stop-opacity:1" />
+    </linearGradient>
+    <!-- Shield highlight -->
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a3a52;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0d1f2d;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Shield shape -->
+  <path d="M24 2 L44 10 L44 22 C44 34 34 44 24 46 C14 44 4 34 4 22 L4 10 Z"
+        fill="url(#shieldGrad)" stroke="url(#goldGrad)" stroke-width="1.5"/>
+  <!-- Inner shield highlight -->
+  <path d="M24 6 L40 12 L40 22 C40 32 32 40 24 42 C16 40 8 32 8 22 L8 12 Z"
+        fill="none" stroke="url(#blueGrad)" stroke-width="0.5" opacity="0.6"/>
+  <!-- AEGIS text -->
+  <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle"
+        font-family="system-ui, -apple-system, sans-serif" font-size="9"
+        font-weight="700" fill="url(#goldGrad)">AEGIS</text>
+  <!-- Decorative line under text -->
+  <line x1="12" y1="32" x2="36" y2="32" stroke="url(#goldGrad)" stroke-width="1" opacity="0.7"/>
+</svg>

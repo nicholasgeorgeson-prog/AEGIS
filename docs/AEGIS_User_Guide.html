@@ -1,0 +1,2460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AEGIS v5.0.0 - User Guide</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --navy: #1a3a52;
+            --gold: #D6A84A;
+            --blue: #2563eb;
+            --light-bg: #f8f9fa;
+            --dark-bg: #0f172a;
+            --text-dark: #1a1a1a;
+            --text-light: #e5e7eb;
+            --border-color: #e5e7eb;
+            --shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--light-bg);
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+
+        body.dark-mode {
+            background: var(--dark-bg);
+            color: var(--text-light);
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 280px;
+            height: 100vh;
+            background: var(--navy);
+            color: white;
+            overflow-y: auto;
+            padding: 20px;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+        }
+
+        body.dark-mode .sidebar {
+            background: #0a1f3a;
+        }
+
+        .sidebar h2 {
+            margin-bottom: 10px;
+            font-size: 18px;
+            color: var(--gold);
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--gold);
+        }
+
+        .sidebar-version {
+            font-size: 12px;
+            color: #aaa;
+            margin-bottom: 20px;
+        }
+
+        .sidebar-search {
+            width: 100%;
+            padding: 8px 12px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 4px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 13px;
+        }
+
+        .sidebar-search::placeholder {
+            color: rgba(255,255,255,0.5);
+        }
+
+        .nav-section {
+            margin-bottom: 20px;
+        }
+
+        .nav-section-title {
+            font-size: 11px;
+            font-weight: bold;
+            color: var(--gold);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+
+        .nav-link {
+            display: block;
+            padding: 8px 12px;
+            margin: 4px 0;
+            color: #ddd;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-link:hover {
+            background: rgba(214, 168, 74, 0.2);
+            color: var(--gold);
+            border-left-color: var(--gold);
+            padding-left: 16px;
+        }
+
+        .nav-link.active {
+            background: rgba(214, 168, 74, 0.3);
+            color: var(--gold);
+            border-left-color: var(--gold);
+            font-weight: 600;
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: 280px;
+            padding: 40px;
+            min-height: 100vh;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        body.dark-mode .header {
+            border-bottom-color: rgba(214, 168, 74, 0.2);
+        }
+
+        .header h1 {
+            color: var(--navy);
+            font-size: 32px;
+        }
+
+        body.dark-mode .header h1 {
+            color: var(--gold);
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .mode-toggle {
+            background: var(--navy);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .mode-toggle:hover {
+            background: var(--blue);
+        }
+
+        body.dark-mode .mode-toggle {
+            background: var(--blue);
+        }
+
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 280px;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--gold), var(--blue));
+            width: 0%;
+            z-index: 999;
+        }
+
+        /* Sections */
+        .section {
+            margin-bottom: 50px;
+            padding: 30px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+        }
+
+        body.dark-mode .section {
+            background: #1a2332;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .section h2 {
+            color: var(--navy);
+            font-size: 28px;
+            margin-bottom: 10px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid var(--gold);
+        }
+
+        body.dark-mode .section h2 {
+            color: var(--gold);
+        }
+
+        .section-subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+
+        body.dark-mode .section-subtitle {
+            color: #aaa;
+        }
+
+        .section h3 {
+            color: var(--blue);
+            font-size: 20px;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+
+        body.dark-mode .section h3 {
+            color: #64b5f6;
+        }
+
+        .section h4 {
+            color: var(--navy);
+            font-size: 16px;
+            margin-top: 18px;
+            margin-bottom: 10px;
+        }
+
+        body.dark-mode .section h4 {
+            color: var(--text-light);
+        }
+
+        /* Callout Boxes */
+        .callout {
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-left: 4px solid;
+            border-radius: 4px;
+            background: rgba(0,0,0,0.02);
+        }
+
+        body.dark-mode .callout {
+            background: rgba(255,255,255,0.05);
+        }
+
+        .callout.tip {
+            border-left-color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        body.dark-mode .callout.tip {
+            background: rgba(16, 185, 129, 0.15);
+        }
+
+        .callout.info {
+            border-left-color: var(--blue);
+            background: rgba(37, 99, 235, 0.1);
+        }
+
+        body.dark-mode .callout.info {
+            background: rgba(37, 99, 235, 0.15);
+        }
+
+        .callout.warning {
+            border-left-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.1);
+        }
+
+        body.dark-mode .callout.warning {
+            background: rgba(245, 158, 11, 0.15);
+        }
+
+        .callout.note {
+            border-left-color: var(--gold);
+            background: rgba(214, 168, 74, 0.1);
+        }
+
+        body.dark-mode .callout.note {
+            background: rgba(214, 168, 74, 0.15);
+        }
+
+        .callout-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+
+        thead {
+            background: var(--navy);
+            color: white;
+        }
+
+        body.dark-mode thead {
+            background: #0a1f3a;
+        }
+
+        th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        body.dark-mode td {
+            border-bottom-color: rgba(214, 168, 74, 0.2);
+        }
+
+        tbody tr:nth-child(even) {
+            background: rgba(0,0,0,0.02);
+        }
+
+        body.dark-mode tbody tr:nth-child(even) {
+            background: rgba(255,255,255,0.03);
+        }
+
+        tbody tr:hover {
+            background: rgba(37, 99, 235, 0.05);
+        }
+
+        body.dark-mode tbody tr:hover {
+            background: rgba(37, 99, 235, 0.15);
+        }
+
+        /* Feature Grid */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .feature-card {
+            padding: 20px;
+            background: linear-gradient(135deg, rgba(214, 168, 74, 0.1), rgba(37, 99, 235, 0.1));
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow);
+        }
+
+        body.dark-mode .feature-card {
+            border-color: rgba(214, 168, 74, 0.2);
+        }
+
+        .feature-card h4 {
+            color: var(--blue);
+            margin-bottom: 10px;
+        }
+
+        /* Back to Top */
+        .back-to-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 45px;
+            height: 45px;
+            background: var(--gold);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: var(--shadow);
+            z-index: 100;
+        }
+
+        .back-to-top:hover {
+            background: var(--blue);
+        }
+
+        .back-to-top.show {
+            display: flex;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 70px;
+                padding: 15px 5px;
+            }
+
+            .main-content {
+                margin-left: 70px;
+                padding: 20px;
+            }
+
+            .progress-bar {
+                left: 70px;
+            }
+
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Print Styles */
+        @media print {
+            .sidebar, .header-controls, .back-to-top, .progress-bar {
+                display: none;
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .section {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="progress-bar" id="progressBar"></div>
+    
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+        <h2>AEGIS</h2>
+        <div class="sidebar-version">v5.0.0</div>
+        <input type="text" class="sidebar-search" id="sidebarSearch" placeholder="Search guide...">
+        
+        <div class="nav-section">
+            <div class="nav-section-title">Getting Started</div>
+            <a href="#intro" class="nav-link" data-section="intro">Introduction</a>
+            <a href="#getting-started" class="nav-link" data-section="getting-started">Getting Started</a>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-section-title">Core Tools</div>
+            <a href="#document-review" class="nav-link" data-section="document-review">1. Document Review</a>
+            <a href="#statement-forge" class="nav-link" data-section="statement-forge">2. Statement Forge</a>
+            <a href="#roles-studio" class="nav-link" data-section="roles-studio">3. Roles Studio</a>
+            <a href="#metrics-analytics" class="nav-link" data-section="metrics-analytics">4. Metrics & Analytics</a>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-section-title">Advanced Tools</div>
+            <a href="#scan-history" class="nav-link" data-section="scan-history">5. Scan History</a>
+            <a href="#document-compare" class="nav-link" data-section="document-compare">6. Document Compare</a>
+            <a href="#link-validator" class="nav-link" data-section="link-validator">7. Link Validator</a>
+            <a href="#portfolio" class="nav-link" data-section="portfolio">8. Portfolio</a>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-section-title">Workflows</div>
+            <a href="#statement-review" class="nav-link" data-section="statement-review">9. Statement Review</a>
+            <a href="#sow-generator" class="nav-link" data-section="sow-generator">10. SOW Generator</a>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-section-title">Reference</div>
+            <a href="#keyboard-shortcuts" class="nav-link" data-section="keyboard-shortcuts">Keyboard Shortcuts</a>
+            <a href="#troubleshooting" class="nav-link" data-section="troubleshooting">Troubleshooting</a>
+            <a href="#faqs" class="nav-link" data-section="faqs">FAQs</a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="header">
+            <div>
+                <h1>AEGIS User Guide</h1>
+                <small style="color: #999;">Aerospace Engineering Governance & Inspection System v5.0.0</small>
+            </div>
+            <div class="header-controls">
+                <button class="mode-toggle" id="modeToggle">🌙 Dark Mode</button>
+            </div>
+        </div>
+
+        <!-- Introduction Section -->
+        <section class="section" id="intro">
+            <h2>Welcome to AEGIS</h2>
+            <p class="section-subtitle">Your comprehensive technical document review and governance platform</p>
+            
+            <p>AEGIS (Aerospace Engineering Governance & Inspection System) is a powerful document review and quality assurance platform designed for aerospace, defense, and technical documentation workflows. This guide covers all features in v5.0.0.</p>
+
+            <div class="callout info">
+                <div class="callout-title">What's New in v5.0.0</div>
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                    <li>Improved relationship graph visualization with edge bundling</li>
+                    <li>Enhanced Statement Forge with bulk operations</li>
+                    <li>New SOW Generator for Statement of Work creation</li>
+                    <li>RACI Matrix refinements and export options</li>
+                    <li>Performance improvements across all modules</li>
+                    <li>Enhanced dark mode support</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Getting Started -->
+        <section class="section" id="getting-started">
+            <h2>Getting Started with AEGIS</h2>
+            <p class="section-subtitle">Launch AEGIS and explore the dashboard</p>
+
+            <h3>System Requirements</h3>
+            <ul style="margin-left: 20px; margin-top: 10px;">
+                <li>Modern web browser (Chrome, Firefox, Safari, Edge)</li>
+                <li>Minimum 4GB RAM recommended</li>
+                <li>Internet connection for cloud features</li>
+                <li>JavaScript enabled</li>
+            </ul>
+
+            <h3>Launching AEGIS</h3>
+            <ol style="margin-left: 20px;">
+                <li>Open your web browser</li>
+                <li>Navigate to <code>localhost:5050</code></li>
+                <li>The AEGIS dashboard will load automatically</li>
+                <li>You're ready to start!</li>
+            </ol>
+
+            <h3>Dashboard Overview</h3>
+            <p>The AEGIS dashboard presents your work at a glance with key metrics, recent activity, and quick access to all tools.</p>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>📊 Quick Stats</h4>
+                    <p>View total documents scanned, average quality score, and recent activity</p>
+                </div>
+                <div class="feature-card">
+                    <h4>📈 Trends</h4>
+                    <p>Monitor quality improvements over time with visual charts</p>
+                </div>
+                <div class="feature-card">
+                    <h4>🚀 Quick Access</h4>
+                    <p>One-click access to all major tools from the dashboard</p>
+                </div>
+                <div class="feature-card">
+                    <h4>📁 Recent Documents</h4>
+                    <p>Quickly reopen recently scanned or reviewed documents</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Document Review -->
+        <section class="section" id="document-review">
+            <h2>1. Document Review</h2>
+            <p class="section-subtitle">Automated quality analysis and issue detection</p>
+
+            <p>Document Review is the core of AEGIS, providing automated scanning for quality issues, consistency problems, and compliance violations. AEGIS analyzes documents using 88+ quality checkers to identify issues across requirements, grammar, technical content, and compliance areas.</p>
+
+            <h3>Starting a Review</h3>
+            <ol style="margin-left: 20px;">
+                <li>Click the "Document Review" tile on the dashboard</li>
+                <li>Select a document from the file browser or drag & drop a new one</li>
+                <li>Choose a review profile (see below)</li>
+                <li>Click "Start Review"</li>
+                <li>Wait for the scan to complete (time varies by document size and profile)</li>
+                <li>Review results appear in the issues table</li>
+            </ol>
+
+            <h3>Review Profiles</h3>
+            <p>AEGIS offers specialized profiles for different review needs:</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Profile</th>
+                        <th>Focus Areas</th>
+                        <th>Best For</th>
+                        <th>Scan Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Requirements</strong></td>
+                        <td>Requirement statements, traceability, compliance</td>
+                        <td>Specification documents, SOWs</td>
+                        <td>2-5 min</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Grammar</strong></td>
+                        <td>Grammar, spelling, style consistency</td>
+                        <td>Final review, publication prep</td>
+                        <td>1-3 min</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Technical</strong></td>
+                        <td>Technical accuracy, terminology, definitions</td>
+                        <td>Technical specifications, design docs</td>
+                        <td>3-6 min</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Full Scan</strong></td>
+                        <td>All checkers enabled (88+ checkers)</td>
+                        <td>Comprehensive quality assessment</td>
+                        <td>5-10 min</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Understanding Review Results</h3>
+            <p>After a review completes, results display in the Issues Table with the following columns:</p>
+
+            <div class="callout info">
+                <div class="callout-title">Issues Table Columns</div>
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                    <li><strong>Issue Type</strong>: Category of the issue found</li>
+                    <li><strong>Severity</strong>: Critical, High, Medium, Low, or Info</li>
+                    <li><strong>Location</strong>: Page and paragraph number</li>
+                    <li><strong>Message</strong>: Detailed description of the issue</li>
+                    <li><strong>Suggestion</strong>: Recommended fix</li>
+                </ul>
+            </div>
+
+            <h3>Severity Levels Explained</h3>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Severity</th>
+                        <th>Impact</th>
+                        <th>Action Required</th>
+                        <th>Example</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>🔴 Critical</strong></td>
+                        <td>Blocking issue</td>
+                        <td>Must fix immediately</td>
+                        <td>Missing requirements, compliance violations</td>
+                    </tr>
+                    <tr>
+                        <td><strong>🟠 High</strong></td>
+                        <td>Significant issue</td>
+                        <td>Should address before approval</td>
+                        <td>Undefined terms, missing acceptance criteria</td>
+                    </tr>
+                    <tr>
+                        <td><strong>🟡 Medium</strong></td>
+                        <td>Moderate issue</td>
+                        <td>Recommended for fix</td>
+                        <td>Inconsistent formatting, vague statements</td>
+                    </tr>
+                    <tr>
+                        <td><strong>🔵 Low</strong></td>
+                        <td>Minor issue</td>
+                        <td>Consider fixing</td>
+                        <td>Minor grammar, style suggestions</td>
+                    </tr>
+                    <tr>
+                        <td><strong>ℹ️ Info</strong></td>
+                        <td>Informational</td>
+                        <td>Optional consideration</td>
+                        <td>Helpful notes and context</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Quality Score & Grade</h3>
+            <p>AEGIS calculates two key metrics for each document:</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Range</th>
+                        <th>Calculation</th>
+                        <th>Interpretation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Quality Score</strong></td>
+                        <td>0-100%</td>
+                        <td>100% - (severity-weighted issues / 10)</td>
+                        <td>Higher is better. 90%+ is excellent.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Letter Grade</strong></td>
+                        <td>A-F</td>
+                        <td>A: 90-100%, B: 80-89%, C: 70-79%, D: 60-69%, F: <60%</td>
+                        <td>Traditional grade scale. Aim for A or B.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Filtering Issues</h3>
+            <ol style="margin-left: 20px;">
+                <li>Look for the filter controls above the Issues Table</li>
+                <li>Click on "Severity" to filter by issue level</li>
+                <li>Select which severity levels to display</li>
+                <li>Results update in real-time</li>
+                <li>Use "Issue Type" filter to focus on specific categories</li>
+                <li>Combine multiple filters to narrow down results</li>
+            </ol>
+
+            <div class="callout warning">
+                <div class="callout-title">Filter Best Practices</div>
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                    <li>Start with Critical and High severity to address major issues first</li>
+                    <li>Don't ignore Low/Info issues—they often indicate patterns</li>
+                    <li>Export filtered results for stakeholder review</li>
+                </ul>
+            </div>
+
+            <h3>Exporting Results</h3>
+            <ol style="margin-left: 20px;">
+                <li>Click the "Export" button above the Issues Table</li>
+                <li>Choose format: CSV, PDF, or JSON</li>
+                <li>Select which columns to include</li>
+                <li>Choose whether to include all issues or only displayed (filtered) issues</li>
+                <li>Click "Download"</li>
+                <li>File downloads to your computer</li>
+            </ol>
+
+            <div class="callout tip">
+                <div class="callout-title">Export Format Guide</div>
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                    <li><strong>CSV</strong>: Import into Excel or other tools for analysis</li>
+                    <li><strong>PDF</strong>: Share with stakeholders, professional presentation</li>
+                    <li><strong>JSON</strong>: Integration with other systems, programmatic access</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Statement Forge -->
+        <section class="section" id="statement-forge">
+            <h2>2. Statement Forge</h2>
+            <p class="section-subtitle">Extract, edit, and manage requirement statements</p>
+
+            <p>Statement Forge extracts requirement statements from documents and provides comprehensive tools to review, edit, merge, and export them. This tool helps you identify, organize, and manage all requirements within your documents.</p>
+
+            <h3>Opening Statement Forge</h3>
+            <ol style="margin-left: 20px;">
+                <li>Click the "Statement Forge" tile on the dashboard</li>
+                <li>Select a document or load a new one</li>
+                <li>System automatically extracts requirement statements</li>
+                <li>Statements appear in the Forge interface</li>
+            </ol>
+
+            <h3>Statement Extraction Process</h3>
+            <p>AEGIS uses advanced NLP to identify requirement statements based on:</p>
+            <ul style="margin-left: 20px;">
+                <li>Directive keywords (Shall, Must, Should, May, Will, etc.)</li>
+                <li>Grammatical structures (imperative mood, passive voice)</li>
+                <li>Contextual cues (numbered sections, requirement lists)</li>
+            </ul>
+
+            <h3>Filtering by Directive</h3>
+            <p>Requirement statements are classified by their directive keyword:</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Directive</th>
+                        <th>Strength</th>
+                        <th>Usage</th>
+                        <th>Example</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Shall</strong></td>
+                        <td>Mandatory</td>
+                        <td>Binding requirements</td>
+                        <td>"The system shall provide authentication"</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Must</strong></td>
+                        <td>Mandatory</td>
+                        <td>Alternative to "shall"</td>
+                        <td>"The interface must be user-friendly"</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Should</strong></td>
+                        <td>Recommended</td>
+                        <td>Strongly suggested</td>
+                        <td>"Reports should include trend analysis"</td>
+                    </tr>
+                    <tr>
+                        <td><strong>May</strong></td>
+                        <td>Optional</td>
+                        <td>Optional features</td>
+                        <td>"Users may customize dashboard themes"</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Will</strong></td>
+                        <td>Informational</td>
+                        <td>Future capabilities</td>
+                        <td>"Future releases will support API access"</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Managing Statements</h3>
+
+            <h4>Adding Statements</h4>
+            <ol style="margin-left: 20px;">
+                <li>Click "Add Statement" button</li>
+                <li>Enter the requirement text</li>
+                <li>Select the appropriate directive from dropdown</li>
+                <li>Assign category and owner (optional)</li>
+                <li>Click "Save"</li>
+            </ol>
+
+            <h4>Editing Statements</h4>
+            <ol style="margin-left: 20px;">
+                <li>Click on a statement to select it</li>
+                <li>Click the "Edit" button or pencil icon</li>
+                <li>Modify the text or directive as needed</li>
+                <li>Click "Save" to apply changes</li>
+            </ol>
+
+            <h4>Deleting Statements</h4>
+            <ol style="margin-left: 20px;">
+                <li>Select one or more statements (checkboxes)</li>
+                <li>Click "Delete" button</li>
+                <li>Confirm deletion in popup</li>
+                <li>Statements are removed from the list</li>
+            </ol>
+
+            <h3>Merging Statements</h3>
+            <p>Combine similar or related statements into a single requirement:</p>
+            <ol style="margin-left: 20px;">
+                <li>Select multiple statements using checkboxes</li>
+                <li>Click "Merge Statements" button</li>
+                <li>Review merged text</li>
+                <li>Confirm the merge</li>
+                <li>Original statements are replaced with merged version</li>
+            </ol>
+
+            <h3>Splitting Statements</h3>
+            <p>Break compound statements into individual requirements:</p>
+            <ol style="margin-left: 20px;">
+                <li>Select a statement that contains multiple requirements</li>
+                <li>Click "Split Statement" button</li>
+                <li>System suggests split points</li>
+                <li>Click where you want to split</li>
+                <li>Confirm to create separate statements</li>
+            </ol>
+
+            <h3>Renumbering Statements</h3>
+            <ol style="margin-left: 20px;">
+                <li>Click "Renumber" button in toolbar</li>
+                <li>Choose numbering scheme (1, 1.1, REQ-001, etc.)</li>
+                <li>Set starting number</li>
+                <li>Click "Apply"</li>
+                <li>All statements are renumbered automatically</li>
+            </ol>
+
+            <h3>Exporting Statements</h3>
+            <ol style="margin-left: 20px;">
+                <li>Click "Export" button</li>
+                <li>Choose format: CSV, Excel, or PDF</li>
+                <li>Select columns to include (Number, Text, Directive, Owner, etc.)</li>
+                <li>Choose to export all or selected statements</li>
+                <li>Click "Download"</li>
+            </ol>
+
+            <div class="callout tip">
+                <div class="callout-title">Statement Forge Best Practices</div>
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                    <li>Use consistent directive language across documents</li>
+                    <li>Review auto-extracted statements for accuracy</li>
+                    <li>Merge redundant or overlapping requirements</li>
+                    <li>Export regularly for traceability and archival</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Roles Studio -->
+        <section class="section" id="roles-studio">
+            <h2>3. Roles Studio</h2>
+            <p class="section-subtitle">Manage and analyze organizational roles and responsibilities (1,056 total roles)</p>
+
+            <p>Roles Studio is a comprehensive role management and analysis platform featuring 8 specialized views for different analytical needs. Analyze 1,056 known roles, their responsibilities, relationships, and distribution across documents.</p>
+
+            <h3>Overview Tab</h3>
+            <p>The Overview tab provides high-level summary of all role data:</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Card</th>
+                        <th>Shows</th>
+                        <th>Use For</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Unique Roles</strong></td>
+                        <td>Total distinct roles identified across all documents</td>
+                        <td>Understanding scope of role coverage</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Total Responsibilities</strong></td>
+                        <td>Sum of all responsibility statements linked to roles</td>
+                        <td>Measuring documentation completeness</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Documents Analyzed</strong></td>
+                        <td>Number of documents contributing to role analysis</td>
+                        <td>Tracking analysis coverage</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Role Interactions</strong></td>
+                        <td>Count of documented role relationships</td>
+                        <td>Understanding organizational complexity</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Relationship Graph Tab</h3>
+            <p>Network visualization showing role relationships with advanced features:</p>
+            <ul style="margin-left: 20px;">
+                <li>Edge bundling to reduce visual clutter</li>
+                <li>Semantic zoom for interactive exploration</li>
+                <li>Force-directed and bipartite layout options</li>
+                <li>Minimap navigation for large graphs</li>
+                <li>Click nodes to highlight connected roles</li>
+                <li>Zoom and pan to explore detail</li>
+            </ul>
+
+            <h3>Role Details Tab</h3>
+            <p>View detailed information for individual roles:</p>
+            <ol style="margin-left: 20px;">
+                <li>Search for a specific role using the search box</li>
+                <li>Click on a role to view its details</li>
+                <li>View all responsibilities linked to that role</li>
+                <li>See which documents contain this role</li>
+                <li>View related roles and interactions</li>
+                <li>Access edit functions for role information</li>
+            </ol>
+
+            <h3>RACI Matrix Tab</h3>
+            <p>Responsibility Assignment Matrix showing who is Responsible, Accountable, Consulted, and Informed:</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Meaning</th>
+                        <th>Definition</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>R</strong></td>
+                        <td>Responsible</td>
+                        <td>Does the work; directly involved in execution</td>
+                    </tr>
+                    <tr>
+                        <td><strong>A</strong></td>
+                        <td>Accountable</td>
+                        <td>Makes final decision; owns the outcome</td>
+                    </tr>
+                    <tr>
+                        <td><strong>C</strong></td>
+                        <td>Consulted</td>
+                        <td>Provides input and expertise; two-way communication</td>
+                    </tr>
+                    <tr>
+                        <td><strong>I</strong></td>
+                        <td>Informed</td>
+                        <td>Kept in the loop; one-way communication</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p>Features of the RACI Matrix view:</p>
+            <ul style="margin-left: 20px;">
+                <li>Sort by role name, responsibility count, or classification</li>
+                <li>Filter by specific RACI types (show only R, A, C, or I)</li>
+                <li>Export to CSV for stakeholder review</li>
+                <li>Color coding by assignment type</li>
+            </ul>
+
+            <h3>Role-Document Matrix Tab</h3>
+            <p>Cross-reference showing which roles appear in which documents:</p>
+            <ul style="margin-left: 20px;">
+                <li>Checkmark (✓) indicates role mentioned in document</li>
+                <li>Numbers show mention count when hovering</li>
+                <li>Toggle "Mention Counts" to show exact numbers</li>
+                <li>Search to filter roles or documents</li>
+                <li>Export matrix as CSV for analysis</li>
+            </ul>
+
+            <h3>Adjudication Tab</h3>
+            <p>Review and classify roles with 4 status options:</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Meaning</th>
+                        <th>Keyboard Shortcut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Pending</strong></td>
+                        <td>Awaiting review (default state)</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Confirmed</strong></td>
+                        <td>Verified as accurate and relevant</td>
+                        <td>C</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Deliverable</strong></td>
+                        <td>Ready for project delivery</td>
+                        <td>D</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Rejected</strong></td>
+                        <td>Not relevant or incorrect</td>
+                        <td>R</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p>Adjudication workflow:</p>
+            <ol style="margin-left: 20px;">
+                <li>Review pending roles one by one</li>
+                <li>Click on role to view details and responsibilities</li>
+                <li>Press C (Confirm), D (Deliverable), or R (Reject) to classify</li>
+                <li>Progress indicator shows completion percentage</li>
+                <li>Use "Auto-Classify" button for bulk classification of obvious roles</li>
+                <li>Filter to show only Pending to focus on remaining reviews</li>
+            </ol>
+
+            <h3>Role Dictionary Tab</h3>
+            <p>Manage the library of 1,056 known roles:</p>
+
+            <h4>Viewing the Dictionary</h4>
+            <ul style="margin-left: 20px;">
+                <li>See all roles organized by category</li>
+                <li>View category distribution (what % of roles in each category)</li>
+                <li>See source breakdown (where roles come from)</li>
+                <li>Search for specific roles</li>
+                <li>Filter by category, source, or status</li>
+            </ul>
+
+            <h4>Adding New Roles</h4>
+            <ol style="margin-left: 20px;">
+                <li>Click "Add Role" button</li>
+                <li>Enter role name</li>
+                <li>Select category from dropdown</li>
+                <li>Enter description (optional)</li>
+                <li>Select source (Custom, Built-in, etc.)</li>
+                <li>Click "Save"</li>
+            </ol>
+
+            <h4>Editing Roles</h4>
+            <ol style="margin-left: 20px;">
+                <li>Find role in dictionary</li>
+                <li>Click the edit/pencil icon</li>
+                <li>Modify details as needed</li>
+                <li>Click "Save"</li>
+            </ol>
+
+            <h4>Deleting Roles</h4>
+            <ol style="margin-left: 20px;">
+                <li>Select one or more roles</li>
+                <li>Click "Delete" button</li>
+                <li>Confirm deletion</li>
+                <li>Roles are removed from dictionary</li>
+            </ol>
+
+            <h4>Importing/Exporting Roles</h4>
+            <p>Share and backup role data:</p>
+            <ul style="margin-left: 20px;">
+                <li><strong>Export</strong>: Click "Export" to download all roles as CSV</li>
+                <li><strong>Import</strong>: Click "Import" to load roles from CSV file</li>
+                <li><strong>Seed Built-ins</strong>: Click "Seed Built-in Roles" to reload the default 1,056 role library</li>
+            </ul>
+
+            <h3>Document Log Tab</h3>
+            <p>View all documents contributing to role analysis:</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Column</th>
+                        <th>Shows</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Document</strong></td>
+                        <td>Filename and path</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Scan Date</strong></td>
+                        <td>When document was analyzed</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Function Category</strong></td>
+                        <td>What category of document (spec, design, etc.)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Document Category</strong></td>
+                        <td>Classification of document type</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Roles Found</strong></td>
+                        <td>Number of distinct roles identified</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="callout tip">
+                <div class="callout-title">Roles Studio Tips</div>
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                    <li>Start in Overview tab to understand data scope</li>
+                    <li>Use Relationship Graph to see organizational structure</li>
+                    <li>Complete Adjudication for most accurate analysis</li>
+                    <li>Export RACI Matrix for stakeholder review</li>
+                    <li>Review Document Log to understand data sources</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Metrics & Analytics -->
+        <section class="section" id="metrics-analytics">
+            <h2>4. Metrics & Analytics</h2>
+            <p class="section-subtitle">Monitor quality trends and performance metrics across your document portfolio</p>
+
+            <p>Metrics & Analytics provides comprehensive dashboards and charts for tracking document quality, scan activity, and key performance indicators across your entire document portfolio.</p>
+
+            <h3>Overview Dashboard</h3>
+            <p>The main Metrics view displays:</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Chart/Metric</th>
+                        <th>Shows</th>
+                        <th>Use For</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Score Trend Chart</strong></td>
+                        <td>Quality scores over time</td>
+                        <td>Tracking improvement/decline</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Grade Distribution</strong></td>
+                        <td>Pie chart of A/B/C/D/F grades</td>
+                        <td>Understanding overall portfolio quality</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Scan Activity Heatmap</strong></td>
+                        <td>Day/time distribution of scans</td>
+                        <td>Identifying usage patterns</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Recent Scans</strong></td>
+                        <td>List of latest 10 document scans</td>
+                        <td>Quick access to recent work</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Sub-Tabs</h3>
+
+            <h4>Quality Tab</h4>
+            <p>Detailed quality metrics:</p>
+            <ul style="margin-left: 20px;">
+                <li>Average quality score across all documents</li>
+                <li>Score distribution (histogram)</li>
+                <li>Highest and lowest scoring documents</li>
+                <li>Quality trends by time period</li>
+            </ul>
+
+            <h4>Statements Tab</h4>
+            <p>Requirement statement statistics:</p>
+            <ul style="margin-left: 20px;">
+                <li>Total statements extracted</li>
+                <li>Distribution by directive (Shall, Must, Should, May, Will)</li>
+                <li>Statements per document (average)</li>
+                <li>Statement growth over time</li>
+            </ul>
+
+            <h4>Roles Tab</h4>
+            <p>Role-related metrics:</p>
+            <ul style="margin-left: 20px;">
+                <li>Total unique roles identified</li>
+                <li>Roles per document (average)</li>
+                <li>Role adjudication progress</li>
+                <li>Most frequently mentioned roles</li>
+            </ul>
+
+            <h4>Documents Tab</h4>
+            <p>Document portfolio metrics:</p>
+            <ul style="margin-left: 20px;">
+                <li>Total documents scanned</li>
+                <li>Total word count across portfolio</li>
+                <li>Average words per document</li>
+                <li>Document size distribution</li>
+            </ul>
+
+            <h3>Key Metrics Reference</h3>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Calculation/Meaning</th>
+                        <th>Target</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Total Words</strong></td>
+                        <td>Sum of all words across all documents</td>
+                        <td>Project-dependent</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Average Words/Doc</strong></td>
+                        <td>Total words ÷ number of documents</td>
+                        <td>50-5000 typical</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Issues Found</strong></td>
+                        <td>Total quality issues identified</td>
+                        <td>Lower is better</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Roles Adjudicated</strong></td>
+                        <td>Roles reviewed and classified</td>
+                        <td>100% completion goal</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="callout info">
+                <div class="callout-title">Using Metrics for Decision Making</div>
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                    <li>Track score trends to measure process improvements</li>
+                    <li>Use grade distribution to identify problem areas</li>
+                    <li>Monitor scan activity to ensure regular reviews</li>
+                    <li>Compare roles and statements for completeness</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Scan History -->
+        <section class="section" id="scan-history">
+            <h2>5. Scan History</h2>
+            <p class="section-subtitle">Browse, compare, and analyze previous document scans</p>
+
+            <p>Scan History maintains a complete record of all document reviews, allowing you to track changes over time, compare versions, and access previous results.</p>
+
+            <h3>Accessing Scan History</h3>
+            <ol style="margin-left: 20px;">
+                <li>Click "Scan History" on the dashboard</li>
+                <li>View list of all historical scans</li>
+                <li>Scans are sorted by most recent first</li>
+            </ol>
+
+            <h3>Scan History Table Columns</h3>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Column</th>
+                        <th>Contains</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Document</strong></td>
+                        <td>Filename</td>
+                        <td>Click to view full path</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Scan Time</strong></td>
+                        <td>When scan completed</td>
+                        <td>Shows relative time (e.g., "2 days ago")</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Issues</strong></td>
+                        <td>Number of issues found</td>
+                        <td>Color-coded by severity distribution</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Score</strong></td>
+                        <td>Quality score percentage</td>
+                        <td>0-100%, higher is better</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Grade</strong></td>
+                        <td>Letter grade (A-F)</td>
+                        <td>A/B = acceptable, C = needs improvement</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Statements</strong></td>
+                        <td>Requirements extracted</td>
+                        <td>Count of identified statements</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Changes</strong></td>
+                        <td>Difference from previous scan</td>
+                        <td>Shows +/- for score and issue changes</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Filtering Scans</h3>
+            <ol style="margin-left: 20px;">
+                <li>Use filename search box to filter by document name</li>
+                <li>Filter by date range (Last Week, Last Month, All Time)</li>
+                <li>Filter by grade (show only A's, show only F's, etc.)</li>
+                <li>Combine multiple filters</li>
+                <li>Results update automatically</li>
+            </ol>
+
+            <h3>Working with Scan Results</h3>
+
+            <h4>View Full Results</h4>
+            <ol style="margin-left: 20px;">
+                <li>Click on a scan row</li>
+                <li>Full results panel opens</li>
+                <li>View all issues with details</li>
+                <li>Use severity filters</li>
+                <li>Export if needed</li>
+            </ol>
+
+            <h4>Re-Download Results</h4>
+            <ol style="margin-left: 20px;">
+                <li>Click the download icon for a scan</li>
+                <li>Choose format (CSV, PDF, JSON)</li>
+                <li>File downloads to computer</li>
+            </ol>
+
+            <h4>Compare Two Scans</h4>
+            <ol style="margin-left: 20px;">
+                <li>Select two scans of the same document (checkboxes)</li>
+                <li>Click "Compare" button</li>
+                <li>Side-by-side comparison view opens</li>
+                <li>See what changed between scans</li>
+            </ol>
+
+            <div class="callout tip">
+                <div class="callout-title">Scan History Best Practices</div>
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                    <li>Keep historical scans for compliance and audit trails</li>
+                    <li>Compare consecutive scans to track improvement</li>
+                    <li>Export final scans for stakeholder approval records</li>
+                    <li>Review oldest scans to understand origin of issues</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Document Compare -->
+        <section class="section" id="document-compare">
+            <h2>6. Document Compare</h2>
+            <p class="section-subtitle">Compare quality scores between document versions and scan results</p>
+
+            <p>Document Compare provides side-by-side analysis of document versions, showing quality changes, issue differences, and detailed diffs between original and current versions.</p>
+
+            <h3>Opening Document Compare</h3>
+            <ol style="margin-left: 20px;">
+                <li>Click "Document Compare" tile on dashboard</li>
+                <li>System auto-loads with oldest document on left, newest on right</li>
+                <li>Comparison runs automatically</li>
+            </ol>
+
+            <h3>Selecting Documents</h3>
+            <p>If no auto-selected documents appear:</p>
+            <ol style="margin-left: 20px;">
+                <li>Click the "Left Document" dropdown</li>
+                <li>Select a document version</li>
+                <li>Click the "Right Document" dropdown</li>
+                <li>Select a more recent version of the same document</li>
+                <li>Click "Compare" button</li>
+                <li>Comparison runs and displays side-by-side</li>
+            </ol>
+
+            <h3>Understanding the Comparison View</h3>
+
+            <h4>Quality Score Comparison</h4>
+            <p>At the top, you see:</p>
+            <ul style="margin-left: 20px;">
+                <li><strong>Left side</strong>: Original document quality score and grade</li>
+                <li><strong>Center</strong>: Change indicator (↑ improved, ↓ declined, → no change)</li>
+                <li><strong>Right side</strong>: Current document quality score and grade</li>
+            </ul>
+
+            <h4>Side-by-Side Diff View</h4>
+            <ul style="margin-left: 20px;">
+                <li>Left panel: Original document version</li>
+                <li>Right panel: Current document version</li>
+                <li>Yellow highlighting: Changed text/sections</li>
+                <li>Red background: Removed content</li>
+                <li>Green background: Added content</li>
+            </ul>
+
+            <h3>Change Navigation</h3>
+            <p>Navigate through changes with the counter showing "1/7" (1st of 7 changes):</p>
+            <ol style="margin-left: 20px;">
+                <li>Use "Previous" and "Next" buttons to step through changes</li>
+                <li>Counter shows current position</li>
+                <li>View automatically scrolls to highlight each change</li>
+                <li>Click directly on changes to jump to them</li>
+            </ol>
+
+            <h3>Issues Comparison Panel</h3>
+            <p>Below the diff view, compare issues found:</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Column</th>
+                        <th>Shows</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Issue Type</strong></td>
+                        <td>Category of issue</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Old Status</strong></td>
+                        <td>Was issue present in original scan?</td>
+                    </tr>
+                    <tr>
+                        <td><strong>New Status</strong></td>
+                        <td>Is issue present in current scan?</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Change</strong></td>
+                        <td>✓ Fixed, ✗ New, = Unchanged</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Exporting Comparisons</h3>
+            <ol style="margin-left: 20px;">
+                <li>Click "Export Comparison" button</li>
+                <li>Choose format (PDF with side-by-side, CSV summary, or HTML report)</li>
+                <li>Click "Download"</li>
+                <li>File downloads to computer</li>
+            </ol>
+
+            <div class="callout tip">
+                <div class="callout-title">Document Compare Tips</div>
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                    <li>Compare first and final versions to see full improvement</li>
+                    <li>Use for quality gate reviews before approval</li>
+                    <li>Export PDF reports for change review meetings</li>
+                    <li>Track metrics changes to demonstrate ROI</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Link Validator -->
+        <section class="section" id="link-validator">
+            <h2>7. Link Validator</h2>
+            <p class="section-subtitle">Validate hyperlinks and URLs in your documents</p>
+
+            <p>Link Validator tests all links within documents to identify broken links, redirects, timeouts, and other connectivity issues.</p>
+
+            <h3>Starting Link Validation</h3>
+            <ol style="margin-left: 20px;">
+                <li>Click "Link Validator" on the dashboard</li>
+                <li>Choose input method (File Upload or Paste URLs)</li>
+            </ol>
+
+            <h3>Input Methods</h3>
+
+            <h4>File Upload</h4>
+            <ol style="margin-left: 20px;">
+                <li>Click "Choose File" button</li>
+                <li>Select a document (PDF, DOCX, TXT)</li>
+                <li>System extracts all URLs automatically</li>
+                <li>Shows preview of found URLs</li>
+                <li>Click "Validate"</li>
+            </ol>
+
+            <h4>Paste URLs</h4>
+            <ol style="margin-left: 20px;">
+                <li>Click "Paste URLs" tab</li>
+                <li>Enter or paste URLs (one per line)</li>
+                <li>Click "Validate"</li>
+            </ol>
+
+            <h3>Validation Modes</h3>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Mode</th>
+                        <th>Description</th>
+                        <th>Use When</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Quick Check</strong></td>
+                        <td>Basic HTTP connectivity test</td>
+                        <td>Fast check, public URLs only</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Full Validation</strong></td>
+                        <td>Complete HTTP test with response analysis</td>
+                        <td>Thorough check, detect issues</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Full + Windows Auth</strong></td>
+                        <td>Full validation plus NTLM authentication</td>
+                        <td>Internal corporate URLs</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Depth Settings</h3>
+            <p>Control link traversal depth:</p>
+            <ul style="margin-left: 20px;">
+                <li><strong>Depth 0</strong>: Test provided URLs only</li>
+                <li><strong>Depth 1</strong>: Also test all links found on those pages</li>
+                <li><strong>Depth 2</strong>: Also test links from linked pages (warning: slow)</li>
+            </ul>
+
+            <h3>Understanding Results</h3>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Meaning</th>
+                        <th>Action Required</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>✓ Working</strong></td>
+                        <td>Link accessible and responds correctly (HTTP 200)</td>
+                        <td>None</td>
+                    </tr>
+                    <tr>
+                        <td><strong>✗ Broken</strong></td>
+                        <td>URL not found or not accessible (HTTP 404, 403, etc.)</td>
+                        <td>Update or remove link</td>
+                    </tr>
+                    <tr>
+                        <td><strong>→ Redirect</strong></td>
+                        <td>Link redirects to another URL (HTTP 301, 302)</td>
+                        <td>Update to final destination</td>
+                    </tr>
+                    <tr>
+                        <td><strong>⏱ Timeout</strong></td>
+                        <td>Server didn't respond in time</td>
+                        <td>Check URL, may be temporary</td>
+                    </tr>
+                    <tr>
+                        <td><strong>🚫 Blocked</strong></td>
+                        <td>Access denied by firewall or authentication</td>
+                        <td>Check permissions, may be internal</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Advanced Settings</h3>
+            <ul style="margin-left: 20px;">
+                <li><strong>Timeout</strong>: Set response timeout in seconds (default: 30s)</li>
+                <li><strong>Follow Redirects</strong>: Continue through redirect chains</li>
+                <li><strong>SSL Verification</strong>: Validate HTTPS certificates</li>
+                <li><strong>User Agent</strong>: Set browser identification string</li>
+            </ul>
+
+            <h3>Exporting Results</h3>
+            <ol style="margin-left: 20px;">
+                <li>Click "Export Results" button</li>
+                <li>Choose format (CSV for spreadsheet, JSON for integration)</li>
+                <li>Click "Download"</li>
+            </ol>
+
+            <div class="callout warning">
+                <div class="callout-title">Link Validation Cautions</div>
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                    <li>Some sites block automated link checking</li>
+                    <li>Timeouts may be false positives (network latency)</li>
+                    <li>Test at off-peak hours for more reliable results</li>
+                    <li>Use Windows Auth mode only for internal URLs</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Portfolio -->
+        <section class="section" id="portfolio">
+            <h2>8. Portfolio</h2>
+            <p class="section-subtitle">Dashboard overview of your entire document portfolio</p>
+
+            <p>Portfolio provides a comprehensive bird's-eye view of all your documents, organized by batch sessions with quality indicators and recent activity tracking.</p>
+
+            <h3>Portfolio Overview</h3>
+            <p>Top of Portfolio view shows key portfolio statistics:</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Stat</th>
+                        <th>Shows</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Documents</strong></td>
+                        <td>Total documents in portfolio</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Batches</strong></td>
+                        <td>Number of organized batch sessions</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Average Score</strong></td>
+                        <td>Mean quality score across all documents</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Batch Sessions View</h3>
+            <p>Documents organized into logical batch sessions:</p>
+            <ul style="margin-left: 20px;">
+                <li>Each batch shows session name and date created</li>
+                <li>Grade indicator (A/B/C/D/F) for batch average quality</li>
+                <li>Document count in each batch</li>
+                <li>Click to expand and see documents in batch</li>
+            </ul>
+
+            <h3>Individual Document Tiles</h3>
+            <p>Each document appears as a card with:</p>
+            <ul style="margin-left: 20px;">
+                <li>Document filename</li>
+                <li>Quality score badge (percentage)</li>
+                <li>Grade letter (A-F) in large font</li>
+                <li>Last scan date</li>
+                <li>Issue count (color-coded by severity)</li>
+                <li>Quick actions menu (view, compare, re-scan, export)</li>
+            </ul>
+
+            <h3>Filtering Portfolio</h3>
+            <ol style="margin-left: 20px;">
+                <li>Use search box to filter by filename</li>
+                <li>Filter by grade (show A's only, show F's, etc.)</li>
+                <li>Filter by batch session</li>
+                <li>Sort by score, date, or name</li>
+            </ol>
+
+            <h3>Recent Activity Sidebar</h3>
+            <p>Right sidebar shows:</p>
+            <ul style="margin-left: 20px;">
+                <li>Most recently scanned documents</li>
+                <li>Most recently modified documents</li>
+                <li>Documents with issues added/fixed</li>
+                <li>Click to jump to document card</li>
+            </ul>
+
+            <div class="callout tip">
+                <div class="callout-title">Portfolio Management Tips</div>
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                    <li>Organize documents into batches by project or phase</li>
+                    <li>Use Portfolio to identify lowest-quality documents</li>
+                    <li>Export portfolio snapshot for stakeholder reports</li>
+                    <li>Track batch completion progress with grade indicators</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Statement Review -->
+        <section class="section" id="statement-review">
+            <h2>9. Statement Review</h2>
+            <p class="section-subtitle">Mass review and approval of extracted requirement statements (2,702 total across 736 roles)</p>
+
+            <p>Statement Review provides a mass review interface for the 2,702 requirement statements extracted across your entire document portfolio, allowing bulk approve/reject and quality issue flagging.</p>
+
+            <h3>Opening Statement Review</h3>
+            <ol style="margin-left: 20px;">
+                <li>Click "Statement Review" on the dashboard</li>
+                <li>System loads all extracted statements</li>
+                <li>Shows count: "2,702 statements across 736 roles in 45 documents"</li>
+            </ol>
+
+            <h3>Statement Review Interface</h3>
+            <p>The interface shows:</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Column</th>
+                        <th>Shows</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Statement Text</strong></td>
+                        <td>Full requirement statement</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Status</strong></td>
+                        <td>Pending, Approved, or Rejected</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Role</strong></td>
+                        <td>Associated role (if any)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Document</strong></td>
+                        <td>Source document</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Flags</strong></td>
+                        <td>Quality warnings (Too Short, No Verb, etc.)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Actions</strong></td>
+                        <td>Approve, Reject, Edit buttons</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Filtering Statements</h3>
+            <ol style="margin-left: 20px;">
+                <li>Filter by Status (Pending, Approved, Rejected)</li>
+                <li>Filter by Role (select specific role or "Unassigned")</li>
+                <li>Filter by Document (source file)</li>
+                <li>Toggle "Flagged Only" to show only statements with quality warnings</li>
+                <li>Combine multiple filters</li>
+            </ol>
+
+            <h3>Quality Warnings Explained</h3>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Warning</th>
+                        <th>Meaning</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Too Short</strong></td>
+                        <td>Statement is less than 5 words</td>
+                        <td>Consider expanding or removing</td>
+                    </tr>
+                    <tr>
+                        <td><strong>No Verb</strong></td>
+                        <td>Missing action verb</td>
+                        <td>May not be a proper requirement</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Unclear Directive</strong></td>
+                        <td>Missing or ambiguous directive</td>
+                        <td>Clarify requirement strength</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Vague Quantifier</strong></td>
+                        <td>Uses imprecise words (e.g., "many", "soon")</td>
+                        <td>Replace with measurable criteria</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Approving/Rejecting Statements</h3>
+
+            <h4>Individual Approval</h4>
+            <ol style="margin-left: 20px;">
+                <li>Find statement to review</li>
+                <li>Click "Approve" to accept statement</li>
+                <li>Or click "Reject" to mark as invalid</li>
+                <li>System moves to next statement</li>
+            </ol>
+
+            <h4>Bulk Operations</h4>
+            <ol style="margin-left: 20px;">
+                <li>Select multiple statements (checkboxes)</li>
+                <li>Click "Bulk Approve" or "Bulk Reject"</li>
+                <li>Confirm action</li>
+                <li>All selected statements updated at once</li>
+            </ol>
+
+            <h3>Editing Statements</h3>
+            <ol style="margin-left: 20px;">
+                <li>Click "Edit" for a statement</li>
+                <li>Modify text, role assignment, or directive</li>
+                <li>Click "Save"</li>
+                <li>Changes applied immediately</li>
+            </ol>
+
+            <div class="callout tip">
+                <div class="callout-title">Statement Review Best Practices</div>
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                    <li>Start with flagged statements (quality warnings)</li>
+                    <li>Review by role to understand responsibilities</li>
+                    <li>Aim for 100% Approved or Rejected (no Pending)</li>
+                    <li>Export approved statements for final deliverables</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- SOW Generator -->
+        <section class="section" id="sow-generator">
+            <h2>10. SOW Generator</h2>
+            <p class="section-subtitle">Automatically generate Statement of Work documents from extracted requirements</p>
+
+            <p>SOW Generator creates professional Statement of Work documents by combining project information with requirements and role data extracted from your documents.</p>
+
+            <h3>Opening SOW Generator</h3>
+            <ol style="margin-left: 20px;">
+                <li>Click "SOW Generator" on the dashboard</li>
+                <li>Form loads with input fields</li>
+                <li>Fill in project information and select sections to include</li>
+            </ol>
+
+            <h3>Project Information Fields</h3>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Field</th>
+                        <th>Description</th>
+                        <th>Required</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Project Title</strong></td>
+                        <td>Name of the project or work package</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Document Number</strong></td>
+                        <td>Unique identifier (e.g., SOW-2024-001)</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Version</strong></td>
+                        <td>Document version (e.g., 1.0, A, Draft)</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Date</strong></td>
+                        <td>Document creation date</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Author</strong></td>
+                        <td>Person who created/approved SOW</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Organization</strong></td>
+                        <td>Company or department name</td>
+                        <td>No</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Sections to Include</h3>
+            <p>Check which sections to include in the generated SOW:</p>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>Introduction</h4>
+                    <p>Overview and purpose of the work</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Scope</h4>
+                    <p>What is and is not included in project</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Applicable Documents</h4>
+                    <p>Related specs, standards, and references</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Requirements & Deliverables</h4>
+                    <p>Specific work products and acceptance criteria</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Work Breakdown Structure</h4>
+                    <p>Tasks and schedule overview</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Roles & Responsibilities</h4>
+                    <p>Who does what (from RACI analysis)</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Acceptance Criteria</h4>
+                    <p>Success metrics and pass/fail criteria</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Standards & Compliance</h4>
+                    <p>Applicable standards and regulations</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Assumptions & Constraints</h4>
+                    <p>Project assumptions and limitations</p>
+                </div>
+            </div>
+
+            <h3>Generating the SOW</h3>
+
+            <h4>Step 1: Project Information</h4>
+            <ol style="margin-left: 20px;">
+                <li>Enter project title</li>
+                <li>Enter document number</li>
+                <li>Set version, date, author, organization</li>
+            </ol>
+
+            <h4>Step 2: Select Source Documents</h4>
+            <ol style="margin-left: 20px;">
+                <li>Choose which documents to pull requirements from</li>
+                <li>Can select multiple source documents</li>
+                <li>System extracts statements from selected docs</li>
+            </ol>
+
+            <h4>Step 3: Configure Statement Breakdown</h4>
+            <p>Choose which directive types to include:</p>
+            <ul style="margin-left: 20px;">
+                <li>Include Shall requirements (mandatory)</li>
+                <li>Include Must requirements (mandatory)</li>
+                <li>Include Will requirements (planned capabilities)</li>
+                <li>Include Should requirements (recommended)</li>
+                <li>Include May requirements (optional)</li>
+            </ul>
+
+            <h4>Step 4: Add Custom Sections</h4>
+            <ol style="margin-left: 20px;">
+                <li>Click "Add Custom Section"</li>
+                <li>Enter section title (e.g., "Success Criteria")</li>
+                <li>Enter section content</li>
+                <li>Can add multiple custom sections</li>
+            </ol>
+
+            <h4>Step 5: Select Template</h4>
+            <ul style="margin-left: 20px;">
+                <li>Professional: Formal SOW format (recommended)</li>
+                <li>Compact: Condensed format for shorter SOWs</li>
+                <li>Detailed: Extended format with all sections</li>
+            </ul>
+
+            <h4>Step 6: Generate</h4>
+            <ol style="margin-left: 20px;">
+                <li>Click "Generate SOW" button</li>
+                <li>System processes requirements and creates document</li>
+                <li>Progress indicator shows status</li>
+                <li>Generated SOW displays for review</li>
+            </ol>
+
+            <h3>Review and Export</h3>
+            <ol style="margin-left: 20px;">
+                <li>Review generated SOW in preview panel</li>
+                <li>Make final edits if needed (edit mode available)</li>
+                <li>Click "Export as PDF" to download final document</li>
+                <li>Or click "Export as Word" for DOCX file</li>
+                <li>File downloads to your computer</li>
+            </ol>
+
+            <div class="callout tip">
+                <div class="callout-title">SOW Generation Tips</div>
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                    <li>Ensure source documents are fully reviewed first</li>
+                    <li>Use Professional template for stakeholder delivery</li>
+                    <li>Review generated content for accuracy before export</li>
+                    <li>Add custom sections for project-specific needs</li>
+                    <li>Keep version history of generated SOWs</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Keyboard Shortcuts -->
+        <section class="section" id="keyboard-shortcuts">
+            <h2>Keyboard Shortcuts</h2>
+            <p class="section-subtitle">Speed up your workflow with these quick commands</p>
+
+            <h3>Global Shortcuts</h3>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Shortcut</th>
+                        <th>Action</th>
+                        <th>Works In</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>Ctrl/Cmd + /</code></td>
+                        <td>Open help (this guide)</td>
+                        <td>Everywhere</td>
+                    </tr>
+                    <tr>
+                        <td><code>Ctrl/Cmd + F</code></td>
+                        <td>Search/find text</td>
+                        <td>All sections</td>
+                    </tr>
+                    <tr>
+                        <td><code>Ctrl/Cmd + K</code></td>
+                        <td>Command palette (jump to tool)</td>
+                        <td>Main interface</td>
+                    </tr>
+                    <tr>
+                        <td><code>Escape</code></td>
+                        <td>Close current modal</td>
+                        <td>Modal dialogs</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Roles Studio Shortcuts</h3>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Shortcut</th>
+                        <th>Action</th>
+                        <th>Tab</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>C</code></td>
+                        <td>Confirm role</td>
+                        <td>Adjudication</td>
+                    </tr>
+                    <tr>
+                        <td><code>D</code></td>
+                        <td>Mark as Deliverable</td>
+                        <td>Adjudication</td>
+                    </tr>
+                    <tr>
+                        <td><code>R</code></td>
+                        <td>Reject role</td>
+                        <td>Adjudication</td>
+                    </tr>
+                    <tr>
+                        <td><code>→ / ←</code></td>
+                        <td>Next/previous role</td>
+                        <td>Adjudication</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Document Compare Shortcuts</h3>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Shortcut</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>N</code></td>
+                        <td>Next change</td>
+                    </tr>
+                    <tr>
+                        <td><code>P</code></td>
+                        <td>Previous change</td>
+                    </tr>
+                    <tr>
+                        <td><code>1</code></td>
+                        <td>Jump to first change</td>
+                    </tr>
+                    <tr>
+                        <td><code>0</code></td>
+                        <td>Jump to last change</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Troubleshooting -->
+        <section class="section" id="troubleshooting">
+            <h2>Troubleshooting & Support</h2>
+            <p class="section-subtitle">Solutions to common issues</p>
+
+            <h3>Upload Issues</h3>
+
+            <div class="callout warning">
+                <div class="callout-title">File upload fails or times out</div>
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                    <li>Check file size (max 50MB)</li>
+                    <li>Try uploading a smaller document first</li>
+                    <li>Disable browser extensions that block uploads</li>
+                    <li>Try a different browser</li>
+                    <li>Check internet connection speed</li>
+                </ul>
+            </div>
+
+            <h3>Review Issues</h3>
+
+            <div class="callout warning">
+                <div class="callout-title">Review doesn't complete or shows "Unknown Error"</div>
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                    <li>Check that document format is supported (PDF, DOCX, TXT, XLSX)</li>
+                    <li>Try scanning with "Grammar" profile instead of "Full Scan"</li>
+                    <li>Document may be corrupted—try re-saving with different tool</li>
+                    <li>If file is copy-protected, remove protection before uploading</li>
+                    <li>Contact support if error persists</li>
+                </ul>
+            </div>
+
+            <div class="callout warning">
+                <div class="callout-title">Quality score seems wrong or too high/low</div>
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                    <li>Different review profiles produce different scores</li>
+                    <li>Document may have been edited since last scan</li>
+                    <li>Try re-scanning with same profile for comparison</li>
+                    <li>Use Document Compare to see what changed</li>
+                </ul>
+            </div>
+
+            <h3>Statement Forge Issues</h3>
+
+            <div class="callout warning">
+                <div class="callout-title">No statements extracted or very few found</div>
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                    <li>Document may not contain explicit requirement language</li>
+                    <li>Requirements may use non-standard directive words</li>
+                    <li>Try manually adding statements using "Add Statement" button</li>
+                    <li>Check that document language is English</li>
+                </ul>
+            </div>
+
+            <h3>Roles Studio Issues</h3>
+
+            <div class="callout warning">
+                <div class="callout-title">Roles not loading or graph visualization blank</div>
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                    <li>Wait for initial scan to complete (may take a few minutes)</li>
+                    <li>Reload page (Ctrl/Cmd + R)</li>
+                    <li>Clear browser cache and cookies</li>
+                    <li>Try a different browser</li>
+                    <li>Check browser console for JavaScript errors</li>
+                </ul>
+            </div>
+
+            <h3>Performance Issues</h3>
+
+            <div class="callout warning">
+                <div class="callout-title">Application is slow, sluggish, or freezes</div>
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                    <li>Close other browser tabs to free memory</li>
+                    <li>Clear browser cache (Ctrl/Cmd + Shift + Delete)</li>
+                    <li>Disable browser extensions</li>
+                    <li>Check available system memory (Task Manager / Activity Monitor)</li>
+                    <li>Try with a smaller document set</li>
+                    <li>Restart your browser</li>
+                </ul>
+            </div>
+
+            <h3>Data Issues</h3>
+
+            <div class="callout warning">
+                <div class="callout-title">My data disappeared or seems lost</div>
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                    <li>AEGIS maintains scan history (data is not deleted)</li>
+                    <li>Check Scan History view to find previous results</li>
+                    <li>Filter by document name to locate scans</li>
+                    <li>Download from Scan History if needed</li>
+                    <li>Data is preserved across browser sessions</li>
+                </ul>
+            </div>
+
+            <h3>Browser Compatibility</h3>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Browser</th>
+                        <th>Supported Versions</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Chrome</strong></td>
+                        <td>Latest 2 versions</td>
+                        <td>✓ Fully supported</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Firefox</strong></td>
+                        <td>Latest 2 versions</td>
+                        <td>✓ Fully supported</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Safari</strong></td>
+                        <td>Latest 2 versions</td>
+                        <td>✓ Fully supported</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Edge</strong></td>
+                        <td>Latest 2 versions</td>
+                        <td>✓ Fully supported</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Internet Explorer</strong></td>
+                        <td>Any version</td>
+                        <td>✗ Not supported</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="callout info">
+                <div class="callout-title">Reporting Issues</div>
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                    <li>Check the browser console for error messages (F12, Console tab)</li>
+                    <li>Note the exact steps to reproduce the issue</li>
+                    <li>Include the error message or screenshot</li>
+                    <li>Provide your browser name and version</li>
+                    <li>Contact support with this information</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- FAQs -->
+        <section class="section" id="faqs">
+            <h2>Frequently Asked Questions</h2>
+            <p class="section-subtitle">Quick answers to common questions</p>
+
+            <h3>General Questions</h3>
+
+            <h4>Q: Is my data stored securely?</h4>
+            <p>A: All document uploads and scans are processed securely on localhost. Data is stored locally on your machine. For cloud deployment options, contact support.</p>
+
+            <h4>Q: Can I export and archive my scans?</h4>
+            <p>A: Yes! Each scan can be exported as CSV, PDF, or JSON. Use the Export button in Scan History or from individual review results.</p>
+
+            <h4>Q: Can multiple people use AEGIS simultaneously?</h4>
+            <p>A: AEGIS runs on localhost:5050. Multiple users can access it across a network, but concurrent edits are not simultaneously synchronized. Recommend sequential workflow.</p>
+
+            <h3>Document Review Questions</h3>
+
+            <h4>Q: What file formats does AEGIS support?</h4>
+            <p>A: PDF, DOCX (Word), TXT (plain text), and XLSX (Excel). Maximum file size is 50MB per document.</p>
+
+            <h4>Q: How long does a scan take?</h4>
+            <p>A: Depends on document size and profile. Grammar profile: 1-3 min. Full Scan: 5-10 min. Very large documents may take longer.</p>
+
+            <h4>Q: Can I re-scan a document?</h4>
+            <p>A: Yes! Upload the document again or select it from your scans to re-scan with a different profile. Previous results are preserved in Scan History.</p>
+
+            <h3>Statement Forge Questions</h3>
+
+            <h4>Q: Can statements be edited after extraction?</h4>
+            <p>A: Yes, fully editable. Modify text, change directive, reassign role, or delete entirely. Changes are saved immediately.</p>
+
+            <h4>Q: What if a requirement statement wasn't extracted?</h4>
+            <p>A: Manually add it using "Add Statement" button. This is common for non-standard requirement language.</p>
+
+            <h4>Q: Can I merge similar statements?</h4>
+            <p>A: Yes! Select multiple statements and click "Merge Statements". Useful for consolidating overlapping requirements.</p>
+
+            <h3>Roles Studio Questions</h3>
+
+            <h4>Q: How are roles identified automatically?</h4>
+            <p>A: AEGIS searches for keywords matching the Role Dictionary (1,056 roles). Any exact match in the document triggers role identification.</p>
+
+            <h4>Q: Can I add custom roles?</h4>
+            <p>A: Yes! Use the Role Dictionary tab to add new roles to the library. They will be recognized in future scans.</p>
+
+            <h4>Q: What does "Adjudication" mean?</h4>
+            <p>A: Review and classify each role as Confirmed (correct), Deliverable (ready), or Rejected (not relevant). Helps ensure quality of role analysis.</p>
+
+            <h4>Q: Why is the RACI matrix empty?</h4>
+            <p>A: Complete Adjudication first to confirm which roles are valid. Only confirmed roles appear in RACI analysis.</p>
+
+            <h3>Metrics Questions</h3>
+
+            <h4>Q: What's the difference between Quality Score and Grade?</h4>
+            <p>A: Quality Score is the percentage (0-100%). Grade is the letter equivalent (A=90-100%, B=80-89%, etc.). They show the same information differently.</p>
+
+            <h4>Q: Can I compare metrics between documents?</h4>
+            <p>A: Yes! Use Metrics & Analytics tab "Documents" sub-tab to see detailed stats for each document. Use Portfolio to see all documents side-by-side.</p>
+
+            <h3>Advanced Questions</h3>
+
+            <h4>Q: How do I integrate AEGIS with other tools?</h4>
+            <p>A: AEGIS exports to CSV and JSON formats compatible with Excel, databases, and programming tools. Contact support for custom API integration.</p>
+
+            <h4>Q: Can I automate scanning and reporting?</h4>
+            <p>A: Currently, AEGIS requires manual scanning from the UI. Batch processing and scheduling are planned for future releases.</p>
+
+            <h4>Q: Is there a command-line or API interface?</h4>
+            <p>A: Not in v5.0.0. AEGIS is a web application accessible via browser at localhost:5050. API and CLI are on the roadmap for future versions.</p>
+
+            <h3>Support & Feedback</h3>
+
+            <div class="callout info">
+                <div class="callout-title">Getting Help</div>
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                    <li>Use the search function in this guide (top of sidebar)</li>
+                    <li>Check the Troubleshooting section for common issues</li>
+                    <li>Review keyboard shortcuts to work faster</li>
+                    <li>Contact Nicholas Georgeson (creator) with questions</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Version History -->
+        <section class="section" id="version-history">
+            <h2>Version History</h2>
+            <p class="section-subtitle">What's changed and improved in each release</p>
+
+            <h3>v5.0.0 (Current)</h3>
+            <p><strong>Release Date:</strong> February 2025</p>
+            <ul style="margin-left: 20px;">
+                <li>Improved relationship graph visualization with edge bundling and semantic zoom</li>
+                <li>Enhanced Statement Forge with bulk operations and merging</li>
+                <li>New SOW Generator tool for automated Statement of Work creation</li>
+                <li>RACI Matrix refinements and enhanced export options</li>
+                <li>Performance optimizations across all modules</li>
+                <li>Comprehensive dark mode support with improved styling</li>
+                <li>New interactive user guide (you are reading it!)</li>
+                <li>Role Dictionary expanded to 1,056 built-in roles</li>
+            </ul>
+
+            <h3>v4.9.0</h3>
+            <p><strong>Release Date:</strong> December 2024</p>
+            <ul style="margin-left: 20px;">
+                <li>Added Document Compare tool</li>
+                <li>Enhanced filtering and search capabilities</li>
+                <li>Improved role graph visualization</li>
+                <li>Bug fixes and stability improvements</li>
+            </ul>
+
+            <h3>v4.8.0</h3>
+            <p><strong>Release Date:</strong> October 2024</p>
+            <ul style="margin-left: 20px;">
+                <li>Added Link Validator tool</li>
+                <li>Enhanced Portfolio view</li>
+                <li>Improved export options for all tools</li>
+            </ul>
+
+            <h3>Roadmap (Future Releases)</h3>
+            <p>Planned features and improvements:</p>
+            <ul style="margin-left: 20px;">
+                <li>Command-line interface (CLI) for batch processing</li>
+                <li>REST API for programmatic access</li>
+                <li>Automated scheduling and batch scanning</li>
+                <li>Integration with external requirements management tools</li>
+                <li>Multilingual support</li>
+                <li>Cloud deployment options</li>
+                <li>Enhanced collaboration features</li>
+            </ul>
+
+            <div class="callout info">
+                <div class="callout-title">Provide Feedback</div>
+                <p style="margin-top: 8px;">Have a feature request or found a bug? Contact the AEGIS team with your feedback. Your input helps drive future development!</p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Back to Top Button -->
+    <button class="back-to-top" id="backToTop" title="Back to top">↑</button>
+
+    <script>
+        // Dark mode toggle
+        const modeToggle = document.getElementById('modeToggle');
+        const body = document.body;
+
+        // Check for saved dark mode preference
+        if (localStorage.getItem('darkMode') === 'enabled') {
+            body.classList.add('dark-mode');
+            modeToggle.textContent = '☀️ Light Mode';
+        }
+
+        modeToggle.addEventListener('click', () => {
+            body.classList.toggle('dark-mode');
+            const isDarkMode = body.classList.contains('dark-mode');
+            localStorage.setItem('darkMode', isDarkMode ? 'enabled' : 'disabled');
+            modeToggle.textContent = isDarkMode ? '☀️ Light Mode' : '🌙 Dark Mode';
+        });
+
+        // Sidebar navigation
+        const navLinks = document.querySelectorAll('.nav-link');
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                navLinks.forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+            });
+        });
+
+        // Back to top button
+        const backToTopBtn = document.getElementById('backToTop');
+        window.addEventListener('scroll', () => {
+            if (window.pageYOffset > 300) {
+                backToTopBtn.classList.add('show');
+            } else {
+                backToTopBtn.classList.remove('show');
+            }
+        });
+
+        backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        // Progress bar
+        const progressBar = document.getElementById('progressBar');
+        window.addEventListener('scroll', () => {
+            const scrolled = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
+            progressBar.style.width = scrolled + '%';
+        });
+
+        // Sidebar search
+        const sidebarSearch = document.getElementById('sidebarSearch');
+        sidebarSearch.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            navLinks.forEach(link => {
+                const text = link.textContent.toLowerCase();
+                link.style.display = text.includes(query) ? '' : 'none';
+            });
+        });
+
+        // Set initial active link based on URL
+        const currentSection = window.location.hash.slice(1) || 'intro';
+        const activeLink = document.querySelector(`[data-section="${currentSection}"]`);
+        if (activeLink) {
+            activeLink.classList.add('active');
+        }
+    </script>
+</body>
+</html>

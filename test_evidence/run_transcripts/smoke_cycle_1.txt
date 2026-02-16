@@ -1,0 +1,50 @@
+{"timestamp": "2026-02-13T11:38:51.612565Z", "level": "INFO", "logger": "api_ext", "message": "{\"timestamp\": \"2026-02-13T11:38:51.612488Z\", \"level\": \"INFO\", \"logger\": \"api_ext\", \"correlation_id\": \"c564f861\", \"message\": \"API extensions registered\", \"database\": true, \"export\": true, \"role_analyzer\": true}", "database": true, "export": true, "role_analyzer": true}
+{"timestamp": "2026-02-13T11:38:51.613010Z", "level": "INFO", "logger": "app", "message": "{\"timestamp\": \"2026-02-13T11:38:51.612987Z\", \"level\": \"INFO\", \"logger\": \"app\", \"correlation_id\": \"e8f509da\", \"message\": \"API extensions loaded successfully\"}"}
+{"timestamp": "2026-02-13T11:38:51.616243Z", "level": "INFO", "logger": "app", "message": "{\"timestamp\": \"2026-02-13T11:38:51.616199Z\", \"level\": \"INFO\", \"logger\": \"app\", \"correlation_id\": \"2c2d9245\", \"message\": \"Update manager loaded successfully\"}"}
+{"timestamp": "2026-02-13T11:38:51.616995Z", "level": "INFO", "logger": "app", "message": "{\"timestamp\": \"2026-02-13T11:38:51.616972Z\", \"level\": \"INFO\", \"logger\": \"app\", \"correlation_id\": \"b55388f6\", \"message\": \"Diagnostic error capture enabled (with enhanced troubleshooting)\"}"}
+{"timestamp": "2026-02-13T11:38:51.622792Z", "level": "INFO", "logger": "app", "message": "{\"timestamp\": \"2026-02-13T11:38:51.622734Z\", \"level\": \"INFO\", \"logger\": \"app\", \"correlation_id\": \"75d567de\", \"message\": \"Statement Forge routes loaded successfully (package mode)\"}"}
+{"timestamp": "2026-02-13T11:38:51.626442Z", "level": "INFO", "logger": "app", "message": "{\"timestamp\": \"2026-02-13T11:38:51.626383Z\", \"level\": \"INFO\", \"logger\": \"app\", \"correlation_id\": \"db703c36\", \"message\": \"Document Comparison routes loaded successfully\"}"}
+{"timestamp": "2026-02-13T11:38:51.627518Z", "level": "INFO", "logger": "app", "message": "{\"timestamp\": \"2026-02-13T11:38:51.627489Z\", \"level\": \"INFO\", \"logger\": \"app\", \"correlation_id\": \"a4ecfbe9\", \"message\": \"Portfolio routes loaded successfully\"}"}
+{"timestamp": "2026-02-13T11:38:51.696067Z", "level": "INFO", "logger": "app", "message": "{\"timestamp\": \"2026-02-13T11:38:51.696002Z\", \"level\": \"INFO\", \"logger\": \"app\", \"correlation_id\": \"120aaadc\", \"message\": \"Hyperlink Validator routes loaded successfully\"}"}
+{"timestamp": "2026-02-13T11:38:51.697803Z", "level": "INFO", "logger": "app", "message": "{\"timestamp\": \"2026-02-13T11:38:51.697770Z\", \"level\": \"INFO\", \"logger\": \"app\", \"correlation_id\": \"c96875a5\", \"message\": \"Hyperlink Health module loaded successfully\"}"}
+{"timestamp": "2026-02-13T11:38:51.697889Z", "level": "INFO", "logger": "app", "message": "{\"timestamp\": \"2026-02-13T11:38:51.697872Z\", \"level\": \"INFO\", \"logger\": \"app\", \"correlation_id\": \"3ac2c985\", \"message\": \"Job Manager module loaded successfully\"}"}
+INFO:decision_learner:[DecisionLearner] Database pragmas set: WAL mode, 5s busy timeout
+INFO:decision_learner:[DecisionLearner] Database tables initialized
+INFO:decision_learner:[DecisionLearner] Initialized with database: data/decision_patterns.db
+{"timestamp": "2026-02-13T11:38:51.699532Z", "level": "INFO", "logger": "app", "message": "{\"timestamp\": \"2026-02-13T11:38:51.699504Z\", \"level\": \"INFO\", \"logger\": \"app\", \"correlation_id\": \"c632a40e\", \"message\": \"Fix Assistant v2 components loaded successfully\"}"}
+INFO:app:{"timestamp": "2026-02-13T11:38:51.699504Z", "level": "INFO", "logger": "app", "correlation_id": "c632a40e", "message": "Fix Assistant v2 components loaded successfully"}
+{"timestamp": "2026-02-13T11:38:51.716702Z", "level": "INFO", "logger": "app", "message": "{\"timestamp\": \"2026-02-13T11:38:51.716642Z\", \"level\": \"INFO\", \"logger\": \"app\", \"correlation_id\": \"5549653c\", \"message\": \"Started periodic cleanup thread (every 6h)\"}"}
+INFO:app:{"timestamp": "2026-02-13T11:38:51.716642Z", "level": "INFO", "logger": "app", "correlation_id": "5549653c", "message": "Started periodic cleanup thread (every 6h)"}
+{"timestamp": "2026-02-13T11:38:51.716849Z", "level": "INFO", "logger": "app", "message": "{\"timestamp\": \"2026-02-13T11:38:51.716819Z\", \"level\": \"INFO\", \"logger\": \"app\", \"correlation_id\": \"5b05c463\", \"message\": \"SessionManager auto-cleanup started (interval=3600s, max_age=24h)\"}"}
+INFO:app:{"timestamp": "2026-02-13T11:38:51.716819Z", "level": "INFO", "logger": "app", "correlation_id": "5b05c463", "message": "SessionManager auto-cleanup started (interval=3600s, max_age=24h)"}
+{"timestamp": "2026-02-13T11:38:51.716947Z", "level": "INFO", "logger": "app", "message": "{\"timestamp\": \"2026-02-13T11:38:51.716923Z\", \"level\": \"INFO\", \"logger\": \"app\", \"correlation_id\": \"860b4368\", \"message\": \"Starting AEGIS\", \"version\": \"4.6.2\", \"core_version\": \"4.6.2\", \"environment\": \"development\", \"debug\": false}", "version": "4.6.2", "core_version": "4.6.2", "environment": "development", "debug": false}
+INFO:app:{"timestamp": "2026-02-13T11:38:51.716923Z", "level": "INFO", "logger": "app", "correlation_id": "860b4368", "message": "Starting AEGIS", "version": "4.6.2", "core_version": "4.6.2", "environment": "development", "debug": false}
+{"timestamp": "2026-02-13T11:38:51.717055Z", "level": "INFO", "logger": "app", "message": "{\"timestamp\": \"2026-02-13T11:38:51.717038Z\", \"level\": \"INFO\", \"logger\": \"app\", \"correlation_id\": \"64000841\", \"message\": \"Starting with Flask threaded server (localhost)\"}"}
+INFO:app:{"timestamp": "2026-02-13T11:38:51.717038Z", "level": "INFO", "logger": "app", "correlation_id": "64000841", "message": "Starting with Flask threaded server (localhost)"}
+Consider using the pymupdf_layout package for a greatly improved page layout analysis.
+
+============================================================
+  AEGIS v4.6.2
+  Core Engine v4.6.2
+  Environment: development
+============================================================
+
+  Server: http://127.0.0.1:5050
+  CSRF Protection: Enabled
+  Rate Limiting: Enabled
+  Authentication: Disabled
+  Max Upload: 50MB
+
+  Press Ctrl+C to stop
+
+ * Serving Flask app 'app'
+ * Debug mode: off
+INFO:werkzeug:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5050
+INFO:werkzeug:[33mPress CTRL+C to quit[0m
+{"timestamp": "2026-02-13T11:38:51.884649Z", "level": "INFO", "logger": "app", "message": "{\"timestamp\": \"2026-02-13T11:38:51.884609Z\", \"level\": \"INFO\", \"logger\": \"app\", \"correlation_id\": \"d144bc09-8c1\", \"message\": \"Request completed\", \"method\": \"GET\", \"path\": \"/\", \"status\": 200, \"duration_ms\": 1.65}", "method": "GET", "path": "/", "status": 200, "duration_ms": 1.65, "correlation_id": "d144bc09-8c1"}
+INFO:app:{"timestamp": "2026-02-13T11:38:51.884609Z", "level": "INFO", "logger": "app", "correlation_id": "d144bc09-8c1", "message": "Request completed", "method": "GET", "path": "/", "status": 200, "duration_ms": 1.65}
+INFO:werkzeug:127.0.0.1 - - [13/Feb/2026 06:38:51] "GET / HTTP/1.1" 200 -
+{"timestamp": "2026-02-13T11:38:51.924900Z", "level": "INFO", "logger": "app", "message": "{\"timestamp\": \"2026-02-13T11:38:51.924868Z\", \"level\": \"INFO\", \"logger\": \"app\", \"correlation_id\": \"0ed6e54f-3de\", \"message\": \"Request completed\", \"method\": \"GET\", \"path\": \"/\", \"status\": 200, \"duration_ms\": 1.17}", "method": "GET", "path": "/", "status": 200, "duration_ms": 1.17, "correlation_id": "0ed6e54f-3de"}
+INFO:app:{"timestamp": "2026-02-13T11:38:51.924868Z", "level": "INFO", "logger": "app", "correlation_id": "0ed6e54f-3de", "message": "Request completed", "method": "GET", "path": "/", "status": 200, "duration_ms": 1.17}
+INFO:werkzeug:127.0.0.1 - - [13/Feb/2026 06:38:51] "GET / HTTP/1.1" 200 -

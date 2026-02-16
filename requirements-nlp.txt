@@ -1,0 +1,36 @@
+# NLP Enhancement Dependencies for TechWriterReview
+# Install with: pip install -r requirements-nlp.txt
+
+# Core NLP - Linguistic analysis
+spacy>=3.7.0
+
+# Grammar checking - 3000+ rules
+language-tool-python>=2.8.0
+
+# Fast spelling - 500K+ word dictionary
+symspellpy>=6.9.0
+
+# Domain dictionaries - Hunspell compatible
+pyenchant>=3.2.0
+
+# Enhanced readability metrics
+textstat>=0.7.3
+
+# Professional style checking
+proselint>=0.14.0
+
+# Verb conjugation and tense analysis
+pattern>=3.6
+
+# Semantic analysis - WordNet
+nltk>=3.8.0
+
+# Note: After installing, run these commands:
+#
+# 1. Download spaCy model:
+#    python -m spacy download en_core_web_md
+#
+# 2. Download NLTK data:
+#    python -c "import nltk; nltk.download('wordnet'); nltk.download('omw-1.4'); nltk.download('punkt')"
+#
+# 3. LanguageTool will auto-download its JAR on first use (~200MB)
