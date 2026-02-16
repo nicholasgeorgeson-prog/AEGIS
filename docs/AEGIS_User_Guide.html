@@ -4486,14 +4486,11 @@ HTTP 500 Internal Server Error
 }</pre>
 
                 <h2>Rate Limiting</h2>
-                <p>API rate limits (free tier):</p>
+                <p>API rate limits:</p>
                 <ul>
                     <li>100 requests per minute</li>
-                    <li>10 document uploads per day</li>
-                    <li>Maximum 500MB total storage</li>
+                    <li>10 concurrent document uploads</li>
                 </ul>
-
-                <p>For higher limits, upgrade to AEGIS Professional.</p>
 
                 <div class="callout tip">
                     <div class="callout-title">💡 Tip: Interactive API Explorer</div>
@@ -4731,19 +4728,6 @@ HTTP 500 Internal Server Error
                 <h1>Frequently Asked Questions (FAQ)</h1>
 
                 <div class="collapsible" onclick="toggleCollapsible(this)">
-                    <span>Q: How much does AEGIS cost?</span>
-                    <span class="collapse-icon">▼</span>
-                </div>
-                <div class="collapsible-content">
-                    <p><strong>A:</strong> AEGIS is available in three editions:</p>
-                    <ul>
-                        <li><strong>Community Edition:</strong> Free, single-user, 500MB storage limit</li>
-                        <li><strong>Professional Edition:</strong> $49/month, multi-user, unlimited storage, API access</li>
-                        <li><strong>Enterprise Edition:</strong> Custom pricing, on-premise deployment, dedicated support</li>
-                    </ul>
-                </div>
-
-                <div class="collapsible" onclick="toggleCollapsible(this)">
                     <span>Q: Can I use AEGIS offline?</span>
                     <span class="collapse-icon">▼</span>
                 </div>
@@ -4769,7 +4753,7 @@ HTTP 500 Internal Server Error
                     <span class="collapse-icon">▼</span>
                 </div>
                 <div class="collapsible-content">
-                    <p><strong>A:</strong> In the Community Edition, AEGIS is single-user only. Professional and Enterprise editions support multiple users. For sharing results without multi-user accounts, export reports and share as DOCX/PDF files.</p>
+                    <p><strong>A:</strong> AEGIS is designed as a single-user desktop application. For sharing results with your team, export reports as DOCX or PDF files and distribute them directly.</p>
                 </div>
 
                 <div class="collapsible" onclick="toggleCollapsible(this)">
@@ -4792,7 +4776,7 @@ HTTP 500 Internal Server Error
                     <span class="collapse-icon">▼</span>
                 </div>
                 <div class="collapsible-content">
-                    <p><strong>A:</strong> Yes! You can enable/disable individual checkers or entire categories in Settings. For more advanced customization (creating new checkers, modifying detection rules), the Enterprise Edition offers a plugin system.</p>
+                    <p><strong>A:</strong> Yes! You can enable/disable individual checkers or entire categories in Settings. For more advanced customization, you can create new checker modules and modify detection rules — see the API Reference chapter for details.</p>
                 </div>
 
                 <div class="collapsible" onclick="toggleCollapsible(this)">
