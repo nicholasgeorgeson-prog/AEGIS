@@ -3655,6 +3655,167 @@ kbd {
 }
 
 /* =============================================================================
+   v5.5.0: FOLDER SCAN SECTION
+   Server-side folder path input for scanning document repositories
+   ============================================================================= */
+
+.folder-scan-section {
+    margin-top: var(--space-3);
+}
+
+.folder-scan-divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin-bottom: var(--space-3);
+    color: var(--text-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.folder-scan-divider::before,
+.folder-scan-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid var(--border-muted);
+}
+
+.folder-scan-divider span {
+    padding: 0 var(--space-3);
+}
+
+.folder-scan-input-row {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+}
+
+.folder-scan-input {
+    flex: 1;
+    padding: 6px 12px;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: var(--font-mono, monospace);
+}
+
+.folder-scan-input:focus {
+    border-color: var(--accent);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(var(--accent-rgb, 59, 130, 246), 0.2);
+}
+
+.folder-scan-input::placeholder {
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+
+.folder-scan-preview {
+    margin-top: var(--space-3);
+    padding: var(--space-3);
+    border: 1px solid var(--border-muted);
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.folder-scan-preview.hidden {
+    display: none;
+}
+
+.folder-scan-stats {
+    display: flex;
+    gap: var(--space-4);
+    margin-bottom: var(--space-3);
+    flex-wrap: wrap;
+}
+
+.folder-scan-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-elevated);
+    border-radius: var(--radius-md);
+    min-width: 80px;
+}
+
+.folder-scan-stat-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.folder-scan-stat-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.folder-scan-file-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.folder-scan-file-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 4px 8px;
+    font-size: 12px;
+    border-bottom: 1px solid var(--border-muted);
+}
+
+.folder-scan-file-item:last-child {
+    border-bottom: none;
+}
+
+.folder-scan-file-path {
+    flex: 1;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-mono, monospace);
+}
+
+.folder-scan-file-size {
+    color: var(--text-muted);
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.folder-scan-progress {
+    margin-top: var(--space-3);
+}
+
+.folder-scan-progress-bar {
+    height: 6px;
+    background: var(--bg-deep);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.folder-scan-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--success, #22c55e));
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.folder-scan-progress-text {
+    margin-top: var(--space-1);
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+/* =============================================================================
    SHARED 3D ANIMATED PROGRESS BAR
    Consistent progress bar styling across the application
    ============================================================================= */

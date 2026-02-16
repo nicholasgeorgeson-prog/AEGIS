@@ -28,6 +28,9 @@ from routes._shared import (
     TimeoutError,
     MAX_BATCH_SIZE,
     MAX_BATCH_TOTAL_SIZE,
+    MAX_FOLDER_SCAN_FILES,
+    FOLDER_SCAN_CHUNK_SIZE,
+    FOLDER_SCAN_MAX_WORKERS,
     get_engine
 )
 import routes._shared as _shared
@@ -319,6 +322,433 @@ def review_batch():
 
     results['documents'] = doc_entries
     return jsonify({'success': True, 'data': results})
+
+
+# =============================================================================
+# v5.5.0: FOLDER SCAN — Recursive document repository scanning
+# =============================================================================
+# Scans an entire folder tree on the server's filesystem for supported documents.
+# Designed for scanning document repositories with hundreds of files across
+# nested subdirectories. Uses chunked processing with memory management.
+#
+# Key features:
+# - Recursive directory traversal with depth limit
+# - Smart file discovery (docx, pdf, doc only)
+# - Chunked processing (5 files at a time) with ThreadPoolExecutor
+# - Per-chunk memory cleanup via gc.collect()
+# - Graceful error handling — one bad file doesn't stop the whole scan
+# - Progress tracking with file-level status
+# - Folder structure metadata in results
+# =============================================================================
+
+@review_bp.route('/api/review/folder-scan', methods=['POST'])
+@require_csrf
+@handle_api_errors
+def folder_scan():
+    """
+    v5.5.0: Scan an entire folder tree for documents and review them all.
+
+    Accepts a folder path on the server filesystem. Recursively discovers
+    all supported documents (.docx, .pdf, .doc), then processes them in
+    memory-safe chunks using ThreadPoolExecutor.
+
+    Request JSON:
+        folder_path (str): Absolute path to the folder to scan
+        options (dict): Review options (same as /api/review)
+        max_depth (int): Maximum subdirectory depth (default: 10)
+        max_files (int): Maximum files to process (default: MAX_FOLDER_SCAN_FILES)
+        dry_run (bool): If true, just discover files without reviewing
+
+    Returns:
+        JSON with discovery results + review results per document
+    """
+    import gc
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    data = request.get_json() or {}
+    folder_path_str = data.get('folder_path', '')
+    options = data.get('options', {})
+    max_depth = min(data.get('max_depth', 10), 20)  # Cap at 20
+    max_files = min(data.get('max_files', MAX_FOLDER_SCAN_FILES), MAX_FOLDER_SCAN_FILES)
+    dry_run = data.get('dry_run', False)
+
+    if not folder_path_str:
+        raise ValidationError('No folder_path provided')
+
+    folder_path = Path(folder_path_str)
+    if not folder_path.exists():
+        raise ValidationError(f'Folder not found: {folder_path_str}')
+    if not folder_path.is_dir():
+        raise ValidationError(f'Path is not a directory: {folder_path_str}')
+
+    # ── Phase 1: Discover files recursively ──
+    logger.info(f'[FolderScan] Starting discovery: {folder_path} (max_depth={max_depth}, max_files={max_files})')
+    supported_extensions = {'.docx', '.pdf', '.doc'}
+    discovered = []
+    skipped = []
+    folder_tree = {}
+
+    def _discover_recursive(dir_path, current_depth=0):
+        """Walk directory tree and collect supported files."""
+        if current_depth > max_depth:
+            return
+        if len(discovered) >= max_files:
+            return
+
+        try:
+            entries = sorted(dir_path.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+        except PermissionError:
+            skipped.append({'path': str(dir_path), 'reason': 'Permission denied'})
+            return
+        except OSError as e:
+            skipped.append({'path': str(dir_path), 'reason': str(e)})
+            return
+
+        rel_dir = str(dir_path.relative_to(folder_path)) if dir_path != folder_path else '.'
+        folder_tree[rel_dir] = {'files': 0, 'subdirs': 0}
+
+        for entry in entries:
+            if len(discovered) >= max_files:
+                break
+
+            if entry.is_dir():
+                # Skip hidden directories and common non-document dirs
+                if entry.name.startswith('.') or entry.name.startswith('__'):
+                    continue
+                if entry.name.lower() in ('node_modules', '.git', '__pycache__', 'venv', '.venv'):
+                    continue
+                folder_tree[rel_dir]['subdirs'] += 1
+                _discover_recursive(entry, current_depth + 1)
+
+            elif entry.is_file():
+                ext = entry.suffix.lower()
+                if ext in supported_extensions:
+                    try:
+                        file_size = entry.stat().st_size
+                        if file_size == 0:
+                            skipped.append({'path': str(entry), 'reason': 'Empty file (0 bytes)'})
+                            continue
+                        if file_size > 100 * 1024 * 1024:  # Skip files >100MB
+                            skipped.append({'path': str(entry), 'reason': f'File too large ({file_size // (1024*1024)}MB)'})
+                            continue
+
+                        rel_path = str(entry.relative_to(folder_path))
+                        discovered.append({
+                            'path': str(entry),
+                            'relative_path': rel_path,
+                            'filename': entry.name,
+                            'extension': ext,
+                            'size': file_size,
+                            'folder': rel_dir
+                        })
+                        folder_tree[rel_dir]['files'] += 1
+                    except OSError as e:
+                        skipped.append({'path': str(entry), 'reason': str(e)})
+                else:
+                    # Track unsupported files for the report
+                    if ext and ext not in ('.py', '.js', '.css', '.html', '.json', '.md', '.txt', '.yml', '.yaml', '.xml', '.ini', '.cfg', '.log', '.bat', '.sh'):
+                        skipped.append({'path': str(entry), 'reason': f'Unsupported type: {ext}'})
+
+    _discover_recursive(folder_path)
+
+    discovery_result = {
+        'folder_path': str(folder_path),
+        'total_discovered': len(discovered),
+        'total_skipped': len(skipped),
+        'folder_tree': folder_tree,
+        'max_depth': max_depth,
+        'max_files': max_files,
+        'files': discovered,
+        'skipped': skipped[:50],  # Limit skipped list to 50 entries
+        'truncated_skipped': len(skipped) > 50,
+        'file_type_breakdown': {},
+    }
+
+    # Count by extension
+    for f in discovered:
+        ext = f['extension']
+        discovery_result['file_type_breakdown'][ext] = discovery_result['file_type_breakdown'].get(ext, 0) + 1
+
+    logger.info(f'[FolderScan] Discovered {len(discovered)} files in {len(folder_tree)} folders, skipped {len(skipped)}')
+
+    if dry_run:
+        return jsonify({'success': True, 'data': {'discovery': discovery_result, 'review': None}})
+
+    if not discovered:
+        return jsonify({'success': True, 'data': {
+            'discovery': discovery_result,
+            'review': {'documents': [], 'summary': {'total_documents': 0, 'total_issues': 0}},
+            'message': 'No supported documents found in folder'
+        }})
+
+    # ── Phase 2: Review documents in memory-safe chunks ──
+    logger.info(f'[FolderScan] Starting review of {len(discovered)} documents in chunks of {FOLDER_SCAN_CHUNK_SIZE}')
+
+    review_results = {
+        'documents': [],
+        'summary': {
+            'total_documents': len(discovered),
+            'processed': 0,
+            'errors': 0,
+            'total_issues': 0,
+            'total_words': 0,
+            'issues_by_severity': {'Critical': 0, 'High': 0, 'Medium': 0, 'Low': 0, 'Info': 0},
+            'issues_by_category': {},
+            'grade_distribution': {},
+        },
+        'roles_found': {},
+        'processing_time_seconds': 0,
+    }
+
+    start_time = time.time()
+
+    def _review_single(file_info):
+        """Review one document with its own engine instance."""
+        filepath = Path(file_info['path'])
+        try:
+            engine = AEGISEngine()
+            doc_results = engine.review_document(str(filepath), options)
+            issues = doc_results.get('issues', [])
+            doc_roles = doc_results.get('roles', {})
+            if not isinstance(doc_roles, dict):
+                doc_roles = {}
+            actual_roles = {k: v for k, v in doc_roles.items()
+                          if not isinstance(v, dict) or k not in ['success', 'error']}
+            doc_info = doc_results.get('document_info', {})
+            word_count = doc_info.get('word_count', 0) if isinstance(doc_info, dict) else 0
+
+            return {
+                'filename': file_info['filename'],
+                'relative_path': file_info['relative_path'],
+                'folder': file_info['folder'],
+                'extension': file_info['extension'],
+                'file_size': file_info['size'],
+                'issues': issues,
+                'issue_count': len(issues),
+                'roles': actual_roles,
+                'role_count': len(actual_roles),
+                'word_count': word_count,
+                'score': doc_results.get('score', 0),
+                'grade': doc_results.get('grade', 'N/A'),
+                'doc_results': doc_results,
+                'status': 'success',
+            }
+        except Exception as e:
+            tb_str = traceback.format_exc()
+            logger.error(f'[FolderScan] Error reviewing {file_info["filename"]}: {e}\n{tb_str}')
+            return {
+                'filename': file_info['filename'],
+                'relative_path': file_info['relative_path'],
+                'folder': file_info['folder'],
+                'extension': file_info['extension'],
+                'file_size': file_info['size'],
+                'error': str(e),
+                'status': 'error',
+            }
+
+    # Process in chunks to manage memory
+    chunks = [discovered[i:i + FOLDER_SCAN_CHUNK_SIZE]
+              for i in range(0, len(discovered), FOLDER_SCAN_CHUNK_SIZE)]
+
+    for chunk_idx, chunk in enumerate(chunks):
+        logger.info(f'[FolderScan] Processing chunk {chunk_idx + 1}/{len(chunks)} ({len(chunk)} files)')
+
+        max_workers = min(FOLDER_SCAN_MAX_WORKERS, len(chunk))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_file = {executor.submit(_review_single, f): f for f in chunk}
+            for future in as_completed(future_to_file):
+                result = future.result()
+
+                if result.get('status') == 'error':
+                    review_results['summary']['errors'] += 1
+                    review_results['documents'].append({
+                        'filename': result['filename'],
+                        'relative_path': result['relative_path'],
+                        'folder': result['folder'],
+                        'error': result['error'],
+                        'status': 'error',
+                    })
+                    continue
+
+                review_results['summary']['processed'] += 1
+
+                # Aggregate issues
+                issues = result.pop('issues', [])
+                actual_roles = result.pop('roles', {})
+                doc_results_full = result.pop('doc_results', {})
+
+                review_results['summary']['total_issues'] += result['issue_count']
+                review_results['summary']['total_words'] += result.get('word_count', 0)
+
+                for issue in issues:
+                    sev = issue.get('severity', 'Low')
+                    review_results['summary']['issues_by_severity'][sev] = \
+                        review_results['summary']['issues_by_severity'].get(sev, 0) + 1
+                    cat = issue.get('category', 'Unknown')
+                    review_results['summary']['issues_by_category'][cat] = \
+                        review_results['summary']['issues_by_category'].get(cat, 0) + 1
+
+                # Grade distribution
+                grade = result.get('grade', 'N/A')
+                review_results['summary']['grade_distribution'][grade] = \
+                    review_results['summary']['grade_distribution'].get(grade, 0) + 1
+
+                # Aggregate roles
+                for role_name, role_data in actual_roles.items():
+                    if role_name not in review_results['roles_found']:
+                        review_results['roles_found'][role_name] = {
+                            'documents': [], 'total_mentions': 0
+                        }
+                    review_results['roles_found'][role_name]['documents'].append(result['filename'])
+                    mention_count = role_data.get('count', 1) if isinstance(role_data, dict) else 1
+                    review_results['roles_found'][role_name]['total_mentions'] += mention_count
+
+                # Record scan in history
+                if _shared.SCAN_HISTORY_AVAILABLE:
+                    try:
+                        db = get_scan_history_db()
+                        scan_record = db.record_scan(
+                            filename=result['filename'],
+                            filepath=result.get('relative_path', result['filename']),
+                            results=doc_results_full,
+                            options=options
+                        )
+                        result['scan_id'] = scan_record.get('scan_id') if scan_record else None
+                    except Exception as e:
+                        logger.warning(f'[FolderScan] Scan history error for {result["filename"]}: {e}')
+
+                review_results['documents'].append({
+                    'filename': result['filename'],
+                    'relative_path': result['relative_path'],
+                    'folder': result['folder'],
+                    'extension': result['extension'],
+                    'file_size': result.get('file_size', 0),
+                    'issue_count': result['issue_count'],
+                    'role_count': result['role_count'],
+                    'word_count': result.get('word_count', 0),
+                    'score': result.get('score', 0),
+                    'grade': grade,
+                    'scan_id': result.get('scan_id'),
+                    'status': 'success',
+                })
+
+        # Memory cleanup between chunks
+        gc.collect()
+
+    review_results['processing_time_seconds'] = round(time.time() - start_time, 2)
+
+    # Sort documents by folder path for organized output
+    review_results['documents'].sort(key=lambda d: (d.get('folder', ''), d.get('filename', '')))
+
+    logger.info(
+        f'[FolderScan] Complete: {review_results["summary"]["processed"]} processed, '
+        f'{review_results["summary"]["errors"]} errors, '
+        f'{review_results["summary"]["total_issues"]} issues, '
+        f'{review_results["processing_time_seconds"]}s'
+    )
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'discovery': discovery_result,
+            'review': review_results,
+        }
+    })
+
+
+@review_bp.route('/api/review/folder-discover', methods=['POST'])
+@require_csrf
+@handle_api_errors
+def folder_discover():
+    """
+    v5.5.0: Discovery-only endpoint — lists files in a folder without reviewing.
+    Use this to preview what a folder scan will process before committing.
+
+    Request JSON:
+        folder_path (str): Absolute path to the folder
+        max_depth (int): Maximum subdirectory depth (default: 10)
+
+    Returns:
+        JSON with file list, folder tree, and type breakdown
+    """
+    data = request.get_json() or {}
+    folder_path_str = data.get('folder_path', '')
+
+    if not folder_path_str:
+        raise ValidationError('No folder_path provided')
+
+    folder_path = Path(folder_path_str)
+    if not folder_path.exists():
+        raise ValidationError(f'Folder not found: {folder_path_str}')
+    if not folder_path.is_dir():
+        raise ValidationError(f'Path is not a directory: {folder_path_str}')
+
+    max_depth = min(data.get('max_depth', 10), 20)
+    supported_extensions = {'.docx', '.pdf', '.doc'}
+    discovered = []
+    total_size = 0
+
+    def _discover(dir_path, depth=0):
+        nonlocal total_size
+        if depth > max_depth:
+            return
+        try:
+            for entry in sorted(dir_path.iterdir(), key=lambda p: p.name.lower()):
+                if entry.is_dir():
+                    if entry.name.startswith('.') or entry.name.startswith('__'):
+                        continue
+                    if entry.name.lower() in ('node_modules', '.git', '__pycache__', 'venv', '.venv'):
+                        continue
+                    _discover(entry, depth + 1)
+                elif entry.is_file() and entry.suffix.lower() in supported_extensions:
+                    try:
+                        size = entry.stat().st_size
+                        if size > 0:
+                            discovered.append({
+                                'path': str(entry),
+                                'relative_path': str(entry.relative_to(folder_path)),
+                                'filename': entry.name,
+                                'extension': entry.suffix.lower(),
+                                'size': size,
+                                'size_human': _human_size(size),
+                            })
+                            total_size += size
+                    except OSError:
+                        pass
+        except (PermissionError, OSError):
+            pass
+
+    _discover(folder_path)
+
+    # Build type breakdown
+    type_breakdown = {}
+    for f in discovered:
+        ext = f['extension']
+        type_breakdown[ext] = type_breakdown.get(ext, 0) + 1
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'folder_path': str(folder_path),
+            'total_files': len(discovered),
+            'total_size': total_size,
+            'total_size_human': _human_size(total_size),
+            'type_breakdown': type_breakdown,
+            'files': discovered,
+            'max_depth': max_depth,
+        }
+    })
+
+
+def _human_size(size_bytes):
+    """Convert bytes to human-readable size string."""
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if size_bytes < 1024:
+            return f'{size_bytes:.1f} {unit}'
+        size_bytes /= 1024
+    return f'{size_bytes:.1f} TB'
+
+
 @review_bp.route('/api/review/single', methods=['POST'])
 @require_csrf
 @handle_api_errors

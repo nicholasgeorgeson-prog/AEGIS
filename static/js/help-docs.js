@@ -6724,6 +6724,20 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.5.0 <span class="changelog-date">February 16, 2026</span></h3>
+        <p><strong>Document Repository Batch Scanning</strong></p>
+        <ul>
+            <li><strong>BATCH: Server-Side Folder Scanning</strong> — New endpoint scans entire document repositories with nested subdirectories. Enter a folder path, preview discovered files, then scan all documents in one operation.</li>
+            <li><strong>BATCH: Smart File Discovery</strong> — Recursive directory traversal with intelligent filtering: skips hidden directories, empty files, files over 100MB, and common non-document directories (.git, node_modules, __pycache__)</li>
+            <li><strong>BATCH: Chunked Processing</strong> — Documents processed in chunks of 5 with 3 concurrent threads per chunk. Memory cleanup (gc.collect) runs between chunks to handle repositories with hundreds of files</li>
+            <li><strong>BATCH: Increased Limits</strong> — Upload batch limits raised from 10 files/100MB to 50 files/500MB per batch. Frontend auto-chunks larger sets and processes up to 3 batches concurrently</li>
+            <li><strong>BATCH: Preview Before Scan</strong> — New "Preview" button discovers all documents and shows file count, total size, and type breakdown before committing to a full scan</li>
+            <li><strong>BATCH: Comprehensive Results</strong> — Aggregated grade distribution, severity breakdown, category analysis, role discovery, and per-document scores across the entire repository</li>
+            <li><strong>BATCH: Graceful Error Handling</strong> — Individual file errors are caught and reported without stopping the scan. Corrupt files, permission errors, and unsupported types are logged and skipped</li>
+            <li><strong>TEST: Local Verification Script</strong> — New test_scan_local.py script runs 5 single-file scans with different types/complexity levels, then tests batch folder scanning against the test_documents directory</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.4.0 <span class="changelog-date">February 16, 2026</span></h3>
         <p><strong>Performance Optimization + spaCy Ecosystem Deep Analysis</strong></p>
         <ul>

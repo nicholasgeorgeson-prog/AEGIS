@@ -1,12 +1,28 @@
 {
-  "version": "5.4.0",
+  "version": "5.5.0",
   "release_date": "2026-02-16",
-  "core_version": "5.4.0",
+  "core_version": "5.5.0",
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.5.0",
+      "date": "2026-02-16",
+      "changes": [
+        "BATCH: Server-side recursive folder scanning — scan entire document repositories with nested subdirectories",
+        "BATCH: New /api/review/folder-scan endpoint with chunked ThreadPoolExecutor processing and per-chunk gc.collect()",
+        "BATCH: New /api/review/folder-discover endpoint for dry-run preview before committing to full scan",
+        "BATCH: Smart file discovery — skips hidden dirs, empty files, files >100MB, common non-doc directories",
+        "BATCH: Folder scan UI in batch upload modal — enter a server path, preview files, then scan all",
+        "BATCH: Increased batch limits from 10/100MB to 50/500MB per upload batch for large repositories",
+        "BATCH: Chunked processing (5 files per chunk, 3 concurrent) with memory cleanup between chunks",
+        "BATCH: Comprehensive results aggregation — grade distribution, severity breakdown, role discovery across all docs",
+        "BATCH: Graceful error handling — individual file errors don't stop the whole scan",
+        "TEST: Local test script (test_scan_local.py) for single file × 5 and batch folder verification"
+      ]
+    },
     {
       "version": "5.4.0",
       "date": "2026-02-16",

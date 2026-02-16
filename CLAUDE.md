@@ -160,7 +160,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.4.0
+- **Current version**: 5.5.0
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -295,6 +295,19 @@ additional_checkers = [
 **Why max_workers=3**: Higher values cause memory pressure from NLP models (spaCy, sentence-transformers). 3 is a safe balance.
 **Why ThreadPoolExecutor not ProcessPoolExecutor**: The individual `review_document()` already spawns a subprocess (multiprocessing.Process). Threading at the batch level + subprocess per review gives us parallelism without the complexity of nested multiprocessing.
 **Lesson**: For batch operations where each item is independent, ThreadPoolExecutor with per-thread engine instances is safe. The key is NO shared mutable state between threads.
+
+### 34. Server-Side Folder Scan Architecture (v5.5.0)
+**Problem**: Users need to scan entire document repositories with hundreds of files across nested subdirectories. The existing browser-based batch upload requires manually selecting files and is limited by browser memory.
+**Solution**: New `/api/review/folder-scan` endpoint accepts a server filesystem path, recursively discovers all supported documents, then processes them in memory-safe chunks.
+**Architecture**:
+- Phase 1 (Discovery): Recursive `Path.iterdir()` with depth limit, skipping hidden dirs, empty files, files >100MB, and common non-doc dirs (`.git`, `node_modules`, `__pycache__`).
+- Phase 2 (Review): Documents split into chunks of `FOLDER_SCAN_CHUNK_SIZE` (5). Each chunk processed via `ThreadPoolExecutor(max_workers=3)`. `gc.collect()` runs between chunks.
+- Per-file error isolation: one bad file doesn't stop the scan. Errors logged and reported in results.
+- Results aggregated: grade distribution, severity breakdown, category analysis, role discovery across all documents.
+**Constants** (in `_shared.py`): `MAX_FOLDER_SCAN_FILES=500`, `FOLDER_SCAN_CHUNK_SIZE=5`, `FOLDER_SCAN_MAX_WORKERS=3`.
+**Batch limits increased**: `MAX_BATCH_SIZE=50` (was 10), `MAX_BATCH_TOTAL_SIZE=500MB` (was 100MB).
+**Frontend**: Folder path input in batch upload modal with "Preview" (discovery only) and "Scan All" buttons.
+**Lesson**: For large batch operations, chunk processing with inter-chunk GC is essential. Don't try to hold all engine instances in memory simultaneously. The discovery/review two-phase approach lets users preview before committing. Always provide a dry-run option for potentially long operations.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

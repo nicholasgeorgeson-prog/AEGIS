@@ -10756,7 +10756,168 @@ STEPS TO REPRODUCE
                 handleBatchFiles(e.target.files);
             });
         }
-        
+
+        // v5.5.0: Server-side folder scan handlers
+        const folderScanPath = document.getElementById('folder-scan-path');
+        const btnFolderDiscover = document.getElementById('btn-folder-discover');
+        const btnFolderScan = document.getElementById('btn-folder-scan');
+        const folderScanPreview = document.getElementById('folder-scan-preview');
+
+        if (btnFolderDiscover) {
+            btnFolderDiscover.addEventListener('click', async () => {
+                const folderPath = folderScanPath?.value?.trim();
+                if (!folderPath) {
+                    window.showToast?.('Please enter a folder path', 'warning');
+                    return;
+                }
+                btnFolderDiscover.disabled = true;
+                btnFolderDiscover.innerHTML = '<i data-lucide="loader" class="spin"></i> Scanning...';
+                try {
+                    const resp = await fetch('/api/review/folder-discover', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': window.CSRF_TOKEN || document.querySelector('meta[name="csrf-token"]')?.content || ''
+                        },
+                        body: JSON.stringify({ folder_path: folderPath })
+                    });
+                    const json = await resp.json();
+                    if (json.success && json.data) {
+                        const d = json.data;
+                        let html = `<div class="folder-scan-stats">`;
+                        html += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${d.total_files}</div><div class="folder-scan-stat-label">Documents</div></div>`;
+                        html += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${d.total_size_human}</div><div class="folder-scan-stat-label">Total Size</div></div>`;
+                        // Type breakdown
+                        const types = d.type_breakdown || {};
+                        Object.entries(types).forEach(([ext, count]) => {
+                            html += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${count}</div><div class="folder-scan-stat-label">${ext}</div></div>`;
+                        });
+                        html += `</div>`;
+                        // File list
+                        if (d.files && d.files.length > 0) {
+                            html += `<div class="folder-scan-file-list">`;
+                            d.files.forEach(f => {
+                                html += `<div class="folder-scan-file-item">
+                                    <span class="folder-scan-file-path" title="${f.relative_path}">${f.relative_path}</span>
+                                    <span class="folder-scan-file-size">${f.size_human}</span>
+                                </div>`;
+                            });
+                            html += `</div>`;
+                        }
+                        folderScanPreview.innerHTML = html;
+                        folderScanPreview.classList.remove('hidden');
+                        window.showToast?.(`Found ${d.total_files} documents (${d.total_size_human})`, 'success');
+                    } else {
+                        window.showToast?.(json.error?.message || 'Discovery failed', 'error');
+                    }
+                } catch (err) {
+                    console.error('[TWR] Folder discover error:', err);
+                    window.showToast?.('Failed to scan folder: ' + err.message, 'error');
+                } finally {
+                    btnFolderDiscover.disabled = false;
+                    btnFolderDiscover.innerHTML = '<i data-lucide="search"></i> Preview';
+                    lucide?.createIcons?.();
+                }
+            });
+        }
+
+        if (btnFolderScan) {
+            btnFolderScan.addEventListener('click', async () => {
+                const folderPath = folderScanPath?.value?.trim();
+                if (!folderPath) {
+                    window.showToast?.('Please enter a folder path', 'warning');
+                    return;
+                }
+                // Confirm before scanning
+                if (!confirm(`Scan all documents in:\n${folderPath}\n\nThis may take several minutes for large repositories.`)) {
+                    return;
+                }
+                btnFolderScan.disabled = true;
+                btnFolderDiscover.disabled = true;
+                btnFolderScan.innerHTML = '<i data-lucide="loader" class="spin"></i> Scanning...';
+
+                // Show progress in preview area
+                folderScanPreview.innerHTML = `
+                    <div class="folder-scan-progress">
+                        <div class="folder-scan-progress-bar"><div class="folder-scan-progress-fill" id="folder-scan-fill" style="width:5%"></div></div>
+                        <div class="folder-scan-progress-text" id="folder-scan-status">Discovering and reviewing documents...</div>
+                    </div>`;
+                folderScanPreview.classList.remove('hidden');
+
+                try {
+                    const resp = await fetch('/api/review/folder-scan', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': window.CSRF_TOKEN || document.querySelector('meta[name="csrf-token"]')?.content || ''
+                        },
+                        body: JSON.stringify({ folder_path: folderPath })
+                    });
+                    const json = await resp.json();
+                    if (json.success && json.data) {
+                        const disc = json.data.discovery;
+                        const rev = json.data.review;
+
+                        // Build results summary
+                        let html = `<div class="folder-scan-stats">`;
+                        html += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${disc.total_discovered}</div><div class="folder-scan-stat-label">Discovered</div></div>`;
+                        html += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${rev?.summary?.processed || 0}</div><div class="folder-scan-stat-label">Scanned</div></div>`;
+                        html += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${rev?.summary?.errors || 0}</div><div class="folder-scan-stat-label">Errors</div></div>`;
+                        html += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${rev?.summary?.total_issues || 0}</div><div class="folder-scan-stat-label">Issues</div></div>`;
+                        html += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${rev?.processing_time_seconds || 0}s</div><div class="folder-scan-stat-label">Time</div></div>`;
+                        html += `</div>`;
+
+                        // Grade distribution
+                        const grades = rev?.summary?.grade_distribution || {};
+                        if (Object.keys(grades).length > 0) {
+                            html += `<div style="margin-top:8px;"><strong style="font-size:12px;color:var(--text-muted);">Grade Distribution:</strong> `;
+                            Object.entries(grades).sort().forEach(([grade, count]) => {
+                                html += `<span style="margin-right:12px;font-size:13px;">${grade}: <strong>${count}</strong></span>`;
+                            });
+                            html += `</div>`;
+                        }
+
+                        // Document results table
+                        if (rev?.documents && rev.documents.length > 0) {
+                            html += `<div class="folder-scan-file-list" style="margin-top:12px;">`;
+                            rev.documents.forEach(doc => {
+                                const statusIcon = doc.status === 'error' ? '❌' : '✓';
+                                const statusColor = doc.status === 'error' ? 'var(--danger, #ef4444)' : 'var(--success, #22c55e)';
+                                const detail = doc.status === 'error'
+                                    ? `<span style="color:var(--danger)">${doc.error}</span>`
+                                    : `Score: ${doc.score} | Grade: ${doc.grade} | Issues: ${doc.issue_count} | Words: ${(doc.word_count||0).toLocaleString()}`;
+                                html += `<div class="folder-scan-file-item">
+                                    <span style="color:${statusColor};font-weight:bold;min-width:16px;">${statusIcon}</span>
+                                    <span class="folder-scan-file-path" title="${doc.relative_path}">${doc.relative_path}</span>
+                                    <span style="font-size:11px;color:var(--text-muted);white-space:nowrap;">${detail}</span>
+                                </div>`;
+                            });
+                            html += `</div>`;
+                        }
+
+                        folderScanPreview.innerHTML = html;
+                        const totalProcessed = (rev?.summary?.processed || 0) + (rev?.summary?.errors || 0);
+                        window.showToast?.(
+                            `Folder scan complete: ${totalProcessed} documents processed, ${rev?.summary?.total_issues || 0} issues found in ${rev?.processing_time_seconds || 0}s`,
+                            'success'
+                        );
+                    } else {
+                        window.showToast?.(json.error?.message || 'Folder scan failed', 'error');
+                        folderScanPreview.innerHTML = `<p style="color:var(--danger);">Scan failed: ${json.error?.message || 'Unknown error'}</p>`;
+                    }
+                } catch (err) {
+                    console.error('[TWR] Folder scan error:', err);
+                    window.showToast?.('Folder scan failed: ' + err.message, 'error');
+                    folderScanPreview.innerHTML = `<p style="color:var(--danger);">Error: ${err.message}</p>`;
+                } finally {
+                    btnFolderScan.disabled = false;
+                    btnFolderDiscover.disabled = false;
+                    btnFolderScan.innerHTML = '<i data-lucide="scan-line"></i> Scan All';
+                    lucide?.createIcons?.();
+                }
+            });
+        }
+
         // Start batch processing
         document.getElementById('btn-start-batch')?.addEventListener('click', startBatchProcessing);
         
@@ -10921,9 +11082,10 @@ STEPS TO REPRODUCE
     }
     
     // Batch processing constants (should match server-side limits)
+    // v5.5.0: Increased from 10/100MB to support large document repositories
     const BATCH_LIMITS = {
-        MAX_FILES_PER_BATCH: 10,
-        MAX_BYTES_PER_BATCH: 100 * 1024 * 1024, // 100MB
+        MAX_FILES_PER_BATCH: 50,
+        MAX_BYTES_PER_BATCH: 500 * 1024 * 1024, // 500MB
         MAX_CONCURRENT_BATCHES: 3
     };
 

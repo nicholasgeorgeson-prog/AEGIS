@@ -679,6 +679,28 @@
                                 Tip: For folder selection, navigate into the folder and click "Upload"
                             </p>
                         </div>
+                        <!-- v5.5.0: Server-side folder scan input -->
+                        <div class="folder-scan-section" id="folder-scan-section">
+                            <div class="folder-scan-divider">
+                                <span>or scan a server folder</span>
+                            </div>
+                            <div class="folder-scan-input-row">
+                                <input type="text" id="folder-scan-path" class="folder-scan-input"
+                                       placeholder="Enter folder path (e.g. C:\Documents\Specs)"
+                                       aria-label="Folder path for server-side document scanning">
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-folder-discover"
+                                        aria-label="Preview files in folder before scanning">
+                                    <i data-lucide="search" aria-hidden="true"></i> Preview
+                                </button>
+                                <button type="button" class="btn btn-primary btn-sm" id="btn-folder-scan"
+                                        aria-label="Scan all documents in the specified folder">
+                                    <i data-lucide="scan-line" aria-hidden="true"></i> Scan All
+                                </button>
+                            </div>
+                            <div class="folder-scan-preview hidden" id="folder-scan-preview">
+                                <!-- Discovery results shown here -->
+                            </div>
+                        </div>
                         <div class="batch-file-list" id="batch-file-list">
                             <!-- Files will be listed here -->
                         </div>

@@ -383,5 +383,11 @@ def run_with_timeout(func, timeout_seconds=60, default=None):
 
 
 # Batch constants
-MAX_BATCH_SIZE = 10
-MAX_BATCH_TOTAL_SIZE = 104857600
+# v5.5.0: Increased from 10/100MB to support large document repositories
+MAX_BATCH_SIZE = 50  # Max files per single HTTP upload batch
+MAX_BATCH_TOTAL_SIZE = 524288000  # 500MB per upload batch
+
+# v5.5.0: Folder scan constants
+MAX_FOLDER_SCAN_FILES = 500  # Max files per folder scan operation
+FOLDER_SCAN_CHUNK_SIZE = 5  # Files per processing chunk
+FOLDER_SCAN_MAX_WORKERS = 3  # Concurrent threads per chunk
