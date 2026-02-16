@@ -70,6 +70,31 @@ def get_scan_history_db():
 
 review_bp = Blueprint('review', __name__)
 
+# =============================================================================
+# v5.7.0: Async Folder Scan State Management
+# =============================================================================
+# Module-level dict tracking active/completed folder scans.
+# Key: scan_id (str) → dict with phase, progress, results, timing info.
+# Scans are cleaned up after 30 minutes of completion.
+_folder_scan_state = {}
+_folder_scan_state_lock = threading.Lock()
+
+_FOLDER_SCAN_CLEANUP_AGE = 1800  # 30 minutes
+
+
+def _cleanup_old_scans():
+    """Remove completed scan state older than _FOLDER_SCAN_CLEANUP_AGE seconds."""
+    now = time.time()
+    with _folder_scan_state_lock:
+        to_remove = [
+            sid for sid, state in _folder_scan_state.items()
+            if state.get('phase') in ('complete', 'error')
+            and now - state.get('completed_at', now) > _FOLDER_SCAN_CLEANUP_AGE
+        ]
+        for sid in to_remove:
+            del _folder_scan_state[sid]
+
+
 @review_bp.route('/api/upload', methods=['POST'])
 @require_csrf
 @handle_api_errors
@@ -759,6 +784,459 @@ def _human_size(size_bytes):
             return f'{size_bytes:.1f} {unit}'
         size_bytes /= 1024
     return f'{size_bytes:.1f} TB'
+
+
+# =============================================================================
+# v5.7.0: Async Folder Scan — Start + Progress Endpoints
+# =============================================================================
+# Two-step pattern: POST /folder-scan-start returns scan_id immediately,
+# then GET /folder-scan-progress/<scan_id> polls for updates.
+# The existing synchronous /folder-scan endpoint is preserved as fallback.
+# =============================================================================
+
+@review_bp.route('/api/review/folder-scan-start', methods=['POST'])
+@require_csrf
+@handle_api_errors
+def folder_scan_start():
+    """
+    v5.7.0: Start an async folder scan — returns scan_id immediately.
+
+    Phase 1 (discovery) runs synchronously and returns in the response.
+    Phase 2 (review) runs in a background thread. Poll /folder-scan-progress/<scan_id>
+    for real-time updates.
+
+    Request JSON:
+        folder_path (str): Absolute path to the folder to scan
+        options (dict): Review options (same as /api/review)
+        max_depth (int): Maximum subdirectory depth (default: 10)
+        max_files (int): Maximum files to process (default: MAX_FOLDER_SCAN_FILES)
+
+    Returns:
+        JSON with scan_id + discovery results. Review runs in background.
+    """
+    data = request.get_json() or {}
+    folder_path_str = data.get('folder_path', '')
+    options = data.get('options', {})
+    max_depth = min(data.get('max_depth', 10), 20)
+    max_files = min(data.get('max_files', MAX_FOLDER_SCAN_FILES), MAX_FOLDER_SCAN_FILES)
+
+    if not folder_path_str:
+        raise ValidationError('No folder_path provided')
+
+    folder_path = Path(folder_path_str)
+    if not folder_path.exists():
+        raise ValidationError(f'Folder not found: {folder_path_str}')
+    if not folder_path.is_dir():
+        raise ValidationError(f'Path is not a directory: {folder_path_str}')
+
+    # ── Phase 1: Discovery (synchronous — fast) ──
+    supported_extensions = {'.docx', '.pdf', '.doc'}
+    discovered = []
+    skipped = []
+    folder_tree = {}
+
+    def _discover_recursive(dir_path, current_depth=0):
+        if current_depth > max_depth:
+            return
+        if len(discovered) >= max_files:
+            return
+        try:
+            entries = sorted(dir_path.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+        except (PermissionError, OSError) as e:
+            skipped.append({'path': str(dir_path), 'reason': str(e)})
+            return
+
+        rel_dir = str(dir_path.relative_to(folder_path)) if dir_path != folder_path else '.'
+        folder_tree[rel_dir] = {'files': 0, 'subdirs': 0}
+
+        for entry in entries:
+            if len(discovered) >= max_files:
+                break
+            if entry.is_dir():
+                if entry.name.startswith('.') or entry.name.startswith('__'):
+                    continue
+                if entry.name.lower() in ('node_modules', '.git', '__pycache__', 'venv', '.venv'):
+                    continue
+                folder_tree[rel_dir]['subdirs'] += 1
+                _discover_recursive(entry, current_depth + 1)
+            elif entry.is_file():
+                ext = entry.suffix.lower()
+                if ext in supported_extensions:
+                    try:
+                        file_size = entry.stat().st_size
+                        if file_size == 0:
+                            skipped.append({'path': str(entry), 'reason': 'Empty file (0 bytes)'})
+                            continue
+                        if file_size > 100 * 1024 * 1024:
+                            skipped.append({'path': str(entry), 'reason': f'File too large ({file_size // (1024*1024)}MB)'})
+                            continue
+                        rel_path = str(entry.relative_to(folder_path))
+                        discovered.append({
+                            'path': str(entry),
+                            'relative_path': rel_path,
+                            'filename': entry.name,
+                            'extension': ext,
+                            'size': file_size,
+                            'folder': rel_dir,
+                        })
+                        folder_tree[rel_dir]['files'] += 1
+                    except OSError as e:
+                        skipped.append({'path': str(entry), 'reason': str(e)})
+
+    _discover_recursive(folder_path)
+
+    # Build type breakdown
+    file_type_breakdown = {}
+    total_size = 0
+    for f in discovered:
+        ext = f['extension']
+        file_type_breakdown[ext] = file_type_breakdown.get(ext, 0) + 1
+        total_size += f['size']
+
+    discovery_result = {
+        'folder_path': str(folder_path),
+        'total_discovered': len(discovered),
+        'total_skipped': len(skipped),
+        'total_size': total_size,
+        'total_size_human': _human_size(total_size),
+        'folder_tree': folder_tree,
+        'max_depth': max_depth,
+        'max_files': max_files,
+        'files': discovered,
+        'skipped': skipped[:50],
+        'truncated_skipped': len(skipped) > 50,
+        'file_type_breakdown': file_type_breakdown,
+    }
+
+    if not discovered:
+        return jsonify({'success': True, 'data': {
+            'scan_id': None,
+            'discovery': discovery_result,
+            'message': 'No supported documents found in folder',
+        }})
+
+    # ── Generate scan_id and initialize state ──
+    scan_id = str(uuid.uuid4())[:12]
+    _cleanup_old_scans()
+
+    with _folder_scan_state_lock:
+        _folder_scan_state[scan_id] = {
+            'phase': 'reviewing',
+            'total_files': len(discovered),
+            'processed': 0,
+            'errors': 0,
+            'current_file': None,
+            'current_chunk': 0,
+            'total_chunks': (len(discovered) + FOLDER_SCAN_CHUNK_SIZE - 1) // FOLDER_SCAN_CHUNK_SIZE,
+            'documents': [],
+            'summary': {
+                'total_documents': len(discovered),
+                'processed': 0,
+                'errors': 0,
+                'total_issues': 0,
+                'total_words': 0,
+                'issues_by_severity': {'Critical': 0, 'High': 0, 'Medium': 0, 'Low': 0, 'Info': 0},
+                'issues_by_category': {},
+                'grade_distribution': {},
+            },
+            'roles_found': {},
+            'started_at': time.time(),
+            'completed_at': None,
+            'elapsed_seconds': 0,
+            'estimated_remaining': None,
+            'folder_path': str(folder_path),
+        }
+
+    logger.info(f'[FolderScan-Async] Started scan {scan_id}: {len(discovered)} files in {len(folder_tree)} folders')
+
+    # ── Spawn background thread for Phase 2 ──
+    thread = threading.Thread(
+        target=_process_folder_scan_async,
+        args=(scan_id, discovered, options),
+        daemon=True,
+        name=f'folder-scan-{scan_id}',
+    )
+    thread.start()
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'scan_id': scan_id,
+            'discovery': discovery_result,
+        }
+    })
+
+
+def _process_folder_scan_async(scan_id, discovered, options):
+    """
+    Background thread: process folder scan documents in chunks.
+    Updates _folder_scan_state[scan_id] after each file completes.
+    """
+    import gc
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from flask import current_app
+
+    # Get the Flask app reference for context (needed for scan history DB)
+    # We need to import the app since we're in a background thread
+    try:
+        from app import app as flask_app
+    except ImportError:
+        flask_app = None
+
+    def _review_single_async(file_info):
+        """Review one document with its own engine instance."""
+        filepath = Path(file_info['path'])
+        try:
+            engine = AEGISEngine()
+            doc_results = engine.review_document(str(filepath), options)
+
+            # Convert ReviewIssue objects to dicts
+            raw_issues = doc_results.get('issues', [])
+            issues = []
+            for issue in raw_issues:
+                if isinstance(issue, dict):
+                    issues.append(issue)
+                elif hasattr(issue, 'to_dict'):
+                    issues.append(issue.to_dict())
+                else:
+                    issues.append({
+                        'severity': getattr(issue, 'severity', 'Low'),
+                        'category': getattr(issue, 'category', 'Unknown'),
+                        'message': getattr(issue, 'message', str(issue)),
+                    })
+            doc_results['issues'] = issues
+
+            doc_roles = doc_results.get('roles', {})
+            if not isinstance(doc_roles, dict):
+                doc_roles = {}
+            actual_roles = {k: v for k, v in doc_roles.items()
+                          if not isinstance(v, dict) or k not in ['success', 'error']}
+            doc_info = doc_results.get('document_info', {})
+            word_count = doc_info.get('word_count', 0) if isinstance(doc_info, dict) else 0
+
+            return {
+                'filename': file_info['filename'],
+                'relative_path': file_info['relative_path'],
+                'folder': file_info['folder'],
+                'extension': file_info['extension'],
+                'file_size': file_info['size'],
+                'issues': issues,
+                'issue_count': len(issues),
+                'roles': actual_roles,
+                'role_count': len(actual_roles),
+                'word_count': word_count,
+                'score': doc_results.get('score', 0),
+                'grade': doc_results.get('grade', 'N/A'),
+                'doc_results': doc_results,
+                'status': 'success',
+            }
+        except Exception as e:
+            tb_str = traceback.format_exc()
+            logger.error(f'[FolderScan-Async] Error reviewing {file_info["filename"]}: {e}\n{tb_str}')
+            return {
+                'filename': file_info['filename'],
+                'relative_path': file_info['relative_path'],
+                'folder': file_info['folder'],
+                'extension': file_info['extension'],
+                'file_size': file_info['size'],
+                'error': str(e),
+                'status': 'error',
+            }
+
+    try:
+        chunks = [discovered[i:i + FOLDER_SCAN_CHUNK_SIZE]
+                  for i in range(0, len(discovered), FOLDER_SCAN_CHUNK_SIZE)]
+
+        for chunk_idx, chunk in enumerate(chunks):
+            logger.info(f'[FolderScan-Async] {scan_id} chunk {chunk_idx + 1}/{len(chunks)} ({len(chunk)} files)')
+
+            with _folder_scan_state_lock:
+                state = _folder_scan_state.get(scan_id)
+                if state:
+                    state['current_chunk'] = chunk_idx + 1
+
+            max_workers = min(FOLDER_SCAN_MAX_WORKERS, len(chunk))
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                future_to_file = {executor.submit(_review_single_async, f): f for f in chunk}
+
+                for future in as_completed(future_to_file):
+                    file_info = future_to_file[future]
+                    result = future.result()
+
+                    with _folder_scan_state_lock:
+                        state = _folder_scan_state.get(scan_id)
+                        if not state:
+                            logger.warning(f'[FolderScan-Async] State missing for {scan_id}, aborting')
+                            return
+
+                        state['current_file'] = result['filename']
+                        elapsed = time.time() - state['started_at']
+                        state['elapsed_seconds'] = round(elapsed, 1)
+
+                        if result.get('status') == 'error':
+                            state['errors'] += 1
+                            state['summary']['errors'] += 1
+                            state['documents'].append({
+                                'filename': result['filename'],
+                                'relative_path': result['relative_path'],
+                                'folder': result['folder'],
+                                'error': result.get('error', 'Unknown error'),
+                                'status': 'error',
+                            })
+                        else:
+                            state['processed'] += 1
+                            state['summary']['processed'] += 1
+
+                            issues = result.pop('issues', [])
+                            actual_roles = result.pop('roles', {})
+                            doc_results_full = result.pop('doc_results', {})
+
+                            state['summary']['total_issues'] += result['issue_count']
+                            state['summary']['total_words'] += result.get('word_count', 0)
+
+                            for issue in issues:
+                                sev = issue.get('severity', 'Low')
+                                state['summary']['issues_by_severity'][sev] = \
+                                    state['summary']['issues_by_severity'].get(sev, 0) + 1
+                                cat = issue.get('category', 'Unknown')
+                                state['summary']['issues_by_category'][cat] = \
+                                    state['summary']['issues_by_category'].get(cat, 0) + 1
+
+                            grade = result.get('grade', 'N/A')
+                            state['summary']['grade_distribution'][grade] = \
+                                state['summary']['grade_distribution'].get(grade, 0) + 1
+
+                            for role_name, role_data in actual_roles.items():
+                                if role_name not in state['roles_found']:
+                                    state['roles_found'][role_name] = {
+                                        'documents': [], 'total_mentions': 0
+                                    }
+                                state['roles_found'][role_name]['documents'].append(result['filename'])
+                                mention_count = role_data.get('count', 1) if isinstance(role_data, dict) else 1
+                                state['roles_found'][role_name]['total_mentions'] += mention_count
+
+                            # Record scan in history (needs Flask app context)
+                            scan_record_id = None
+                            if _shared.SCAN_HISTORY_AVAILABLE and flask_app:
+                                try:
+                                    with flask_app.app_context():
+                                        db = get_scan_history_db()
+                                        scan_record = db.record_scan(
+                                            filename=result['filename'],
+                                            filepath=result.get('relative_path', result['filename']),
+                                            results=doc_results_full,
+                                            options=options
+                                        )
+                                        scan_record_id = scan_record.get('scan_id') if scan_record else None
+                                except Exception as e:
+                                    logger.warning(f'[FolderScan-Async] Scan history error for {result["filename"]}: {e}')
+
+                            state['documents'].append({
+                                'filename': result['filename'],
+                                'relative_path': result['relative_path'],
+                                'folder': result['folder'],
+                                'extension': result['extension'],
+                                'file_size': result.get('file_size', 0),
+                                'issue_count': result['issue_count'],
+                                'role_count': result['role_count'],
+                                'word_count': result.get('word_count', 0),
+                                'score': result.get('score', 0),
+                                'grade': grade,
+                                'scan_id': scan_record_id,
+                                'status': 'success',
+                            })
+
+                        # Estimate remaining time
+                        total_done = state['processed'] + state['errors']
+                        if total_done > 0:
+                            avg_time = elapsed / total_done
+                            remaining = state['total_files'] - total_done
+                            state['estimated_remaining'] = round(avg_time * remaining, 1)
+
+            gc.collect()
+
+        # ── Mark complete ──
+        with _folder_scan_state_lock:
+            state = _folder_scan_state.get(scan_id)
+            if state:
+                state['phase'] = 'complete'
+                state['current_file'] = None
+                state['completed_at'] = time.time()
+                state['elapsed_seconds'] = round(time.time() - state['started_at'], 1)
+                state['estimated_remaining'] = 0
+                state['documents'].sort(key=lambda d: (d.get('folder', ''), d.get('filename', '')))
+                logger.info(
+                    f'[FolderScan-Async] {scan_id} complete: '
+                    f'{state["summary"]["processed"]} processed, '
+                    f'{state["summary"]["errors"]} errors, '
+                    f'{state["summary"]["total_issues"]} issues, '
+                    f'{state["elapsed_seconds"]}s'
+                )
+
+    except Exception as e:
+        logger.error(f'[FolderScan-Async] {scan_id} fatal error: {e}\n{traceback.format_exc()}')
+        with _folder_scan_state_lock:
+            state = _folder_scan_state.get(scan_id)
+            if state:
+                state['phase'] = 'error'
+                state['error_message'] = str(e)
+                state['completed_at'] = time.time()
+                state['elapsed_seconds'] = round(time.time() - state['started_at'], 1)
+
+
+@review_bp.route('/api/review/folder-scan-progress/<scan_id>', methods=['GET'])
+@handle_api_errors
+def folder_scan_progress(scan_id):
+    """
+    v5.7.0: Poll for folder scan progress.
+
+    Returns current state including phase, file-level progress, timing, and
+    completed documents so far.
+
+    URL Params:
+        scan_id (str): The scan ID returned by /folder-scan-start
+
+    Query Params:
+        since (int): Only return documents completed after this index (for incremental updates)
+
+    Returns:
+        JSON with current scan state
+    """
+    with _folder_scan_state_lock:
+        state = _folder_scan_state.get(scan_id)
+
+    if not state:
+        return jsonify({'success': False, 'error': {'message': f'Scan {scan_id} not found', 'code': 'SCAN_NOT_FOUND'}}), 404
+
+    # Support incremental document fetching
+    since = request.args.get('since', 0, type=int)
+
+    with _folder_scan_state_lock:
+        # Build response — copy to avoid holding lock during jsonify
+        docs = state['documents'][since:]  # Only new documents since last poll
+        response = {
+            'scan_id': scan_id,
+            'phase': state['phase'],
+            'total_files': state['total_files'],
+            'processed': state['processed'],
+            'errors': state['errors'],
+            'current_file': state['current_file'],
+            'current_chunk': state['current_chunk'],
+            'total_chunks': state['total_chunks'],
+            'elapsed_seconds': state['elapsed_seconds'],
+            'estimated_remaining': state['estimated_remaining'],
+            'summary': dict(state['summary']),
+            'total_documents_ready': len(state['documents']),
+            'documents': docs,
+            'since': since,
+            'folder_path': state.get('folder_path', ''),
+        }
+        if state['phase'] == 'error':
+            response['error_message'] = state.get('error_message', 'Unknown error')
+        if state['phase'] == 'complete':
+            response['roles_found'] = state.get('roles_found', {})
+
+    return jsonify({'success': True, 'data': response})
 
 
 @review_bp.route('/api/review/single', methods=['POST'])

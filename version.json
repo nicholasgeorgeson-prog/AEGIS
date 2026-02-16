@@ -1,12 +1,25 @@
 {
-  "version": "5.6.1",
+  "version": "5.7.0",
   "release_date": "2026-02-16",
-  "core_version": "5.6.1",
+  "core_version": "5.7.0",
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.7.0",
+      "date": "2026-02-16",
+      "changes": [
+        "PERF: Flask debug mode now runs with threaded=True — server no longer blocks during long-running folder scans",
+        "FEAT: Async folder scan with real-time progress polling — POST /folder-scan-start returns scan_id immediately, GET /folder-scan-progress/<scan_id> provides per-file updates",
+        "UI: Folder scan progress dashboard — live per-file status rows, progress bar, elapsed/remaining time, speed, chunk tracking (reuses bpd-* batch dashboard CSS)",
+        "FIX: Acronym dedup key simplified to (paragraph_index, category, flagged_text) — removes rule_id and message so cross-checker duplicates are properly caught (~20-30% fewer duplicate issues)",
+        "FIX: Removed broken option_mapping 'check_enhanced_acronyms' → 'enhanced_acronyms' (non-existent checker key)",
+        "FIX: Hardcoded Mac paths replaced with pathlib-based relative paths in run_enhancement_analysis.py, defense_role_analysis.py, defense_role_analysis_expanded.py",
+        "NEW: restart_aegis.bat for Windows — stops port 5050 process and restarts with debug mode"
+      ]
+    },
     {
       "version": "5.6.1",
       "date": "2026-02-16",

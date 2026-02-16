@@ -16,6 +16,9 @@ import json
 from pathlib import Path
 from datetime import datetime
 
+# Ensure Path is available for relative path resolution
+PROJECT_ROOT = Path(__file__).parent
+
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -380,8 +383,8 @@ def main():
     if len(sys.argv) < 2:
         # Default to a test document
         test_docs = [
-            '/Users/nick/Desktop/Work_Tools/TechWriterReview/test_documents/NASA_Systems_Engineering_Handbook.pdf',
-            '/Users/nick/Desktop/Work_Tools/TechWriterReview/test_documents/FAA_AC_120_92B.pdf',
+            str(PROJECT_ROOT / 'test_documents' / 'NASA_Systems_Engineering_Handbook.pdf'),
+            str(PROJECT_ROOT / 'test_documents' / 'FAA_AC_120_92B.pdf'),
         ]
 
         for doc in test_docs:

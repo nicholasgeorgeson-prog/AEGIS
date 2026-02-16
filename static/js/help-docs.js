@@ -6726,6 +6726,18 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.7.0 <span class="changelog-date">February 16, 2026</span></h3>
+        <p><strong>Scan Infrastructure Overhaul + Accuracy Fixes</strong></p>
+        <ul>
+            <li><strong>PERF: Flask Debug Threading</strong> — Server no longer blocks during long-running folder scans. Debug mode now runs with threaded=True, allowing concurrent request handling.</li>
+            <li><strong>FEAT: Async Folder Scan</strong> — New two-step pattern: POST /folder-scan-start returns scan_id immediately with discovery results, then poll GET /folder-scan-progress for real-time per-file updates. Background thread processes documents in chunks.</li>
+            <li><strong>UI: Folder Scan Progress Dashboard</strong> — Live per-file status rows (queued → processing → complete/error), overall progress bar, elapsed/remaining time, processing speed, chunk tracking. Reuses batch dashboard (bpd-*) CSS classes.</li>
+            <li><strong>FIX: Acronym Deduplication</strong> — Simplified dedup key removes rule_id and message text, catching cross-checker duplicates that were inflating issue counts by ~20-30%.</li>
+            <li><strong>FIX: Broken Enhanced Acronym Mapping</strong> — Removed dead option_mapping entry that pointed to non-existent checker key.</li>
+            <li><strong>FIX: Windows Compatibility</strong> — Hardcoded Mac paths replaced with pathlib-based relative paths in 3 analysis scripts. New restart_aegis.bat for Windows.</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.5.0 <span class="changelog-date">February 16, 2026</span></h3>
         <p><strong>Document Repository Batch Scanning</strong></p>
         <ul>

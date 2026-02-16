@@ -9,8 +9,12 @@ with complex structures (tables, bulleted lists).
 import sys
 import os
 import re
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Ensure Path is available for relative path resolution
+PROJECT_ROOT = Path(__file__).parent
 
 from role_extractor_v3 import RoleExtractor
 from pdf_extractor import PDFExtractor
@@ -129,26 +133,26 @@ def main():
     print("=" * 90)
 
     # Documents to test
-    base_path = '/Users/nick/Desktop/Work_Tools/TechWriterReview/test_documents'
+    base_path = PROJECT_ROOT / 'test_documents'
     docs = [
         # MIL-STD documents
-        (f'{base_path}/batch_test/MIL-STD-38784B.pdf', 'MIL-STD-38784B (Tech Manuals)'),
-        (f'{base_path}/batch_test/MIL-STD-40051-2A.pdf', 'MIL-STD-40051-2A (TM Prep)'),
+        (str(base_path / 'batch_test' / 'MIL-STD-38784B.pdf'), 'MIL-STD-38784B (Tech Manuals)'),
+        (str(base_path / 'batch_test' / 'MIL-STD-40051-2A.pdf'), 'MIL-STD-40051-2A (TM Prep)'),
 
         # NASA documents (defense-adjacent, complex structure)
-        (f'{base_path}/batch_test/NASA_SE_Handbook.pdf', 'NASA SE Handbook'),
-        (f'{base_path}/NASA_Systems_Engineering_Handbook.pdf', 'NASA Systems Engineering'),
+        (str(base_path / 'batch_test' / 'NASA_SE_Handbook.pdf'), 'NASA SE Handbook'),
+        (str(base_path / 'NASA_Systems_Engineering_Handbook.pdf'), 'NASA Systems Engineering'),
 
         # NIST Security documents (government, defense-adjacent)
-        (f'{base_path}/NIST_SP_800_53_Security_Controls.pdf', 'NIST SP 800-53 (Security)'),
-        (f'{base_path}/batch_test/../NIST_SP_800_171.pdf', 'NIST SP 800-171 (CUI)'),
+        (str(base_path / 'NIST_SP_800_53_Security_Controls.pdf'), 'NIST SP 800-53 (Security)'),
+        (str(base_path / 'NIST_SP_800_171.pdf'), 'NIST SP 800-171 (CUI)'),
 
         # FAA documents (government, aviation)
-        (f'{base_path}/batch_test/FAA_Requirements_Engineering.pdf', 'FAA Requirements Eng'),
-        (f'{base_path}/batch_test/FAA_VRTM_Requirements.pdf', 'FAA VRTM Requirements'),
+        (str(base_path / 'batch_test' / 'FAA_Requirements_Engineering.pdf'), 'FAA Requirements Eng'),
+        (str(base_path / 'batch_test' / 'FAA_VRTM_Requirements.pdf'), 'FAA VRTM Requirements'),
 
         # KSC (Kennedy Space Center - defense/space)
-        (f'{base_path}/KSC_Specs_Standards.pdf', 'KSC Specs & Standards'),
+        (str(base_path / 'KSC_Specs_Standards.pdf'), 'KSC Specs & Standards'),
     ]
 
     results = []

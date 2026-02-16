@@ -2160,7 +2160,11 @@ class AEGISEngine:
             'check_empty_sections': 'empty_sections',
             # v3.2.4 Enhanced Analyzers
             'check_semantic_analysis': 'semantic_analysis',
-            'check_enhanced_acronyms': 'enhanced_acronyms',
+            # v5.7.0: Removed broken mapping — 'enhanced_acronyms' doesn't exist
+            # as a checker key. The enhanced checkers register as 'acronym_first_use'
+            # and 'acronym_multiple_definition' (mapped at lines below).
+            # 'check_enhanced_acronyms' UI toggle is now a no-op (dead toggle).
+            # 'check_enhanced_acronyms': 'enhanced_acronyms',  # REMOVED v5.7.0
             'check_prose_linting': 'prose_linting',
             'check_structure_analysis': 'structure_analysis',
             'check_text_statistics': 'text_statistics',
@@ -2617,19 +2621,24 @@ class AEGISEngine:
         return score
     
     def _deduplicate_issues(self, issues: List[Dict]) -> List[Dict]:
-        """Remove duplicate issues based on paragraph index and message."""
+        """Remove duplicate issues based on paragraph index, category, and flagged text.
+
+        v5.7.0: Simplified dedup key — removed rule_id and message so that the same
+        issue flagged by different checkers (e.g., acronym_checker + acronym_first_use)
+        gets properly deduplicated. The key is now (paragraph_index, category, flagged_text).
+        """
         seen = set()
         unique = []
 
         for issue in issues:
-            # Create a unique key from paragraph index, category, and core message
+            # v5.7.0: Dedup by location + category + flagged text only.
+            # Different checkers may flag the same text with different rule_ids
+            # and slightly different messages — those are still the same issue.
             para_idx = issue.get('paragraph_index', 0)
             category = issue.get('category', '')
             flagged = issue.get('flagged_text', '')[:80]  # First 80 chars
-            message = issue.get('message', '')[:80]
-            rule_id = issue.get('rule_id', '')
 
-            key = (para_idx, category, flagged, message, rule_id)
+            key = (para_idx, category, flagged)
 
             if key not in seen:
                 seen.add(key)

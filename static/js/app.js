@@ -10834,6 +10834,9 @@ STEPS TO REPRODUCE
             });
         }
 
+        // ====================================================================
+        // v5.7.0: Async Folder Scan with Real-Time Progress Polling
+        // ====================================================================
         if (btnFolderScan) {
             btnFolderScan.addEventListener('click', async () => {
                 const folderPath = folderScanPath?.value?.trim();
@@ -10841,24 +10844,17 @@ STEPS TO REPRODUCE
                     window.showToast?.('Please enter a folder path', 'warning');
                     return;
                 }
-                // Confirm before scanning
                 if (!confirm(`Scan all documents in:\n${folderPath}\n\nThis may take several minutes for large repositories.`)) {
                     return;
                 }
                 btnFolderScan.disabled = true;
                 btnFolderDiscover.disabled = true;
-                btnFolderScan.innerHTML = '<i data-lucide="loader" class="spin"></i> Scanning...';
-
-                // Show progress in preview area
-                folderScanPreview.innerHTML = `
-                    <div class="folder-scan-progress">
-                        <div class="folder-scan-progress-bar"><div class="folder-scan-progress-fill" id="folder-scan-fill" style="width:5%"></div></div>
-                        <div class="folder-scan-progress-text" id="folder-scan-status">Discovering and reviewing documents...</div>
-                    </div>`;
-                folderScanPreview.classList.remove('hidden');
+                btnFolderScan.innerHTML = '<i data-lucide="loader" class="spin"></i> Starting...';
+                folderScanPreview.classList.add('hidden');
 
                 try {
-                    const resp = await fetch('/api/review/folder-scan', {
+                    // ── Step 1: Start async scan (returns scan_id + discovery immediately) ──
+                    const startResp = await fetch('/api/review/folder-scan-start', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -10866,67 +10862,229 @@ STEPS TO REPRODUCE
                         },
                         body: JSON.stringify({ folder_path: folderPath })
                     });
-                    const json = await resp.json();
-                    if (json.success && json.data) {
-                        const disc = json.data.discovery;
-                        const rev = json.data.review;
-
-                        // Build results summary
-                        let html = `<div class="folder-scan-stats">`;
-                        html += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${disc.total_discovered}</div><div class="folder-scan-stat-label">Discovered</div></div>`;
-                        html += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${rev?.summary?.processed || 0}</div><div class="folder-scan-stat-label">Scanned</div></div>`;
-                        html += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${rev?.summary?.errors || 0}</div><div class="folder-scan-stat-label">Errors</div></div>`;
-                        html += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${rev?.summary?.total_issues || 0}</div><div class="folder-scan-stat-label">Issues</div></div>`;
-                        html += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${rev?.processing_time_seconds || 0}s</div><div class="folder-scan-stat-label">Time</div></div>`;
-                        html += `</div>`;
-
-                        // Grade distribution
-                        const grades = rev?.summary?.grade_distribution || {};
-                        if (Object.keys(grades).length > 0) {
-                            html += `<div style="margin-top:8px;"><strong style="font-size:12px;color:var(--text-muted);">Grade Distribution:</strong> `;
-                            Object.entries(grades).sort().forEach(([grade, count]) => {
-                                html += `<span style="margin-right:12px;font-size:13px;">${grade}: <strong>${count}</strong></span>`;
-                            });
-                            html += `</div>`;
-                        }
-
-                        // Document results table
-                        if (rev?.documents && rev.documents.length > 0) {
-                            html += `<div class="folder-scan-file-list" style="margin-top:12px;">`;
-                            rev.documents.forEach(doc => {
-                                const statusIcon = doc.status === 'error' ? '❌' : '✓';
-                                const statusColor = doc.status === 'error' ? 'var(--danger, #ef4444)' : 'var(--success, #22c55e)';
-                                const detail = doc.status === 'error'
-                                    ? `<span style="color:var(--danger)">${doc.error}</span>`
-                                    : `Score: ${doc.score} | Grade: ${doc.grade} | Issues: ${doc.issue_count} | Words: ${(doc.word_count||0).toLocaleString()}`;
-                                html += `<div class="folder-scan-file-item">
-                                    <span style="color:${statusColor};font-weight:bold;min-width:16px;">${statusIcon}</span>
-                                    <span class="folder-scan-file-path" title="${doc.relative_path}">${doc.relative_path}</span>
-                                    <span style="font-size:11px;color:var(--text-muted);white-space:nowrap;">${detail}</span>
-                                </div>`;
-                            });
-                            html += `</div>`;
-                        }
-
-                        folderScanPreview.innerHTML = html;
-                        const totalProcessed = (rev?.summary?.processed || 0) + (rev?.summary?.errors || 0);
-                        window.showToast?.(
-                            `Folder scan complete: ${totalProcessed} documents processed, ${rev?.summary?.total_issues || 0} issues found in ${rev?.processing_time_seconds || 0}s`,
-                            'success'
-                        );
-                    } else {
-                        window.showToast?.(json.error?.message || 'Folder scan failed', 'error');
-                        folderScanPreview.innerHTML = `<p style="color:var(--danger);">Scan failed: ${json.error?.message || 'Unknown error'}</p>`;
+                    const startJson = await startResp.json();
+                    if (!startJson.success || !startJson.data?.scan_id) {
+                        const errMsg = startJson.data?.message || startJson.error?.message || 'Failed to start scan';
+                        window.showToast?.(errMsg, startJson.data?.scan_id === null ? 'info' : 'error');
+                        folderScanPreview.innerHTML = `<p style="color:var(--text-muted);">${escapeHtml(errMsg)}</p>`;
+                        folderScanPreview.classList.remove('hidden');
+                        return;
                     }
+
+                    const scanId = startJson.data.scan_id;
+                    const discovery = startJson.data.discovery;
+                    const totalFiles = discovery.total_discovered;
+
+                    console.log(`[TWR FolderScan] Started scan ${scanId}: ${totalFiles} files`);
+
+                    // ── Step 2: Show progress dashboard (reuse bpd-* classes) ──
+                    const dashEl = document.getElementById('folder-scan-dashboard');
+                    const fsDocsComplete = document.getElementById('fs-docs-complete');
+                    const fsDocsTotal = document.getElementById('fs-docs-total');
+                    const fsPercent = document.getElementById('fs-percent');
+                    const fsFill = document.getElementById('fs-progress-fill');
+                    const fsGlow = document.getElementById('fs-progress-glow');
+                    const fsElapsed = document.getElementById('fs-elapsed-time');
+                    const fsRemaining = document.getElementById('fs-remaining-time');
+                    const fsSpeed = document.getElementById('fs-speed');
+                    const fsQueueStatus = document.getElementById('fs-queue-status');
+                    const fsDocList = document.getElementById('fs-doc-list');
+                    const fsIssueCount = document.getElementById('fs-issues-found');
+
+                    if (dashEl) {
+                        dashEl.classList.remove('hidden');
+                        dashEl.classList.add('scanning');
+                        folderScanPreview.classList.add('hidden');
+                    }
+                    if (fsDocsTotal) fsDocsTotal.textContent = totalFiles;
+                    if (fsDocsComplete) fsDocsComplete.textContent = '0';
+                    if (fsPercent) fsPercent.textContent = '0%';
+                    if (fsIssueCount) fsIssueCount.textContent = '0';
+
+                    // Build initial doc rows from discovery
+                    if (fsDocList) {
+                        fsDocList.innerHTML = discovery.files.map((f, i) => `
+                            <div class="bpd-doc-row queued" id="fs-doc-${i}">
+                                <div class="bpd-doc-icon"><div class="bpd-pending-dot"></div></div>
+                                <div class="bpd-doc-content">
+                                    <div class="bpd-doc-name">${escapeHtml(f.filename)}</div>
+                                    <div class="bpd-doc-detail" id="fs-doc-meta-${i}">Queued — ${f.relative_path}</div>
+                                </div>
+                                <div class="bpd-doc-bar" id="fs-doc-progress-${i}">
+                                    <div class="bpd-doc-bar-fill" id="fs-doc-fill-${i}" style="width:0%"></div>
+                                </div>
+                                <div class="bpd-doc-duration" id="fs-doc-duration-${i}"></div>
+                            </div>
+                        `).join('');
+                    }
+                    if (window.lucide) window.lucide.createIcons();
+
+                    btnFolderScan.innerHTML = '<i data-lucide="loader" class="spin"></i> Scanning...';
+                    if (window.lucide) window.lucide.createIcons();
+
+                    // Build filename→index map for fast lookup
+                    const fileIndexMap = {};
+                    discovery.files.forEach((f, i) => { fileIndexMap[f.filename] = i; });
+
+                    // ── Step 3: Poll for progress ──
+                    let lastDocCount = 0;
+                    let pollInterval = null;
+                    let lastProcessedTimestamp = Date.now();
+
+                    const _formatFSTime = (seconds) => {
+                        if (!seconds || seconds < 0) return '--:--';
+                        const m = Math.floor(seconds / 60);
+                        const s = Math.floor(seconds % 60);
+                        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+                    };
+
+                    const _updateFSDocRow = (idx, status, detail, grade, score, issueCount) => {
+                        const row = document.getElementById(`fs-doc-${idx}`);
+                        const metaEl = document.getElementById(`fs-doc-meta-${idx}`);
+                        const fillEl = document.getElementById(`fs-doc-fill-${idx}`);
+                        if (row) {
+                            row.className = `bpd-doc-row ${status}`;
+                            const iconDiv = row.querySelector('.bpd-doc-icon');
+                            if (iconDiv) {
+                                if (status === 'processing') {
+                                    iconDiv.innerHTML = '<div class="bpd-spinner"></div>';
+                                    row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                                } else if (status === 'complete') {
+                                    iconDiv.innerHTML = '<div class="bpd-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg></div>';
+                                } else if (status === 'error') {
+                                    iconDiv.innerHTML = '<div class="bpd-error-icon"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></div>';
+                                }
+                            }
+                        }
+                        if (metaEl) metaEl.textContent = detail;
+                        if (fillEl) fillEl.style.width = (status === 'complete' || status === 'error') ? '100%' : '50%';
+                    };
+
+                    const pollProgress = async () => {
+                        try {
+                            const resp = await fetch(`/api/review/folder-scan-progress/${scanId}?since=${lastDocCount}`);
+                            const json = await resp.json();
+                            if (!json.success) return;
+
+                            const data = json.data;
+                            const done = data.processed + data.errors;
+                            const pct = totalFiles > 0 ? Math.round((done / totalFiles) * 100) : 0;
+
+                            // Update stats
+                            if (fsDocsComplete) fsDocsComplete.textContent = done;
+                            if (fsPercent) fsPercent.textContent = pct + '%';
+                            if (fsFill) fsFill.style.width = pct + '%';
+                            if (fsGlow) fsGlow.style.width = pct + '%';
+                            if (fsElapsed) fsElapsed.textContent = _formatFSTime(data.elapsed_seconds);
+                            if (fsRemaining) fsRemaining.textContent = _formatFSTime(data.estimated_remaining);
+                            if (fsIssueCount) fsIssueCount.textContent = data.summary?.total_issues || 0;
+
+                            // Speed calc
+                            if (fsSpeed && data.elapsed_seconds > 0 && done > 0) {
+                                const docsPerMin = (done / data.elapsed_seconds * 60).toFixed(1);
+                                fsSpeed.textContent = docsPerMin + '/min';
+                            }
+
+                            // Queue status
+                            if (fsQueueStatus) {
+                                if (data.phase === 'complete') {
+                                    fsQueueStatus.textContent = 'Complete';
+                                } else if (data.current_file) {
+                                    fsQueueStatus.textContent = `Chunk ${data.current_chunk}/${data.total_chunks} — ${data.current_file}`;
+                                } else {
+                                    fsQueueStatus.textContent = `Processing chunk ${data.current_chunk}/${data.total_chunks}...`;
+                                }
+                            }
+
+                            // Mark currently processing file
+                            if (data.current_file && data.phase === 'reviewing') {
+                                const idx = fileIndexMap[data.current_file];
+                                if (idx !== undefined) {
+                                    const row = document.getElementById(`fs-doc-${idx}`);
+                                    if (row && !row.classList.contains('complete') && !row.classList.contains('error')) {
+                                        _updateFSDocRow(idx, 'processing', `Analyzing ${data.current_file}...`);
+                                    }
+                                }
+                            }
+
+                            // Update newly completed documents
+                            if (data.documents && data.documents.length > 0) {
+                                data.documents.forEach(doc => {
+                                    const idx = fileIndexMap[doc.filename];
+                                    if (idx === undefined) return;
+                                    if (doc.status === 'error') {
+                                        _updateFSDocRow(idx, 'error', `Error: ${doc.error || 'Unknown'}`);
+                                    } else {
+                                        _updateFSDocRow(idx, 'complete',
+                                            `Grade ${doc.grade} — Score ${doc.score} — ${doc.issue_count} issues — ${(doc.word_count || 0).toLocaleString()} words`,
+                                            doc.grade, doc.score, doc.issue_count);
+                                    }
+                                });
+                                lastDocCount = data.total_documents_ready;
+                            }
+
+                            // ── Check if done ──
+                            if (data.phase === 'complete' || data.phase === 'error') {
+                                clearInterval(pollInterval);
+                                pollInterval = null;
+
+                                if (dashEl) {
+                                    dashEl.classList.remove('scanning');
+                                    dashEl.classList.add('bpd-complete');
+                                }
+
+                                // Build final summary below the dashboard
+                                const summary = data.summary || {};
+                                const grades = summary.grade_distribution || {};
+                                let summaryHtml = `<div class="folder-scan-stats" style="margin-top:12px;">`;
+                                summaryHtml += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${totalFiles}</div><div class="folder-scan-stat-label">Discovered</div></div>`;
+                                summaryHtml += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${summary.processed || 0}</div><div class="folder-scan-stat-label">Scanned</div></div>`;
+                                summaryHtml += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${summary.errors || 0}</div><div class="folder-scan-stat-label">Errors</div></div>`;
+                                summaryHtml += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${summary.total_issues || 0}</div><div class="folder-scan-stat-label">Issues</div></div>`;
+                                summaryHtml += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${_formatFSTime(data.elapsed_seconds)}</div><div class="folder-scan-stat-label">Time</div></div>`;
+                                summaryHtml += `</div>`;
+
+                                if (Object.keys(grades).length > 0) {
+                                    summaryHtml += `<div style="margin-top:8px;"><strong style="font-size:12px;color:var(--text-muted);">Grade Distribution:</strong> `;
+                                    Object.entries(grades).sort().forEach(([grade, count]) => {
+                                        summaryHtml += `<span style="margin-right:12px;font-size:13px;">${grade}: <strong>${count}</strong></span>`;
+                                    });
+                                    summaryHtml += `</div>`;
+                                }
+
+                                folderScanPreview.innerHTML = summaryHtml;
+                                folderScanPreview.classList.remove('hidden');
+
+                                const msg = data.phase === 'error'
+                                    ? `Folder scan failed: ${data.error_message || 'Unknown error'}`
+                                    : `Folder scan complete: ${done} documents, ${summary.total_issues || 0} issues in ${_formatFSTime(data.elapsed_seconds)}`;
+                                window.showToast?.(msg, data.phase === 'error' ? 'error' : 'success');
+
+                                btnFolderScan.disabled = false;
+                                btnFolderDiscover.disabled = false;
+                                btnFolderScan.innerHTML = '<i data-lucide="scan-line"></i> Scan All';
+                                if (window.lucide) window.lucide.createIcons();
+                            }
+
+                        } catch (pollErr) {
+                            console.error('[TWR FolderScan] Poll error:', pollErr);
+                        }
+                    };
+
+                    // Start polling every 1.5 seconds
+                    pollInterval = setInterval(pollProgress, 1500);
+                    // Also run immediately
+                    pollProgress();
+
                 } catch (err) {
-                    console.error('[TWR] Folder scan error:', err);
+                    console.error('[TWR FolderScan] Start error:', err);
                     window.showToast?.('Folder scan failed: ' + err.message, 'error');
-                    folderScanPreview.innerHTML = `<p style="color:var(--danger);">Error: ${err.message}</p>`;
-                } finally {
+                    folderScanPreview.innerHTML = `<p style="color:var(--danger);">Error: ${escapeHtml(err.message)}</p>`;
+                    folderScanPreview.classList.remove('hidden');
                     btnFolderScan.disabled = false;
                     btnFolderDiscover.disabled = false;
                     btnFolderScan.innerHTML = '<i data-lucide="scan-line"></i> Scan All';
-                    lucide?.createIcons?.();
+                    if (window.lucide) window.lucide.createIcons();
                 }
             });
         }

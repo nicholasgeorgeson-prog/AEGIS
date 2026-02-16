@@ -577,7 +577,7 @@ def main():
     if use_debug:
         logger.warning('DEBUG MODE ENABLED - DO NOT USE IN PRODUCTION')
         print('  ⚠️  DEBUG MODE - NOT FOR PRODUCTION USE')
-        app.run(host=config.host, port=config.port, debug=use_debug)
+        app.run(host=config.host, port=config.port, debug=use_debug, threaded=True)
     else:
         is_localhost = config.host in ['127.0.0.1', 'localhost', '0.0.0.0']
         if is_localhost and env != 'production':

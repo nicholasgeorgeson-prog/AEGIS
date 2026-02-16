@@ -9,8 +9,12 @@ with complex structures (tables, bulleted lists).
 import sys
 import os
 import re
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Ensure Path is available for relative path resolution
+PROJECT_ROOT = Path(__file__).parent
 
 from role_extractor_v3 import RoleExtractor
 from pdf_extractor import PDFExtractor
@@ -315,12 +319,12 @@ def main():
     # Document paths
     docs = [
         {
-            'path': '/Users/nick/Desktop/Work_Tools/TechWriterReview/test_documents/batch_test/MIL-STD-38784B.pdf',
+            'path': str(PROJECT_ROOT / 'test_documents' / 'batch_test' / 'MIL-STD-38784B.pdf'),
             'name': 'MIL-STD-38784B',
             'manual_func': manual_role_analysis_milstd_38784b
         },
         {
-            'path': '/Users/nick/Desktop/Work_Tools/TechWriterReview/test_documents/batch_test/MIL-STD-40051-2A.pdf',
+            'path': str(PROJECT_ROOT / 'test_documents' / 'batch_test' / 'MIL-STD-40051-2A.pdf'),
             'name': 'MIL-STD-40051-2A',
             'manual_func': manual_role_analysis_milstd_40051
         }

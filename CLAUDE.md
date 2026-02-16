@@ -160,7 +160,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.6.1
+- **Current version**: 5.7.0
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -329,6 +329,27 @@ additional_checkers = [
 **Root Cause**: `review_document()` returns `self.issues` which is a mixed list — non-NLP checkers add `ReviewIssue` dataclass instances, NLP checkers add converted dicts via `convert_to_legacy_issue()`. The folder scan's `_review_single()` passed these raw objects to aggregation code that called `.get('severity')` and `.get('category')`, and to `json.dumps()` for scan history recording — both fail on dataclass instances.
 **Fix**: Added conversion step at the top of `_review_single()` that normalizes all issues to dicts: `issue.to_dict()` for ReviewIssue objects, passthrough for dicts, fallback `getattr()` extraction for anything else. This ensures all downstream code (aggregation, JSON serialization, fingerprinting) receives dicts.
 **Lesson**: When consuming output from `review_document()`, always convert issues to dicts first. The `issues` list contains a mix of `ReviewIssue` objects and plain dicts. Use `issue.to_dict() if hasattr(issue, 'to_dict') else issue` pattern. This affects any code path that processes review results outside the normal `/api/review` → `jsonify()` flow (folder scan, batch scan, programmatic access).
+
+### 37. Flask Debug Threading Fix (v5.7.0)
+**Problem**: Flask debug mode (`--debug`) runs single-threaded by default. A long folder scan (31 files, 15+ minutes) blocks ALL other requests — even `/api/version` hangs. Users see a completely frozen UI.
+**Root Cause**: `app.run(debug=True)` without `threaded=True` starts a single-threaded WSGI server. Long-running endpoints (folder scan, batch review) block the entire server.
+**Fix**: Added `threaded=True` to the debug mode `app.run()` call in `app.py` line 580. Non-debug localhost mode and production (Waitress) already had threading enabled.
+**Lesson**: Always pass `threaded=True` when using Flask's development server for applications that have long-running endpoints. The production Waitress setup with 4 threads was already fine — this only affected `--debug` mode during development.
+
+### 38. Async Folder Scan with Progress Polling (v5.7.0)
+**Problem**: Folder scan returned everything at once after completion — user stared at a static "Discovering and reviewing documents..." message for 15+ minutes with zero visibility into progress.
+**Solution**: Two-step async pattern:
+1. `POST /api/review/folder-scan-start` — Runs discovery synchronously (fast, <1s), returns `scan_id` + discovery results immediately, spawns a background thread for the review phase.
+2. `GET /api/review/folder-scan-progress/<scan_id>` — Returns current state from module-level `_folder_scan_state` dict. Supports `?since=N` for incremental document fetching (only new docs since last poll).
+**Architecture**: Module-level `_folder_scan_state` dict protected by `threading.Lock`. Background thread calls `_process_folder_scan_async()` which updates state after each file completes. State includes: phase, total/processed/errors, current_file, current_chunk/total_chunks, documents[], elapsed_seconds, estimated_remaining. States auto-cleanup after 30 minutes of completion.
+**Frontend**: Polls every 1.5s, builds `bpd-doc-row` elements (reusing batch dashboard CSS), shows per-file status transitions (queued → processing → complete/error), progress bar, elapsed/remaining time, speed, chunk tracking.
+**Lesson**: For long-running operations, always use a background thread + polling pattern instead of blocking the HTTP response. The existing synchronous `/folder-scan` endpoint is preserved as fallback for backward compatibility.
+
+### 39. Deduplication Key Should Not Include rule_id (v5.7.0)
+**Problem**: Two separate acronym checker systems (`acronym_checker.py` + `acronym_enhanced_checkers.py`) flagged the same undefined acronyms. The deduplication key `(paragraph_index, category, flagged_text[:80], message[:80], rule_id)` included `rule_id` and `message`, so cross-checker duplicates (same text, different checker → different rule_id and message wording) bypassed dedup. This inflated issue counts by ~20-30%.
+**Fix**: Simplified dedup key in `_deduplicate_issues()` to `(paragraph_index, category, flagged_text[:80])` — removes `rule_id` and `message`. Different checkers flagging the same text at the same location are now properly caught as duplicates.
+**Also fixed**: Broken `option_mapping` entry `'check_enhanced_acronyms': 'enhanced_acronyms'` — the key `'enhanced_acronyms'` doesn't exist as a checker. The enhanced checkers register as `'acronym_first_use'` and `'acronym_multiple_definition'` (which already had proper mappings).
+**Lesson**: Dedup keys should be based on WHAT was flagged and WHERE, not WHO flagged it. Including the checker's rule_id or message text in a dedup key defeats the purpose when multiple checkers cover overlapping territory.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
