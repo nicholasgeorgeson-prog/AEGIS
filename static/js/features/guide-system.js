@@ -1227,9 +1227,11 @@ const AEGISGuide = {
             const cw = rect.width + padding * 2;
             const ch = rect.height + padding * 2;
 
-            // Remove old SVG
+            // Remove old SVG and hide CSS overlay (SVG mask handles dimming with cutout)
             const oldSvg = spotlight.querySelector('svg.spotlight-mask');
             if (oldSvg) oldSvg.remove();
+            const cssOverlay = spotlight.querySelector('.spotlight-overlay');
+            if (cssOverlay) cssOverlay.style.display = 'none';
 
             const svgNS = 'http://www.w3.org/2000/svg';
             const svg = document.createElementNS(svgNS, 'svg');
@@ -1389,9 +1391,11 @@ const AEGISGuide = {
         this.state.currentTourIndex = 0;
         this.state.currentTour = null;
         this.refs.spotlight.classList.add('hidden');
-        // Clean up SVG
+        // Clean up SVG and restore CSS overlay for next use
         const svg = this.refs.spotlight.querySelector('svg.spotlight-mask');
         if (svg) svg.remove();
+        const cssOverlay = this.refs.spotlight.querySelector('.spotlight-overlay');
+        if (cssOverlay) cssOverlay.style.display = '';
         console.log('[AEGIS Guide] Tour ended');
     },
 
