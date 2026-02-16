@@ -23,7 +23,7 @@ pause >nul
 :: STEP 1: Choose where to install
 :: ============================================================
 echo.
-echo  [Step 1 of 7] Where do you want to install AEGIS?
+echo  [Step 1 of 8] Where do you want to install AEGIS?
 echo  ---------------------------------------------------
 echo.
 echo  A folder picker will open. Choose or create a folder.
@@ -66,7 +66,7 @@ if not exist "%INSTALL_DIR%\packaging\wheels" mkdir "%INSTALL_DIR%\packaging\whe
 :: STEP 2: Test internet connectivity
 :: ============================================================
 echo.
-echo  [Step 2 of 7] Testing internet connection...
+echo  [Step 2 of 8] Testing internet connection...
 echo  ---------------------------------------------------
 
 powershell -NoProfile -Command "try { $r = Invoke-WebRequest -Uri 'https://github.com' -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop; Write-Host 'OK' } catch { Write-Host 'FAIL' }" > "%TEMP%\aegis_net_test.txt" 2>nul
@@ -91,15 +91,15 @@ echo  [OK] Internet connection confirmed
 :: STEP 3: Download AEGIS source code
 :: ============================================================
 echo.
-echo  [Step 3 of 7] Downloading AEGIS source code...
+echo  [Step 3 of 8] Downloading AEGIS source code...
 echo  ---------------------------------------------------
 echo.
 
 set "REPO=nicholasgeorgeson-prog/AEGIS"
 set "TAG=v5.0.5"
 set "SRC_ZIP=%INSTALL_DIR%\aegis_source.zip"
-:: Binary assets (Python, wheels, pip) hosted on v5.0.0 release — unchanged between versions
-set "DL_BASE=https://github.com/%REPO%/releases/download/v5.0.0"
+:: Binary assets (Python, wheels, pip, models) hosted on v5.0.5 release
+set "DL_BASE=https://github.com/%REPO%/releases/download/v5.0.5"
 
 echo  Downloading latest source code from GitHub (main branch)...
 powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; try { Invoke-WebRequest -Uri 'https://github.com/%REPO%/archive/refs/heads/main.zip' -OutFile '%SRC_ZIP%' -UseBasicParsing -ErrorAction Stop; Write-Host 'SUCCESS' } catch { Write-Host \"DOWNLOAD_ERROR: $($_.Exception.Message)\" }" > "%TEMP%\aegis_dl_result.txt" 2>nul
@@ -152,7 +152,7 @@ if exist "%INSTALL_DIR%\app.py" (
 :: STEP 4: Download Python + pip + wheels
 :: ============================================================
 echo.
-echo  [Step 4 of 7] Downloading Python and dependencies...
+echo  [Step 4 of 8] Downloading Python and dependencies...
 echo  ---------------------------------------------------
 echo.
 echo  This downloads ~400 MB total. Please be patient.
@@ -188,8 +188,8 @@ if exist "%INSTALL_DIR%\packaging\get-pip.py" (
     exit /b 1
 )
 
-:: Download wheels part 1 (137 MB)
-echo  [3/4] Dependency packages part 1 (137 MB)...
+:: Download wheels part 1 (136 MB)
+echo  [3/5] Dependency packages part 1 (136 MB)...
 echo        (This may take 2-5 minutes)
 powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_BASE%/aegis_wheels_part1.zip' -OutFile '%INSTALL_DIR%\packaging\wheels\part1.zip' -UseBasicParsing" 2>nul
 if not exist "%INSTALL_DIR%\packaging\wheels\part1.zip" (
@@ -204,8 +204,8 @@ if exist "%INSTALL_DIR%\packaging\wheels\part1.zip" (
     exit /b 1
 )
 
-:: Download wheels part 2 (245 MB)
-echo  [4/4] Dependency packages part 2 (245 MB)...
+:: Download wheels part 2 (311 MB)
+echo  [4/5] Dependency packages part 2 (311 MB)...
 echo        (This may take 3-8 minutes)
 powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_BASE%/aegis_wheels_part2.zip' -OutFile '%INSTALL_DIR%\packaging\wheels\part2.zip' -UseBasicParsing" 2>nul
 if not exist "%INSTALL_DIR%\packaging\wheels\part2.zip" (
@@ -229,11 +229,30 @@ del "%INSTALL_DIR%\packaging\wheels\part1.zip" >nul 2>nul
 del "%INSTALL_DIR%\packaging\wheels\part2.zip" >nul 2>nul
 echo  [OK] All packages extracted
 
+:: Download NLP/ML models (240 MB)
+echo  [5/5] NLP/ML models (240 MB)...
+echo        (sentence-transformers, NLTK data)
+powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_BASE%/aegis_models.zip' -OutFile '%INSTALL_DIR%\packaging\aegis_models.zip' -UseBasicParsing" 2>nul
+if not exist "%INSTALL_DIR%\packaging\aegis_models.zip" (
+    echo  [WARN] PowerShell failed, trying curl...
+    curl.exe -L -o "%INSTALL_DIR%\packaging\aegis_models.zip" "%DL_BASE%/aegis_models.zip" 2>nul
+)
+if exist "%INSTALL_DIR%\packaging\aegis_models.zip" (
+    echo  [OK] Models downloaded
+    echo  Extracting models...
+    powershell -NoProfile -Command "Expand-Archive -Path '%INSTALL_DIR%\packaging\aegis_models.zip' -DestinationPath '%INSTALL_DIR%\models' -Force" 2>nul
+    del "%INSTALL_DIR%\packaging\aegis_models.zip" >nul 2>nul
+    echo  [OK] Models extracted
+) else (
+    echo  [WARN] Models download failed - they will be downloaded on first use
+    echo         ^(requires internet connection^)
+)
+
 :: ============================================================
 :: STEP 5: Install Python
 :: ============================================================
 echo.
-echo  [Step 5 of 7] Setting up Python environment...
+echo  [Step 5 of 8] Setting up Python environment...
 echo  ---------------------------------------------------
 echo.
 
@@ -268,7 +287,7 @@ echo  [OK] pip installed
 :: STEP 6: Install Python packages
 :: ============================================================
 echo.
-echo  [Step 6 of 7] Installing 126 Python packages...
+echo  [Step 6 of 8] Installing 135 Python packages...
 echo  ---------------------------------------------------
 echo.
 echo  This takes 2-5 minutes. Please wait...
@@ -290,20 +309,67 @@ for %%f in ("%WHEELS%\*.whl") do (
     "%PYTHON_DIR%\python.exe" -m pip install --no-index --no-deps --no-warn-script-location "%%f" 2>nul
 )
 
-:: Install colorama (required by Flask/Click on Windows for terminal output)
-"%PYTHON_DIR%\python.exe" -m pip install colorama --no-warn-script-location 2>nul
+:: colorama & requests-negotiate-sspi are now included in wheel packages
+:: No need for live pip install
 
-:: Install Windows SSO auth (required for validating internal/corporate links)
-"%PYTHON_DIR%\python.exe" -m pip install requests-negotiate-sspi --no-warn-script-location 2>nul
+:: Install Playwright browser (for headless .mil/.gov link validation)
+echo  Installing headless browser for link validation...
+"%PYTHON_DIR%\python.exe" -m playwright install chromium --with-deps 2>nul
+if errorlevel 1 (
+    echo  [WARN] Playwright browser install failed - headless link validation will be unavailable
+    echo         ^(This is optional - standard link checking still works^)
+) else (
+    echo  [OK] Headless browser installed
+)
 
 echo.
 echo  [OK] All packages installed
 
 :: ============================================================
-:: STEP 7: Create shortcuts and launcher scripts
+:: STEP 7: Configure NLP models
 :: ============================================================
 echo.
-echo  [Step 7 of 7] Creating shortcuts...
+echo  [Step 7 of 8] Configuring NLP models...
+echo  ---------------------------------------------------
+echo.
+
+:: Install spaCy English model from bundled wheel
+if exist "%WHEELS%\en_core_web_md-*.whl" (
+    echo  Installing spaCy English model from package...
+    "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-deps --no-warn-script-location en_core_web_md 2>nul
+    echo  [OK] spaCy model installed
+) else (
+    echo  Downloading spaCy English model...
+    "%PYTHON_DIR%\python.exe" -m spacy download en_core_web_md --no-warn-script-location 2>nul
+    if errorlevel 1 (
+        echo  [WARN] spaCy model download failed - will retry on first launch
+    ) else (
+        echo  [OK] spaCy model downloaded
+    )
+)
+
+:: Configure sentence-transformers model from bundled models
+if exist "%INSTALL_DIR%\models\sentence_transformers" (
+    echo  [OK] Sentence-transformers model ready ^(bundled^)
+) else (
+    echo  [NOTE] Sentence-transformers model will download on first use ^(~80 MB^)
+)
+
+:: Configure NLTK data from bundled models
+if exist "%INSTALL_DIR%\models\nltk_data" (
+    echo  [OK] NLTK data ready ^(bundled^)
+) else (
+    echo  [NOTE] NLTK data will download on first use ^(~120 MB^)
+)
+
+echo.
+echo  [OK] NLP models configured
+
+:: ============================================================
+:: STEP 8: Create shortcuts and launcher scripts
+:: ============================================================
+echo.
+echo  [Step 7 of 8] Creating shortcuts...
 echo  ---------------------------------------------------
 
 :: Create Start_AEGIS.bat
@@ -319,6 +385,8 @@ echo echo  DO NOT close this window while using AEGIS.
 echo echo  Press Ctrl+C to stop the server.
 echo echo.
 echo cd /d "%INSTALL_DIR%"
+echo if exist "%INSTALL_DIR%\models\nltk_data" set "NLTK_DATA=%INSTALL_DIR%\models\nltk_data"
+echo if exist "%INSTALL_DIR%\models\sentence_transformers" set "SENTENCE_TRANSFORMERS_HOME=%INSTALL_DIR%\models\sentence_transformers"
 echo "%PYTHON_DIR%\python.exe" app.py
 echo echo.
 echo echo  AEGIS has stopped.
