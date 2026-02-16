@@ -508,7 +508,19 @@ def folder_scan():
         try:
             engine = AEGISEngine()
             doc_results = engine.review_document(str(filepath), options)
-            issues = doc_results.get('issues', [])
+            # Convert ReviewIssue objects to dicts for safe .get() access and JSON serialization
+            raw_issues = doc_results.get('issues', [])
+            issues = []
+            for issue in raw_issues:
+                if isinstance(issue, dict):
+                    issues.append(issue)
+                elif hasattr(issue, 'to_dict'):
+                    issues.append(issue.to_dict())
+                else:
+                    issues.append({'severity': getattr(issue, 'severity', 'Low'),
+                                   'category': getattr(issue, 'category', 'Unknown'),
+                                   'message': getattr(issue, 'message', str(issue))})
+            doc_results['issues'] = issues
             doc_roles = doc_results.get('roles', {})
             if not isinstance(doc_roles, dict):
                 doc_roles = {}

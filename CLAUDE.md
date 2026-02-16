@@ -160,7 +160,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.6.0
+- **Current version**: 5.6.1
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -323,6 +323,12 @@ additional_checkers = [
 **Z-index hierarchy**: beacon=150000, demoBar=149800, panel=149500, spotlight=149000
 **Settings**: localStorage key `aegis-guide-enabled`, toggle in Settings > General, synced via `saveSettings()` in app.js
 **Lesson**: For feature walkthrough "videos," an animated demo player on the live UI is better than pre-recorded videos — it stays current with UI changes, requires no video hosting, and can be interactive. The key design pattern is: define scenes declaratively (selector + narration + navigation), then a generic player engine handles spotlight, narration, timing, and controls.
+
+### 36. ReviewIssue Object vs Dict in Folder Scan (v5.6.1)
+**Problem**: Folder scan returned `errors: 5` for all documents. Error message: `'ReviewIssue' object has no attribute 'get'`.
+**Root Cause**: `review_document()` returns `self.issues` which is a mixed list — non-NLP checkers add `ReviewIssue` dataclass instances, NLP checkers add converted dicts via `convert_to_legacy_issue()`. The folder scan's `_review_single()` passed these raw objects to aggregation code that called `.get('severity')` and `.get('category')`, and to `json.dumps()` for scan history recording — both fail on dataclass instances.
+**Fix**: Added conversion step at the top of `_review_single()` that normalizes all issues to dicts: `issue.to_dict()` for ReviewIssue objects, passthrough for dicts, fallback `getattr()` extraction for anything else. This ensures all downstream code (aggregation, JSON serialization, fingerprinting) receives dicts.
+**Lesson**: When consuming output from `review_document()`, always convert issues to dicts first. The `issues` list contains a mix of `ReviewIssue` objects and plain dicts. Use `issue.to_dict() if hasattr(issue, 'to_dict') else issue` pattern. This affects any code path that processes review results outside the normal `/api/review` → `jsonify()` flow (folder scan, batch scan, programmatic access).
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

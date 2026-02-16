@@ -1,12 +1,21 @@
 {
-  "version": "5.6.0",
+  "version": "5.6.1",
   "release_date": "2026-02-16",
-  "core_version": "5.6.0",
+  "core_version": "5.6.1",
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.6.1",
+      "date": "2026-02-16",
+      "changes": [
+        "FIX: Folder scan ReviewIssue .get() error — issues from review_document() are now converted to dicts before aggregation",
+        "FIX: json.dumps() serialization failure for ReviewIssue objects in scan history recording",
+        "FIX: _calculate_changes() fingerprint function now handles both ReviewIssue objects and dicts"
+      ]
+    },
     {
       "version": "5.6.0",
       "date": "2026-02-16",
