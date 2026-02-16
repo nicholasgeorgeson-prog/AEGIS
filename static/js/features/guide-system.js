@@ -1639,6 +1639,16 @@ const AEGISGuide = {
         // v5.7.1: Close all open modals first to prevent stacking.
         if (typeof closeModals === 'function') closeModals();
 
+        // v5.7.1: Dismiss the landing page for any non-landing section.
+        // Without this, modals open BEHIND the landing page overlay.
+        if (sectionId !== 'landing' && document.body.classList.contains('landing-active')) {
+            const landing = document.getElementById('aegis-landing-page');
+            if (landing) {
+                landing.classList.add('lp-exiting');
+                document.body.classList.remove('landing-active');
+            }
+        }
+
         // v5.7.1: Each handler uses the MOST DIRECT method to open its section.
         // Prefer showModal() or module.open() over clicking hidden nav buttons,
         // because nav buttons may have side effects or depend on other state.
@@ -1654,12 +1664,7 @@ const AEGISGuide = {
                 }
             },
             'review': () => {
-                // Dismiss landing page to reveal the review view underneath
-                const landing = document.getElementById('aegis-landing-page');
-                if (landing && document.body.classList.contains('landing-active')) {
-                    landing.classList.add('lp-exiting');
-                    document.body.classList.remove('landing-active');
-                }
+                // Landing page already dismissed above — review view is now visible
             },
             'batch': () => {
                 // Open batch upload modal directly
@@ -1729,14 +1734,16 @@ const AEGISGuide = {
 
     detectCurrentSection() {
         const checks = [
-            { id: 'aegis-landing-page', section: 'landing', check: el => el.offsetParent !== null },
+            { id: 'aegis-landing-page', section: 'landing', check: () => document.body.classList.contains('landing-active') },
             { id: 'modal-roles', section: 'roles', check: el => el.classList.contains('active') },
-            { id: 'modal-statement-forge', section: 'forge', check: el => el.classList.contains('active') || el.style.display !== 'none' },
+            { id: 'modal-statement-forge', section: 'forge', check: el => el.classList.contains('active') },
+            { id: 'batch-upload-modal', section: 'batch', check: el => el.classList.contains('active') },
             { id: 'modal-hyperlink-validator', section: 'validator', check: el => el.classList.contains('active') },
             { id: 'modal-doc-compare', section: 'compare', check: el => el.classList.contains('active') },
             { id: 'modal-metrics-analytics', section: 'metrics', check: el => el.classList.contains('active') },
             { id: 'modal-scan-history', section: 'history', check: el => el.classList.contains('active') },
-            { id: 'modal-settings', section: 'settings', check: el => el.classList.contains('active') }
+            { id: 'modal-settings', section: 'settings', check: el => el.classList.contains('active') },
+            { id: 'modal-portfolio', section: 'portfolio', check: el => el.classList.contains('active') }
         ];
 
         for (const c of checks) {

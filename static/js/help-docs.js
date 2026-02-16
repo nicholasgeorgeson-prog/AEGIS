@@ -6726,6 +6726,15 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.7.2 <span class="changelog-date">February 16, 2026</span></h3>
+        <p><strong>Help Panel Navigation Fixes</strong></p>
+        <ul>
+            <li><strong>FIX: Section Detection</strong> — Help panel no longer falsely shows Statement Forge when opened from the landing page. Fixed offsetParent check (fails on position:fixed) and display check (matched empty string).</li>
+            <li><strong>FIX: Landing Page Overlay</strong> — Clicking section nav buttons (Batch Scan, Settings, etc.) now properly dismisses the landing page before opening modals. Previously, modals opened behind the landing overlay.</li>
+            <li><strong>FIX: Missing Sections</strong> — Added Batch Scan and Portfolio to section detection array — they were missing from detectCurrentSection().</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.7.1 <span class="changelog-date">February 16, 2026</span></h3>
         <p><strong>Folder Scan Robustness + Guide System Fixes</strong></p>
         <ul>

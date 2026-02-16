@@ -1,12 +1,23 @@
 {
-  "version": "5.7.1",
+  "version": "5.7.2",
   "release_date": "2026-02-16",
-  "core_version": "5.7.1",
+  "core_version": "5.7.2",
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.7.2",
+      "date": "2026-02-16",
+      "changes": [
+        "FIX: detectCurrentSection() no longer falsely matches Statement Forge — removed el.style.display check, uses only .active class like all other modals",
+        "FIX: Landing page detection now uses body.classList.contains('landing-active') instead of offsetParent (which fails on position:fixed elements)",
+        "FIX: Help panel section nav now dismisses landing page before opening modals — modals no longer hidden behind landing overlay",
+        "FIX: Added batch and portfolio to detectCurrentSection() checks array (were missing)",
+        "REFACTOR: Moved landing page dismissal to top of _navigateToSection() for all non-landing sections"
+      ]
+    },
     {
       "version": "5.7.1",
       "date": "2026-02-16",

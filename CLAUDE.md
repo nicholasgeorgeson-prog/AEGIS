@@ -160,7 +160,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.7.1
+- **Current version**: 5.7.2
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -356,6 +356,12 @@ additional_checkers = [
 **Root Cause**: Multiple issues: (1) `future.result()` had no timeout — if a worker hung on a file (e.g., large PDF, corrupt .doc), it blocked forever. (2) `elapsed_seconds` was only updated inside the `as_completed` loop — if no futures completed, the timer froze. (3) No try/except around `future.result()`, so unexpected exceptions crashed the entire background thread silently. (4) `current_file` only showed the last-completed file, not what was actively being processed.
 **Fix**: (1) Added per-file timeout (5 min) via `future.result(timeout=30)` and chunk-level timeout via `as_completed(timeout=PER_FILE_TIMEOUT * len(chunk))`. (2) Compute `elapsed_seconds` LIVE in the progress endpoint from `started_at` instead of using the stored value. (3) Wrapped `future.result()` in try/except with error result fallback. (4) Set `current_file` to show chunk contents (up to 3 filenames) at chunk start. (5) Extracted `_update_scan_state_with_result()` helper to clean up deep indentation. (6) Chunk timeout gracefully marks remaining files as errors and continues to next chunk.
 **Lesson**: For background threads with ThreadPoolExecutor: ALWAYS use timeouts on `future.result()` and `as_completed()`. Never store elapsed time statically — compute it live from `started_at`. Wrap all future operations in try/except. Show what's being processed, not just what's done.
+
+### 41. detectCurrentSection() and Landing Page Overlay (v5.7.2)
+**Problem**: Help panel showed "Statement Forge" content when opened from the landing page. Additionally, clicking section nav buttons for modals (e.g., Batch Scan) opened the modal BEHIND the landing page overlay — invisible to the user.
+**Root Cause**: Three issues: (1) Statement Forge check in `detectCurrentSection()` used `el.style.display !== 'none'` which returns true when display is empty string (no inline style). (2) Landing page check used `el.offsetParent !== null`, but landing page has `position: fixed` which always returns null for offsetParent. (3) `_navigateToSection()` called `closeModals()` but never dismissed the landing page overlay, so modals opened behind it.
+**Fix**: (1) Changed Statement Forge check to only use `.active` class like all other modals. (2) Changed landing page check to `document.body.classList.contains('landing-active')`. (3) Added landing page dismissal at the top of `_navigateToSection()` for all non-landing sections. (4) Added missing `batch` and `portfolio` entries to the detection array.
+**Lesson**: `offsetParent` is null for `position: fixed` elements — don't use it for visibility detection. Use class-based checks consistently. When navigating between sections, always dismiss ALL overlays (including landing page), not just modals.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
