@@ -238,3 +238,33 @@ textacy>=0.13.0
 # Document Summarization & Verbosity Detection
 # Extractive summarization for information density analysis
 sumy>=0.11.0
+
+# =============================================================================
+# v5.3.0 SPACY ECOSYSTEM & DEEP ANALYSIS SUITE
+# =============================================================================
+# These packages extend spaCy's pipeline with specialized NLP components
+# All work offline and are air-gap safe. Graceful fallback if not installed.
+
+# Negation Detection - Entity and scope-level negation analysis
+# Uses spaCy dependency tree for negation scope in requirements
+negspacy>=1.0.0
+
+# Text Quality Metrics - 40+ metrics in a single spaCy pipeline pass
+# Readability, coherence, POS proportions, dependency distance, quality scores
+textdescriptives>=2.7.0
+
+# Terminology Consistency - WordNet synonym lookup through spaCy
+# Detects when same concept is called different names in a document
+spacy-wordnet>=0.1.0
+
+# Subjectivity & Tone - Sentiment analysis through spaCy pipeline
+# Flags subjective/emotional language in technical documents
+spacytextblob>=4.0.0
+
+# Lexical Diversity - MTLD, HD-D, TTR vocabulary richness metrics
+# Detects boilerplate/copy-paste and vocabulary quality issues
+lexical_diversity>=0.1.1
+
+# YAKE - Lightweight unsupervised keyword extraction
+# Statistical approach, no model needed, language-independent
+yake>=0.4.8
