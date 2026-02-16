@@ -160,7 +160,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.5.0
+- **Current version**: 5.6.0
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -308,6 +308,21 @@ additional_checkers = [
 **Batch limits increased**: `MAX_BATCH_SIZE=50` (was 10), `MAX_BATCH_TOTAL_SIZE=500MB` (was 100MB).
 **Frontend**: Folder path input in batch upload modal with "Preview" (discovery only) and "Scan All" buttons.
 **Lesson**: For large batch operations, chunk processing with inter-chunk GC is essential. Don't try to hold all engine instances in memory simultaneously. The discovery/review two-phase approach lets users preview before committing. Always provide a dry-run option for potentially long operations.
+
+### 35. Animated Demo Player Architecture (v5.6.0)
+**Problem**: Users wanted "live video" walkthroughs of every AEGIS feature, but actual screen-recorded video files would be massive and stale after any UI change.
+**Solution**: Built an animated demo player system in pure HTML/CSS/JS that runs on the live UI. Each section defines `demoScenes` — arrays of steps with `target` (CSS selector), `narration` (text), and optional `navigate` (function to open the correct modal first).
+**Architecture**:
+- Demo bar: Fixed-bottom glass-morphism UI with typewriter narration, controls (play/pause/prev/next/stop), speed selector, progress bar
+- SVG mask spotlight: Creates SVG with white fill + black cutout rect for target element, applied as CSS mask to semi-transparent overlay
+- Section navigation: `_navigateToSection(sectionId)` opens the correct modal/view, waits 600ms for DOM to settle, then spotlights elements within it
+- Typewriter effect: Characters typed one at a time at configurable speed (adjusted by playback speed multiplier)
+- Auto-advance: Each step displays for `demoStepDuration / speed` milliseconds before advancing
+- Full Demo mode: Iterates through all 11 sections sequentially, navigating between modals automatically
+**Key files**: `guide-system.js` (logic), `guide-system.css` (styles)
+**Z-index hierarchy**: beacon=150000, demoBar=149800, panel=149500, spotlight=149000
+**Settings**: localStorage key `aegis-guide-enabled`, toggle in Settings > General, synced via `saveSettings()` in app.js
+**Lesson**: For feature walkthrough "videos," an animated demo player on the live UI is better than pre-recorded videos — it stays current with UI changes, requires no video hosting, and can be interactive. The key design pattern is: define scenes declaratively (selector + narration + navigation), then a generic player engine handles spotlight, narration, timing, and controls.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

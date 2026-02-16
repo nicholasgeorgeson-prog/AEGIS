@@ -1,12 +1,31 @@
 {
-  "version": "5.5.0",
+  "version": "5.6.0",
   "release_date": "2026-02-16",
-  "core_version": "5.5.0",
+  "core_version": "5.6.0",
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.6.0",
+      "date": "2026-02-16",
+      "changes": [
+        "GUIDE: Complete rewrite of guide-system.js v2.0.0 — real content for all 11 sections (landing, review, batch, roles, forge, validator, compare, metrics, history, settings, portfolio)",
+        "GUIDE: Animated Demo Player system — auto-playing live walkthroughs with typewriter narration, spotlight overlay, and step-by-step scene navigation",
+        "GUIDE: Demo player controls — play/pause, previous/next, speed selector (0.5x–2x), progress bar with step counter, LIVE DEMO badge",
+        "GUIDE: SVG mask spotlight system for tour and demo element highlighting with smooth transitions",
+        "GUIDE: Section navigation grid in help panel — click any section to jump directly to its content",
+        "GUIDE: Contextual help beacon with pulse animation, auto-detects current section",
+        "GUIDE: Full Tour and Full Demo modes — walk through every section sequentially with auto-navigation between modals",
+        "GUIDE: Each section includes whatIsThis descriptions, keyActions with icons, proTips, tourSteps targeting real DOM selectors, and demoScenes",
+        "UI: Settings toggle to globally enable/disable guide system (Settings > General > Show help guide & tours)",
+        "UI: Guide enabled state persisted via localStorage, synced with settings checkbox on page load",
+        "CSS: Guide system z-index hierarchy — beacon=150000, demoBar=149800, panel=149500, spotlight=149000 (above all app modals)",
+        "CSS: Demo bar with glass-morphism dark UI, gradient progress bar, animated LIVE DEMO badge",
+        "CSS: Section navigation grid with hover effects and active state indicators"
+      ]
+    },
     {
       "version": "5.5.0",
       "date": "2026-02-16",

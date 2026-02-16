@@ -32,7 +32,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1500;
+    z-index: 150000;
     box-shadow: 0 4px 16px rgba(51, 184, 255, 0.3);
     transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
     outline: none;
@@ -109,7 +109,7 @@
     backdrop-filter: blur(16px);
     border-left: 1px solid rgba(var(--text-primary-rgb, 17, 24, 39), 0.1);
     box-shadow: -8px 0 32px rgba(0, 0, 0, 0.15);
-    z-index: 1450;
+    z-index: 149500;
     overflow-y: auto;
     transform: translateX(100%);
     transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -165,7 +165,8 @@
 }
 
 /* Panel content */
-.panel-content {
+.panel-content,
+.panel-body {
     flex: 1;
     padding: 20px;
     overflow-y: auto;
@@ -361,7 +362,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    z-index: 1400;
+    z-index: 149000;
     pointer-events: none;
 }
 
@@ -389,7 +390,7 @@
     box-shadow: 0 20px 48px rgba(0, 0, 0, 0.2);
     padding: 20px;
     max-width: 360px;
-    z-index: 1500;
+    z-index: 149500;
     pointer-events: auto;
     animation: tooltip-pop 300ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
@@ -801,8 +802,282 @@
     .aegis-guide-beacon,
     .aegis-guide-panel,
     .aegis-guide-spotlight,
+    .aegis-demo-bar,
     .getting-started-card,
     .modal-help-btn {
         display: none !important;
     }
+}
+
+/* ============================================
+   8. SECTION NAVIGATION (inside panel)
+   ============================================ */
+
+.panel-section-nav {
+    padding: 16px 20px 20px;
+    border-top: 1px solid rgba(var(--text-primary-rgb, 17, 24, 39), 0.08);
+}
+
+.nav-title {
+    margin: 0 0 12px 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+}
+
+.section-nav-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+}
+
+.section-nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 4px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 200ms;
+    outline: none;
+    font-size: 10px;
+}
+
+.section-nav-btn:hover {
+    background: rgba(var(--aegis-blue-rgb, 51, 184, 255), 0.08);
+    border-color: rgba(var(--aegis-blue-rgb, 51, 184, 255), 0.2);
+    color: var(--aegis-blue);
+}
+
+.section-nav-btn.active {
+    background: rgba(var(--aegis-blue-rgb, 51, 184, 255), 0.12);
+    border-color: var(--aegis-blue);
+    color: var(--aegis-blue);
+}
+
+.section-nav-icon {
+    width: 18px;
+    height: 18px;
+}
+
+.section-nav-label {
+    font-size: 10px;
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80px;
+}
+
+/* Panel button style updates for demo/tour */
+.panel-btn.demo-btn {
+    background: linear-gradient(135deg, #ff6b35, #f7931a);
+    color: white;
+}
+
+.panel-btn.demo-btn:hover {
+    background: linear-gradient(135deg, #e55a2b, #e88515);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+}
+
+.panel-btn.tour-btn {
+    background: var(--aegis-blue);
+    color: var(--text-inverse);
+}
+
+.panel-btn.tour-btn:hover {
+    background: var(--aegis-blue-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(51, 184, 255, 0.2);
+}
+
+/* Panel footer horizontal layout */
+.panel-footer {
+    flex-direction: row !important;
+    gap: 8px !important;
+}
+
+.panel-footer .panel-btn {
+    flex: 1;
+}
+
+/* Progress dot 'done' state */
+.progress-dot.done {
+    background: rgba(var(--aegis-blue-rgb, 51, 184, 255), 0.4);
+}
+
+.dot-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--aegis-blue);
+}
+
+/* ============================================
+   9. DEMO BAR (Bottom narration bar)
+   ============================================ */
+
+.aegis-demo-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 149800;
+    pointer-events: auto;
+    animation: demobar-slide-up 400ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.aegis-demo-bar.hidden {
+    display: none;
+}
+
+@keyframes demobar-slide-up {
+    0% { transform: translateY(100%); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+}
+
+.demo-bar-inner {
+    background: rgba(15, 15, 20, 0.92);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 14px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.demo-bar-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.demo-bar-badge {
+    background: linear-gradient(135deg, #ff4444, #ff6b35);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 3px 10px;
+    border-radius: 4px;
+    animation: badge-pulse 2s ease-in-out infinite;
+}
+
+@keyframes badge-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.demo-bar-section {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.demo-bar-narration {
+    color: white;
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 24px;
+    font-weight: 400;
+}
+
+.demo-bar-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.demo-ctrl-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: all 200ms;
+    outline: none;
+}
+
+.demo-ctrl-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.demo-play-btn {
+    background: var(--aegis-blue);
+    border-color: var(--aegis-blue);
+    font-size: 12px;
+}
+
+.demo-play-btn:hover {
+    background: var(--aegis-blue-dark);
+}
+
+.demo-stop-btn {
+    font-size: 18px;
+    color: #ff6b6b;
+}
+
+.demo-stop-btn:hover {
+    background: rgba(255, 107, 107, 0.15);
+    border-color: rgba(255, 107, 107, 0.3);
+}
+
+.demo-progress-track {
+    flex: 1;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.demo-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--aegis-blue), #33ff99);
+    border-radius: 2px;
+    transition: width 500ms ease;
+    width: 0%;
+}
+
+.demo-step-label {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    min-width: 45px;
+    text-align: center;
+}
+
+.demo-speed-select {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: white;
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    outline: none;
+}
+
+.demo-speed-select option {
+    background: #1a1a2e;
+    color: white;
+}
+
+/* Dark mode demo bar — already dark by default, minimal changes */
+[data-theme="dark"] .demo-bar-inner {
+    background: rgba(10, 10, 15, 0.95);
 }

@@ -58,7 +58,7 @@
     <link rel="stylesheet" href="/static/css/features/data-explorer.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/static/css/features/mass-statement-review.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/static/css/features/statement-history.css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="/static/css/features/guide-system.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/static/css/features/guide-system.css">
     <!-- Print stylesheet -->
     <link rel="stylesheet" href="/static/css/print.css" media="print">
     <!-- Vendor libraries: all local (v5.0.1 - no external CDN for air-gapped compliance) -->
@@ -1991,6 +1991,13 @@
                     <input type="checkbox" id="settings-remember-checks" checked>
                     <span>Remember checker selections</span>
                 </label>
+            </div>
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="settings-guide-enabled" checked>
+                    <span>Show help guide &amp; tours</span>
+                </label>
+                <p class="help-text">Enable the floating help beacon, guided tours, and live demos. Uncheck to hide all guide elements.</p>
             </div>
             <div class="form-group" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-default);">
                 <label>Diagnostics Support Email</label>
@@ -6104,9 +6111,9 @@
 <script src="/static/js/features/mass-statement-review.js" defer></script>
 <!-- Statement Source Viewer (v1.0.0) -->
 <script src="/static/js/features/statement-source-viewer.js" defer></script>
+<!-- Guide System (v1.0.0) - Must load BEFORE landing-page.js so AEGISGuide is available -->
+<script src="/static/js/features/guide-system.js"></script>
 <!-- Landing Page (v4.5.1) - Must load before DOMContentLoaded for landing animations -->
 <script src="/static/js/features/landing-page.js"></script>
-<!-- Guide System (v1.0.0) -->
-<script src="/static/js/features/guide-system.js" defer></script>
 </body>
 </html>

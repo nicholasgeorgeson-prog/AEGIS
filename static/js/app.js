@@ -3567,6 +3567,13 @@ function saveSettings() {
     State.settings.autoReview = document.getElementById('settings-auto-review')?.checked || false;
     State.settings.reviewerName = document.getElementById('settings-reviewer')?.value || '';
     State.settings.rememberChecks = document.getElementById('settings-remember-checks')?.checked !== false;
+
+    // Guide system toggle (v5.6.0)
+    const guideEnabled = document.getElementById('settings-guide-enabled')?.checked !== false;
+    if (window.AEGISGuide) {
+        if (guideEnabled) window.AEGISGuide.enable();
+        else window.AEGISGuide.disable();
+    }
     State.settings.diagnosticsEmail = document.getElementById('settings-diagnostics-email')?.value || '';
     State.settings.maxSentenceLength = parseInt(document.getElementById('settings-max-sentence')?.value) || 40;
     State.settings.passiveThreshold = document.getElementById('settings-passive-threshold')?.value || 'moderate';
@@ -8656,6 +8663,12 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const showChartsCb = document.getElementById('settings-show-charts');
             if (showChartsCb) showChartsCb.checked = State.settings.showCharts !== false;
+
+            // Sync guide toggle with AEGISGuide state (v5.6.0)
+            const guideCb = document.getElementById('settings-guide-enabled');
+            if (guideCb && window.AEGISGuide) {
+                guideCb.checked = window.AEGISGuide.isEnabled();
+            }
             
             const compactModeCb = document.getElementById('settings-compact-mode');
             if (compactModeCb) compactModeCb.checked = State.settings.compactMode || false;

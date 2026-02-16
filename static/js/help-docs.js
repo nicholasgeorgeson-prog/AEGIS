@@ -10,6 +10,8 @@
  * - Technical deep-dive section for advanced users
  * - Smooth navigation and professional typography
  *
+ * v5.6.0 - Guide System v2.0.0 + Animated Demo Player (real content for all 11 sections, live walkthrough demos, SVG spotlight tours, settings toggle)
+ * v5.5.0 - Server-Side Folder Scanning (recursive discovery, chunked processing, batch limits increase to 50/500MB)
  * v5.4.0 - Performance Optimization + spaCy Ecosystem Deep Analysis (zero dark mode flash, deferred scripts, parallel batch scan, 100+ checkers)
  * v5.1.0 - Security Hardening + Accessibility + Print Support (CSRF protection, WCAG 2.1 A compliance, print.css, folder browser, Windows wheels)
  * v5.0.0 - Multiprocessing Architecture + Role Extraction (separate processes, 3-layer filtering, 30+ aerospace roles, NASA 297-page test)
@@ -35,7 +37,7 @@
 'use strict';
 
 const HelpDocs = {
-    version: '5.1.0',
+    version: '5.6.0',
     lastUpdated: '2026-02-16',
     
     config: {

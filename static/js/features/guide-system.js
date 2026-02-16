@@ -1,420 +1,814 @@
 /**
- * AEGIS Guide System - Cinematic Contextual Help & Guided Tour
- * ============================================================
- * A floating help beacon + guided tour system that helps users understand
- * each section of the AEGIS tool with contextual, interactive tours.
+ * AEGIS Guide System v2.0.0 - Interactive Help, Guided Tours & Live Demos
+ * ========================================================================
+ * A comprehensive help system with:
+ * - Floating pulsing "?" beacon (bottom-right)
+ * - Contextual help slideout panel with real content
+ * - Spotlight overlay guided tours (manual step-by-step)
+ * - Cinematic auto-playing demo player (Watch Demo)
+ * - Section-specific and full-app tours
+ * - Settings integration (enable/disable globally)
+ * - Covers every function and sub-function in AEGIS
  *
- * Features:
- * - Floating pulsing "?" beacon (bottom-right, always visible)
- * - Contextual help slideout panel (right-side glass-morphism)
- * - Spotlight overlay guided tours (dark overlay with element cutout)
- * - Section-specific tours with step-by-step guidance
- * - Getting Started landing card with quick tour trigger
- * - Smooth animations and full dark mode support
- *
- * Version: 1.0.0
+ * Version: 2.0.0
  */
 
 'use strict';
 
 const AEGISGuide = {
-    // Configuration
+    // ─── Configuration ───────────────────────────────────────────────
     config: {
-        beaconZIndex: 1500,      // Below toast (2500), above everything else
-        spotlightZIndex: 1400,
-        panelZIndex: 1450,
+        beaconZIndex: 150000,
+        spotlightZIndex: 149000,
+        panelZIndex: 149500,
+        demoBarZIndex: 149800,
         animationDuration: 300,
-        spotlightAnimDuration: 400
+        spotlightAnimDuration: 400,
+        demoStepDuration: 4500,
+        demoTypeSpeed: 30,
+        storageKey: 'aegis-guide-enabled',
+        demoSeenKey: 'aegis-demo-seen'
     },
 
-    // State
+    // ─── State ───────────────────────────────────────────────────────
     state: {
+        initialized: false,
         panelOpen: false,
         tourActive: false,
         currentTourIndex: 0,
         currentSection: null,
-        currentTour: null
+        currentTour: null,
+        enabled: true
     },
 
-    // DOM references
+    // ─── Demo Player State ───────────────────────────────────────────
+    demo: {
+        isPlaying: false,
+        isPaused: false,
+        currentStep: 0,
+        currentSection: null,
+        scenes: null,
+        timer: null,
+        typeTimer: null,
+        speed: 1
+    },
+
+    // ─── DOM References ──────────────────────────────────────────────
     refs: {
         beacon: null,
         panel: null,
         spotlight: null,
+        demoBar: null,
         panelContent: null
     },
 
-    /**
-     * Section definitions with help content and tour steps
-     */
+    // ═════════════════════════════════════════════════════════════════
+    // SECTION DEFINITIONS - Real content targeting actual DOM elements
+    // ═════════════════════════════════════════════════════════════════
+
     sections: {
+        // ─── Dashboard / Landing Page ────────────────────────────────
         landing: {
             id: 'landing',
             title: 'Dashboard',
             icon: 'layout-dashboard',
-            whatIsThis: 'Your mission control center. See document quality at a glance, recent activity, and quick access to all AEGIS features. Drop documents here to begin analysis.',
+            whatIsThis: 'Your mission control center for document quality. The dashboard shows real-time statistics from your review database, quick-access tiles to every AEGIS feature, and recent scan activity. Drag a document onto the hero area to instantly begin a review, or click any feature tile to jump directly to that tool.',
             keyActions: [
-                { icon: 'file-text', text: 'Click any feature tile to jump to that tool' },
-                { icon: 'bar-chart-2', text: 'View quality metrics and document statistics' },
-                { icon: 'upload', text: 'Drag & drop or click to upload a document' }
+                { icon: 'upload', text: 'Drag & drop a document onto the hero banner to start a review instantly' },
+                { icon: 'layout-grid', text: 'Click any feature tile to jump to Document Review, Roles Studio, Statement Forge, etc.' },
+                { icon: 'bar-chart-2', text: 'View real-time metrics: total documents scanned, average quality score, roles discovered' },
+                { icon: 'clock', text: 'See recent scans and quickly re-open previous review results' },
+                { icon: 'compass', text: 'Click "Getting Started" for a full guided tour of every feature' }
             ],
             proTips: [
-                'The quality score updates as you review more documents',
-                'Each tile shows real-time statistics from your database',
-                'Use the search bar to quickly find documents by name or type'
+                'The quality metrics update automatically each time you scan a document',
+                'Each feature tile shows a live count pulled from your database',
+                'Use keyboard shortcut Ctrl+O to quickly open a document from anywhere',
+                'The Getting Started card launches a comprehensive walkthrough of all features',
+                'You can return to the Dashboard at any time by clicking the AEGIS logo or pressing Escape'
             ],
             tourSteps: [
                 {
-                    target: '.lp-hero',
-                    title: 'Start Here',
-                    description: 'Drag and drop your document here or click to browse. Supports .docx, .doc, and .pdf files.',
-                    position: 'bottom',
-                    offset: { x: 0, y: 20 }
+                    target: '#lp-hero',
+                    title: 'Document Drop Zone',
+                    description: 'This is the fastest way to start a review. Drag any .docx, .doc, or .pdf file here and AEGIS will immediately begin scanning it against 100+ quality checkers. You can also click the "Open Document" button in the toolbar.',
+                    position: 'bottom'
                 },
                 {
                     target: '#lp-metrics',
-                    title: 'Quick Metrics',
-                    description: 'At-a-glance statistics about your documents, roles, quality scores, and review progress.',
-                    position: 'bottom',
-                    offset: { x: 0, y: 20 }
+                    title: 'Live Dashboard Metrics',
+                    description: 'These cards show real-time statistics from your review database: total documents scanned, average quality score, total roles discovered, and recent scan activity. Numbers update automatically after each review.',
+                    position: 'bottom'
                 },
                 {
                     target: '#lp-tiles',
-                    title: 'Feature Tiles',
-                    description: 'Each tile represents a major AEGIS feature. Click any tile to jump directly to it. Or use the Dashboard button in the header to return here.',
-                    position: 'top',
-                    offset: { x: 0, y: -20 }
+                    title: 'Feature Quick-Access Tiles',
+                    description: 'Each tile represents a major AEGIS capability. Click to jump directly to Document Review, Roles Studio, Statement Forge, Hyperlink Validator, Metrics & Analytics, Scan History, Document Compare, or Portfolio view.',
+                    position: 'top'
+                },
+                {
+                    target: '#lp-getting-started',
+                    title: 'Getting Started Guide',
+                    description: 'Click this card to launch a comprehensive guided tour that walks you through every feature in AEGIS. Perfect for new users or when you want to discover capabilities you might have missed.',
+                    position: 'top'
+                }
+            ],
+            demoScenes: [
+                {
+                    target: '#aegis-landing-page',
+                    narration: 'Welcome to AEGIS — your Aerospace Engineering Governance & Inspection System. This dashboard is your command center for document quality analysis.',
+                    duration: 5000
+                },
+                {
+                    target: '#lp-hero',
+                    narration: 'Start by dragging a document here. AEGIS supports Word documents (.docx, .doc) and PDF files. The review begins automatically as soon as you drop a file.',
+                    duration: 5500
+                },
+                {
+                    target: '#lp-metrics',
+                    narration: 'Your live metrics show the health of your document portfolio. Track total scans, average quality scores, and role discovery across all reviewed documents.',
+                    duration: 5000
+                },
+                {
+                    target: '#lp-tiles',
+                    narration: 'Each tile links to a major feature. Let\'s explore them all — starting with Document Review, the core of AEGIS.',
+                    duration: 4500
                 }
             ]
         },
 
+        // ─── Document Review ─────────────────────────────────────────
         review: {
             id: 'review',
             title: 'Document Review',
             icon: 'file-check',
-            whatIsThis: 'Upload and review documents for quality, completeness, and compliance issues. AEGIS automatically checks for 100+ technical writing issues across grammar, clarity, consistency, and aerospace-specific requirements.',
+            whatIsThis: 'The heart of AEGIS. Upload any technical document and run it through 100+ automated quality checkers covering grammar, clarity, consistency, aerospace-specific requirements (MIL-STD, DO-178C), role extraction, and more. Results are organized by severity with actionable fix suggestions. Export detailed reports in multiple formats.',
             keyActions: [
-                { icon: 'upload', text: 'Upload a document to begin review' },
-                { icon: 'sliders-horizontal', text: 'Configure which checkers to run' },
-                { icon: 'play', text: 'Run review to scan for issues' },
-                { icon: 'download', text: 'Export detailed review report' }
+                { icon: 'file-plus', text: 'Click "Open" or drag-drop to load a document for review' },
+                { icon: 'sliders-horizontal', text: 'Expand "Advanced Settings" in sidebar to toggle individual checkers on/off' },
+                { icon: 'play', text: 'Click "Review" to run all enabled checkers against the loaded document' },
+                { icon: 'filter', text: 'Use the filter bar to sort results by severity, category, or search text' },
+                { icon: 'download', text: 'Click "Export" to save results as HTML report, CSV, or annotated DOCX' },
+                { icon: 'target', text: 'Click any issue row to see full details, context, and suggested fixes' }
             ],
             proTips: [
-                'Use the Checkers panel to customize which quality checks run',
-                'Results are organized by severity and issue type',
-                'You can adjust checker settings per document before running review',
-                'Dark mode automatically applies to all review interfaces'
+                'The sidebar "Advanced Settings" panel lets you enable/disable any of the 100+ checkers individually',
+                'Results are color-coded: Critical (red), High (orange), Medium (yellow), Low (blue), Info (gray)',
+                'Click the quality score badge to see a detailed breakdown of how the grade was calculated',
+                'Use Triage Mode to quickly accept/reject issues one-by-one with keyboard shortcuts',
+                'The filter bar supports text search — type a keyword to find specific issues instantly',
+                'Batch upload lets you scan multiple documents at once with progress tracking'
             ],
             tourSteps: [
                 {
-                    target: '.review-upload-zone',
-                    title: 'Upload Area',
-                    description: 'Drop your document here or click the upload button. You can also select from previously uploaded documents.',
-                    position: 'bottom',
-                    offset: { x: 0, y: 20 }
+                    target: '#btn-open',
+                    title: 'Open Document',
+                    description: 'Click to browse for a document, or use Ctrl+O. AEGIS supports .docx, .doc, and .pdf files up to 100MB. The document loads into memory for analysis.',
+                    position: 'bottom'
                 },
                 {
-                    target: '.review-checkers-panel',
-                    title: 'Checker Configuration',
-                    description: 'Toggle checkers on/off to customize which quality issues are detected. Categories include Grammar, Clarity, Aerospace Requirements, and more.',
-                    position: 'left',
-                    offset: { x: -20, y: 0 }
+                    target: '#btn-batch-load',
+                    title: 'Batch Upload',
+                    description: 'Scan multiple documents at once. Select individual files, an entire folder, or enter a server folder path for recursive scanning of document repositories with hundreds of files.',
+                    position: 'bottom'
                 },
                 {
-                    target: '.review-run-button',
+                    target: '#btn-review',
                     title: 'Run Review',
-                    description: 'Click to start the analysis. AEGIS will scan your document against all enabled checkers.',
-                    position: 'bottom',
-                    offset: { x: 0, y: 20 }
+                    description: 'Starts the quality analysis. AEGIS runs all enabled checkers against your document. Progress shows in real-time with an ETA. Average scan takes 5-30 seconds depending on document length.',
+                    position: 'bottom'
                 },
                 {
-                    target: '.review-results-container',
-                    title: 'Review Results',
-                    description: 'Issues appear here organized by severity (Critical, Warning, Info). Click any issue to see details and suggested fixes.',
-                    position: 'top',
-                    offset: { x: 0, y: -20 }
+                    target: '#btn-toggle-advanced',
+                    title: 'Checker Configuration',
+                    description: 'Expand this panel to see all 100+ quality checkers organized by category: Writing Quality, Grammar, Technical Writing, Clarity, Document Structure, Standards Compliance, Advanced NLP, and spaCy Deep Analysis.',
+                    position: 'right'
+                },
+                {
+                    target: '#unified-filter-bar',
+                    title: 'Results Filter Bar',
+                    description: 'Filter issues by severity level (Critical through Info), category, or free-text search. The severity pills show counts — click to toggle visibility of that severity level.',
+                    position: 'bottom'
+                },
+                {
+                    target: '#stats-bar',
+                    title: 'Document Statistics',
+                    description: 'Key metrics at a glance: word count, paragraph count, headings, tables, total issues found, Flesch-Kincaid readability score, and the overall quality grade (A+ through F).',
+                    position: 'bottom'
+                },
+                {
+                    target: '#btn-export',
+                    title: 'Export Results',
+                    description: 'Save your review in multiple formats: interactive HTML report (best for sharing), CSV (for spreadsheet analysis), or annotated DOCX (issues embedded as Word comments).',
+                    position: 'bottom'
+                }
+            ],
+            demoScenes: [
+                {
+                    target: '#btn-open',
+                    narration: 'Start every review by clicking Open to load a document. AEGIS accepts Word documents and PDFs. You can also drag files directly onto the page.',
+                    duration: 5000
+                },
+                {
+                    target: '#btn-toggle-advanced',
+                    narration: 'Before scanning, configure which checkers to run. The Advanced Settings panel shows all 100+ checkers organized by category. Toggle any checker on or off.',
+                    duration: 5500
+                },
+                {
+                    target: '#btn-review',
+                    narration: 'Click Review to start the analysis. AEGIS processes your document through every enabled checker — grammar, clarity, requirements language, aerospace standards, and more.',
+                    duration: 5000
+                },
+                {
+                    target: '#unified-filter-bar',
+                    narration: 'Results appear organized by severity. Use these filter pills to show or hide specific severity levels. The search bar lets you find specific issues by keyword.',
+                    duration: 5000
+                },
+                {
+                    target: '#stats-bar',
+                    narration: 'The stats bar shows your document metrics: word count, readability scores, and the overall quality grade. Click the grade badge for a detailed score breakdown.',
+                    duration: 5000
+                },
+                {
+                    target: '#btn-export',
+                    narration: 'When you\'re satisfied with the review, export results as an HTML report, CSV spreadsheet, or annotated Word document with issues embedded as comments.',
+                    duration: 5000
                 }
             ]
         },
 
+        // ─── Batch Upload ────────────────────────────────────────────
+        batch: {
+            id: 'batch',
+            title: 'Batch Scan',
+            icon: 'folders',
+            whatIsThis: 'Scan entire document repositories at once. Select multiple files, choose a folder, or enter a server path for recursive scanning. AEGIS processes documents in parallel with real-time progress tracking, then presents aggregate results with per-document breakdowns.',
+            keyActions: [
+                { icon: 'files', text: 'Select multiple files to scan them all in one batch' },
+                { icon: 'folder', text: 'Choose a folder to scan all supported documents inside it' },
+                { icon: 'hard-drive', text: 'Enter a server folder path for recursive scanning of large repositories' },
+                { icon: 'eye', text: 'Use Preview to see what files will be scanned before committing' },
+                { icon: 'activity', text: 'Monitor real-time progress with per-document status updates' }
+            ],
+            proTips: [
+                'Folder scan traverses up to 10 levels of subdirectories automatically',
+                'Files larger than 100MB are automatically skipped to prevent memory issues',
+                'The Preview button shows you exactly what will be scanned before you commit',
+                'AEGIS processes 3 documents simultaneously for faster batch completion',
+                'If one document fails, the rest of the batch continues — no single-file failures stop the process',
+                'Results show aggregate statistics plus individual document grades'
+            ],
+            tourSteps: [
+                {
+                    target: '#btn-batch-load',
+                    title: 'Open Batch Upload',
+                    description: 'Click to open the batch upload modal where you can select files, folders, or enter a server path for scanning.',
+                    position: 'bottom'
+                }
+            ],
+            demoScenes: [
+                {
+                    target: '#btn-batch-load',
+                    narration: 'For large document repositories, use Batch Scan. Click the Batch button to open the batch upload interface.',
+                    duration: 4500
+                },
+                {
+                    target: '#btn-batch-load',
+                    narration: 'You can select individual files, choose an entire folder, or enter a server path. AEGIS scans up to 500 documents across nested subdirectories with parallel processing.',
+                    duration: 5500
+                }
+            ]
+        },
+
+        // ─── Roles Studio ────────────────────────────────────────────
         roles: {
             id: 'roles',
             title: 'Roles Studio',
             icon: 'users-round',
-            whatIsThis: 'Analyze and visualize organizational roles found in your documents. View responsibilities, relationships, RACI matrices, and role hierarchies. Adjudicate roles and build a comprehensive role dictionary.',
+            whatIsThis: 'A comprehensive role analysis workbench. AEGIS extracts organizational roles from your documents and builds a complete picture: who is Responsible, Accountable, Consulted, and Informed (RACI) for each function. Explore role relationships through interactive graphs, adjudicate unclear roles, and build a verified role dictionary.',
             keyActions: [
-                { icon: 'network', text: 'View role network and relationships' },
-                { icon: 'table-2', text: 'Explore RACI matrices by document' },
-                { icon: 'check-square', text: 'Adjudicate roles and responsibilities' },
-                { icon: 'book', text: 'Build and manage your role dictionary' }
+                { icon: 'list', text: 'Overview tab: See all roles with mention counts and responsibility summaries' },
+                { icon: 'git-branch', text: 'Graph tab: Visualize role relationships as an interactive network diagram' },
+                { icon: 'table-2', text: 'RACI Matrix tab: See Responsible/Accountable/Consulted/Informed assignments' },
+                { icon: 'check-square', text: 'Adjudication tab: Verify, merge, or split role definitions' },
+                { icon: 'book-open', text: 'Dictionary tab: Build a curated role dictionary with descriptions' },
+                { icon: 'file-text', text: 'Documents tab: See which documents reference each role' }
             ],
             proTips: [
-                'The Overview tab shows role statistics and responsibilities',
-                'RACI Matrix helps understand role interactions and dependencies',
-                'Use Adjudication to resolve unclear or duplicate roles',
-                'Export your role dictionary for use in other systems'
+                'The Overview shows aggregate statistics — click any role name to see full details',
+                'In the Graph view, zoom with scroll wheel and drag nodes to rearrange the layout',
+                'RACI Matrix cells are clickable — see the exact statements that generated each assignment',
+                'Function Tags color-code roles by department (Engineering, Administration, Quality, etc.)',
+                'Export the RACI matrix as CSV filtered by function category',
+                'The Role-Document Matrix shows at a glance which roles appear in which documents',
+                'Use Adjudication to resolve duplicate or ambiguous role names discovered during scanning'
             ],
             tourSteps: [
                 {
-                    target: '.roles-tabs-container',
-                    title: 'Role Studio Tabs',
-                    description: 'Navigate between Overview (statistics), Graph (relationships), RACI Matrix (interactions), Adjudication (verification), and Dictionary (role catalog).',
-                    position: 'bottom',
-                    offset: { x: 0, y: 20 }
-                },
-                {
-                    target: '.roles-overview-section',
+                    target: '#tab-overview',
                     title: 'Overview Tab',
-                    description: 'See aggregate role statistics, top roles by mention count, and responsibility summaries across all documents.',
-                    position: 'top',
-                    offset: { x: 0, y: -20 }
+                    description: 'Shows all discovered roles ranked by mention frequency. Each role displays its document count, total mentions, and responsibility summary. Function tag colors indicate department assignments.',
+                    position: 'bottom',
+                    navigate: 'roles'
                 },
                 {
-                    target: '.roles-graph-section',
-                    title: 'Graph View',
-                    description: 'Visualize role relationships and hierarchies as an interactive network. Click nodes to explore role details.',
-                    position: 'top',
-                    offset: { x: 0, y: -20 }
+                    target: '#tab-graph',
+                    title: 'Relationship Graph',
+                    description: 'An interactive force-directed graph showing how roles relate to each other through shared documents and responsibilities. Drag nodes, zoom in/out, click a node to inspect.',
+                    position: 'bottom',
+                    navigate: 'roles'
                 },
                 {
-                    target: '.roles-raci-section',
+                    target: '#tab-matrix',
                     title: 'RACI Matrix',
-                    description: 'Understand who is Responsible, Accountable, Consulted, and Informed for each function. Select a document to see role interactions.',
-                    position: 'top',
-                    offset: { x: 0, y: -20 }
+                    description: 'The Responsible-Accountable-Consulted-Informed matrix. Rows are roles, columns are function areas. Click any cell number to see the exact statements and action verbs that generated the assignment.',
+                    position: 'bottom',
+                    navigate: 'roles'
+                },
+                {
+                    target: '#tab-roledocmatrix',
+                    title: 'Role-Document Matrix',
+                    description: 'Cross-reference showing which roles appear in which documents. Useful for identifying roles that span multiple documents versus those confined to a single spec.',
+                    position: 'bottom',
+                    navigate: 'roles'
+                },
+                {
+                    target: '#tab-adjudication',
+                    title: 'Role Adjudication',
+                    description: 'Review and verify automatically discovered roles. Merge duplicates (e.g., "QA Engineer" and "Quality Assurance Engineer"), split combined roles, or mark roles as verified for your dictionary.',
+                    position: 'bottom',
+                    navigate: 'roles'
+                },
+                {
+                    target: '#tab-dictionary',
+                    title: 'Role Dictionary',
+                    description: 'Your curated catalog of verified roles with descriptions, department assignments, and responsibility summaries. Export as a reference document for your organization.',
+                    position: 'bottom',
+                    navigate: 'roles'
+                },
+                {
+                    target: '#tab-documents',
+                    title: 'Documents Tab',
+                    description: 'Lists all scanned documents with their role counts. Click any document to see which roles were found in it and how many times each appears.',
+                    position: 'bottom',
+                    navigate: 'roles'
+                }
+            ],
+            demoScenes: [
+                {
+                    target: '#tab-overview',
+                    narration: 'Roles Studio automatically extracts organizational roles from your documents. The Overview tab shows every role discovered, ranked by frequency.',
+                    duration: 5000,
+                    navigate: 'roles'
+                },
+                {
+                    target: '#tab-graph',
+                    narration: 'The Graph tab visualizes role relationships as an interactive network. Connected roles share documents or responsibilities. Drag nodes to rearrange.',
+                    duration: 5000,
+                    navigate: 'roles'
+                },
+                {
+                    target: '#tab-matrix',
+                    narration: 'The RACI Matrix shows who is Responsible, Accountable, Consulted, and Informed for each function. Click any cell to see the exact statements behind each assignment.',
+                    duration: 5500,
+                    navigate: 'roles'
+                },
+                {
+                    target: '#tab-adjudication',
+                    narration: 'Adjudication lets you verify, merge, or split roles. Clean up duplicates and build a verified role dictionary for your organization.',
+                    duration: 5000,
+                    navigate: 'roles'
+                },
+                {
+                    target: '#tab-dictionary',
+                    narration: 'The Dictionary tab is your curated role catalog. Each verified role has descriptions, department tags, and responsibility summaries you can export.',
+                    duration: 5000,
+                    navigate: 'roles'
                 }
             ]
         },
 
+        // ─── Statement Forge ─────────────────────────────────────────
         forge: {
             id: 'forge',
             title: 'Statement Forge',
-            icon: 'lightbulb',
-            whatIsThis: 'Search, review, and manage extracted statements across all documents. View statement history, sources, and context. Perform bulk operations and export findings.',
+            icon: 'hammer',
+            whatIsThis: 'Extract, search, and manage requirement statements across all your documents. Statement Forge identifies shall/must/should/will statements, categorizes them by type, and lets you edit, tag, reorder, and export them. Perfect for building requirements traceability matrices and compliance documentation.',
             keyActions: [
-                { icon: 'search', text: 'Search statements by keyword or requirement type' },
-                { icon: 'layers', text: 'View statement history and version changes' },
-                { icon: 'eye', text: 'See original statement source in document' },
-                { icon: 'package', text: 'Export statements for external review' }
+                { icon: 'scissors', text: 'Extract: Pull all requirement statements from the loaded document' },
+                { icon: 'search', text: 'Search: Find statements by keyword across all extractions' },
+                { icon: 'filter', text: 'Filter: Show only shall, must, should, may, will, or process statements' },
+                { icon: 'edit', text: 'Edit: Modify statement text, add notes, or change classification' },
+                { icon: 'undo', text: 'Undo/Redo: Full history with Ctrl+Z and Ctrl+Y' },
+                { icon: 'download', text: 'Export: Save as CSV, DOCX, or JSON for traceability tools' }
             ],
             proTips: [
-                'Search supports keywords like "shall", "must", "requirement", etc.',
-                'Statement history shows when and how statements have changed',
-                'Hover over statements to see highlighted source in the document viewer',
-                'Use bulk operations to assign statuses or tags to multiple statements'
+                'Filter chips at the top let you quickly show only "shall" or "must" statements',
+                'The document type selector (Procedures vs Work Instructions) adjusts extraction rules',
+                'Click any statement to expand it and see source context, section heading, and paragraph number',
+                'Use Ctrl+Z / Ctrl+Y for undo/redo — the counters show available undo/redo actions',
+                'Expand All / Collapse All buttons help manage large statement sets',
+                'Statistics cards at the top show total, filtered, sections, and selected counts'
             ],
             tourSteps: [
                 {
-                    target: '.forge-search-bar',
-                    title: 'Search Statements',
-                    description: 'Type keywords to find specific statements across all documents. Results update as you type.',
+                    target: '#btn-sf-extract',
+                    title: 'Extract Statements',
+                    description: 'Parses the loaded document and extracts all requirement-type statements (shall, must, should, will, may). Results are organized by section with source tracking.',
                     position: 'bottom',
-                    offset: { x: 0, y: 20 }
+                    navigate: 'forge'
                 },
                 {
-                    target: '.forge-filters-panel',
-                    title: 'Filter & Sort',
-                    description: 'Filter by document, type, requirement class, or custom tags. Sort by relevance, date, or document order.',
-                    position: 'left',
-                    offset: { x: -20, y: 0 }
+                    target: '#sf-search-input',
+                    title: 'Search Statements',
+                    description: 'Type any keyword to instantly filter statements. Search works across statement text, section headings, and notes. Results update as you type.',
+                    position: 'bottom',
+                    navigate: 'forge'
                 },
                 {
-                    target: '.forge-statements-list',
-                    title: 'Statement Results',
-                    description: 'Each result shows the statement text, source document, and matched keywords. Click to view full context.',
-                    position: 'top',
-                    offset: { x: 0, y: -20 }
+                    target: '#sf-btn-export',
+                    title: 'Export Statements',
+                    description: 'Export your extracted statements in multiple formats: CSV for spreadsheet analysis, DOCX for formal documentation, or JSON for integration with requirements management tools.',
+                    position: 'bottom',
+                    navigate: 'forge'
+                }
+            ],
+            demoScenes: [
+                {
+                    target: '#btn-statement-forge',
+                    narration: 'Statement Forge extracts requirement statements from your documents. Open it from the sidebar to begin working with shall, must, should, and will statements.',
+                    duration: 5000
                 },
                 {
-                    target: '.forge-source-viewer',
-                    title: 'Source Viewer',
-                    description: 'See exactly where this statement appears in the original document with highlighting.',
-                    position: 'top',
-                    offset: { x: 0, y: -20 }
+                    target: '#btn-sf-extract',
+                    narration: 'Click Extract to pull all requirement statements from your loaded document. AEGIS identifies statement types and organizes them by section.',
+                    duration: 5000,
+                    navigate: 'forge'
+                },
+                {
+                    target: '#sf-search-input',
+                    narration: 'Use the search bar to find specific statements across your entire extraction. Filter chips let you show only "shall" or "must" type statements.',
+                    duration: 5000,
+                    navigate: 'forge'
+                },
+                {
+                    target: '#sf-btn-export',
+                    narration: 'Export your statements as CSV, DOCX, or JSON. Perfect for building requirements traceability matrices and compliance documentation.',
+                    duration: 4500,
+                    navigate: 'forge'
                 }
             ]
         },
 
+        // ─── Hyperlink Validator ─────────────────────────────────────
         validator: {
             id: 'validator',
             title: 'Hyperlink Validator',
             icon: 'link-2',
-            whatIsThis: 'Check hyperlinks in your documents for validity and accessibility. Run single-URL checks or batch validate all links. Test deep link content and detect broken references.',
+            whatIsThis: 'Validate hyperlinks in your documents for accessibility and correctness. Upload a document to extract and check all embedded URLs, or paste URLs manually. Supports SSL verification, redirect following, Windows SSO authentication, and configurable timeouts. Results show status, response time, and issue details.',
             keyActions: [
-                { icon: 'link', text: 'Check single URL for validity' },
-                { icon: 'list', text: 'Batch validate all links in a document' },
-                { icon: 'arrow-right', text: 'Deep validate - check content behind links' },
-                { icon: 'download', text: 'Export validation report' }
+                { icon: 'upload', text: 'Upload a document to extract and validate all embedded links' },
+                { icon: 'clipboard', text: 'Paste URLs directly — one per line — for quick validation' },
+                { icon: 'settings', text: 'Configure timeout, retries, SSL verification, and exclusion rules' },
+                { icon: 'play', text: 'Click Validate to check all URLs with real-time progress' },
+                { icon: 'bar-chart', text: 'View results grouped by status: working, broken, redirect, timeout, blocked' }
             ],
             proTips: [
-                'Use batch mode to quickly validate all links in a document',
-                'Deep validation checks if linked content exists and is accessible',
-                'Results show HTTP status, response time, and content preview',
-                'Broken links are highlighted for quick identification'
+                'Two scan modes: Quick (HTTP HEAD only) and Thorough (full page download + content check)',
+                'Add exclusion rules for known-good internal URLs that don\'t need checking',
+                'Windows SSO mode helps validate intranet links that require corporate authentication',
+                'The results table is sortable — click column headers to sort by status, URL, or response time',
+                'Failed links show the specific HTTP error code and reason for the failure',
+                'Link History (sidebar) tracks all previously validated URLs across sessions'
             ],
             tourSteps: [
                 {
-                    target: '.validator-input-area',
-                    title: 'URL Input',
-                    description: 'Enter a URL or paste multiple URLs (one per line) to validate. Or select a document to check all its links.',
+                    target: '#hv-mode',
+                    title: 'Validation Mode',
+                    description: 'Choose between Offline mode (extract links only, no HTTP requests) and Validator mode (actively check each URL for availability and correctness).',
                     position: 'bottom',
-                    offset: { x: 0, y: 20 }
+                    navigate: 'validator'
                 },
                 {
-                    target: '.validator-options',
-                    title: 'Validation Options',
-                    description: 'Choose between quick check (HTTP status only) or deep validation (verify content). Enable SSL verification as needed.',
+                    target: '#hv-scan-depth',
+                    title: 'Scan Depth',
+                    description: 'Quick: HTTP HEAD request only (fast). Standard: GET with redirect following. Thorough: Full page download with content verification.',
                     position: 'bottom',
-                    offset: { x: 0, y: 20 }
+                    navigate: 'validator'
                 },
                 {
-                    target: '.validator-results',
-                    title: 'Results',
-                    description: 'Each link shows status (✓ valid, ✗ broken), HTTP code, response time, and content preview. Color-coded by severity.',
-                    position: 'top',
-                    offset: { x: 0, y: -20 }
+                    target: '#hv-btn-validate',
+                    title: 'Start Validation',
+                    description: 'Click to begin checking all URLs. Progress updates in real-time showing working, broken, redirect, timeout, and blocked counts.',
+                    position: 'bottom',
+                    navigate: 'validator'
+                }
+            ],
+            demoScenes: [
+                {
+                    target: '#nav-hyperlink-validator',
+                    narration: 'The Hyperlink Validator checks all URLs in your documents. Upload a document or paste URLs directly.',
+                    duration: 4500
+                },
+                {
+                    target: '#hv-mode',
+                    narration: 'Choose your validation mode. Offline extracts links without checking them. Validator mode actively tests each URL for availability.',
+                    duration: 5000,
+                    navigate: 'validator'
+                },
+                {
+                    target: '#hv-btn-validate',
+                    narration: 'Click Validate to start checking URLs. Results update in real-time showing working, broken, redirect, timeout, and authentication-required links.',
+                    duration: 5000,
+                    navigate: 'validator'
                 }
             ]
         },
 
-        metrics: {
-            id: 'metrics',
-            title: 'Metrics & Analytics',
-            icon: 'bar-chart-3',
-            whatIsThis: 'Track document quality trends, role distribution, checker effectiveness, and document metadata. View analytics by document type, quality score, and review progress.',
-            keyActions: [
-                { icon: 'trending-up', text: 'View quality trends over time' },
-                { icon: 'pie-chart', text: 'See role and issue distribution' },
-                { icon: 'filter', text: 'Filter analytics by document or date range' },
-                { icon: 'download', text: 'Export charts and data' }
-            ],
-            proTips: [
-                'Quality score aggregates across all documents and checkers',
-                'You can filter by document type, date range, or specific checker',
-                'Charts update automatically as you review more documents',
-                'Export to CSV for use in external reporting tools'
-            ],
-            tourSteps: [
-                {
-                    target: '.metrics-overview-tab',
-                    title: 'Overview Tab',
-                    description: 'High-level metrics: total documents, quality score, critical issues, and review progress.',
-                    position: 'bottom',
-                    offset: { x: 0, y: 20 }
-                },
-                {
-                    target: '.metrics-quality-chart',
-                    title: 'Quality Analytics',
-                    description: 'Trend chart showing quality scores over time. See how your documents improve with iterative review.',
-                    position: 'top',
-                    offset: { x: 0, y: -20 }
-                },
-                {
-                    target: '.metrics-distribution-chart',
-                    title: 'Role Distribution',
-                    description: 'Pie chart showing how roles are distributed across documents. Click to drill down by document.',
-                    position: 'top',
-                    offset: { x: 0, y: -20 }
-                }
-            ]
-        },
-
-        settings: {
-            id: 'settings',
-            title: 'Settings',
-            icon: 'settings',
-            whatIsThis: 'Configure AEGIS behavior, manage your data, and customize the user interface. Control theme, checkers, database options, and export/import settings.',
-            keyActions: [
-                { icon: 'sun-moon', text: 'Toggle dark/light mode' },
-                { icon: 'sliders-horizontal', text: 'Configure default checker options' },
-                { icon: 'database', text: 'Manage database and backups' },
-                { icon: 'download', text: 'Export or import your data' }
-            ],
-            proTips: [
-                'Dark mode automatically applies throughout AEGIS',
-                'Your preferences are saved in browser storage',
-                'Use data export to backup your work regularly',
-                'Import data to transfer between machines'
-            ],
-            tourSteps: [
-                {
-                    target: '.settings-appearance-section',
-                    title: 'Appearance Settings',
-                    description: 'Toggle dark/light mode and customize how AEGIS looks. Changes apply immediately.',
-                    position: 'bottom',
-                    offset: { x: 0, y: 20 }
-                },
-                {
-                    target: '.settings-checkers-section',
-                    title: 'Checker Defaults',
-                    description: 'Set which checkers are enabled by default for new reviews. You can override these per document.',
-                    position: 'bottom',
-                    offset: { x: 0, y: 20 }
-                },
-                {
-                    target: '.settings-data-section',
-                    title: 'Data Management',
-                    description: 'Export your analysis results, role dictionary, and document data. Import previously saved data.',
-                    position: 'bottom',
-                    offset: { x: 0, y: 20 }
-                }
-            ]
-        },
-
+        // ─── Document Compare ────────────────────────────────────────
         compare: {
             id: 'compare',
             title: 'Document Compare',
             icon: 'git-compare',
-            whatIsThis: 'Compare two documents side-by-side to identify differences, similarities, and content gaps. Perfect for version control and change tracking.',
+            whatIsThis: 'Compare two documents side-by-side to identify differences in content, structure, and quality. AEGIS auto-selects the oldest and newest documents for version comparison. See added, removed, and modified content highlighted in real-time.',
             keyActions: [
-                { icon: 'file-text', text: 'Select two documents to compare' },
-                { icon: 'eye', text: 'View differences highlighted side-by-side' },
-                { icon: 'download', text: 'Export comparison report' }
+                { icon: 'file-text', text: 'Select two documents from your scanned library to compare' },
+                { icon: 'columns', text: 'View side-by-side comparison with color-coded differences' },
+                { icon: 'diff', text: 'See added (green), removed (red), and modified (yellow) content' },
+                { icon: 'download', text: 'Export the comparison report for documentation' }
             ],
             proTips: [
-                'The oldest document typically appears on the left, newest on the right',
-                'Changes are color-coded: added (green), removed (red), modified (yellow)',
-                'Use comparison to track document versions and identify updates'
+                'AEGIS auto-selects the oldest document on the left and newest on the right',
+                'The comparison runs automatically when you open Document Compare — no manual button needed',
+                'Color coding: green = added content, red = removed content, yellow = modified text',
+                'Great for tracking changes between document versions or comparing similar specs'
             ],
             tourSteps: [
                 {
-                    target: '.compare-selector-panel',
-                    title: 'Select Documents',
-                    description: 'Choose which documents to compare. Usually oldest on left, newest on right to show evolution.',
-                    position: 'left',
-                    offset: { x: -20, y: 0 }
+                    target: '#nav-compare',
+                    title: 'Open Document Compare',
+                    description: 'Click to open the comparison view. AEGIS automatically selects your oldest and newest documents and begins comparison immediately.',
+                    position: 'right'
+                }
+            ],
+            demoScenes: [
+                {
+                    target: '#nav-compare',
+                    narration: 'Document Compare lets you see differences between two documents side-by-side. AEGIS auto-selects the oldest and newest for version tracking.',
+                    duration: 5000
+                }
+            ]
+        },
+
+        // ─── Metrics & Analytics ─────────────────────────────────────
+        metrics: {
+            id: 'metrics',
+            title: 'Metrics & Analytics',
+            icon: 'bar-chart-3',
+            whatIsThis: 'Comprehensive analytics dashboard for your document portfolio. Track quality trends, issue severity distribution, category breakdown, role statistics, and acronym usage. Charts update automatically as you review more documents.',
+            keyActions: [
+                { icon: 'trending-up', text: 'View quality score trends across all scanned documents' },
+                { icon: 'pie-chart', text: 'See issue distribution by severity level and category' },
+                { icon: 'users', text: 'Track role discovery and distribution statistics' },
+                { icon: 'book-a', text: 'Monitor acronym usage: defined vs. undefined vs. suppressed' },
+                { icon: 'download', text: 'Export analytics data and charts' }
+            ],
+            proTips: [
+                'Charts are interactive — hover over bars/slices to see exact values',
+                'The severity chart helps identify which quality areas need the most attention',
+                'Category distribution shows which checker types find the most issues',
+                'Acronym metrics highlight where definitions are missing or inconsistent',
+                'Score trends help you track improvement as you iteratively review and fix documents'
+            ],
+            tourSteps: [
+                {
+                    target: '#ma-tab-btn-overview',
+                    title: 'Analytics Overview',
+                    description: 'High-level metrics showing total documents, average quality score, issue counts by severity, and score trends over time.',
+                    position: 'bottom',
+                    navigate: 'metrics'
                 },
                 {
-                    target: '.compare-results-area',
-                    title: 'Comparison View',
-                    description: 'Side-by-side comparison with highlighting. Green = added, Red = removed, Yellow = modified.',
-                    position: 'top',
-                    offset: { x: 0, y: -20 }
+                    target: '#severity-chart-card',
+                    title: 'Severity Distribution Chart',
+                    description: 'Bar chart showing how issues are distributed across Critical, High, Medium, Low, and Info severity levels. Helps you focus on the most impactful problems.',
+                    position: 'bottom',
+                    navigate: 'metrics'
+                },
+                {
+                    target: '#category-chart-card',
+                    title: 'Category Distribution',
+                    description: 'Shows which checker categories (Grammar, Clarity, Technical Writing, etc.) find the most issues. Identifies systemic quality patterns.',
+                    position: 'bottom',
+                    navigate: 'metrics'
+                }
+            ],
+            demoScenes: [
+                {
+                    target: '#nav-metrics',
+                    narration: 'Metrics & Analytics provides a comprehensive view of your document quality portfolio. Charts update automatically after each scan.',
+                    duration: 5000
+                },
+                {
+                    target: '#ma-tab-btn-overview',
+                    narration: 'The Overview shows aggregate metrics: total documents scanned, average scores, severity breakdown, and quality trends over time.',
+                    duration: 5000,
+                    navigate: 'metrics'
+                },
+                {
+                    target: '#severity-chart-card',
+                    narration: 'The severity chart shows where your issues concentrate. Focus on Critical and High severity issues first for the biggest quality improvements.',
+                    duration: 5000,
+                    navigate: 'metrics'
+                }
+            ]
+        },
+
+        // ─── Scan History ────────────────────────────────────────────
+        history: {
+            id: 'history',
+            title: 'Scan History',
+            icon: 'history',
+            whatIsThis: 'A complete audit trail of every document scan. See when each document was reviewed, what grade it received, how many issues were found, and track improvement over multiple scans. Reopen any previous review results instantly.',
+            keyActions: [
+                { icon: 'list', text: 'View chronological list of all previous scans' },
+                { icon: 'eye', text: 'Click any scan to reopen its full review results' },
+                { icon: 'trending-up', text: 'Track document quality improvement across multiple scans' },
+                { icon: 'trash-2', text: 'Clear old scan records from the database' }
+            ],
+            proTips: [
+                'Documents scanned multiple times show quality progression — watch grades improve',
+                'The scan count column shows how many times each document has been reviewed',
+                'Click any row to instantly reload that review\'s full results',
+                'Use Data Management in Settings to selectively clear history'
+            ],
+            tourSteps: [
+                {
+                    target: '#nav-history',
+                    title: 'Open Scan History',
+                    description: 'View your complete scan history with dates, grades, and issue counts. Click any entry to reload its full review results.',
+                    position: 'right'
+                }
+            ],
+            demoScenes: [
+                {
+                    target: '#nav-history',
+                    narration: 'Scan History keeps a complete audit trail of every review. Track quality improvements across multiple scans of the same document.',
+                    duration: 5000
+                }
+            ]
+        },
+
+        // ─── Settings ────────────────────────────────────────────────
+        settings: {
+            id: 'settings',
+            title: 'Settings',
+            icon: 'settings',
+            whatIsThis: 'Configure every aspect of AEGIS: reviewer name, default checker selections, review thresholds, document profiles, display preferences, data management, and troubleshooting. Changes are saved automatically and persist between sessions.',
+            keyActions: [
+                { icon: 'user', text: 'General: Set reviewer name, auto-review behavior, diagnostic email' },
+                { icon: 'sliders-horizontal', text: 'Review Options: Configure sentence length, passive voice, and role extraction thresholds' },
+                { icon: 'file-cog', text: 'Document Profiles: Create checker presets for different document types (PrOP, PAL, FGOST, SOW)' },
+                { icon: 'monitor', text: 'Display: Toggle essentials mode, page size, compact layout' },
+                { icon: 'database', text: 'Data Management: Clear scan history, statements, roles, or factory reset' },
+                { icon: 'wrench', text: 'Troubleshooting: Export diagnostics, run health checks' }
+            ],
+            proTips: [
+                'Document Profiles let you pre-configure which checkers run for specific document types',
+                'Enable "Remember checker selections" to persist your checker toggles between sessions',
+                'Essentials Mode hides advanced UI elements for a cleaner experience',
+                'The troubleshooting tab exports a full diagnostic package if you need support',
+                'Factory Reset in Data Management clears everything — use with caution',
+                'Backup your data regularly using the export function in Data Management'
+            ],
+            tourSteps: [
+                {
+                    target: '#btn-settings',
+                    title: 'Open Settings',
+                    description: 'Access all AEGIS configuration options. Settings are organized into tabs: General, Review Options, Document Profiles, Sharing, Display, Updates, Troubleshooting, and Data Management.',
+                    position: 'right'
+                }
+            ],
+            demoScenes: [
+                {
+                    target: '#btn-settings',
+                    narration: 'Settings lets you customize every aspect of AEGIS. Configure checkers, set thresholds, manage document profiles, and control data retention.',
+                    duration: 5000
+                },
+                {
+                    target: '#btn-settings',
+                    narration: 'Document Profiles are especially powerful — create preset checker configurations for different document types like procedures, specifications, or SOWs.',
+                    duration: 5000
+                }
+            ]
+        },
+
+        // ─── Portfolio ───────────────────────────────────────────────
+        portfolio: {
+            id: 'portfolio',
+            title: 'Portfolio',
+            icon: 'briefcase',
+            whatIsThis: 'View your entire document collection as a portfolio. See aggregate quality metrics, document types, review status, and coverage gaps. Great for program-level quality oversight.',
+            keyActions: [
+                { icon: 'layout-grid', text: 'View all documents as cards with quality grades and status' },
+                { icon: 'bar-chart', text: 'See portfolio-level quality metrics and trends' },
+                { icon: 'search', text: 'Search and filter documents by name, type, or grade' }
+            ],
+            proTips: [
+                'Portfolio view gives you a bird\'s eye view of your entire document collection',
+                'Sort by grade to quickly find documents that need the most attention',
+                'Use this view for program reviews and quality gate assessments'
+            ],
+            tourSteps: [
+                {
+                    target: '#nav-portfolio',
+                    title: 'Open Portfolio',
+                    description: 'See all your scanned documents as a portfolio with grades, metrics, and review status at a glance.',
+                    position: 'right'
+                }
+            ],
+            demoScenes: [
+                {
+                    target: '#nav-portfolio',
+                    narration: 'Portfolio view shows your entire document collection with quality grades and review status. Perfect for program-level quality oversight.',
+                    duration: 5000
                 }
             ]
         }
     },
 
-    /**
-     * Initialize the guide system - call on app startup
-     */
+    // ═════════════════════════════════════════════════════════════════
+    // INITIALIZATION
+    // ═════════════════════════════════════════════════════════════════
+
     init() {
-        console.log('[AEGIS Guide] Initializing guide system...');
+        if (this.state.initialized) return;
+
+        // Check if guide is enabled in settings
+        this.state.enabled = this.isEnabled();
+
+        console.log('[AEGIS Guide] Initializing v2.0.0...', this.state.enabled ? 'ENABLED' : 'DISABLED');
 
         // Create DOM elements
         this.createBeacon();
         this.createPanel();
         this.createSpotlight();
+        this.createDemoBar();
 
         // Attach event listeners
         this.attachEventListeners();
 
+        // Apply enabled state
+        if (!this.state.enabled) {
+            this.refs.beacon.style.display = 'none';
+        }
+
+        this.state.initialized = true;
         console.log('[AEGIS Guide] Initialization complete');
     },
 
-    /**
-     * Create the floating help beacon
-     */
+    // ═════════════════════════════════════════════════════════════════
+    // SETTINGS INTEGRATION
+    // ═════════════════════════════════════════════════════════════════
+
+    isEnabled() {
+        return localStorage.getItem(this.config.storageKey) !== 'false';
+    },
+
+    enable() {
+        localStorage.setItem(this.config.storageKey, 'true');
+        this.state.enabled = true;
+        if (this.refs.beacon) {
+            this.refs.beacon.style.display = '';
+        }
+        console.log('[AEGIS Guide] Enabled');
+    },
+
+    disable() {
+        localStorage.setItem(this.config.storageKey, 'false');
+        this.state.enabled = false;
+        this.closePanel();
+        this.endTour();
+        this.stopDemo();
+        if (this.refs.beacon) {
+            this.refs.beacon.style.display = 'none';
+        }
+        console.log('[AEGIS Guide] Disabled');
+    },
+
+    toggle() {
+        if (this.state.enabled) {
+            this.disable();
+        } else {
+            this.enable();
+        }
+        return this.state.enabled;
+    },
+
+    // ═════════════════════════════════════════════════════════════════
+    // DOM CREATION
+    // ═════════════════════════════════════════════════════════════════
+
     createBeacon() {
         const beacon = document.createElement('button');
         beacon.id = 'aegis-guide-beacon';
@@ -425,22 +819,18 @@ const AEGISGuide = {
             <span class="beacon-icon">?</span>
             <span class="beacon-pulse"></span>
         `;
-
         document.body.appendChild(beacon);
         this.refs.beacon = beacon;
     },
 
-    /**
-     * Create the contextual help panel
-     */
     createPanel() {
         const panel = document.createElement('div');
         panel.id = 'aegis-guide-panel';
-        panel.className = 'aegis-guide-panel';
+        panel.className = 'aegis-guide-panel hidden';
 
         panel.innerHTML = `
             <div class="panel-header">
-                <h2 class="panel-title" id="panel-title">Help</h2>
+                <h2 class="panel-title" id="guide-panel-title">Help</h2>
                 <button class="panel-close-btn" aria-label="Close help panel">
                     <svg class="close-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -449,45 +839,65 @@ const AEGISGuide = {
                 </button>
             </div>
 
-            <div class="panel-content">
+            <div class="panel-body">
                 <div class="panel-section what-is-this">
-                    <p class="what-is-text" id="panel-what-is-this"></p>
+                    <p class="what-is-text" id="guide-panel-what-is-this"></p>
                 </div>
 
                 <div class="panel-section key-actions">
                     <h3 class="section-title">Key Actions</h3>
-                    <ul class="actions-list" id="panel-actions"></ul>
+                    <ul class="actions-list" id="guide-panel-actions"></ul>
                 </div>
 
                 <div class="panel-section pro-tips">
-                    <button class="tips-toggle" id="tips-toggle">
-                        <span class="toggle-icon">▼</span>
+                    <button class="tips-toggle" id="guide-tips-toggle">
+                        <span class="toggle-icon">&#9660;</span>
                         <span>Pro Tips</span>
                     </button>
-                    <ul class="tips-list hidden" id="panel-tips"></ul>
+                    <ul class="tips-list hidden" id="guide-panel-tips"></ul>
                 </div>
             </div>
 
             <div class="panel-footer">
-                <button class="panel-btn secondary-btn" id="tour-btn">
-                    <span class="btn-icon">🎬</span>
+                <button class="panel-btn demo-btn" id="guide-demo-btn">
+                    <span class="btn-icon">&#9654;</span>
                     <span>Watch Demo</span>
                 </button>
-                <button class="panel-btn primary-btn" id="full-tour-btn">
-                    <span class="btn-icon">📍</span>
+                <button class="panel-btn tour-btn" id="guide-tour-btn">
+                    <span class="btn-icon">&#128204;</span>
                     <span>Take Tour</span>
                 </button>
+            </div>
+
+            <div class="panel-section-nav">
+                <h4 class="nav-title">All Sections</h4>
+                <div class="section-nav-grid" id="guide-section-nav"></div>
             </div>
         `;
 
         document.body.appendChild(panel);
         this.refs.panel = panel;
         this.refs.panelContent = panel;
+
+        // Build section nav
+        this._buildSectionNav();
     },
 
-    /**
-     * Create the spotlight overlay for guided tours
-     */
+    _buildSectionNav() {
+        const nav = this.refs.panel.querySelector('#guide-section-nav');
+        if (!nav) return;
+
+        const sectionOrder = ['landing', 'review', 'batch', 'roles', 'forge', 'validator', 'compare', 'metrics', 'history', 'settings', 'portfolio'];
+        nav.innerHTML = sectionOrder.map(id => {
+            const s = this.sections[id];
+            if (!s) return '';
+            return `<button class="section-nav-btn" data-section="${id}" title="${s.title}">
+                <span class="section-nav-icon" data-lucide="${s.icon}"></span>
+                <span class="section-nav-label">${s.title}</span>
+            </button>`;
+        }).join('');
+    },
+
     createSpotlight() {
         const spotlight = document.createElement('div');
         spotlight.id = 'aegis-guide-spotlight';
@@ -497,7 +907,7 @@ const AEGISGuide = {
             <div class="spotlight-overlay"></div>
             <div class="spotlight-tooltip">
                 <div class="tooltip-header">
-                    <span class="step-counter" id="step-counter">Step 1 of 1</span>
+                    <span class="step-counter" id="guide-step-counter">Step 1 of 1</span>
                     <button class="tooltip-close" aria-label="Close tour">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -506,15 +916,15 @@ const AEGISGuide = {
                     </button>
                 </div>
                 <div class="tooltip-body">
-                    <h3 class="tooltip-title" id="tooltip-title"></h3>
-                    <p class="tooltip-description" id="tooltip-description"></p>
+                    <h3 class="tooltip-title" id="guide-tooltip-title"></h3>
+                    <p class="tooltip-description" id="guide-tooltip-description"></p>
                 </div>
                 <div class="tooltip-controls">
-                    <button class="control-btn skip-btn">Skip Tour</button>
-                    <div class="dot-progress" id="dot-progress"></div>
+                    <button class="control-btn skip-btn" id="guide-skip-btn">Skip</button>
+                    <div class="dot-progress" id="guide-dot-progress"></div>
                     <div class="nav-buttons">
-                        <button class="control-btn prev-btn" id="prev-btn">← Back</button>
-                        <button class="control-btn next-btn" id="next-btn">Next →</button>
+                        <button class="control-btn prev-btn" id="guide-prev-btn">&larr; Back</button>
+                        <button class="control-btn next-btn" id="guide-next-btn">Next &rarr;</button>
                     </div>
                 </div>
             </div>
@@ -524,36 +934,97 @@ const AEGISGuide = {
         this.refs.spotlight = spotlight;
     },
 
-    /**
-     * Attach event listeners
-     */
+    createDemoBar() {
+        const bar = document.createElement('div');
+        bar.id = 'aegis-demo-bar';
+        bar.className = 'aegis-demo-bar hidden';
+
+        bar.innerHTML = `
+            <div class="demo-bar-inner">
+                <div class="demo-bar-header">
+                    <span class="demo-bar-badge">LIVE DEMO</span>
+                    <span class="demo-bar-section" id="demo-bar-section">Dashboard</span>
+                </div>
+                <div class="demo-bar-narration" id="demo-bar-narration"></div>
+                <div class="demo-bar-controls">
+                    <button class="demo-ctrl-btn" id="demo-prev" title="Previous">&laquo;</button>
+                    <button class="demo-ctrl-btn demo-play-btn" id="demo-play" title="Pause">&#10074;&#10074;</button>
+                    <button class="demo-ctrl-btn" id="demo-next" title="Next">&raquo;</button>
+                    <div class="demo-progress-track">
+                        <div class="demo-progress-fill" id="demo-progress-fill"></div>
+                    </div>
+                    <span class="demo-step-label" id="demo-step-label">1 / 1</span>
+                    <select class="demo-speed-select" id="demo-speed" title="Playback speed">
+                        <option value="0.5">0.5x</option>
+                        <option value="1" selected>1x</option>
+                        <option value="1.5">1.5x</option>
+                        <option value="2">2x</option>
+                    </select>
+                    <button class="demo-ctrl-btn demo-stop-btn" id="demo-stop" title="Stop demo">&times;</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(bar);
+        this.refs.demoBar = bar;
+    },
+
+    // ═════════════════════════════════════════════════════════════════
+    // EVENT LISTENERS
+    // ═════════════════════════════════════════════════════════════════
+
     attachEventListeners() {
         // Beacon click
-        this.refs.beacon.addEventListener('click', () => this.togglePanel());
+        this.refs.beacon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.togglePanel();
+        });
 
-        // Panel close button
-        const closeBtn = this.refs.panel.querySelector('.panel-close-btn');
-        closeBtn.addEventListener('click', () => this.closePanel());
+        // Panel close
+        this.refs.panel.querySelector('.panel-close-btn').addEventListener('click', () => this.closePanel());
 
-        // Pro tips toggle
-        const tipsToggle = this.refs.panel.querySelector('#tips-toggle');
-        tipsToggle.addEventListener('click', () => this.toggleTips());
+        // Tips toggle
+        this.refs.panel.querySelector('#guide-tips-toggle').addEventListener('click', () => this.toggleTips());
 
-        // Tour buttons
-        const tourBtn = this.refs.panel.querySelector('#tour-btn');
-        tourBtn.addEventListener('click', () => this.startTour());
+        // Demo button
+        this.refs.panel.querySelector('#guide-demo-btn').addEventListener('click', () => {
+            const section = this.state.currentSection || this.detectCurrentSection();
+            this.closePanel();
+            this.startDemo(section);
+        });
 
-        const fullTourBtn = this.refs.panel.querySelector('#full-tour-btn');
-        fullTourBtn.addEventListener('click', () => this.startFullTour());
+        // Tour button
+        this.refs.panel.querySelector('#guide-tour-btn').addEventListener('click', () => {
+            this.closePanel();
+            this.startTour();
+        });
+
+        // Section nav buttons
+        this.refs.panel.querySelector('#guide-section-nav').addEventListener('click', (e) => {
+            const btn = e.target.closest('.section-nav-btn');
+            if (btn) {
+                const sectionId = btn.dataset.section;
+                this.openPanel(sectionId);
+            }
+        });
 
         // Spotlight controls
-        const spotlight = this.refs.spotlight;
-        spotlight.querySelector('.tooltip-close').addEventListener('click', () => this.endTour());
-        spotlight.querySelector('.skip-btn').addEventListener('click', () => this.endTour());
-        spotlight.querySelector('.prev-btn').addEventListener('click', () => this.previousStep());
-        spotlight.querySelector('.next-btn').addEventListener('click', () => this.nextStep());
+        const spot = this.refs.spotlight;
+        spot.querySelector('.tooltip-close').addEventListener('click', () => this.endTour());
+        spot.querySelector('#guide-skip-btn').addEventListener('click', () => this.endTour());
+        spot.querySelector('#guide-prev-btn').addEventListener('click', () => this.previousStep());
+        spot.querySelector('#guide-next-btn').addEventListener('click', () => this.nextStep());
 
-        // Close panel when clicking outside
+        // Demo bar controls
+        this.refs.demoBar.querySelector('#demo-prev').addEventListener('click', () => this.demoPrev());
+        this.refs.demoBar.querySelector('#demo-play').addEventListener('click', () => this.demoTogglePause());
+        this.refs.demoBar.querySelector('#demo-next').addEventListener('click', () => this.demoNext());
+        this.refs.demoBar.querySelector('#demo-stop').addEventListener('click', () => this.stopDemo());
+        this.refs.demoBar.querySelector('#demo-speed').addEventListener('change', (e) => {
+            this.demo.speed = parseFloat(e.target.value);
+        });
+
+        // Click outside panel to close
         document.addEventListener('click', (e) => {
             if (this.state.panelOpen &&
                 !e.target.closest('#aegis-guide-beacon') &&
@@ -561,11 +1032,21 @@ const AEGISGuide = {
                 this.closePanel();
             }
         });
+
+        // Keyboard: Escape closes tour/demo/panel
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (this.demo.isPlaying) this.stopDemo();
+                else if (this.state.tourActive) this.endTour();
+                else if (this.state.panelOpen) this.closePanel();
+            }
+        });
     },
 
-    /**
-     * Toggle the help panel
-     */
+    // ═════════════════════════════════════════════════════════════════
+    // PANEL METHODS
+    // ═════════════════════════════════════════════════════════════════
+
     togglePanel(section = null) {
         if (this.state.panelOpen) {
             this.closePanel();
@@ -574,85 +1055,74 @@ const AEGISGuide = {
         }
     },
 
-    /**
-     * Open the help panel with content for a section
-     */
     openPanel(section = null) {
-        // Detect current section if not provided
-        if (!section) {
-            section = this.detectCurrentSection();
-        }
+        if (!this.state.enabled) return;
 
-        if (!section || !this.sections[section]) {
-            console.warn('[AEGIS Guide] Unknown section:', section);
-            section = 'landing';
-        }
+        if (!section) section = this.detectCurrentSection();
+        if (!section || !this.sections[section]) section = 'landing';
 
         const sectionData = this.sections[section];
         this.state.currentSection = section;
 
-        // Populate panel content
-        this.refs.panel.querySelector('#panel-title').textContent = sectionData.title;
-        this.refs.panel.querySelector('#panel-what-is-this').textContent = sectionData.whatIsThis;
+        // Populate content
+        this.refs.panel.querySelector('#guide-panel-title').textContent = sectionData.title;
+        this.refs.panel.querySelector('#guide-panel-what-is-this').textContent = sectionData.whatIsThis;
 
-        // Populate key actions
-        const actionsList = this.refs.panel.querySelector('#panel-actions');
+        // Actions
+        const actionsList = this.refs.panel.querySelector('#guide-panel-actions');
         actionsList.innerHTML = sectionData.keyActions
-            .map(action => `
-                <li class="action-item">
-                    <span class="action-icon" data-lucide="${action.icon}"></span>
-                    <span class="action-text">${action.text}</span>
-                </li>
-            `)
-            .join('');
+            .map(a => `<li class="action-item">
+                <span class="action-icon" data-lucide="${a.icon}"></span>
+                <span class="action-text">${a.text}</span>
+            </li>`).join('');
 
-        // Populate pro tips
-        const tipsList = this.refs.panel.querySelector('#panel-tips');
+        // Tips
+        const tipsList = this.refs.panel.querySelector('#guide-panel-tips');
         tipsList.innerHTML = sectionData.proTips
-            .map(tip => `<li class="tip-item">💡 ${tip}</li>`)
-            .join('');
+            .map(t => `<li class="tip-item"><span class="tip-bullet">&#128161;</span> ${t}</li>`).join('');
+        tipsList.classList.add('hidden');
+        this.refs.panel.querySelector('#guide-tips-toggle').classList.remove('expanded');
 
-        // Show panel
+        // Highlight current section in nav
+        this.refs.panel.querySelectorAll('.section-nav-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.section === section);
+        });
+
+        // Show
         this.refs.panel.classList.remove('hidden');
         this.state.panelOpen = true;
 
-        // Re-render lucide icons in the panel
+        // Re-render icons
         if (window.lucide) {
-            window.lucide.createIcons();
+            try { window.lucide.createIcons(); } catch(e) {}
         }
 
-        console.log('[AEGIS Guide] Panel opened for section:', section);
+        console.log('[AEGIS Guide] Panel opened:', section);
     },
 
-    /**
-     * Close the help panel
-     */
     closePanel() {
         this.refs.panel.classList.add('hidden');
         this.state.panelOpen = false;
-        console.log('[AEGIS Guide] Panel closed');
     },
 
-    /**
-     * Toggle pro tips visibility
-     */
     toggleTips() {
-        const tipsList = this.refs.panel.querySelector('#panel-tips');
-        const toggle = this.refs.panel.querySelector('#tips-toggle');
-
+        const tipsList = this.refs.panel.querySelector('#guide-panel-tips');
+        const toggle = this.refs.panel.querySelector('#guide-tips-toggle');
         tipsList.classList.toggle('hidden');
         toggle.classList.toggle('expanded');
     },
 
-    /**
-     * Start section-specific tour
-     */
-    startTour() {
-        const section = this.state.currentSection;
+    // ═════════════════════════════════════════════════════════════════
+    // TOUR METHODS (Manual step-by-step)
+    // ═════════════════════════════════════════════════════════════════
+
+    startTour(sectionId) {
+        const section = sectionId || this.state.currentSection || this.detectCurrentSection();
         const sectionData = this.sections[section];
 
         if (!sectionData || !sectionData.tourSteps || sectionData.tourSteps.length === 0) {
-            console.warn('[AEGIS Guide] No tour steps for section:', section);
+            console.warn('[AEGIS Guide] No tour steps for:', section);
+            if (window.showToast) window.showToast('No tour available for this section', 'info');
             return;
         }
 
@@ -662,23 +1132,24 @@ const AEGISGuide = {
         this.state.currentTour = sectionData.tourSteps;
 
         this.showStep(0);
-        console.log('[AEGIS Guide] Section tour started:', section);
+        console.log('[AEGIS Guide] Tour started:', section, '—', sectionData.tourSteps.length, 'steps');
     },
 
-    /**
-     * Start full application tour
-     */
     startFullTour() {
-        // Combine tours from key sections in logical order
-        const tourOrder = ['landing', 'review', 'roles', 'forge', 'validator', 'metrics'];
+        const tourOrder = ['landing', 'review', 'batch', 'roles', 'forge', 'validator', 'compare', 'metrics', 'history', 'settings', 'portfolio'];
         let fullTour = [];
 
-        tourOrder.forEach(sectionId => {
-            const section = this.sections[sectionId];
-            if (section && section.tourSteps) {
-                fullTour = fullTour.concat(section.tourSteps);
+        tourOrder.forEach(id => {
+            const s = this.sections[id];
+            if (s && s.tourSteps) {
+                fullTour = fullTour.concat(s.tourSteps);
             }
         });
+
+        if (fullTour.length === 0) {
+            console.warn('[AEGIS Guide] No tour steps found');
+            return;
+        }
 
         this.closePanel();
         this.state.tourActive = true;
@@ -686,13 +1157,10 @@ const AEGISGuide = {
         this.state.currentTour = fullTour;
 
         this.showStep(0);
-        console.log('[AEGIS Guide] Full tour started with', fullTour.length, 'steps');
+        console.log('[AEGIS Guide] Full tour started:', fullTour.length, 'steps');
     },
 
-    /**
-     * Show a specific tour step
-     */
-    showStep(index) {
+    async showStep(index) {
         if (!this.state.currentTour || index < 0 || index >= this.state.currentTour.length) {
             this.endTour();
             return;
@@ -701,285 +1169,534 @@ const AEGISGuide = {
         this.state.currentTourIndex = index;
         const step = this.state.currentTour[index];
 
-        // Find target element
+        // Navigate to the right section if needed
+        if (step.navigate) {
+            await this._navigateToSection(step.navigate);
+            await this._wait(400);
+        }
+
+        // Find target
         const target = document.querySelector(step.target);
-        if (!target) {
-            console.warn('[AEGIS Guide] Tour step target not found:', step.target);
-            this.nextStep();
+        if (!target || target.offsetParent === null) {
+            console.warn('[AEGIS Guide] Target not found/visible:', step.target);
+            // Try next step
+            if (index < this.state.currentTour.length - 1) {
+                this.showStep(index + 1);
+            } else {
+                this.endTour();
+            }
             return;
         }
 
-        // Update tooltip content
-        this.refs.spotlight.querySelector('#step-counter').textContent =
+        // Update tooltip
+        this.refs.spotlight.querySelector('#guide-step-counter').textContent =
             `Step ${index + 1} of ${this.state.currentTour.length}`;
-        this.refs.spotlight.querySelector('#tooltip-title').textContent = step.title;
-        this.refs.spotlight.querySelector('#tooltip-description').textContent = step.description;
+        this.refs.spotlight.querySelector('#guide-tooltip-title').textContent = step.title;
+        this.refs.spotlight.querySelector('#guide-tooltip-description').textContent = step.description;
 
-        // Update progress dots
+        // Update nav buttons
+        const prevBtn = this.refs.spotlight.querySelector('#guide-prev-btn');
+        const nextBtn = this.refs.spotlight.querySelector('#guide-next-btn');
+        prevBtn.style.visibility = index > 0 ? 'visible' : 'hidden';
+        nextBtn.textContent = index < this.state.currentTour.length - 1 ? 'Next \u2192' : 'Finish \u2713';
+
+        // Update dots
         this.updateProgressDots(index);
 
-        // Show spotlight on target
-        this.showSpotlight(target, step.position, step.offset);
-
-        // Show spotlight element
+        // Show spotlight
+        this.showSpotlight(target, step.position || 'bottom');
         this.refs.spotlight.classList.remove('hidden');
-
-        console.log('[AEGIS Guide] Showing step', index + 1, 'of', this.state.currentTour.length);
     },
 
-    /**
-     * Show spotlight overlay on target element
-     */
-    showSpotlight(element, position = 'bottom', offset = { x: 0, y: 0 }) {
+    showSpotlight(element, position = 'bottom') {
         const spotlight = this.refs.spotlight;
         const tooltip = spotlight.querySelector('.spotlight-tooltip');
-        const rect = element.getBoundingClientRect();
 
-        // Scroll element into view if needed
+        // Scroll into view
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-        // Create cutout for target element
-        const padding = 8;
-        const cutout = {
-            x: rect.left - padding,
-            y: rect.top - padding,
-            width: rect.width + padding * 2,
-            height: rect.height + padding * 2
-        };
+        setTimeout(() => {
+            const rect = element.getBoundingClientRect();
+            const padding = 8;
 
-        // Create SVG mask for spotlight
-        const svgNS = 'http://www.w3.org/2000/svg';
-        const svg = document.createElementNS(svgNS, 'svg');
-        svg.setAttribute('width', window.innerWidth);
-        svg.setAttribute('height', window.innerHeight);
-        svg.setAttribute('style', 'position: absolute; top: 0; left: 0;');
+            // Build SVG mask
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            const cx = rect.left - padding;
+            const cy = rect.top - padding;
+            const cw = rect.width + padding * 2;
+            const ch = rect.height + padding * 2;
 
-        const defs = document.createElementNS(svgNS, 'defs');
-        const mask = document.createElementNS(svgNS, 'mask');
-        mask.setAttribute('id', 'spotlightMask');
+            // Remove old SVG
+            const oldSvg = spotlight.querySelector('svg.spotlight-mask');
+            if (oldSvg) oldSvg.remove();
 
-        const background = document.createElementNS(svgNS, 'rect');
-        background.setAttribute('width', '100%');
-        background.setAttribute('height', '100%');
-        background.setAttribute('fill', 'white');
+            const svgNS = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(svgNS, 'svg');
+            svg.classList.add('spotlight-mask');
+            svg.setAttribute('width', w);
+            svg.setAttribute('height', h);
+            svg.style.cssText = 'position:fixed;top:0;left:0;pointer-events:none;z-index:1;';
 
-        const cutoutRect = document.createElementNS(svgNS, 'rect');
-        cutoutRect.setAttribute('x', cutout.x);
-        cutoutRect.setAttribute('y', cutout.y);
-        cutoutRect.setAttribute('width', cutout.width);
-        cutoutRect.setAttribute('height', cutout.height);
-        cutoutRect.setAttribute('fill', 'black');
-        cutoutRect.setAttribute('rx', '8');
+            const defs = document.createElementNS(svgNS, 'defs');
+            const mask = document.createElementNS(svgNS, 'mask');
+            mask.setAttribute('id', 'guideSpotlightMask');
 
-        mask.appendChild(background);
-        mask.appendChild(cutoutRect);
-        defs.appendChild(mask);
-        svg.appendChild(defs);
+            const bg = document.createElementNS(svgNS, 'rect');
+            bg.setAttribute('width', '100%');
+            bg.setAttribute('height', '100%');
+            bg.setAttribute('fill', 'white');
 
-        const overlay = document.createElementNS(svgNS, 'rect');
-        overlay.setAttribute('width', '100%');
-        overlay.setAttribute('height', '100%');
-        overlay.setAttribute('fill', 'rgba(0, 0, 0, 0.7)');
-        overlay.setAttribute('mask', 'url(#spotlightMask)');
-        svg.appendChild(overlay);
+            const cutout = document.createElementNS(svgNS, 'rect');
+            cutout.setAttribute('x', cx);
+            cutout.setAttribute('y', cy);
+            cutout.setAttribute('width', cw);
+            cutout.setAttribute('height', ch);
+            cutout.setAttribute('fill', 'black');
+            cutout.setAttribute('rx', '8');
 
-        // Replace old SVG if exists
-        const oldSvg = spotlight.querySelector('svg');
-        if (oldSvg) {
-            spotlight.removeChild(oldSvg);
-        }
-        spotlight.insertBefore(svg, spotlight.querySelector('.spotlight-tooltip'));
+            mask.appendChild(bg);
+            mask.appendChild(cutout);
+            defs.appendChild(mask);
+            svg.appendChild(defs);
 
-        // Position tooltip
-        this.positionTooltip(tooltip, rect, position, offset);
+            const overlay = document.createElementNS(svgNS, 'rect');
+            overlay.setAttribute('width', '100%');
+            overlay.setAttribute('height', '100%');
+            overlay.setAttribute('fill', 'rgba(0,0,0,0.65)');
+            overlay.setAttribute('mask', 'url(#guideSpotlightMask)');
+            overlay.style.pointerEvents = 'auto';
+            overlay.addEventListener('click', (e) => e.stopPropagation());
+            svg.appendChild(overlay);
+
+            spotlight.insertBefore(svg, spotlight.querySelector('.spotlight-tooltip'));
+
+            // Position tooltip
+            this.positionTooltip(tooltip, rect, position);
+        }, 350);
     },
 
-    /**
-     * Position the tooltip relative to the target element
-     */
-    positionTooltip(tooltip, targetRect, position, offset = { x: 0, y: 0 }) {
-        const tooltipRect = tooltip.getBoundingClientRect();
+    positionTooltip(tooltip, targetRect, position) {
         const margin = 20;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+
+        // Reset position to measure
+        tooltip.style.position = 'fixed';
+        tooltip.style.top = '0';
+        tooltip.style.left = '0';
+        tooltip.style.visibility = 'hidden';
+        tooltip.style.display = 'block';
+
+        const tRect = tooltip.getBoundingClientRect();
         let top, left;
 
         switch (position) {
             case 'top':
-                top = targetRect.top - tooltipRect.height - margin;
-                left = targetRect.left + (targetRect.width - tooltipRect.width) / 2;
-                break;
-            case 'bottom':
-                top = targetRect.bottom + margin;
-                left = targetRect.left + (targetRect.width - tooltipRect.width) / 2;
+                top = targetRect.top - tRect.height - margin;
+                left = targetRect.left + (targetRect.width - tRect.width) / 2;
                 break;
             case 'left':
-                top = targetRect.top + (targetRect.height - tooltipRect.height) / 2;
-                left = targetRect.left - tooltipRect.width - margin;
+                top = targetRect.top + (targetRect.height - tRect.height) / 2;
+                left = targetRect.left - tRect.width - margin;
                 break;
             case 'right':
-                top = targetRect.top + (targetRect.height - tooltipRect.height) / 2;
+                top = targetRect.top + (targetRect.height - tRect.height) / 2;
                 left = targetRect.right + margin;
                 break;
-            default:
-                position = 'bottom';
+            default: // bottom
                 top = targetRect.bottom + margin;
-                left = targetRect.left + (targetRect.width - tooltipRect.width) / 2;
+                left = targetRect.left + (targetRect.width - tRect.width) / 2;
         }
 
-        // Apply offset
-        top += offset.y || 0;
-        left += offset.x || 0;
+        // Keep in viewport
+        const pad = 15;
+        if (left < pad) left = pad;
+        if (left + tRect.width > vw - pad) left = vw - tRect.width - pad;
+        if (top < pad) top = targetRect.bottom + margin; // flip to bottom
+        if (top + tRect.height > vh - pad) top = targetRect.top - tRect.height - margin; // flip to top
 
-        // Keep tooltip in viewport
-        const viewportPadding = 20;
-        if (left < viewportPadding) left = viewportPadding;
-        if (left + tooltipRect.width > window.innerWidth - viewportPadding) {
-            left = window.innerWidth - tooltipRect.width - viewportPadding;
-        }
-        if (top < viewportPadding) top = viewportPadding;
-        if (top + tooltipRect.height > window.innerHeight - viewportPadding) {
-            top = window.innerHeight - tooltipRect.height - viewportPadding;
-        }
-
-        tooltip.style.position = 'fixed';
         tooltip.style.top = top + 'px';
         tooltip.style.left = left + 'px';
+        tooltip.style.visibility = 'visible';
     },
 
-    /**
-     * Update progress dots
-     */
     updateProgressDots(currentIndex) {
-        const dotsContainer = this.refs.spotlight.querySelector('#dot-progress');
-        if (!dotsContainer) return;
+        const container = this.refs.spotlight.querySelector('#guide-dot-progress');
+        if (!container) return;
 
-        dotsContainer.innerHTML = '';
+        const total = this.state.currentTour.length;
+        // For many steps, show abbreviated dots
+        if (total > 15) {
+            container.innerHTML = `<span class="dot-label">${currentIndex + 1} / ${total}</span>`;
+            return;
+        }
 
-        for (let i = 0; i < this.state.currentTour.length; i++) {
+        container.innerHTML = '';
+        for (let i = 0; i < total; i++) {
             const dot = document.createElement('span');
-            dot.className = 'progress-dot' + (i === currentIndex ? ' active' : '');
-            dotsContainer.appendChild(dot);
+            dot.className = 'progress-dot' + (i === currentIndex ? ' active' : i < currentIndex ? ' done' : '');
+            container.appendChild(dot);
         }
     },
 
-    /**
-     * Next tour step
-     */
     nextStep() {
         if (this.state.tourActive) {
-            this.showStep(this.state.currentTourIndex + 1);
+            const next = this.state.currentTourIndex + 1;
+            if (next >= this.state.currentTour.length) {
+                this.endTour();
+                if (window.showToast) window.showToast('Tour complete! Click the ? beacon anytime for help.', 'success');
+            } else {
+                this.showStep(next);
+            }
         }
     },
 
-    /**
-     * Previous tour step
-     */
     previousStep() {
-        if (this.state.tourActive) {
+        if (this.state.tourActive && this.state.currentTourIndex > 0) {
             this.showStep(this.state.currentTourIndex - 1);
         }
     },
 
-    /**
-     * End the tour
-     */
     endTour() {
         this.state.tourActive = false;
         this.state.currentTourIndex = 0;
         this.state.currentTour = null;
         this.refs.spotlight.classList.add('hidden');
+        // Clean up SVG
+        const svg = this.refs.spotlight.querySelector('svg.spotlight-mask');
+        if (svg) svg.remove();
         console.log('[AEGIS Guide] Tour ended');
     },
 
-    /**
-     * Detect which section is currently visible
-     */
+    // ═════════════════════════════════════════════════════════════════
+    // DEMO PLAYER (Auto-playing animated walkthrough)
+    // ═════════════════════════════════════════════════════════════════
+
+    startDemo(sectionId) {
+        const section = sectionId || 'landing';
+        const sectionData = this.sections[section];
+
+        if (!sectionData || !sectionData.demoScenes || sectionData.demoScenes.length === 0) {
+            console.warn('[AEGIS Guide] No demo scenes for:', section);
+            if (window.showToast) window.showToast('No demo available for this section yet', 'info');
+            return;
+        }
+
+        this.closePanel();
+        this.endTour();
+
+        this.demo.isPlaying = true;
+        this.demo.isPaused = false;
+        this.demo.currentStep = 0;
+        this.demo.currentSection = section;
+        this.demo.scenes = sectionData.demoScenes;
+
+        // Show demo bar
+        this.refs.demoBar.classList.remove('hidden');
+        this.refs.demoBar.querySelector('#demo-bar-section').textContent = sectionData.title;
+        this.refs.demoBar.querySelector('#demo-play').innerHTML = '&#10074;&#10074;';
+
+        this._showDemoStep(0);
+        console.log('[AEGIS Guide] Demo started:', section, '—', sectionData.demoScenes.length, 'scenes');
+    },
+
+    startFullDemo() {
+        // Build combined demo from all sections
+        const sectionOrder = ['landing', 'review', 'batch', 'roles', 'forge', 'validator', 'compare', 'metrics', 'history', 'settings', 'portfolio'];
+        let allScenes = [];
+
+        sectionOrder.forEach(id => {
+            const s = this.sections[id];
+            if (s && s.demoScenes) {
+                // Add a section intro scene
+                allScenes.push({
+                    target: null,
+                    narration: `Now let's explore: ${s.title}`,
+                    duration: 2500,
+                    sectionLabel: s.title,
+                    navigate: id === 'landing' ? null : undefined
+                });
+                allScenes = allScenes.concat(s.demoScenes.map(scene => ({
+                    ...scene,
+                    sectionLabel: s.title
+                })));
+            }
+        });
+
+        this.closePanel();
+        this.endTour();
+
+        this.demo.isPlaying = true;
+        this.demo.isPaused = false;
+        this.demo.currentStep = 0;
+        this.demo.currentSection = 'all';
+        this.demo.scenes = allScenes;
+
+        this.refs.demoBar.classList.remove('hidden');
+        this.refs.demoBar.querySelector('#demo-bar-section').textContent = 'Full Application Demo';
+        this.refs.demoBar.querySelector('#demo-play').innerHTML = '&#10074;&#10074;';
+
+        this._showDemoStep(0);
+        console.log('[AEGIS Guide] Full demo started:', allScenes.length, 'scenes');
+    },
+
+    async _showDemoStep(index) {
+        if (!this.demo.isPlaying || !this.demo.scenes) return;
+        if (index < 0 || index >= this.demo.scenes.length) {
+            this.stopDemo();
+            if (window.showToast) window.showToast('Demo complete! Click the ? beacon for more help.', 'success');
+            return;
+        }
+
+        this.demo.currentStep = index;
+        const scene = this.demo.scenes[index];
+        const total = this.demo.scenes.length;
+
+        // Update demo bar
+        if (scene.sectionLabel) {
+            this.refs.demoBar.querySelector('#demo-bar-section').textContent = scene.sectionLabel;
+        }
+        this.refs.demoBar.querySelector('#demo-step-label').textContent = `${index + 1} / ${total}`;
+        this.refs.demoBar.querySelector('#demo-progress-fill').style.width =
+            `${((index + 1) / total) * 100}%`;
+
+        // Navigate if needed
+        if (scene.navigate) {
+            await this._navigateToSection(scene.navigate);
+            await this._wait(500);
+        }
+
+        // Narration with typewriter effect
+        this._typeNarration(scene.narration);
+
+        // Spotlight target if present
+        if (scene.target) {
+            const el = document.querySelector(scene.target);
+            if (el && el.offsetParent !== null) {
+                this.refs.spotlight.classList.remove('hidden');
+                // Hide the tooltip for demo (we use the demo bar instead)
+                this.refs.spotlight.querySelector('.spotlight-tooltip').style.display = 'none';
+                this.showSpotlight(el, 'bottom');
+            } else {
+                this.refs.spotlight.classList.add('hidden');
+            }
+        } else {
+            this.refs.spotlight.classList.add('hidden');
+        }
+
+        // Schedule next step
+        if (this.demo.timer) clearTimeout(this.demo.timer);
+        const stepDuration = (scene.duration || this.config.demoStepDuration) / this.demo.speed;
+        this.demo.timer = setTimeout(() => {
+            if (this.demo.isPlaying && !this.demo.isPaused) {
+                this._showDemoStep(index + 1);
+            }
+        }, stepDuration);
+    },
+
+    _typeNarration(text) {
+        const el = this.refs.demoBar.querySelector('#demo-bar-narration');
+        if (this.demo.typeTimer) clearInterval(this.demo.typeTimer);
+
+        el.textContent = '';
+        let i = 0;
+        const speed = Math.max(10, this.config.demoTypeSpeed / this.demo.speed);
+
+        this.demo.typeTimer = setInterval(() => {
+            if (i < text.length) {
+                el.textContent += text[i];
+                i++;
+            } else {
+                clearInterval(this.demo.typeTimer);
+                this.demo.typeTimer = null;
+            }
+        }, speed);
+    },
+
+    demoTogglePause() {
+        if (this.demo.isPaused) {
+            // Resume
+            this.demo.isPaused = false;
+            this.refs.demoBar.querySelector('#demo-play').innerHTML = '&#10074;&#10074;';
+            // Re-trigger next step
+            this._showDemoStep(this.demo.currentStep + 1);
+        } else {
+            // Pause
+            this.demo.isPaused = true;
+            this.refs.demoBar.querySelector('#demo-play').innerHTML = '&#9654;';
+            if (this.demo.timer) clearTimeout(this.demo.timer);
+            if (this.demo.typeTimer) clearInterval(this.demo.typeTimer);
+        }
+    },
+
+    demoPrev() {
+        if (this.demo.timer) clearTimeout(this.demo.timer);
+        const prev = Math.max(0, this.demo.currentStep - 1);
+        this._showDemoStep(prev);
+    },
+
+    demoNext() {
+        if (this.demo.timer) clearTimeout(this.demo.timer);
+        this._showDemoStep(this.demo.currentStep + 1);
+    },
+
+    stopDemo() {
+        this.demo.isPlaying = false;
+        this.demo.isPaused = false;
+        this.demo.currentStep = 0;
+        this.demo.scenes = null;
+        if (this.demo.timer) clearTimeout(this.demo.timer);
+        if (this.demo.typeTimer) clearInterval(this.demo.typeTimer);
+
+        this.refs.demoBar.classList.add('hidden');
+        this.refs.spotlight.classList.add('hidden');
+        // Re-show tooltip for tour mode
+        const tooltip = this.refs.spotlight.querySelector('.spotlight-tooltip');
+        if (tooltip) tooltip.style.display = '';
+        // Clean up SVG
+        const svg = this.refs.spotlight.querySelector('svg.spotlight-mask');
+        if (svg) svg.remove();
+
+        console.log('[AEGIS Guide] Demo stopped');
+    },
+
+    // ═════════════════════════════════════════════════════════════════
+    // NAVIGATION HELPERS
+    // ═════════════════════════════════════════════════════════════════
+
+    async _navigateToSection(sectionId) {
+        console.log('[AEGIS Guide] Navigating to section:', sectionId);
+
+        const navMap = {
+            'landing': () => {
+                // Return to landing page
+                if (window.showLandingPage) window.showLandingPage();
+                else document.querySelector('#nav-dashboard')?.click();
+            },
+            'review': () => {
+                // Just ensure we're in review view (default after upload)
+                const landing = document.getElementById('aegis-landing-page');
+                if (landing && landing.offsetParent !== null) {
+                    // We're on landing, nothing specific to navigate to for review
+                }
+            },
+            'roles': () => {
+                if (window.showRolesModalOverride) window.showRolesModalOverride();
+                else if (window.showRolesModal) window.showRolesModal();
+                else document.querySelector('#nav-roles')?.click();
+            },
+            'forge': () => {
+                document.querySelector('#btn-statement-forge')?.click();
+            },
+            'validator': () => {
+                document.querySelector('#nav-hyperlink-validator')?.click();
+            },
+            'compare': () => {
+                document.querySelector('#nav-compare')?.click();
+            },
+            'metrics': () => {
+                document.querySelector('#nav-metrics')?.click();
+            },
+            'history': () => {
+                document.querySelector('#nav-history')?.click();
+            },
+            'settings': () => {
+                document.querySelector('#btn-settings')?.click();
+            },
+            'portfolio': () => {
+                document.querySelector('#nav-portfolio')?.click();
+            }
+        };
+
+        const fn = navMap[sectionId];
+        if (fn) fn();
+    },
+
+    _wait(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    },
+
+    // ═════════════════════════════════════════════════════════════════
+    // SECTION DETECTION
+    // ═════════════════════════════════════════════════════════════════
+
     detectCurrentSection() {
-        // Check which modal or view is currently active
-        if (document.getElementById('aegis-landing-page')?.offsetParent !== null) {
-            return 'landing';
+        const checks = [
+            { id: 'aegis-landing-page', section: 'landing', check: el => el.offsetParent !== null },
+            { id: 'modal-roles', section: 'roles', check: el => el.classList.contains('active') },
+            { id: 'modal-statement-forge', section: 'forge', check: el => el.classList.contains('active') || el.style.display !== 'none' },
+            { id: 'modal-hyperlink-validator', section: 'validator', check: el => el.classList.contains('active') },
+            { id: 'modal-doc-compare', section: 'compare', check: el => el.classList.contains('active') },
+            { id: 'modal-metrics-analytics', section: 'metrics', check: el => el.classList.contains('active') },
+            { id: 'modal-scan-history', section: 'history', check: el => el.classList.contains('active') },
+            { id: 'modal-settings', section: 'settings', check: el => el.classList.contains('active') }
+        ];
+
+        for (const c of checks) {
+            const el = document.getElementById(c.id);
+            if (el && c.check(el)) return c.section;
         }
-        if (document.getElementById('modal-review')?.classList.contains('active')) {
-            return 'review';
-        }
-        if (document.getElementById('modal-roles')?.classList.contains('active')) {
-            return 'roles';
-        }
-        if (document.getElementById('modal-forge')?.classList.contains('active')) {
-            return 'forge';
-        }
-        if (document.getElementById('modal-hyperlink')?.classList.contains('active')) {
-            return 'validator';
-        }
-        if (document.getElementById('modal-metrics')?.classList.contains('active')) {
-            return 'metrics';
-        }
-        if (document.getElementById('modal-settings')?.classList.contains('active')) {
-            return 'settings';
-        }
-        if (document.getElementById('modal-compare')?.classList.contains('active')) {
-            return 'compare';
-        }
+
+        // If issues are visible, we're in review mode
+        const issuesContainer = document.getElementById('issues-container');
+        if (issuesContainer && issuesContainer.children.length > 0) return 'review';
 
         return 'landing';
     },
 
-    /**
-     * Open help for a specific section
-     * Call from modal open handlers: AEGISGuide.openSectionHelp('review')
-     */
-    openSectionHelp(sectionId) {
-        this.openPanel(sectionId);
-    },
+    // ═════════════════════════════════════════════════════════════════
+    // PUBLIC API: Help buttons for modals
+    // ═════════════════════════════════════════════════════════════════
 
-    /**
-     * Add a help button to a modal header
-     * Call from modal initialization: AEGISGuide.addHelpButton(modalElement, 'roles')
-     */
     addHelpButton(modalElement, sectionId) {
-        if (!modalElement) return;
+        if (!modalElement || !this.state.enabled) return;
 
-        const header = modalElement.querySelector('.modal-header');
+        const header = modalElement.querySelector('.modal-header, .forge-header, .hv-header');
         if (!header) return;
-
-        // Check if help button already exists
         if (header.querySelector('.modal-help-btn')) return;
 
         const helpBtn = document.createElement('button');
         helpBtn.className = 'modal-help-btn';
         helpBtn.setAttribute('aria-label', 'Help for this section');
         helpBtn.setAttribute('title', 'Help');
-        helpBtn.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <path d="M12 16v-4M12 8h.01"></path>
-            </svg>
-        `;
+        helpBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>`;
 
         helpBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            this.openSectionHelp(sectionId);
+            this.openPanel(sectionId);
         });
 
-        // Insert before close button if exists
-        const closeBtn = header.querySelector('.modal-close-btn');
+        const closeBtn = header.querySelector('.modal-close-btn, .forge-close-btn, .hv-btn-close');
         if (closeBtn) {
             header.insertBefore(helpBtn, closeBtn);
         } else {
             header.appendChild(helpBtn);
         }
+    },
+
+    openSectionHelp(sectionId) {
+        this.openPanel(sectionId);
     }
 };
 
-// Auto-initialize when DOM is ready
+// ═════════════════════════════════════════════════════════════════════
+// AUTO-INITIALIZE
+// ═════════════════════════════════════════════════════════════════════
+
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        AEGISGuide.init();
-    });
+    document.addEventListener('DOMContentLoaded', () => AEGISGuide.init());
 } else {
     AEGISGuide.init();
 }
 
-// Export for use in other modules
+// Export globally
+window.AEGISGuide = AEGISGuide;
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = AEGISGuide;
 }
