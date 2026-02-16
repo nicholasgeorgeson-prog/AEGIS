@@ -325,7 +325,7 @@ def get_metrics_dashboard():
 @handle_api_errors
 def get_sharing_config():
     """Get current sharing configuration."""
-    config_file = Path(__file__).parent / 'config.json'
+    config_file = config.base_dir / 'config.json'
     sharing_config = {'shared_dictionary_path': ''}
     if config_file.exists():
         try:
@@ -343,7 +343,7 @@ def save_sharing_config():
     """Save sharing configuration (shared dictionary path)."""
     data = request.get_json() or {}
     shared_path = data.get('shared_dictionary_path', '')
-    config_file = Path(__file__).parent / 'config.json'
+    config_file = config.base_dir / 'config.json'
     config_data = {}
     if config_file.exists():
         try:

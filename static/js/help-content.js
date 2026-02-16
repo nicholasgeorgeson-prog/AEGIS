@@ -311,7 +311,8 @@ const HelpContent = {
                     const sectionId = item.getAttribute('data-section');
                     this.navigateTo(sectionId);
                     this.closeSearchResults();
-                    document.getElementById('help-search-input').value = '';
+                    const searchInput = document.getElementById('help-search-input');
+                    if (searchInput) searchInput.value = '';
                 });
             });
         }

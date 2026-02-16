@@ -41,35 +41,15 @@
     <link rel="stylesheet" href="/static/css/features/mass-statement-review.css">
     <link rel="stylesheet" href="/static/css/features/statement-history.css">
     <link rel="stylesheet" href="/static/css/features/landing-page.css">
-    <!-- Vendor libraries: local first, CDN fallback for enterprise compatibility -->
-    <script src="/static/js/vendor/lucide.min.js" onerror="loadCDNFallback('lucide')"></script>
-    <script src="/static/js/vendor/chart.min.js" onerror="loadCDNFallback('chart')"></script>
-    <script src="/static/js/vendor/d3.v7.min.js" defer onerror="loadCDNFallback('d3')"></script>
-    <!-- v3.0.111: SortableJS for Statement Forge drag-and-drop (BUG-M29 FIX: local file for CSP) -->
-    <script src="/static/js/vendor/Sortable.min.js" defer onerror="loadCDNFallback('sortable')"></script>
+    <!-- Vendor libraries: all local (v5.0.1 - no external CDN for air-gapped compliance) -->
+    <script src="/static/js/vendor/lucide.min.js"></script>
+    <script src="/static/js/vendor/chart.min.js"></script>
+    <script src="/static/js/vendor/d3.v7.min.js" defer></script>
+    <!-- v3.0.111: SortableJS for Statement Forge drag-and-drop -->
+    <script src="/static/js/vendor/Sortable.min.js" defer></script>
     <!-- v3.1.6: Cinematic Progress Animation Libraries (Lottie + GSAP) -->
-    <script src="/static/js/vendor/lottie.min.js" defer onerror="loadCDNFallback('lottie')"></script>
-    <script src="/static/js/vendor/gsap.min.js" defer onerror="loadCDNFallback('gsap')"></script>
-    <script>
-        // CDN fallback loader for enterprise networks without local vendor files
-        function loadCDNFallback(lib) {
-            const urls = {
-                'lucide': 'https://unpkg.com/lucide@0.263.1/dist/umd/lucide.min.js',
-                'chart': 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
-                'd3': 'https://d3js.org/d3.v7.min.js',
-                'sortable': 'https://unpkg.com/sortablejs@1.15.0/Sortable.min.js',
-                'lottie': 'https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js',
-                'gsap': 'https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js'
-            };
-            if (urls[lib]) {
-                const s = document.createElement('script');
-                s.src = urls[lib];
-                if (lib === 'd3') s.defer = true;
-                document.head.appendChild(s);
-                console.log('[AEGIS] Loading ' + lib + ' from CDN fallback');
-            }
-        }
-    </script>
+    <script src="/static/js/vendor/lottie.min.js" defer></script>
+    <script src="/static/js/vendor/gsap.min.js" defer></script>
 </head>
 <body class="landing-active">
 <!-- v4.7.1: Global particle canvas — always visible behind all content -->
@@ -2405,6 +2385,15 @@
                 <button class="btn btn-secondary" id="btn-diag-export-txt" title="Export diagnostics as readable text">
                     <i data-lucide="file-text"></i> Export Text Report
                 </button>
+                <button class="btn btn-secondary" id="btn-diag-health-check" title="Check all dependencies and NLP models">
+                    <i data-lucide="heart-pulse"></i> Dependency Health Check
+                </button>
+            </div>
+
+            <!-- Health Check Results (hidden by default) -->
+            <div id="health-check-results" style="display: none; margin-bottom: 16px; padding: 16px; background: var(--bg-surface); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                <h5 style="margin: 0 0 12px 0; font-size: 14px;"><i data-lucide="heart-pulse"></i> Dependency Health Check</h5>
+                <div id="health-check-content"></div>
             </div>
 
             <!-- What's Included -->

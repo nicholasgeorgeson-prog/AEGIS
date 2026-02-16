@@ -9712,9 +9712,9 @@ function openSettingsToProfilesTab() {
                 return;
             }
             
-            console.log('[TWR] Loading Lucide from CDN...');
+            console.log('[TWR] Loading Lucide from local vendor...');
             const script = document.createElement('script');
-            script.src = 'https://unpkg.com/lucide@0.263.1/dist/umd/lucide.min.js';
+            script.src = '/static/js/vendor/lucide.min.js';
             script.onload = function() {
                 console.log('[TWR] Lucide loaded successfully');
                 FixState.lucideLoaded = true;
@@ -9747,9 +9747,9 @@ function openSettingsToProfilesTab() {
                 return;
             }
             
-            console.log('[TWR] Loading Chart.js from CDN...');
+            console.log('[TWR] Loading Chart.js from local vendor...');
             const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
+            script.src = '/static/js/vendor/chart.min.js';
             script.onload = function() {
                 console.log('[TWR] Chart.js loaded successfully');
                 FixState.chartJsLoaded = true;
