@@ -334,8 +334,9 @@ class ScanHistoryDB:
             try:
                 with self.connection() as (conn, cursor):
                     cursor.execute(f'ALTER TABLE role_dictionary ADD COLUMN {col_name} {col_type}')
-            except Exception:
-                pass  # Column already exists
+            except Exception as e:
+                if 'duplicate column' not in str(e).lower():
+                    logger.warning(f'Migration: could not add column {col_name}: {e}')
 
         self._create_table_safe('document_roles', '''
                 CREATE TABLE IF NOT EXISTS document_roles (
@@ -603,7 +604,8 @@ class ScanHistoryDB:
         try:
             with open(filepath, 'rb') as f:
                 return hashlib.md5(f.read()).hexdigest()
-        except Exception:
+        except Exception as e:
+            logger.warning(f'Could not hash file {filepath}: {e}')
             return ""
     
     def record_scan(self, filename: str, filepath: str, results: Dict, options: Dict) -> Dict:
@@ -1816,7 +1818,8 @@ class ScanHistoryDB:
             try:
                 cursor.execute("SELECT COUNT(*) FROM role_relationships WHERE relationship_type = 'inherits-from'")
                 rel_count = cursor.fetchone()[0]
-            except Exception:
+            except Exception as e:
+                logger.debug(f'role_relationships table query failed (may not exist yet): {e}')
                 rel_count = 0
 
             if rel_count == 0:
@@ -1824,7 +1827,8 @@ class ScanHistoryDB:
                 try:
                     cursor.execute('SELECT COUNT(*) FROM function_categories')
                     fc_count = cursor.fetchone()[0]
-                except Exception:
+                except Exception as e:
+                    logger.debug(f'function_categories table query failed: {e}')
                     fc_count = 0
                 if fc_count > 0:
                     return self._get_role_hierarchy_by_function_tags()
@@ -2871,8 +2875,8 @@ class ScanHistoryDB:
                     try:
                         aliases = json.loads(row[1])
                         role_names.extend(aliases)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug(f'Could not parse aliases JSON for role {row[0]}: {e}')
 
         return role_names
     
@@ -4296,8 +4300,8 @@ class ScanHistoryDB:
         try:
             roles = self.get_role_dictionary(include_inactive=True)
             status['database']['role_count'] = len(roles)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f'Could not count dictionary roles for status: {e}')
         
         # Check master file
         if paths['master'].exists():

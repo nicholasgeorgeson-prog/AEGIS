@@ -90,8 +90,9 @@ def _capture_startup_error(error: Exception, context: str = ''):
             f.write('\nFull Traceback:\n')
             f.write(_tb.format_exc())
             f.write('\n======================================================================\n')
-    except Exception:
-        pass
+    except Exception as e:
+        import sys
+        print(f'[AEGIS STARTUP] Could not write startup_error.log: {e}', file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------
@@ -405,8 +406,8 @@ def after_request(response: Response) -> Response:
             with open(config_path, encoding='utf-8') as f:
                 cfg = _json.load(f)
                 allow_cdn = cfg.get('security', {}).get('allow_cdn_fallback', False)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f'Could not read config.json for CSP settings: {e}')
 
     if allow_cdn:
         response.headers['Content-Security-Policy'] = (
@@ -449,8 +450,8 @@ def after_request(response: Response) -> Response:
                         response.headers['Content-Encoding'] = 'gzip'
                         response.headers['Content-Length'] = len(compressed)
                         response.headers['Vary'] = 'Accept-Encoding'
-            except Exception:
-                pass  # If compression fails, serve uncompressed
+            except Exception as e:
+                logger.debug(f'Gzip compression failed for {request.path}: {e}')
 
     # Add cache headers for static assets (JS/CSS don't change without cache-busting param)
     if request.path.startswith('/static/'):

@@ -155,8 +155,8 @@ def get_metrics_landing():
             with open(version_path, encoding='utf-8') as f:
                 vdata = json.load(f)
                 checker_count = vdata.get('checker_count', 84)
-    except Exception:
-        pass
+    except Exception as e:
+        current_app.logger.warning(f'Could not read checker_count from version.json: {e}')
 
     return jsonify({'success': True, 'data': {
         'total_scans': row[0] or 0,
@@ -349,8 +349,8 @@ def save_sharing_config():
         try:
             with open(config_file, encoding='utf-8') as f:
                 config_data = json.load(f)
-        except Exception:
-            pass
+        except Exception as e:
+            current_app.logger.warning(f'Could not parse config.json for sharing settings: {e}')
     if 'sharing' not in config_data:
         config_data['sharing'] = {}
     config_data['sharing']['shared_dictionary_path'] = shared_path
@@ -384,8 +384,8 @@ def test_sharing_path():
                         data = json.load(f)
                         roles = data.get('roles', []) if isinstance(data, dict) else data
                         result['role_count'] = len(roles)
-                except Exception:
-                    pass
+                except Exception as e:
+                    current_app.logger.warning(f'Could not read master dictionary file: {e}')
         else:
             result['error'] = 'Path does not exist'
     except PermissionError:

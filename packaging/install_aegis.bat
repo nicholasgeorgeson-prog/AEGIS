@@ -36,25 +36,61 @@ if not exist "%~dp0python-3.10.11-embed-amd64.zip" (
     exit /b 1
 )
 
-REM --- Choose install location ---
-echo   Default install location: %LOCALAPPDATA%\AEGIS
-echo.
-set "INSTALL_DIR=%LOCALAPPDATA%\AEGIS"
+REM --- Detect OneDrive path ---
+set "ONEDRIVE_PATH="
+if defined OneDriveCommercial (
+    set "ONEDRIVE_PATH=%OneDriveCommercial%"
+) else if defined OneDrive (
+    set "ONEDRIVE_PATH=%OneDrive%"
+)
 
-:ask_location
-set /p "CUSTOM_DIR=  Install location [press Enter for default]: "
-if not "%CUSTOM_DIR%"=="" set "INSTALL_DIR=%CUSTOM_DIR%"
+REM --- Choose install location ---
+echo   Choose where to install AEGIS:
+echo.
+echo     [1] Default local: %LOCALAPPDATA%\AEGIS
+if defined ONEDRIVE_PATH (
+    echo     [2] OneDrive:      %ONEDRIVE_PATH%\AEGIS
+)
+echo     [3] Custom path
+echo.
+
+set "INSTALL_DIR=%LOCALAPPDATA%\AEGIS"
+set /p "LOCATION_CHOICE=  Enter choice [1]: "
+
+if "%LOCATION_CHOICE%"=="2" (
+    if defined ONEDRIVE_PATH (
+        set "INSTALL_DIR=%ONEDRIVE_PATH%\AEGIS"
+    ) else (
+        echo   [WARNING] OneDrive not detected. Using default location.
+    )
+)
+if "%LOCATION_CHOICE%"=="3" (
+    set /p "CUSTOM_DIR=  Enter full install path: "
+    if not "!CUSTOM_DIR!"=="" set "INSTALL_DIR=!CUSTOM_DIR!"
+)
 
 REM Remove trailing backslash if present
-if "%INSTALL_DIR:~-1%"=="\" set "INSTALL_DIR=%INSTALL_DIR:~0,-1%"
+if "!INSTALL_DIR:~-1!"=="\" set "INSTALL_DIR=!INSTALL_DIR:~0,-1!"
 
 echo.
 echo   AEGIS will be installed to:
-echo     %INSTALL_DIR%
+echo     !INSTALL_DIR!
 echo.
+
+REM --- Validate path is writable ---
+mkdir "!INSTALL_DIR!\__aegis_test__" 2>nul
+if errorlevel 1 (
+    echo   [ERROR] Cannot write to this location.
+    echo   Please choose a different install path.
+    echo.
+    rd /s /q "!INSTALL_DIR!\__aegis_test__" 2>nul
+    goto ask_location
+)
+rd /s /q "!INSTALL_DIR!\__aegis_test__" 2>nul
+
 set /p "CONFIRM=  Continue? (Y/N): "
-if /i not "%CONFIRM%"=="Y" (
-    if /i not "%CONFIRM%"=="yes" (
+if /i not "!CONFIRM!"=="Y" (
+    if /i not "!CONFIRM!"=="yes" (
         echo.
         echo   Installation cancelled.
         pause

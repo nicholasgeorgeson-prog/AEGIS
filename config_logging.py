@@ -62,8 +62,9 @@ def get_version():
             with open(_VERSION_FILE, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 return data.get('version', _FALLBACK_VERSION)
-    except Exception:
-        pass
+    except Exception as e:
+        import sys
+        print(f'[AEGIS] Could not read version from {_VERSION_FILE}: {e}', file=sys.stderr)
     return _FALLBACK_VERSION
 
 # Legacy constants — kept for backward compatibility but prefer get_version()

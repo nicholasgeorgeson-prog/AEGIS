@@ -117,7 +117,7 @@ def diagnostics_summary():
         system_info = {
             'platform': platform.platform(),
             'python_version': platform.python_version(),
-            'app_version': VERSION,
+            'app_version': get_version(),
             'timestamp': datetime.now(timezone.utc).isoformat() + 'Z'
         }
 
@@ -214,6 +214,254 @@ def diagnostics_errors():
     except Exception as e:
         logger.exception(f'Error fetching diagnostics errors: {e}')
         return (jsonify({'success': False, 'error': {'code': 'DIAGNOSTICS_ERROR', 'message': str(e)}}), 500)
+
+
+@core_bp.route('/api/diagnostics/export', methods=['POST'])
+@handle_api_errors
+def diagnostics_export():
+    """
+    Export diagnostics as a downloadable JSON or TXT file.
+
+    Expects JSON body:
+      format             - 'json' or 'txt' (default 'json')
+      include_system_info - bool (default True)
+      include_request_log - bool (default True)
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        fmt = data.get('format', 'json')
+        include_system = data.get('include_system_info', True)
+        include_requests = data.get('include_request_log', True)
+
+        # Collect diagnostic data
+        export_data = {
+            'export_timestamp': datetime.now(timezone.utc).isoformat() + 'Z',
+            'app_version': get_version()
+        }
+
+        # System info
+        if include_system:
+            export_data['system'] = {
+                'platform': platform.platform(),
+                'python_version': platform.python_version(),
+                'architecture': platform.machine(),
+                'processor': platform.processor() or 'unknown',
+                'app_version': get_version()
+            }
+
+        # Configuration (non-sensitive)
+        export_data['config'] = {
+            'debug_mode': config.debug,
+            'log_level': config.log_level,
+            'auth_enabled': config.auth_enabled,
+            'csrf_enabled': config.csrf_enabled,
+            'max_content_length_mb': config.max_content_length / 1048576
+        }
+
+        # Log file info
+        log_file = config.log_dir / 'aegis.log'
+        log_size_mb = 0
+        if log_file.exists():
+            log_size_mb = round(log_file.stat().st_size / (1024 * 1024), 2)
+        export_data['log_file'] = {
+            'path': str(log_file),
+            'size_mb': log_size_mb,
+            'exists': log_file.exists()
+        }
+
+        # Recent errors
+        entries = read_recent_error_logs(count=50)
+        export_data['recent_errors'] = entries
+        export_data['error_summary'] = {
+            'total': len(entries),
+            'by_type': {}
+        }
+        for entry in entries:
+            err_type = entry.get('error_type', 'Unknown')
+            export_data['error_summary']['by_type'][err_type] = export_data['error_summary']['by_type'].get(err_type, 0) + 1
+
+        # Feature availability
+        try:
+            import importlib
+            features = {}
+            for mod_name, label in [
+                ('docx', 'python-docx'),
+                ('nltk', 'NLTK'),
+                ('spacy', 'spaCy'),
+                ('textstat', 'textstat'),
+                ('openpyxl', 'openpyxl'),
+                ('requests', 'requests'),
+            ]:
+                try:
+                    mod = importlib.import_module(mod_name)
+                    ver = getattr(mod, '__version__', 'installed')
+                    features[label] = {'available': True, 'version': ver}
+                except ImportError:
+                    features[label] = {'available': False, 'version': None}
+            export_data['features'] = features
+        except Exception:
+            pass
+
+        # Build response
+        import json as json_mod
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+
+        if fmt == 'txt':
+            # Build plain text report
+            lines = []
+            lines.append('=' * 60)
+            lines.append('AEGIS DIAGNOSTIC EXPORT')
+            lines.append('=' * 60)
+            lines.append(f"Exported: {export_data['export_timestamp']}")
+            lines.append(f"Version:  {export_data['app_version']}")
+            lines.append('')
+
+            if include_system and 'system' in export_data:
+                lines.append('--- System Information ---')
+                for k, v in export_data['system'].items():
+                    lines.append(f"  {k}: {v}")
+                lines.append('')
+
+            lines.append('--- Configuration ---')
+            for k, v in export_data['config'].items():
+                lines.append(f"  {k}: {v}")
+            lines.append('')
+
+            lines.append('--- Log File ---')
+            for k, v in export_data['log_file'].items():
+                lines.append(f"  {k}: {v}")
+            lines.append('')
+
+            if 'features' in export_data:
+                lines.append('--- Feature Availability ---')
+                for name, info in export_data['features'].items():
+                    status = f"v{info['version']}" if info['available'] else 'NOT INSTALLED'
+                    lines.append(f"  {name}: {status}")
+                lines.append('')
+
+            lines.append(f"--- Recent Errors ({export_data['error_summary']['total']}) ---")
+            for entry in export_data['recent_errors'][:20]:
+                lines.append(f"  [{entry.get('level', 'ERROR')}] {entry.get('timestamp', '?')} - {entry.get('error_type', '?')}: {entry.get('error_message', '?')}")
+            lines.append('')
+
+            content = '\n'.join(lines)
+            resp = make_response(content)
+            resp.headers['Content-Type'] = 'text/plain; charset=utf-8'
+            resp.headers['Content-Disposition'] = f'attachment; filename="aegis_diagnostics_{timestamp}.txt"'
+            return resp
+        else:
+            # JSON export
+            content = json_mod.dumps(export_data, indent=2, default=str)
+            resp = make_response(content)
+            resp.headers['Content-Type'] = 'application/json; charset=utf-8'
+            resp.headers['Content-Disposition'] = f'attachment; filename="aegis_diagnostics_{timestamp}.json"'
+            return resp
+
+    except Exception as e:
+        logger.exception(f'Error exporting diagnostics: {e}')
+        return (jsonify({'success': False, 'error': {'code': 'EXPORT_ERROR', 'message': str(e)}}), 500)
+
+
+@core_bp.route('/api/diagnostics/health')
+@handle_api_errors
+def diagnostics_health():
+    """
+    Dependency health check — verify all required packages and NLP models are installed.
+    Returns per-package status with version info and NLP model availability.
+    """
+    try:
+        import importlib
+        results = {'packages': {}, 'nlp_models': {}, 'overall': 'healthy'}
+
+        # Check required Python packages
+        required_packages = [
+            ('flask', 'Flask'),
+            ('docx', 'python-docx'),
+            ('nltk', 'NLTK'),
+            ('spacy', 'spaCy'),
+            ('textstat', 'textstat'),
+            ('openpyxl', 'openpyxl'),
+            ('requests', 'requests'),
+            ('colorama', 'colorama'),
+            ('chardet', 'chardet'),
+            ('bs4', 'BeautifulSoup4'),
+            ('lxml', 'lxml'),
+            ('PIL', 'Pillow'),
+            ('jinja2', 'Jinja2'),
+            ('werkzeug', 'Werkzeug'),
+            ('yaml', 'PyYAML'),
+        ]
+
+        all_ok = True
+        for mod_name, display_name in required_packages:
+            try:
+                mod = importlib.import_module(mod_name)
+                ver = getattr(mod, '__version__', getattr(mod, 'VERSION', 'installed'))
+                if isinstance(ver, tuple):
+                    ver = '.'.join(str(v) for v in ver)
+                results['packages'][display_name] = {
+                    'status': 'ok',
+                    'version': str(ver),
+                    'module': mod_name
+                }
+            except ImportError:
+                results['packages'][display_name] = {
+                    'status': 'missing',
+                    'version': None,
+                    'module': mod_name
+                }
+                all_ok = False
+
+        # Check NLTK data
+        try:
+            import nltk
+            nltk_data_items = ['punkt', 'punkt_tab', 'averaged_perceptron_tagger',
+                               'averaged_perceptron_tagger_eng', 'stopwords', 'wordnet']
+            for item in nltk_data_items:
+                try:
+                    nltk.data.find(f'tokenizers/{item}' if 'punkt' in item else f'corpora/{item}' if item in ('stopwords', 'wordnet') else f'taggers/{item}')
+                    results['nlp_models'][f'nltk/{item}'] = {'status': 'ok'}
+                except LookupError:
+                    results['nlp_models'][f'nltk/{item}'] = {'status': 'missing'}
+                    all_ok = False
+        except ImportError:
+            results['nlp_models']['nltk'] = {'status': 'nltk not installed'}
+            all_ok = False
+
+        # Check spaCy model
+        try:
+            import spacy
+            try:
+                nlp = spacy.load('en_core_web_sm')
+                results['nlp_models']['spacy/en_core_web_sm'] = {
+                    'status': 'ok',
+                    'version': nlp.meta.get('version', 'unknown')
+                }
+            except OSError:
+                results['nlp_models']['spacy/en_core_web_sm'] = {'status': 'missing'}
+                all_ok = False
+        except ImportError:
+            results['nlp_models']['spacy'] = {'status': 'spacy not installed'}
+            all_ok = False
+
+        if not all_ok:
+            results['overall'] = 'degraded'
+
+        # Count
+        pkg_ok = sum(1 for p in results['packages'].values() if p['status'] == 'ok')
+        pkg_total = len(results['packages'])
+        nlp_ok = sum(1 for m in results['nlp_models'].values() if m['status'] == 'ok')
+        nlp_total = len(results['nlp_models'])
+        results['summary'] = {
+            'packages': f'{pkg_ok}/{pkg_total} installed',
+            'nlp_models': f'{nlp_ok}/{nlp_total} available',
+            'all_healthy': all_ok
+        }
+
+        return jsonify({'success': True, 'data': results})
+    except Exception as e:
+        logger.exception(f'Error running health check: {e}')
+        return (jsonify({'success': False, 'error': {'code': 'HEALTH_CHECK_ERROR', 'message': str(e)}}), 500)
 
 
 # Demo endpoints

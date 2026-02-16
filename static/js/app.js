@@ -15558,7 +15558,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (response.ok) {
                 const contentType = response.headers.get('content-type') || '';
                 // Check if backend returned an error JSON instead of a file
-                if (contentType.includes('application/json') && !format === 'json') {
+                if (contentType.includes('application/json') && format !== 'json') {
                     const data = await response.json();
                     if (!data.success) throw new Error(data.error || 'Export failed');
                 }

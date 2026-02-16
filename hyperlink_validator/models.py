@@ -928,10 +928,19 @@ def validate_file_path(path: str, check_exists: bool = True, base_dir: str = Non
         if base_dir and not os.path.isabs(path):
             check_path = os.path.join(base_dir, path)
 
-        if os.path.exists(check_path):
-            return True, ""
-        else:
-            return False, f"File not found: {path}"
+        try:
+            if os.path.exists(check_path):
+                return True, ""
+            else:
+                # Distinguish: does the parent directory exist?
+                parent = os.path.dirname(check_path)
+                if parent and os.path.isabs(check_path) and not os.path.exists(parent):
+                    return False, f"Parent directory not found: {parent}"
+                return False, f"File not found: {path}"
+        except PermissionError:
+            return False, f"Permission denied accessing: {path} (check user/network credentials)"
+        except OSError as e:
+            return False, f"Cannot access file path: {path} ({e})"
 
     return True, ""
 
@@ -998,13 +1007,33 @@ def validate_network_path(path: str, check_accessible: bool = False) -> tuple[bo
         if char in share:
             return False, f"Invalid character in share name: {char}"
 
-    # Optional: Check if path is accessible
+    # Optional: Check if path is accessible using current user credentials
     if check_accessible:
         try:
             if os.path.exists(path):
                 return True, ""
             else:
-                return False, f"Network path not accessible: {path}"
+                # Try to distinguish server unreachable vs share inaccessible
+                server_path = '\\\\' + server
+                try:
+                    server_reachable = os.path.exists(server_path)
+                except Exception:
+                    server_reachable = False
+
+                if not server_reachable:
+                    return False, f"Server unreachable: {server} (check network/VPN connection)"
+                else:
+                    return False, f"Network path not accessible: {path} (server '{server}' is reachable but share/path cannot be accessed — check permissions)"
+        except PermissionError:
+            return False, f"Permission denied: {path} (current user credentials lack access to this network share)"
+        except OSError as e:
+            error_msg = str(e)
+            if 'network name' in error_msg.lower() or 'network path' in error_msg.lower():
+                return False, f"Network error accessing {path}: {error_msg} (check network connectivity)"
+            elif 'logon' in error_msg.lower() or 'credential' in error_msg.lower():
+                return False, f"Authentication failed for {path}: {error_msg} (check Windows credentials)"
+            else:
+                return False, f"Cannot access network path {path}: {error_msg}"
         except Exception as e:
             return False, f"Cannot access network path: {str(e)}"
 

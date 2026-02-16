@@ -474,7 +474,8 @@ class SemanticAnalyzer:
                     tfidf_matrix = vectorizer.fit_transform(texts)
                     feature_names = vectorizer.get_feature_names_out()
                     keywords = list(feature_names)
-                except:
+                except Exception as e:
+                    logger.debug(f'TF-IDF keyword extraction failed: {e}')
                     keywords = []
 
                 clusters.append(SemanticCluster(

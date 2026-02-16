@@ -419,8 +419,9 @@ def _review_worker_process(filepath: str, original_filename: str, options: dict,
                     'progress': progress,
                     'message': message
                 })
-            except Exception:
-                pass  # Queue full or broken, skip this update
+            except Exception as e:
+                import logging
+                logging.getLogger('aegis.review').debug(f'Job {job_id} progress queue update failed: {e}')
 
         # Create engine and run review
         engine = AEGISEngine()
@@ -631,8 +632,9 @@ def _cleanup_result_file(result_file: str):
     try:
         if os.path.exists(result_file):
             os.remove(result_file)
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logging.getLogger('aegis.review').debug(f'Could not clean up result file {result_file}: {e}')
 
 
 # Legacy fallback: threading-based review (used if multiprocessing unavailable)
