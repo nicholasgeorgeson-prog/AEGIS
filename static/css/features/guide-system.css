@@ -376,8 +376,10 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.7);
-    pointer-events: auto;
+    /* v5.7.0: Background removed — SVG mask handles dimming with cutout.
+       The CSS overlay was causing double-dimming (no cutout underneath the SVG mask). */
+    background: transparent;
+    pointer-events: none;
 }
 
 /* Tour tooltip */
