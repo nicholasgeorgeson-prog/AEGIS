@@ -97,8 +97,8 @@ echo.
 
 set "REPO=nicholasgeorgeson-prog/AEGIS"
 set "SRC_ZIP=%INSTALL_DIR%\aegis_source.zip"
-:: Binary assets (Python, pip) hosted on v5.0.5 release (reusable across versions)
-set "DL_BINARY=https://github.com/%REPO%/releases/download/v5.0.5"
+:: Binary assets (Python, pip, models) hosted on v5.1.0 release
+set "DL_BINARY=https://github.com/%REPO%/releases/download/v5.1.0"
 :: Torch wheel hosted on v5.1.0-wheels release
 set "DL_TORCH=https://github.com/%REPO%/releases/download/v5.1.0-wheels"
 
@@ -209,14 +209,15 @@ if exist "%INSTALL_DIR%\packaging\wheels\torch-2.10.0-cp310-cp310-win_amd64.whl"
     echo         You can install it later with: pip install torch
 )
 
-:: Download NLP/ML models (240 MB)
+:: Download NLP/ML models (240 MB) - hosted on v5.0.5 release (unchanged between versions)
+set "DL_MODELS=https://github.com/%REPO%/releases/download/v5.0.5"
 echo.
 echo  Downloading NLP/ML models (240 MB)...
 echo  (sentence-transformers, NLTK data)
-powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_BINARY%/aegis_models.zip' -OutFile '%INSTALL_DIR%\packaging\aegis_models.zip' -UseBasicParsing" 2>nul
+powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_MODELS%/aegis_models.zip' -OutFile '%INSTALL_DIR%\packaging\aegis_models.zip' -UseBasicParsing" 2>nul
 if not exist "%INSTALL_DIR%\packaging\aegis_models.zip" (
     echo  [WARN] PowerShell failed, trying curl...
-    curl.exe -L -o "%INSTALL_DIR%\packaging\aegis_models.zip" "%DL_BINARY%/aegis_models.zip" 2>nul
+    curl.exe -L -o "%INSTALL_DIR%\packaging\aegis_models.zip" "%DL_MODELS%/aegis_models.zip" 2>nul
 )
 if exist "%INSTALL_DIR%\packaging\aegis_models.zip" (
     echo  [OK] Models downloaded
