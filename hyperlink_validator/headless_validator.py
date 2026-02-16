@@ -189,19 +189,33 @@ class HeadlessValidator:
         try:
             # Create new context with stealth settings
             # These settings help bypass bot detection
+            # accept_downloads=True so we can detect file download links
             context = self._browser.new_context(
                 user_agent=self.user_agent,
                 viewport={'width': 1920, 'height': 1080},
                 java_script_enabled=True,
-                ignore_https_errors=False,  # We want to catch SSL errors
+                ignore_https_errors=True,  # Don't fail on SSL — we just want to know if the link exists
                 # Add realistic browser properties
                 locale='en-US',
                 timezone_id='America/New_York',
                 permissions=['geolocation'],
                 color_scheme='light',
+                accept_downloads=True,  # Accept downloads so we can detect file links
             )
 
             page = context.new_page()
+
+            # Track if a download was triggered (means the link is a valid file)
+            download_triggered = {'value': False, 'filename': ''}
+
+            def handle_download(download):
+                """File download = link is valid (this is the 'document open popup')."""
+                download_triggered['value'] = True
+                download_triggered['filename'] = download.suggested_filename or ''
+                # Cancel the actual download — we just needed to know it's valid
+                download.cancel()
+
+            page.on('download', handle_download)
 
             # Inject stealth scripts to hide automation
             # This removes the navigator.webdriver flag and other detection vectors
@@ -273,6 +287,15 @@ class HeadlessValidator:
                     result.page_title = page.title()
                 except Exception:
                     pass
+
+                # Check if a file download was triggered — this IS the "document open popup"
+                # If the browser tried to download a file, the link is definitely valid
+                if download_triggered['value']:
+                    result.status = 'WORKING'
+                    fname = download_triggered['filename']
+                    result.message = f'File download link (valid) — {fname}' if fname else 'File download link (valid)'
+                    result.response_time_ms = (time.time() - start_time) * 1000
+                    return result
 
                 # Determine status based on response
                 if result.status_code:

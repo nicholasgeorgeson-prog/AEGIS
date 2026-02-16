@@ -67,6 +67,15 @@ try:
 except ImportError:
     DOCX_EXTRACTION_AVAILABLE = False
 
+# Import headless browser validator for .mil/.gov fallback
+HEADLESS_VALIDATOR_AVAILABLE = False
+HeadlessValidatorClass = None
+try:
+    from .headless_validator import HeadlessValidator as HeadlessValidatorClass, is_playwright_available
+    HEADLESS_VALIDATOR_AVAILABLE = is_playwright_available()
+except ImportError:
+    pass
+
 # Set up logging
 logger = logging.getLogger(__name__)
 
@@ -935,6 +944,34 @@ class StandaloneHyperlinkValidator:
                 result.attempts = attempt + 1
                 result.dns_resolved = True
 
+                # ===== Document download detection =====
+                # When a link points to a downloadable file (.docx, .pdf, .xlsx etc),
+                # the server returns Content-Disposition: attachment. This means the
+                # link is VALID — it's offering a file download. The OS would show a
+                # "Open file?" dialog, which is the "document open popup" the user sees.
+                # Mark these as WORKING immediately.
+                content_disp = response.headers.get('Content-Disposition', '')
+                content_type = response.headers.get('Content-Type', '')
+                download_content_types = (
+                    'application/pdf', 'application/msword',
+                    'application/vnd.openxmlformats', 'application/vnd.ms-excel',
+                    'application/vnd.ms-powerpoint', 'application/octet-stream',
+                    'application/zip', 'application/x-zip',
+                    'application/vnd.oasis.opendocument'
+                )
+                is_download = (
+                    'attachment' in content_disp.lower() or
+                    any(ct in content_type.lower() for ct in download_content_types)
+                )
+                if is_download and response.status_code in (200, 206):
+                    result.status = 'WORKING'
+                    fname = ''
+                    if 'filename=' in content_disp:
+                        fname = content_disp.split('filename=')[-1].strip('"\'').strip()
+                    result.message = f'File download link (valid) — {fname or content_type}'
+                    result.response_time_ms = (time.time() - start_time) * 1000
+                    break  # No need to check further
+
                 # Check for redirects
                 if response.history:
                     result.redirect_count = len(response.history)
@@ -1441,6 +1478,15 @@ class StandaloneHyperlinkValidator:
             if original.status in ('BLOCKED', 'AUTH_REQUIRED', 'BROKEN'):
                 strategies.append(('get_no_auth', {'verify': retest_session.verify, 'auth': None}))
 
+            # Strategy 3b: For internal links, try with explicit NTLM if available
+            if original.status in ('BLOCKED', 'AUTH_REQUIRED', 'BROKEN', 'TIMEOUT'):
+                parsed_url = urlparse(url)
+                is_internal = any(d in parsed_url.netloc.lower()
+                                  for d in ('.mil', '.gov', 'intranet', 'internal',
+                                            'sharepoint', 'teams.microsoft'))
+                if is_internal and WINDOWS_AUTH_AVAILABLE and HttpNegotiateAuth:
+                    strategies.append(('get_fresh_auth', {'verify': retest_session.verify, 'auth': 'fresh_sso'}))
+
             # Strategy 4: For timeouts, try with much longer timeout
             if original.status == 'TIMEOUT':
                 strategies.append(('get_ultra_timeout', {'verify': retest_session.verify, 'auth': retest_session.auth, 'timeout': (45, 90)}))
@@ -1452,7 +1498,20 @@ class StandaloneHyperlinkValidator:
                     s_timeout = strategy_opts.get('timeout', (connect_timeout, read_timeout))
 
                     # Use a one-off session for auth override strategies
-                    if s_auth is None and retest_session.auth is not None:
+                    if s_auth == 'fresh_sso':
+                        # Create a brand new session with fresh Windows SSO auth
+                        fresh_session = requests.Session()
+                        fresh_session.verify = s_verify
+                        try:
+                            fresh_session.auth = HttpNegotiateAuth()
+                        except Exception:
+                            continue  # SSO setup failed, skip this strategy
+                        resp = fresh_session.get(
+                            url, timeout=s_timeout, allow_redirects=True,
+                            headers=headers, stream=True
+                        )
+                        fresh_session.close()
+                    elif s_auth is None and retest_session.auth is not None:
                         resp = requests.get(
                             url, timeout=s_timeout, allow_redirects=True,
                             headers=headers, verify=s_verify, stream=True
@@ -1544,6 +1603,55 @@ class StandaloneHyperlinkValidator:
                     logger.debug(f"Retest failed for {url}: {e}")
 
         retest_session.close()
+
+        # =====================================================================
+        # HEADLESS BROWSER FALLBACK for .mil/.gov and stubborn sites
+        # If playwright is available, try a real browser for remaining failures
+        # This handles bot protection, JavaScript-required pages, and sites that
+        # reject all programmatic requests (like dcma.mil)
+        # =====================================================================
+        if HEADLESS_VALIDATOR_AVAILABLE and HeadlessValidatorClass:
+            still_broken = [url for url in broken_urls if url not in retest_results]
+            if still_broken:
+                # Prioritize .mil/.gov and internal sites for headless
+                priority_urls = [u for u in still_broken
+                                 if any(d in u.lower() for d in ('.mil', '.gov', '.mil/', '.gov/',
+                                                                  'intranet', 'internal', 'sharepoint',
+                                                                  'teams.microsoft'))]
+                # Also include remaining broken URLs up to a cap
+                other_broken = [u for u in still_broken if u not in priority_urls]
+                headless_urls = priority_urls + other_broken[:50]  # Cap at 50 to avoid long waits
+
+                if headless_urls:
+                    logger.info(f"Headless browser fallback: trying {len(headless_urls)} URLs "
+                                f"({len(priority_urls)} .mil/.gov priority)")
+                    try:
+                        headless_val = HeadlessValidatorClass(timeout=45, headless=True)
+                        with headless_val:
+                            for h_url in headless_urls:
+                                try:
+                                    h_result = headless_val.validate_url(h_url)
+                                    if h_result.status in ('WORKING', 'REDIRECT'):
+                                        # Headless browser confirmed the link works!
+                                        upgraded_result = ValidationResult(url=h_url, auth_used=auth_used)
+                                        upgraded_result.status = h_result.status
+                                        upgraded_result.status_code = h_result.status_code
+                                        upgraded_result.message = h_result.message
+                                        upgraded_result.response_time_ms = h_result.response_time_ms
+                                        if h_result.final_url:
+                                            upgraded_result.redirect_url = h_result.final_url
+                                        retest_results[h_url] = upgraded_result
+                                        logger.info(f"Headless recovered: {h_url} -> {h_result.status}")
+                                    elif h_result.status == 'AUTH_REQUIRED':
+                                        upgraded_result = ValidationResult(url=h_url, auth_used=auth_used)
+                                        upgraded_result.status = 'AUTH_REQUIRED'
+                                        upgraded_result.status_code = h_result.status_code
+                                        upgraded_result.message = f'Link exists, requires auth (headless confirmed)'
+                                        retest_results[h_url] = upgraded_result
+                                except Exception as e:
+                                    logger.debug(f"Headless validation failed for {h_url}: {e}")
+                    except Exception as e:
+                        logger.warning(f"Headless browser fallback failed: {e}")
 
         upgraded = len(retest_results)
         if upgraded > 0:
