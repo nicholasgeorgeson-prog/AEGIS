@@ -495,6 +495,38 @@ class ScanHistoryDB:
             ''',
             'CREATE INDEX IF NOT EXISTS idx_role_required_actions_role ON role_required_actions(role_name)')
 
+        # v5.0.5: Add role_relationships table (required by SIPOC import, hierarchy, relationships API)
+        self._create_table_safe('role_relationships', '''
+                CREATE TABLE IF NOT EXISTS role_relationships (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    source_role_id INTEGER,
+                    source_role_name TEXT NOT NULL,
+                    target_role_id INTEGER,
+                    target_role_name TEXT NOT NULL,
+                    relationship_type TEXT NOT NULL,
+                    source_context TEXT,
+                    import_source TEXT DEFAULT 'manual',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (source_role_id) REFERENCES roles(id),
+                    FOREIGN KEY (target_role_id) REFERENCES roles(id)
+                )
+            ''',
+            'CREATE INDEX IF NOT EXISTS idx_role_rel_source ON role_relationships(source_role_name)',
+            'CREATE INDEX IF NOT EXISTS idx_role_rel_target ON role_relationships(target_role_name)',
+            'CREATE INDEX IF NOT EXISTS idx_role_rel_type ON role_relationships(relationship_type)')
+
+        # v5.0.5: Ensure scan_statements has review_status and confirmed columns (migration for older databases)
+        for col_name, col_type in [
+            ('review_status', "TEXT DEFAULT ''"),
+            ('confirmed', "INTEGER DEFAULT 0"),
+        ]:
+            try:
+                with self.connection() as (conn, cursor):
+                    cursor.execute(f'ALTER TABLE scan_statements ADD COLUMN {col_name} {col_type}')
+            except Exception as e:
+                if 'duplicate column' not in str(e).lower():
+                    logger.warning(f'Migration: could not add {col_name} to scan_statements: {e}')
+
         # Seed function categories if empty (in its own transaction)
         self._seed_function_categories()
 

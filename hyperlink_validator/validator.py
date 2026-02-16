@@ -725,6 +725,9 @@ class StandaloneHyperlinkValidator:
                     'last_completed_url': live_stats.get('last_completed_url'),
                     'last_completed_status': live_stats.get('last_completed_status'),
                     'current_url': live_stats.get('current_url'),
+                    # v5.0.5: Retest phase tracking
+                    'retest_total': live_stats.get('retest_total', 0),
+                    'retest_completed': live_stats.get('retest_completed', 0),
                 }
             except Exception as e:
                 logger.debug(f"Error building live_stats snapshot: {e}")
@@ -1364,8 +1367,15 @@ class StandaloneHyperlinkValidator:
 
         if broken_urls:
             logger.info(f"Re-test phase: retrying {len(broken_urls)} broken/failed links with deeper scan")
+            # v5.0.5: Update live_stats and progress to show retesting phase
+            if live_stats is not None:
+                live_stats['phase'] = 'retesting'
+                live_stats['phase_label'] = f'Re-testing {len(broken_urls)} failed links'
+                live_stats['retest_total'] = len(broken_urls)
+                live_stats['retest_completed'] = 0
             retest_results = self._retest_broken_links(
-                broken_urls, unique_results, options, headers, auth_used
+                broken_urls, unique_results, options, headers, auth_used,
+                live_stats=live_stats, stats_lock=stats_lock
             )
             # Merge retest results — only update if retest found the link working
             for url, retest_result in retest_results.items():
@@ -1410,7 +1420,9 @@ class StandaloneHyperlinkValidator:
         original_results: Dict[str, 'ValidationResult'],
         options: Dict[str, Any],
         headers: Dict[str, str],
-        auth_used: str
+        auth_used: str,
+        live_stats: Optional[Dict[str, Any]] = None,
+        stats_lock=None
     ) -> Dict[str, 'ValidationResult']:
         """
         Re-test links that were initially marked broken using more aggressive settings.
@@ -1593,6 +1605,7 @@ class StandaloneHyperlinkValidator:
                 executor.submit(_retest_single, url): url
                 for url in broken_urls
             }
+            retest_completed = 0
             for future in as_completed(future_to_url):
                 url = future_to_url[future]
                 try:
@@ -1601,6 +1614,11 @@ class StandaloneHyperlinkValidator:
                         retest_results[url] = retest_result
                 except Exception as e:
                     logger.debug(f"Retest failed for {url}: {e}")
+                # v5.0.5: Update retest progress in live_stats
+                retest_completed += 1
+                if live_stats is not None:
+                    live_stats['retest_completed'] = retest_completed
+                    live_stats['current_url'] = url[:80] if url else None
 
         retest_session.close()
 

@@ -49,7 +49,10 @@ window.HVCinematicProgress = (function() {
         // ETA
         eta: null,
         etaHistory: [], // for smoothing
-        elapsedFormatted: ''
+        elapsedFormatted: '',
+        // v5.0.5: Retest phase tracking
+        retestTotal: 0,
+        retestCompleted: 0
     };
 
     // Particles for background animation
@@ -87,6 +90,8 @@ window.HVCinematicProgress = (function() {
         state.currentUrl = '';
         state.eta = null;
         state.etaHistory = [];
+        state.retestTotal = 0;
+        state.retestCompleted = 0;
 
         overlay = document.createElement('div');
         overlay.className = 'hvcp-overlay';
@@ -400,6 +405,9 @@ window.HVCinematicProgress = (function() {
             if (liveStats.min_response_ms && liveStats.min_response_ms < Infinity) state.minResponseMs = liveStats.min_response_ms;
             if (liveStats.max_response_ms) state.maxResponseMs = liveStats.max_response_ms;
             if (liveStats.urls_per_second) state.urlsPerSecond = liveStats.urls_per_second;
+            // v5.0.5: Track retest phase progress
+            if (liveStats.retest_total) state.retestTotal = liveStats.retest_total;
+            if (liveStats.retest_completed !== undefined) state.retestCompleted = liveStats.retest_completed;
 
             // Update domains
             if (liveStats.domains_checked) {
@@ -594,8 +602,12 @@ window.HVCinematicProgress = (function() {
         if (state.completedUrls > 5 && state.totalUrls > 0) {
             const total = state.uniqueUrls || state.totalUrls;
             const remaining = total - state.completedUrls;
-            if (remaining <= 0) {
-                setText('#hvcp-eta', 'Almost done...');
+            // v5.0.5: Show retest progress instead of "Almost done" when in retesting phase
+            if (remaining <= 0 && state.retestTotal > 0 && state.retestCompleted < state.retestTotal) {
+                const retestRemaining = state.retestTotal - state.retestCompleted;
+                setText('#hvcp-eta', `Re-testing ${retestRemaining} of ${state.retestTotal} failed links...`);
+            } else if (remaining <= 0) {
+                setText('#hvcp-eta', 'Finalizing...');
             } else {
                 const rate = state.completedUrls / elapsed;
                 const etaSeconds = remaining / rate;
@@ -903,13 +915,14 @@ window.HVCinematicProgress = (function() {
     function mapPhase(backendPhase) {
         const lower = (backendPhase || '').toLowerCase();
         if (lower === 'complete' || lower === 'finalizing') return 'finalizing';
+        if (lower === 'retesting') return 'validating'; // v5.0.5: retest maps to validating phase visually
         if (lower === 'checking' || lower === 'running' || lower === 'validating') return 'validating';
         if (lower === 'extracting' || lower === 'starting') return 'extracting';
         return state.phase; // keep current
     }
 
     function formatDuration(seconds) {
-        if (seconds < 2) return 'almost done';
+        if (seconds < 2) return 'wrapping up';
         if (seconds < 60) return `${Math.round(seconds)}s`;
         const mins = Math.floor(seconds / 60);
         const secs = Math.round(seconds % 60);

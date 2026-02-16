@@ -108,10 +108,10 @@ class EnhancedPassiveVoiceChecker(BaseEnhancedChecker):
         issues = []
         full_text = kwargs.get('full_text', '')
 
-        # Use the enhanced checker
+        # Use the enhanced checker — returns List[PassiveVoiceIssue]
         result = self._checker.check_text(full_text)
 
-        for pv in result.passive_instances:
+        for pv in result:
             # Find paragraph index
             para_idx = 0
             for idx, text in paragraphs:
@@ -123,7 +123,7 @@ class EnhancedPassiveVoiceChecker(BaseEnhancedChecker):
                 'type': 'passive_voice',
                 'category': 'grammar',
                 'severity': 'low',
-                'message': f"Passive voice: '{pv.passive_phrase}'",
+                'message': f"Passive voice: '{pv.passive_verb}'",
                 'paragraph': para_idx,
                 'text': pv.sentence,
                 'suggestion': pv.suggestion or "Consider using active voice",
@@ -176,7 +176,7 @@ class SentenceFragmentChecker(BaseEnhancedChecker):
 
             result = self._checker.check_text(text)
 
-            for frag in result.fragments:
+            for frag in result:  # Returns List[FragmentIssue]
                 issue = {
                     'type': 'sentence_fragment',
                     'category': 'grammar',
@@ -229,64 +229,73 @@ class RequirementsAnalyzerChecker(BaseEnhancedChecker):
         issues = []
         full_text = kwargs.get('full_text', '')
 
-        # Analyze the full document
-        result = self._analyzer.analyze_document(full_text)
+        # Analyze the full document — returns Tuple[List[Requirement], List[RequirementIssue]]
+        requirements, req_issues = self._analyzer.analyze_text(full_text)
 
-        # Convert atomicity issues
-        for atom_issue in result.atomicity_issues:
-            para_idx = self._find_paragraph(paragraphs, atom_issue.text)
-            issues.append({
-                'type': 'atomicity',
-                'category': 'requirements',
-                'severity': 'medium',
-                'message': f"Non-atomic requirement: contains {atom_issue.shall_count} 'shall' statements",
-                'paragraph': para_idx,
-                'text': atom_issue.text[:200] + "..." if len(atom_issue.text) > 200 else atom_issue.text,
-                'suggestion': "Split into separate requirements, one 'shall' per requirement",
-                'source': 'requirements_analyzer_v3.3.0'
-            })
+        # RequirementIssue has: requirement_text, issue_type, severity, start_char,
+        # end_char, confidence, flagged_text, suggestion, reason
+        for req_issue in req_issues:
+            req_text = req_issue.requirement_text or ''
+            display_text = req_text[:200] + "..." if len(req_text) > 200 else req_text
+            para_idx = self._find_paragraph(paragraphs, req_text)
+            flagged = req_issue.flagged_text or ''
 
-        # Convert testability issues
-        for test_issue in result.testability_issues:
-            para_idx = self._find_paragraph(paragraphs, test_issue.text)
-            issues.append({
-                'type': 'testability',
-                'category': 'requirements',
-                'severity': 'medium',
-                'message': f"Testability concern: {test_issue.reason}",
-                'paragraph': para_idx,
-                'text': test_issue.text[:200] + "..." if len(test_issue.text) > 200 else test_issue.text,
-                'suggestion': "Add measurable criteria or specific values",
-                'source': 'requirements_analyzer_v3.3.0'
-            })
-
-        # Convert escape clause issues
-        for escape in result.escape_clauses:
-            para_idx = self._find_paragraph(paragraphs, escape.text)
-            issues.append({
-                'type': 'escape_clause',
-                'category': 'requirements',
-                'severity': 'high',
-                'message': f"Escape clause found: '{escape.clause}'",
-                'paragraph': para_idx,
-                'text': escape.text[:200] + "..." if len(escape.text) > 200 else escape.text,
-                'suggestion': f"Replace '{escape.clause}' with specific value or remove",
-                'source': 'requirements_analyzer_v3.3.0'
-            })
-
-        # Convert ambiguous term issues
-        for ambig in result.ambiguous_terms:
-            para_idx = self._find_paragraph(paragraphs, ambig.text)
-            issues.append({
-                'type': 'ambiguous_term',
-                'category': 'requirements',
-                'severity': 'low',
-                'message': f"Ambiguous term: '{ambig.term}'",
-                'paragraph': para_idx,
-                'text': ambig.text[:200] + "..." if len(ambig.text) > 200 else ambig.text,
-                'suggestion': ambig.suggestion or f"Replace '{ambig.term}' with specific criteria",
-                'source': 'requirements_analyzer_v3.3.0'
-            })
+            if req_issue.issue_type == 'atomicity':
+                issues.append({
+                    'type': 'atomicity',
+                    'category': 'requirements',
+                    'severity': 'medium',
+                    'message': f"Non-atomic requirement: {req_issue.reason}",
+                    'paragraph': para_idx,
+                    'text': display_text,
+                    'suggestion': req_issue.suggestion or "Split into separate requirements, one 'shall' per requirement",
+                    'source': 'requirements_analyzer_v3.3.0'
+                })
+            elif req_issue.issue_type == 'testability':
+                issues.append({
+                    'type': 'testability',
+                    'category': 'requirements',
+                    'severity': 'medium',
+                    'message': f"Testability concern: {req_issue.reason}",
+                    'paragraph': para_idx,
+                    'text': display_text,
+                    'suggestion': req_issue.suggestion or "Add measurable criteria or specific values",
+                    'source': 'requirements_analyzer_v3.3.0'
+                })
+            elif req_issue.issue_type == 'escape_clause':
+                issues.append({
+                    'type': 'escape_clause',
+                    'category': 'requirements',
+                    'severity': 'high',
+                    'message': f"Escape clause found: '{flagged}'" if flagged else f"Escape clause: {req_issue.reason}",
+                    'paragraph': para_idx,
+                    'text': display_text,
+                    'suggestion': req_issue.suggestion or f"Replace escape clause with specific value or remove",
+                    'source': 'requirements_analyzer_v3.3.0'
+                })
+            elif req_issue.issue_type == 'ambiguous':
+                issues.append({
+                    'type': 'ambiguous_term',
+                    'category': 'requirements',
+                    'severity': 'low',
+                    'message': f"Ambiguous term: '{flagged}'" if flagged else f"Ambiguous: {req_issue.reason}",
+                    'paragraph': para_idx,
+                    'text': display_text,
+                    'suggestion': req_issue.suggestion or f"Replace with specific criteria",
+                    'source': 'requirements_analyzer_v3.3.0'
+                })
+            else:
+                # Catch-all for other issue types (modal_inconsistency, structure, etc.)
+                issues.append({
+                    'type': req_issue.issue_type,
+                    'category': 'requirements',
+                    'severity': req_issue.severity if req_issue.severity in ('high', 'medium', 'low') else 'low',
+                    'message': f"Requirement issue: {req_issue.reason}",
+                    'paragraph': para_idx,
+                    'text': display_text,
+                    'suggestion': req_issue.suggestion or "Review requirement structure",
+                    'source': 'requirements_analyzer_v3.3.0'
+                })
 
         return issues
 

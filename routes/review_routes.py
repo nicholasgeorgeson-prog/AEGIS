@@ -845,6 +845,15 @@ def review_result(job_id):
                         response_data['fix_groups'] = []
                         response_data['confidence_details'] = {}
                         response_data['fix_statistics'] = {'total': 0, 'by_tier': {}, 'by_category': {}, 'by_page': {}}
+                    # v5.0.5: Include statement forge summary, scan info, and other fields
+                    # that were present in the sync path but missing from async results
+                    response_data['statement_forge_summary'] = results.get('statement_forge_summary', {'available': _shared.STATEMENT_FORGE_AVAILABLE, 'statements_ready': False})
+                    response_data['score'] = results.get('score', 100)
+                    response_data['grade'] = results.get('grade', 'N/A')
+                    response_data['enhanced_stats'] = results.get('enhanced_stats', {})
+                    response_data['acronym_metrics'] = results.get('acronym_metrics', {})
+                    if results.get('scan_info'):
+                        response_data['scan_info'] = results['scan_info']
                     return jsonify({'success': True, 'data': response_data})
 @review_bp.route('/api/filter', methods=['POST'])
 @require_csrf
