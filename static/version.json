@@ -1,12 +1,21 @@
 {
-  "version": "5.8.0",
-  "release_date": "2026-02-16",
-  "core_version": "5.8.0",
+  "version": "5.8.1",
+  "release_date": "2026-02-17",
+  "core_version": "5.8.1",
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.8.1",
+      "date": "2026-02-17",
+      "changes": [
+        "FEATURE: Document Compare now includes a master document selector dropdown — switch between any comparable document without closing the modal",
+        "FIX: Document Compare no longer locks you into the pre-selected document — all 15+ documents with multiple scans are accessible from the header dropdown",
+        "UI: New document selector styled for both light and dark mode, auto-selects newest scan pair on document switch"
+      ]
+    },
     {
       "version": "5.8.0",
       "date": "2026-02-16",

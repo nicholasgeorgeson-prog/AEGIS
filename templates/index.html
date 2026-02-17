@@ -5241,7 +5241,11 @@ if (document.documentElement.classList.contains('dark-mode')) {
                     <i data-lucide="git-compare"></i>
                     <span>Document Comparison</span>
                 </h3>
-                <span class="dc-doc-title">Select scans to compare</span>
+                <div class="dc-doc-selector-wrap">
+                    <select class="dc-doc-select" id="dc-doc-select" title="Switch document">
+                        <option value="">Select a document...</option>
+                    </select>
+                </div>
             </div>
             <div class="dc-scan-selectors">
                 <span>Compare:</span>

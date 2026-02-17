@@ -160,7 +160,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.8.0
+- **Current version**: 5.8.1
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -368,6 +368,12 @@ additional_checkers = [
 **Root Cause**: (1) `_deduplicate_issues()` keyed on `(para_idx, category, flagged_text)` — but different checkers use different category names for the same finding (e.g., "Requirement Traceability" vs "INCOSE Compliance" both flag missing IDs). (2) Checkers like Noun Phrase Density and Dale-Chall Readability aren't calibrated for requirements documents where high noun density and technical vocabulary are expected. (3) No checker detected mixed directive verbs (shall/should/must) or dangling cross-references.
 **Fix**: (1) Added `_CATEGORY_NORM` normalization map in `_deduplicate_issues()` that maps semantically equivalent categories to a common key before dedup. (2) Added `_suppress_for_requirements_doc()` that downgrades noise categories to Info for auto-detected requirements documents. (3) Created `DirectiveVerbConsistencyChecker` and `UnresolvedCrossReferenceChecker` in `requirement_quality_checkers.py`. (4) Expanded spelling dictionary with aerospace/PM terms.
 **Lesson**: Cross-checker dedup must normalize category names, not just compare them literally. Document-type detection (already present in `_detect_document_type()`) should feed back into issue suppression/downgrading. When comparing automated results to human expert review, the biggest gap is usually noise (false positives from domain-inappropriate thresholds), not missed issues.
+
+### 43. Document Compare Needs a Master Document Selector (v5.8.1)
+**Problem**: Document Compare modal opened with a pre-selected document (auto-detected from current file or picker) and provided no way to switch to a different document. Users were locked into comparing scans of one document — to compare a different document, they had to close and reopen the modal.
+**Root Cause**: The modal header had a static `.dc-doc-title` span showing the filename as plain text. Only scan-level `<select>` dropdowns existed (`#dc-old-scan`, `#dc-new-scan`) for choosing which scans to compare. No document-level selector was ever built — the original design assumed users would always enter via the document picker or current-document path.
+**Fix**: (1) Replaced `.dc-doc-title` span with a `<select id="dc-doc-select">` dropdown in `index.html`. (2) Added `populateDocumentSelector()` in `doc-compare.js` that fetches all comparable documents from `/api/compare/documents` and populates the dropdown on modal open. (3) Added change event listener that re-initializes state, reloads scans, and auto-compares when user switches documents. (4) Styled for both light and dark mode in `doc-compare.css`.
+**Lesson**: Any modal that operates on a specific entity (document, role, scan) should always provide a way to switch that entity from within the modal. Don't assume users will always enter via the "correct" path. The `/api/compare/documents` endpoint already existed but was only used by the picker dialog — reusing it in the modal header was trivial.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

@@ -55,6 +55,10 @@ window.DocCompare = (function() {
     let issuesFixedEl = null;
     let issuesNewEl = null;
 
+    // v5.8.1: Document selector
+    let docSelect = null;
+    let _allComparableDocs = [];
+
     // =========================================================================
     // UI STATE
     // =========================================================================
@@ -130,6 +134,9 @@ window.DocCompare = (function() {
         scoreChangeEl = document.getElementById('dc-score-change');
         issuesFixedEl = document.getElementById('dc-issues-fixed');
         issuesNewEl = document.getElementById('dc-issues-new');
+
+        // v5.8.1: Document selector
+        docSelect = document.getElementById('dc-doc-select');
     }
 
     // =========================================================================
@@ -167,6 +174,43 @@ window.DocCompare = (function() {
                 const scanId = parseInt(newScanSelect.value, 10);
                 if (scanId) {
                     DocCompareState.setNewScan(scanId);
+                }
+            });
+        }
+
+        // v5.8.1: Document selector — switch to a different document
+        if (docSelect) {
+            docSelect.addEventListener('change', async () => {
+                const newDocId = parseInt(docSelect.value, 10);
+                if (!newDocId) return;
+                console.log('[DocCompare] Document changed to:', newDocId);
+
+                // Reset diff panels
+                if (oldPanel) oldPanel.innerHTML = '';
+                if (newPanel) newPanel.innerHTML = '';
+                if (unifiedContent) unifiedContent.innerHTML = '';
+                resetStats();
+
+                // Re-initialize state for new document
+                DocCompareState.init(newDocId);
+
+                try {
+                    const scans = await DocCompareState.loadScans(newDocId);
+
+                    if (scans.length >= 2) {
+                        const previousScan = scans[1];
+                        const latestScan = scans[0];
+
+                        DocCompareState.setOldScan(previousScan.id);
+                        DocCompareState.setNewScan(latestScan.id);
+
+                        if (oldScanSelect) oldScanSelect.value = previousScan.id;
+                        if (newScanSelect) newScanSelect.value = latestScan.id;
+
+                        await loadComparison();
+                    }
+                } catch (error) {
+                    showToast('Failed to load scans for selected document: ' + error.message, 'error');
                 }
             });
         }
@@ -470,6 +514,9 @@ window.DocCompare = (function() {
         modal.classList.add('active');
         document.body.classList.add('modal-open');
 
+        // v5.8.1: Populate master document selector (non-blocking)
+        populateDocumentSelector(docId);
+
         // Initialize state
         DocCompareState.init(docId);
 
@@ -604,6 +651,55 @@ window.DocCompare = (function() {
     // =========================================================================
 
     /**
+     * v5.8.1: Reset stats display.
+     */
+    function resetStats() {
+        if (statAddedEl) statAddedEl.textContent = '0';
+        if (statDeletedEl) statDeletedEl.textContent = '0';
+        if (statModifiedEl) statModifiedEl.textContent = '0';
+        if (statMovedEl) statMovedEl.textContent = '0';
+        if (changeCurrentEl) changeCurrentEl.textContent = '0';
+        if (changeTotalEl) changeTotalEl.textContent = '0';
+    }
+
+    /**
+     * v5.8.1: Populate the master document selector dropdown.
+     * @param {number} [selectedDocId] - Document ID to pre-select
+     */
+    async function populateDocumentSelector(selectedDocId) {
+        if (!docSelect) return;
+
+        try {
+            const response = await fetch('/api/compare/documents');
+            const data = await response.json();
+
+            if (!data.success || !data.documents) {
+                console.warn('[DocCompare] No comparable documents found');
+                return;
+            }
+
+            _allComparableDocs = data.documents;
+
+            // Rebuild options
+            docSelect.innerHTML = '';
+
+            _allComparableDocs.forEach(doc => {
+                const opt = document.createElement('option');
+                opt.value = doc.id;
+                opt.textContent = `${doc.filename} (${doc.scan_count} scans)`;
+                if (doc.id === selectedDocId) {
+                    opt.selected = true;
+                }
+                docSelect.appendChild(opt);
+            });
+
+            console.log(`[DocCompare] Populated document selector with ${_allComparableDocs.length} documents, selected: ${selectedDocId}`);
+        } catch (err) {
+            console.error('[DocCompare] Failed to load comparable documents:', err);
+        }
+    }
+
+    /**
      * Populate scan selector dropdowns.
      */
     function populateScanSelectors(scans, docInfo) {
@@ -650,10 +746,9 @@ window.DocCompare = (function() {
 
         console.log(`[DocCompare] Populated ${scans.length} scan options`);
 
-        // Update document title
-        const titleEl = modal.querySelector('.dc-doc-title');
-        if (titleEl && docInfo) {
-            titleEl.textContent = docInfo.filename;
+        // v5.8.1: Update document selector to match current document
+        if (docSelect && docInfo && docInfo.id) {
+            docSelect.value = docInfo.id;
         }
     }
 

@@ -6726,6 +6726,15 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.8.1 <span class="changelog-date">February 17, 2026</span></h3>
+        <p><strong>Document Compare — Master Document Selector</strong></p>
+        <ul>
+            <li><strong>FEATURE: Document Selector</strong> — Document Compare now includes a master dropdown in the header showing all comparable documents. Switch between any document without closing the modal.</li>
+            <li><strong>FIX: Locked Selection</strong> — Previously, Document Compare opened with a pre-selected document and no way to change it. All documents with 2+ scans are now accessible from the dropdown.</li>
+            <li><strong>UI: Auto-Select</strong> — When switching documents, the newest scan pair is auto-selected and comparison runs immediately.</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.8.0 <span class="changelog-date">February 16, 2026</span></h3>
         <p><strong>Smarter Review Engine — Closer to Human Expert Analysis</strong></p>
         <ul>
