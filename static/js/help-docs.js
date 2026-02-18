@@ -2,7 +2,7 @@
  * AEGIS Help Documentation System
  * ==========================================
  * Comprehensive documentation for all features.
- * Version: 5.1.0
+ * Version: 5.9.21
  *
  * Complete overhaul with:
  * - Beautiful visual design with icons and illustrations
@@ -10,6 +10,14 @@
  * - Technical deep-dive section for advanced users
  * - Smooth navigation and professional typography
  *
+ * v5.9.21 - Animated HTML/CSS diagrams replace 5 static PNGs (Architecture, Checkers, Extraction, Docling, NLP Pipeline)
+ * v5.9.20 - Data Explorer z-index fix, particle visibility through backdrops, Email Diagnostics .eml with attachments
+ * v5.9.19 - Light mode metric card drill-down visibility, settings tab scroll indicators, global particle canvas
+ * v5.9.18 - Help beacon hides during demo playback (no longer overlays X stop button), Compare sub-demo QA verified
+ * v5.9.17 - Narration Speed Fix + Full Demo QA (BUG #9 race condition fixed, all 12 sections / 93 sub-demos verified)
+ * v5.9.16 - SOW Template Upload + Graph Export + Live Demo Overhaul (DOCX template population, PNG/SVG/HTML graph export, demo scene fixes)
+ * v5.9.0 - Deep Validation & Scoring Improvements (SemanticAnalyzer fix, response.ok guards, dedup expansion, scoring concentration discount)
+ * v5.8.2 - Production Hardening Pass (ReportLab sanitization, CSRF fix, prefers-reduced-motion on 19 CSS files, spaCy SVO extraction)
  * v5.6.0 - Guide System v2.0.0 + Animated Demo Player (real content for all 11 sections, live walkthrough demos, SVG spotlight tours, settings toggle)
  * v5.5.0 - Server-Side Folder Scanning (recursive discovery, chunked processing, batch limits increase to 50/500MB)
  * v5.4.0 - Performance Optimization + spaCy Ecosystem Deep Analysis (zero dark mode flash, deferred scripts, parallel batch scan, 100+ checkers)
@@ -37,8 +45,8 @@
 'use strict';
 
 const HelpDocs = {
-    version: '5.6.0',
-    lastUpdated: '2026-02-16',
+    version: '5.9.21',
+    lastUpdated: '2026-02-18',
     
     config: {
         searchEnabled: true,
@@ -53,6 +61,12 @@ const HelpDocs = {
             { id: 'quick-start', title: 'Quick Start Guide', icon: 'zap' },
             { id: 'first-review', title: 'Your First Review', icon: 'play-circle' },
             { id: 'interface-tour', title: 'Interface Tour', icon: 'layout' }
+        ]},
+        { id: 'guided-tours', title: 'Guided Tours & Demos', icon: 'play-circle', subsections: [
+            { id: 'tour-overview', title: 'Overview', icon: 'info' },
+            { id: 'tour-demos', title: 'Watching Demos', icon: 'monitor-play' },
+            { id: 'tour-voice', title: 'Voice Narration', icon: 'volume-2' },
+            { id: 'tour-sub-demos', title: 'Deep-Dive Sub-Demos', icon: 'layers' }
         ]},
         { id: 'document-review', title: 'Document Review', icon: 'file-search', subsections: [
             { id: 'loading-docs', title: 'Loading Documents', icon: 'upload' },
@@ -100,6 +114,11 @@ const HelpDocs = {
             { id: 'forge-diff-export', title: 'Diff Export', icon: 'download' },
             { id: 'forge-export', title: 'Export Formats', icon: 'download' }
         ]},
+        { id: 'sow-generator', title: 'SOW Generator', icon: 'file-output', subsections: [
+            { id: 'sow-overview', title: 'Overview', icon: 'info' },
+            { id: 'sow-template', title: 'Template Upload', icon: 'upload' },
+            { id: 'sow-placeholders', title: 'Placeholders', icon: 'code' }
+        ]},
         { id: 'fix-assistant', title: 'Fix Assistant', icon: 'wand-2', subsections: [
             { id: 'fix-overview', title: 'Overview', icon: 'info' },
             { id: 'fix-workflow', title: 'Review Workflow', icon: 'workflow' },
@@ -119,14 +138,21 @@ const HelpDocs = {
         { id: 'exporting', title: 'Exporting Results', icon: 'download', subsections: [
             { id: 'export-overview', title: 'Export Options', icon: 'info' },
             { id: 'export-word', title: 'Word Document', icon: 'file-text' },
+            { id: 'export-pdf', title: 'PDF Report', icon: 'file-badge' },
             { id: 'export-data', title: 'CSV & Excel', icon: 'table' },
-            { id: 'export-json', title: 'JSON Data', icon: 'code' }
+            { id: 'export-json', title: 'JSON Data', icon: 'code' },
+            { id: 'export-filters', title: 'Filter & Preview', icon: 'sliders-horizontal' }
         ]},
         { id: 'settings', title: 'Settings', icon: 'settings', subsections: [
             { id: 'settings-general', title: 'General', icon: 'sliders' },
-            { id: 'settings-appearance', title: 'Appearance', icon: 'palette' },
-            { id: 'settings-sharing', title: 'Sharing', icon: 'share-2' },
-            { id: 'settings-updates', title: 'Updates', icon: 'refresh-cw' }
+            { id: 'settings-review', title: 'Review', icon: 'file-check' },
+            { id: 'settings-network', title: 'Network & Auth', icon: 'shield' },
+            { id: 'settings-profiles', title: 'Document Profiles', icon: 'layers' },
+            { id: 'settings-display', title: 'Display', icon: 'palette' },
+            { id: 'settings-updates', title: 'Updates', icon: 'refresh-cw' },
+            { id: 'settings-diagnostics', title: 'Diagnostics', icon: 'activity' },
+            { id: 'settings-data', title: 'Data Management', icon: 'database' },
+            { id: 'settings-sharing', title: 'Sharing', icon: 'share-2' }
         ]},
         { id: 'shortcuts', title: 'Keyboard Shortcuts', icon: 'keyboard' },
         { id: 'technical', title: 'Technical Deep Dive', icon: 'cpu', subsections: [
@@ -164,7 +190,7 @@ HelpDocs.content['welcome'] = {
     </div>
     <div class="help-hero-content">
         <p class="help-hero-tagline">Transform your technical documents from good to exceptional</p>
-        <p>AEGIS is a comprehensive document analysis platform that combines <strong>84 quality checks</strong>, <strong>AI-powered role extraction</strong>, <strong>statement extraction for process modeling</strong>, and <strong>intelligent fix assistance</strong>—all running locally without internet access.</p>
+        <p>AEGIS is a comprehensive document analysis platform that combines <strong>105+ quality checks</strong>, <strong>AI-powered role extraction</strong>, <strong>statement extraction for process modeling</strong>, and <strong>intelligent fix assistance</strong>—all running locally without internet access.</p>
     </div>
 </div>
 
@@ -172,7 +198,7 @@ HelpDocs.content['welcome'] = {
     <i data-lucide="award"></i>
     <div>
         <strong>Enterprise-Grade Capabilities</strong>
-        <p>Validated on government SOWs, defense SEPs, systems engineering management plans, and industry standards. Role extraction achieves <strong>94.7% precision</strong> and <strong>92.3% F1 score</strong>.</p>
+        <p>Validated on government SOWs, defense SEPs, systems engineering management plans, and industry standards. Role extraction achieves <span class="help-stat">94.7% precision</span> and <span class="help-stat">92.3% F1 score</span>.</p>
     </div>
 </div>
 
@@ -181,7 +207,7 @@ HelpDocs.content['welcome'] = {
 <div class="help-feature-grid">
     <div class="help-feature-card">
         <div class="help-feature-icon"><i data-lucide="shield-check"></i></div>
-        <h3>84 Quality Checks</h3>
+        <h3>105+ Quality Checks</h3>
         <p>Grammar, spelling, acronyms, passive voice, requirements language (shall/must/will), sentence complexity, document structure, and hyperlink validation.</p>
     </div>
     <div class="help-feature-card">
@@ -254,7 +280,7 @@ HelpDocs.content['welcome'] = {
         <div class="help-path-icon"><i data-lucide="check-square"></i></div>
         <div class="help-path-content">
             <h4>Quality Checkers</h4>
-            <p>Understand what each of 50+ checks does</p>
+            <p>Understand what each of 105+ checks does</p>
         </div>
         <i data-lucide="chevron-right" class="help-path-arrow"></i>
     </div>
@@ -690,6 +716,129 @@ HelpDocs.content['interface-tour'] = {
 };
 
 // ============================================================================
+// GUIDED TOURS & DEMOS
+// ============================================================================
+HelpDocs.content['tour-overview'] = {
+    title: 'Guided Tours & Demos',
+    subtitle: 'Interactive walkthroughs of every AEGIS feature',
+    html: `
+<div class="help-callout help-callout-info">
+    <i data-lucide="play-circle"></i>
+    <div>
+        <strong>New to AEGIS?</strong>
+        <p>The Guided Tour system provides animated walkthroughs of every feature. No video files needed — demos run on the live UI with spotlight highlighting, narration, and step-by-step guidance.</p>
+    </div>
+</div>
+
+<h2><i data-lucide="sparkles"></i> What's Included</h2>
+<ul>
+    <li><strong>79 overview scenes</strong> covering all 11 AEGIS modules (Document Review, Batch, Roles, Statement Forge, SOW Generator, Hyperlink Validator, Document Compare, Metrics, History, Settings, Portfolio)</li>
+    <li><strong>93 deep-dive sub-demos</strong> with approximately 471 scenes covering every sub-function, workflow, export, and import</li>
+    <li><strong>Voice narration</strong> with typewriter text display and playback speed control</li>
+    <li><strong>Full demo mode</strong> that walks through all modules sequentially (~10 minutes at 1x speed)</li>
+</ul>
+
+<h2><i data-lucide="mouse-pointer-click"></i> How to Start</h2>
+<ol>
+    <li>Click the <strong>?</strong> help beacon in the bottom-right corner of any screen</li>
+    <li>In the help panel, click <strong>"Watch Demo"</strong> for the current section</li>
+    <li>Or click <strong>"Full Demo"</strong> to watch all sections in sequence</li>
+    <li>The demo bar appears at the bottom with play/pause, skip, and speed controls</li>
+</ol>
+
+<h2><i data-lucide="settings"></i> Settings</h2>
+<p>Enable or disable the guide system in <strong>Settings > General > Guided Tour</strong>. When disabled, the help beacon and demo features are hidden.</p>
+`
+};
+
+HelpDocs.content['tour-demos'] = {
+    title: 'Watching Demos',
+    subtitle: 'Overview demos for each AEGIS module',
+    html: `
+<h2><i data-lucide="monitor-play"></i> Demo Player Controls</h2>
+<p>When a demo starts, a glassmorphism control bar appears at the bottom of the screen:</p>
+<ul>
+    <li><strong>Play/Pause</strong> — Toggle demo playback</li>
+    <li><strong>Previous/Next</strong> — Skip between scenes</li>
+    <li><strong>Stop (X)</strong> — End the demo and return to normal mode</li>
+    <li><strong>Speed selector</strong> — Choose from 0.5x, 1x, 1.5x, or 2x playback speed</li>
+    <li><strong>Progress bar</strong> — Visual indicator of current position</li>
+</ul>
+
+<h2><i data-lucide="target"></i> Spotlight System</h2>
+<p>During demos, an SVG mask spotlight highlights the UI element being discussed. The rest of the screen is dimmed with a semi-transparent overlay. The spotlight automatically follows the element as the demo progresses through scenes.</p>
+
+<h2><i data-lucide="type"></i> Narration Display</h2>
+<p>Each scene displays narration text with a typewriter effect in the demo bar. The text describes what the highlighted element does and provides tips for effective use. Narration speed adjusts with the playback speed setting.</p>
+
+<h2><i data-lucide="compass"></i> Section Navigation</h2>
+<p>The demo player automatically navigates between modules — opening modals, switching tabs, and scrolling to elements as needed. When a demo ends or is stopped, the UI returns to its previous state.</p>
+`
+};
+
+HelpDocs.content['tour-voice'] = {
+    title: 'Voice Narration',
+    subtitle: 'Audio narration for demo walkthroughs',
+    html: `
+<h2><i data-lucide="volume-2"></i> Audio Provider Chain</h2>
+<p>AEGIS uses a three-tier audio system for demo narration:</p>
+<ol>
+    <li><strong>Pre-generated MP3 clips</strong> — High-quality neural voice audio (requires internet for initial generation)</li>
+    <li><strong>Web Speech API</strong> — Browser-native text-to-speech as fallback (works offline)</li>
+    <li><strong>Silent timer</strong> — If neither audio source is available, scenes advance on a timed basis</li>
+</ol>
+
+<h2><i data-lucide="sliders"></i> Controls</h2>
+<ul>
+    <li><strong>Narration toggle</strong> — Click the speaker icon in the demo bar to enable/disable voice</li>
+    <li><strong>Volume slider</strong> — Adjust narration volume (persisted across sessions)</li>
+    <li><strong>Voice selection</strong> — Automatically picks the best available voice</li>
+    <li><strong>Speed sync</strong> — Audio playback rate syncs with the demo speed selector</li>
+</ul>
+
+<div class="help-callout help-callout-warning">
+    <i data-lucide="info"></i>
+    <div>
+        <strong>Chrome 15-Second Bug</strong>
+        <p>Chrome's Web Speech API has a known bug where utterances longer than ~15 seconds are cut off. AEGIS works around this by splitting narration into sentences and chaining them together.</p>
+    </div>
+</div>
+`
+};
+
+HelpDocs.content['tour-sub-demos'] = {
+    title: 'Deep-Dive Sub-Demos',
+    subtitle: 'Detailed walkthroughs for every sub-feature',
+    html: `
+<h2><i data-lucide="layers"></i> What Are Sub-Demos?</h2>
+<p>Sub-demos are focused walkthroughs that cover individual features within a module. While overview demos give a broad tour, sub-demos drill down into specific workflows like exporting data, configuring settings, or using advanced search.</p>
+
+<h2><i data-lucide="mouse-pointer-click"></i> Accessing Sub-Demos</h2>
+<ol>
+    <li>Click the <strong>?</strong> help beacon to open the help panel</li>
+    <li>Click <strong>"Watch Demo"</strong> — the panel transitions to show the demo picker</li>
+    <li>The <strong>overview card</strong> plays the module's general walkthrough</li>
+    <li>Below it, a <strong>2-column grid of sub-demo cards</strong> shows all available deep-dives</li>
+    <li>Each card shows the sub-demo name, description, and estimated duration</li>
+</ol>
+
+<h2><i data-lucide="list"></i> Available Sub-Demos</h2>
+<p>All 11 AEGIS modules have sub-demos. Examples include:</p>
+<ul>
+    <li><strong>Document Review</strong> — Loading files, preset configuration, issue triage, export results, fix assistant</li>
+    <li><strong>Roles Studio</strong> — Adjudication workflow, dictionary management, export/import, relationship graph, function tags, RACI matrix</li>
+    <li><strong>Statement Forge</strong> — Extraction pipeline, history overview, compare viewer, search, bulk editing</li>
+    <li><strong>Hyperlink Validator</strong> — Validation flow, deep validate (headless), domain filtering, history, export</li>
+    <li><strong>Metrics & Analytics</strong> — Overview dashboard, quality trends, role analysis, document tracking</li>
+    <li><strong>Settings</strong> — Review profiles, display customization, network configuration, data management, diagnostics</li>
+</ul>
+
+<h2><i data-lucide="navigation"></i> During Sub-Demo Playback</h2>
+<p>The demo bar shows a breadcrumb like <strong>"Roles Studio > Adjudication Workflow"</strong> so you always know where you are. Sub-demos automatically open the correct modal and switch to the right tab before playing their scenes.</p>
+`
+};
+
+// ============================================================================
 // LOADING DOCUMENTS
 // ============================================================================
 HelpDocs.content['loading-docs'] = {
@@ -995,12 +1144,12 @@ HelpDocs.content['issue-families'] = {
 // ============================================================================
 HelpDocs.content['checker-overview'] = {
     title: 'Quality Checkers Overview',
-    subtitle: 'Understanding the 50+ checks available',
+    subtitle: 'Understanding the 105+ checks available',
     html: `
 <div class="help-hero help-hero-compact">
     <div class="help-hero-icon"><i data-lucide="shield-check" class="hero-icon-main"></i></div>
     <div class="help-hero-content">
-        <p>AEGIS includes <strong>50+ quality checks</strong> across 15 checker modules, covering grammar, spelling, acronyms, requirements language, document structure, hyperlinks, and more. All processing happens locally—no cloud dependencies.</p>
+        <p>AEGIS includes <strong>105+ quality checks</strong> across 15 checker modules, covering grammar, spelling, acronyms, requirements language, document structure, hyperlinks, and more. All processing happens locally—no cloud dependencies.</p>
     </div>
 </div>
 
@@ -1505,7 +1654,7 @@ HelpDocs.content['checker-structure'] = {
 // ============================================================================
 HelpDocs.content['checker-all'] = {
     title: 'Complete Checker Reference',
-    subtitle: 'All 50+ quality checks in one place',
+    subtitle: 'All 105+ quality checks in one place',
     html: `
 <p>Comprehensive reference of all available checks, organized by category.</p>
 
@@ -2948,6 +3097,14 @@ HelpDocs.content['role-hierarchy'] = {
 </table>
 <p>Click any cluster card to drill in, click a role card to see its neighborhood, and click the center node to open the detail panel. Use breadcrumbs at the top to navigate back.</p>
 
+<h3>Graph Export (v5.9.16)</h3>
+<p>Click the <strong>Export</strong> button in the graph toolbar to download the graph in three formats:</p>
+<ul>
+    <li><strong>PNG (High-Res)</strong> — 3x resolution raster image, ideal for presentations and reports</li>
+    <li><strong>SVG (Vector)</strong> — Scalable vector format with inlined styles, ideal for editing in Illustrator or Inkscape</li>
+    <li><strong>Interactive HTML</strong> — Standalone D3.js page with pan/zoom, node tooltips, search, and filter by function tag, role type, or org group</li>
+</ul>
+
 <h3>Table View</h3>
 <p>A sortable data table with columns for Role Name, Function Tags, Role Type, Disposition, Baselined, Inherits From, Inherited By, and Description. Supports CSV export.</p>
 
@@ -3862,11 +4019,115 @@ HelpDocs.content['forge-export'] = {
 };
 
 // ============================================================================
+// SOW GENERATOR (v5.9.16)
+// ============================================================================
+HelpDocs.content['sow-overview'] = {
+    title: 'SOW Generator',
+    subtitle: 'Generate Statement of Work documents from extracted requirements',
+    html: `
+<h2><i data-lucide="file-output"></i> What is the SOW Generator?</h2>
+<p>The SOW Generator creates professional Statement of Work documents by aggregating data from your scanned documents, extracted statements, adjudicated roles, and function categories. It produces either a standalone HTML document or populates a DOCX template with your data.</p>
+
+<h2><i data-lucide="layout"></i> Two-Panel Interface</h2>
+<table class="help-table">
+    <thead><tr><th>Panel</th><th>Purpose</th></tr></thead>
+    <tbody>
+        <tr><td><strong>Configuration (Left)</strong></td><td>Set document metadata (title, version, date, author), custom introduction/scope text, section toggles, and optional DOCX template upload</td></tr>
+        <tr><td><strong>Data Summary (Right)</strong></td><td>Live stats (documents, statements, roles, categories), document selection with checkboxes, directive breakdown chart</td></tr>
+    </tbody>
+</table>
+
+<h2><i data-lucide="list-checks"></i> Generated Sections</h2>
+<p>Toggle any section on/off before generating:</p>
+<ul>
+    <li><strong>Introduction</strong> — Project overview (custom or auto-generated)</li>
+    <li><strong>Scope</strong> — Coverage areas with directive distribution</li>
+    <li><strong>Applicable Documents</strong> — Table of all selected source documents</li>
+    <li><strong>Requirements & Deliverables</strong> — Statements grouped by directive priority (SHALL > MUST > WILL > SHOULD > MAY)</li>
+    <li><strong>Work Breakdown Structure</strong> — Hierarchical tree from function categories</li>
+    <li><strong>Roles & Responsibilities</strong> — Role cards with function tags and assigned statements</li>
+    <li><strong>Acceptance Criteria</strong> — Testable SHALL statements</li>
+    <li><strong>Standards & Compliance</strong> — Auto-detected standard references (MIL-STD, DO-, SAE, ISO, etc.)</li>
+    <li><strong>Assumptions & Constraints</strong> — Custom or default assumptions</li>
+</ul>
+
+<h2><i data-lucide="filter"></i> Document Selection</h2>
+<p>Select which documents to include using checkboxes. Use <strong>All</strong> or <strong>None</strong> buttons for quick selection. Stats and directive chart update dynamically based on your selection.</p>
+`
+};
+
+HelpDocs.content['sow-template'] = {
+    title: 'Template Upload',
+    subtitle: 'Populate your own DOCX template with extracted data',
+    html: `
+<h2><i data-lucide="upload"></i> Template Upload (v5.9.16)</h2>
+<p>Upload a company DOCX template with placeholder markers. AEGIS will find and replace each placeholder with the corresponding extracted data, returning a populated DOCX document.</p>
+
+<h2><i data-lucide="workflow"></i> How It Works</h2>
+<ol>
+    <li>Create a DOCX template with <code>{{PLACEHOLDER}}</code> markers where you want data inserted</li>
+    <li>Open the SOW Generator and configure your settings</li>
+    <li>Drag and drop your template into the upload area (or click Browse)</li>
+    <li>Click <strong>Generate from Template</strong></li>
+    <li>AEGIS populates all placeholders and downloads the completed DOCX</li>
+</ol>
+
+<div class="help-callout help-callout-info">
+    <i data-lucide="info"></i>
+    <div>
+        <strong>Template Mode vs HTML Mode</strong>
+        <p>Without a template, AEGIS generates a standalone HTML document with embedded styling. With a template, it returns a DOCX file preserving your template's formatting, fonts, and layout.</p>
+    </div>
+</div>
+`
+};
+
+HelpDocs.content['sow-placeholders'] = {
+    title: 'Supported Placeholders',
+    subtitle: 'Reference guide for DOCX template markers',
+    html: `
+<h2><i data-lucide="code"></i> Available Placeholders</h2>
+<table class="help-table">
+    <thead><tr><th>Placeholder</th><th>Replaced With</th></tr></thead>
+    <tbody>
+        <tr><td><code>{{TITLE}}</code></td><td>SOW title from configuration</td></tr>
+        <tr><td><code>{{DOC_NUMBER}}</code></td><td>Document number</td></tr>
+        <tr><td><code>{{VERSION}}</code></td><td>Version string</td></tr>
+        <tr><td><code>{{DATE}}</code></td><td>Effective date</td></tr>
+        <tr><td><code>{{PREPARED_BY}}</code></td><td>Author name</td></tr>
+        <tr><td><code>{{ORGANIZATION}}</code></td><td>Organization name</td></tr>
+        <tr><td><code>{{INTRO}}</code></td><td>Introduction text</td></tr>
+        <tr><td><code>{{SCOPE}}</code></td><td>Scope description</td></tr>
+        <tr><td><code>{{REQUIREMENTS}}</code></td><td>All requirements grouped by directive</td></tr>
+        <tr><td><code>{{ROLES}}</code></td><td>Role names, types, tags, and assigned statements</td></tr>
+        <tr><td><code>{{DOCUMENTS}}</code></td><td>List of source documents with word counts and scores</td></tr>
+        <tr><td><code>{{ACCEPTANCE}}</code></td><td>SHALL statements as acceptance criteria</td></tr>
+        <tr><td><code>{{STANDARDS}}</code></td><td>Auto-detected standard references</td></tr>
+        <tr><td><code>{{ASSUMPTIONS}}</code></td><td>Assumptions text</td></tr>
+        <tr><td><code>{{TOTAL_DOCS}}</code></td><td>Number of selected documents</td></tr>
+        <tr><td><code>{{TOTAL_STMTS}}</code></td><td>Number of statements</td></tr>
+        <tr><td><code>{{TOTAL_ROLES}}</code></td><td>Number of active roles</td></tr>
+        <tr><td><code>{{AEGIS_VERSION}}</code></td><td>AEGIS version string</td></tr>
+        <tr><td><code>{{EXPORT_DATE}}</code></td><td>Export timestamp</td></tr>
+    </tbody>
+</table>
+
+<div class="help-callout help-callout-warning">
+    <i data-lucide="alert-triangle"></i>
+    <div>
+        <strong>Placeholder Formatting</strong>
+        <p>Placeholders must use double curly braces: <code>{{NAME}}</code>. They work in paragraphs, table cells, headers, and footers. Make sure the entire placeholder is typed as one continuous string in Word (not split across formatting runs).</p>
+    </div>
+</div>
+`
+};
+
+// ============================================================================
 // EXPORT OVERVIEW
 // ============================================================================
 HelpDocs.content['export-overview'] = {
-    title: 'Export Options',
-    subtitle: 'Create deliverables from your review results',
+    title: 'Export Suite (v5.9.4)',
+    subtitle: '5 export formats with pre-export filtering',
     html: `
 <div class="help-export-grid">
     <div class="help-export-card" onclick="HelpContent.navigateTo('export-word')">
@@ -3874,6 +4135,12 @@ HelpDocs.content['export-overview'] = {
         <h3>Word Document</h3>
         <p>Original document with tracked changes and comments.</p>
         <span class="help-badge">Recommended</span>
+    </div>
+    <div class="help-export-card" onclick="HelpContent.navigateTo('export-pdf')">
+        <div class="help-export-card-icon"><i data-lucide="file-badge"></i></div>
+        <h3>PDF Report</h3>
+        <p>Branded report with cover page, charts, and issue details.</p>
+        <span class="help-badge" style="background: #ef4444;">New</span>
     </div>
     <div class="help-export-card" onclick="HelpContent.navigateTo('export-data')">
         <div class="help-export-card-icon"><i data-lucide="table"></i></div>
@@ -3887,8 +4154,16 @@ HelpDocs.content['export-overview'] = {
     </div>
 </div>
 
-<h2><i data-lucide="filter"></i> What Gets Exported</h2>
-<p>By default, exports include "Kept" issues. Configure to include all, pending only, or specific statuses.</p>
+<h2><i data-lucide="sliders-horizontal"></i> Pre-Export Filtering</h2>
+<p>Click <strong>Filter Issues</strong> in the export modal to narrow your export by severity or category. Chip-based selectors show issue counts, and a live preview displays how many issues will be included.</p>
+
+<h2><i data-lucide="filter"></i> Export Modes</h2>
+<ul>
+    <li><strong>All Issues</strong> — Every issue from the scan</li>
+    <li><strong>Filtered</strong> — Only issues matching the current results filter</li>
+    <li><strong>Selected</strong> — Only hand-picked issues from the results table</li>
+</ul>
+<p>Filters from the export panel are applied <em>on top of</em> the selected mode.</p>
 
 <h2><i data-lucide="keyboard"></i> Quick Export</h2>
 <p>Press <kbd>Ctrl</kbd>+<kbd>E</kbd> to open the export dialog.</p>
@@ -4013,6 +4288,72 @@ HelpDocs.content['export-json'] = {
     <li><strong>Data aggregation</strong> — Combine multiple documents</li>
     <li><strong>API integration</strong> — Post to tracking systems</li>
 </ul>
+`
+};
+
+// ============================================================================
+// PDF REPORT EXPORT (v5.9.4)
+// ============================================================================
+HelpDocs.content['export-pdf'] = {
+    title: 'PDF Report Export',
+    subtitle: 'Professional branded review report',
+    html: `
+<h2><i data-lucide="file-badge"></i> What You Get</h2>
+<p>A multi-page PDF report generated server-side using AEGIS branding:</p>
+<ul>
+    <li><strong>Cover Page</strong> — Document name, quality score, grade, issue count, word count, reviewer name, AEGIS branding</li>
+    <li><strong>Executive Summary</strong> — Score interpretation and key findings narrative</li>
+    <li><strong>Severity Distribution</strong> — Table with counts, percentages, and visual bars for each severity level</li>
+    <li><strong>Category Distribution</strong> — Top 15 categories ranked by issue count with top severity indicator</li>
+    <li><strong>Issue Details</strong> — Full issue listing grouped by category with severity badges, messages, flagged text, and suggestions</li>
+</ul>
+
+<h2><i data-lucide="palette"></i> Branding</h2>
+<p>The report uses AEGIS gold/bronze branding colors, color-coded severity labels (red for Critical, orange for High, etc.), and alternating row backgrounds for readability.</p>
+
+<h2><i data-lucide="filter"></i> Filtered Reports</h2>
+<p>When export filters are active, a yellow notice banner appears on the report indicating which severities or categories were included. This makes it clear the report is a subset of the full scan.</p>
+
+<div class="help-callout help-callout-tip">
+    <i data-lucide="lightbulb"></i>
+    <div>
+        <strong>Pro Tip</strong>
+        <p>Use pre-export filters to create focused reports. For example, export only Critical and High severity issues for a management summary.</p>
+    </div>
+</div>
+`
+};
+
+// ============================================================================
+// EXPORT FILTERS (v5.9.4)
+// ============================================================================
+HelpDocs.content['export-filters'] = {
+    title: 'Export Filters & Preview',
+    subtitle: 'Control exactly what gets exported',
+    html: `
+<h2><i data-lucide="sliders-horizontal"></i> Filter Panel</h2>
+<p>Click the <strong>Filter Issues</strong> header in the export modal to expand the filter panel. Two filter types are available:</p>
+
+<h3>Severity Filters</h3>
+<p>Click severity chips (Critical, High, Medium, Low, Info) to include only those severities. Active chips are highlighted with the severity color. Multiple selections are combined with OR logic.</p>
+
+<h3>Category Filters</h3>
+<p>Click category chips to include only specific checker categories. Each chip shows the issue count. Categories are sorted by count (most issues first).</p>
+
+<h2><i data-lucide="eye"></i> Live Preview</h2>
+<p>When any filter is active, a gold-bordered preview bar appears showing the exact number of issues that will be exported. This updates in real-time as you toggle filters.</p>
+
+<h2><i data-lucide="x-circle"></i> Clear Filters</h2>
+<p>Click <strong>Clear Filters</strong> in the preview bar to deselect all filters and return to exporting all issues (based on the selected export mode).</p>
+
+<h2><i data-lucide="layers"></i> Filter Stacking</h2>
+<p>Export filters stack on top of the export mode:</p>
+<ol>
+    <li>Export mode selects the base set (All, Filtered, or Selected)</li>
+    <li>Severity filters narrow to matching severities</li>
+    <li>Category filters further narrow to matching categories</li>
+</ol>
+<p>For example: Mode = "Filtered" + Severity = "Critical" exports only Critical issues from the currently filtered results.</p>
 `
 };
 
@@ -4788,6 +5129,33 @@ HelpDocs.content['settings-appearance'] = {
 };
 
 // ============================================================================
+// SETTINGS - DIAGNOSTICS (v5.9.20)
+// ============================================================================
+HelpDocs.content['settings-diagnostics'] = {
+    title: 'Diagnostics',
+    subtitle: 'System health checks and support tools',
+    html: `
+<h2><i data-lucide="activity"></i> Health Check</h2>
+<p>The Diagnostics tab provides a real-time health overview of AEGIS components: Python version, Flask status, database connectivity, NLP model availability, and disk space usage.</p>
+
+<h2><i data-lucide="mail"></i> Email Diagnostics</h2>
+<p>Click <strong>"Email to Support"</strong> to generate a diagnostic report package:</p>
+<ul>
+    <li>Generates an <strong>.eml file</strong> (RFC 2822 format) that opens in your default email client (Outlook, Apple Mail, Thunderbird)</li>
+    <li>The diagnostic JSON report is <strong>pre-attached</strong> — no manual file drag-drop required</li>
+    <li>Active log files (<code>aegis.log</code> and other module logs) are also attached automatically</li>
+    <li>Double-click the downloaded .eml file to open it as a ready-to-send draft</li>
+</ul>
+
+<h2><i data-lucide="file-text"></i> Log Viewer</h2>
+<p>View recent log entries directly in the Diagnostics panel. Filter by log level (DEBUG, INFO, WARNING, ERROR) and search for specific messages.</p>
+
+<h2><i data-lucide="download"></i> Export Diagnostic Report</h2>
+<p>Download a JSON file containing system information, configuration, database statistics, and recent error logs for offline analysis or archival.</p>
+`
+};
+
+// ============================================================================
 // SETTINGS - SHARING (NEW in v4.0.3)
 // ============================================================================
 HelpDocs.content['settings-sharing'] = {
@@ -5030,89 +5398,151 @@ HelpDocs.content['tech-architecture'] = {
 <h2><i data-lucide="layers"></i> System Architecture</h2>
 <p>AEGIS uses a classic client-server architecture designed for air-gapped Windows environments.</p>
 
-<pre class="help-code">
-┌─────────────────────────────────────────────────────────┐
-│                      Browser (Client)                    │
-│  ┌─────────────┐  ┌────────────┐  ┌─────────────────┐  │
-│  │   app.js    │  │  features/ │  │  vendor/        │  │
-│  │  (9,300 LOC)│  │  roles.js  │  │  d3.v7.min.js   │  │
-│  │             │  │  families  │  │  chart.min.js   │  │
-│  │             │  │  triage    │  │  lucide.min.js  │  │
-│  └─────────────┘  └────────────┘  └─────────────────┘  │
-└───────────────────────────┬─────────────────────────────┘
-                            │ HTTP/JSON
-┌───────────────────────────▼─────────────────────────────┐
-│                    Flask Server (Python)                 │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │  app.py (3,500 LOC) - Routes & API Endpoints     │   │
-│  └──────────────────────────────────────────────────┘   │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
-│  │   core.py    │  │ statement_   │  │  update_     │   │
-│  │  Document    │  │   forge/     │  │  manager.py  │   │
-│  │  Extraction  │  │              │  │              │   │
-│  └──────────────┘  └──────────────┘  └──────────────┘   │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │           Checker Modules (50+ files)             │   │
-│  │  acronym_checker.py, grammar_checker.py, etc.    │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
-</pre>
+<div style="width:100%;overflow-x:auto;padding:20px 0;">
+<div class="aao-root">
+<style>
+.aao-root{max-width:720px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e6edf3;position:relative}
+.aao-title{text-align:center;font-size:15px;font-weight:700;letter-spacing:2.5px;color:#D6A84A;margin-bottom:18px;animation:aaoGlow 3s ease-in-out infinite;text-transform:uppercase}
+@keyframes aaoGlow{0%,100%{text-shadow:0 0 8px rgba(214,168,74,0.3)}50%{text-shadow:0 0 18px rgba(214,168,74,0.6),0 0 30px rgba(214,168,74,0.2)}}
+@keyframes aaoFadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes aaoGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.aao-tier{animation:aaoFadeUp .5s ease both}
+.aao-tier-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;font-weight:600;color:#e6edf3}
+.aao-tier-header .aao-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.aao-tier-header .aao-label{margin-left:auto;font-size:11px;font-weight:400;color:#8b949e;font-style:italic}
+.aao-boxes{display:grid;gap:8px;margin-bottom:4px}
+.aao-boxes-4{grid-template-columns:repeat(4,1fr)}
+.aao-boxes-3{grid-template-columns:repeat(3,1fr)}
+.aao-box{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px;text-align:center;transition:transform .2s,box-shadow .2s;cursor:default}
+.aao-box:hover{transform:scale(1.02);box-shadow:0 0 20px rgba(214,168,74,0.3)}
+.aao-box-title{font-size:12px;font-weight:600;color:#e6edf3;margin-bottom:4px}
+.aao-box-sub{font-size:10px;color:#8b949e;line-height:1.4}
+.aao-arrow{display:flex;flex-direction:column;align-items:center;padding:6px 0;animation:aaoFadeUp .5s ease both}
+.aao-arrow-line{width:2px;height:28px;background:linear-gradient(180deg,#D6A84A,#B8743A);transform-origin:top;animation:aaoGrow .3s ease both}
+.aao-arrow-head{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid #B8743A}
+.aao-arrow-label{font-size:10px;color:#D6A84A;margin-top:2px;letter-spacing:0.5px}
+.aao-nlp-banner{background:linear-gradient(135deg,rgba(56,139,66,0.15),rgba(56,139,66,0.05));border:1px solid rgba(56,139,66,0.3);border-radius:6px;padding:10px;text-align:center;margin-top:8px;animation:aaoFadeUp .5s ease both}
+.aao-nlp-banner-title{font-size:11px;font-weight:600;color:#3fb950;margin-bottom:3px}
+.aao-nlp-banner-sub{font-size:10px;color:#8b949e}
+.aao-t1{animation-delay:.2s}.aao-t2{animation-delay:.9s}.aao-t3{animation-delay:1.6s}
+.aao-a1{animation-delay:.7s}.aao-a1 .aao-arrow-line{animation-delay:.7s}
+.aao-a2{animation-delay:1.4s}.aao-a2 .aao-arrow-line{animation-delay:1.4s}
+.aao-nlp-d{animation-delay:1.3s}
+</style>
+<div class="aao-title">AEGIS System Architecture</div>
+<div class="aao-tier aao-t1">
+<div class="aao-tier-header"><span class="aao-dot" style="background:#3fb950"></span>Browser Client<span class="aao-label">Vanilla JS &middot; No Framework</span></div>
+<div class="aao-boxes aao-boxes-4">
+<div class="aao-box"><div class="aao-box-title">app.js</div><div class="aao-box-sub">16,000+ LOC<br>Core Logic<br>Modal System</div></div>
+<div class="aao-box"><div class="aao-box-title">features/</div><div class="aao-box-sub">Roles Studio<br>Statement Forge<br>Metrics &middot; Guide</div></div>
+<div class="aao-box"><div class="aao-box-title">ui/</div><div class="aao-box-sub">State &middot; Events<br>Modals &middot; Toast<br>Renderers</div></div>
+<div class="aao-box"><div class="aao-box-title">vendor/</div><div class="aao-box-sub">D3.js &middot; Chart.js<br>Lucide &middot; PDF.js<br>Diff-Match-Patch</div></div>
+</div>
+</div>
+<div class="aao-arrow aao-a1"><div class="aao-arrow-line"></div><div class="aao-arrow-head"></div><div class="aao-arrow-label">HTTP / JSON + CSRF</div></div>
+<div class="aao-tier aao-t2">
+<div class="aao-tier-header"><span class="aao-dot" style="background:#58a6ff"></span>Flask Server (Python 3.10)<span class="aao-label">Waitress WSGI &middot; 4 threads</span></div>
+<div class="aao-boxes aao-boxes-3">
+<div class="aao-box"><div class="aao-box-title">routes/ (Blueprints)</div><div class="aao-box-sub">core &middot; review &middot; roles<br>data &middot; config</div></div>
+<div class="aao-box"><div class="aao-box-title">core.py (AEGISEngine)</div><div class="aao-box-sub">Extraction &middot; NLP<br>105+ Checkers</div></div>
+<div class="aao-box"><div class="aao-box-title">Specialized Modules</div><div class="aao-box-sub">Statement Forge &middot; HV<br>Export &middot; Reports</div></div>
+</div>
+<div class="aao-nlp-banner aao-nlp-d">
+<div class="aao-nlp-banner-title">NLP Stack: spaCy &middot; Sentence-Transformers &middot; NLTK &middot; SymSpell &middot; rapidfuzz</div>
+<div class="aao-nlp-banner-sub">Offline Models &middot; Singleton Caching &middot; ThreadPoolExecutor for Batch</div>
+</div>
+</div>
+<div class="aao-arrow aao-a2"><div class="aao-arrow-line"></div><div class="aao-arrow-head"></div></div>
+<div class="aao-tier aao-t3">
+<div class="aao-tier-header"><span class="aao-dot" style="background:#D6A84A"></span>Data Layer</div>
+<div class="aao-boxes aao-boxes-3">
+<div class="aao-box"><div class="aao-box-title">scan_history.db</div><div class="aao-box-sub">SQLite</div></div>
+<div class="aao-box"><div class="aao-box-title">config.json &middot; version.json</div><div class="aao-box-sub">Settings &middot; Metadata</div></div>
+<div class="aao-box"><div class="aao-box-title">logs/ &middot; backups/ &middot; updates/</div><div class="aao-box-sub">Runtime Data</div></div>
+</div>
+</div>
+</div>
+</div>
 
 <h2><i data-lucide="folder"></i> Directory Structure</h2>
 <pre class="help-code">
-AEGIS/            # Main application folder
-├── app.py                   # Main Flask application (4,300+ LOC)
-├── core.py                  # Document extraction engine
-├── role_extractor_v3.py     # AI role extraction (94.7% precision)
-├── *_checker.py             # 50+ quality checker modules
-├── statement_forge/         # Statement extraction module
-│   ├── routes.py            # API endpoints
-│   ├── extractor.py         # Extraction logic
-│   └── export.py            # Export formats
-├── static/                  # Frontend assets
-│   ├── js/                  # JavaScript modules
-│   │   ├── app.js           # Main application
-│   │   ├── features/        # Feature modules (roles, triage, families)
-│   │   ├── ui/              # UI components (modals, state, events)
-│   │   ├── api/             # API client
-│   │   └── vendor/          # Third-party (D3, Chart.js, Lucide)
-│   └── css/                 # Stylesheets
-├── templates/               # HTML templates
-│   └── index.html           # Single-page application
-├── updates/                 # Drop update files here
-│   └── UPDATE_README.md     # Update instructions
-├── backups/                 # Auto-created before updates
-├── logs/                    # Application logs
-├── data/                    # Data files
-├── tools/                   # Utility scripts
-├── docs/                    # Documentation
-├── version.json             # Version info (single source of truth)
-├── config.json              # User configuration
-├── requirements.txt         # Python dependencies
-├── setup.bat                # Basic setup
-├── setup_docling.bat        # Docling AI installation
-└── setup_enhancements.bat   # NLP enhancements installation
+AEGIS/                          # Main application folder
+├── app.py                      # Flask entry point + middleware (6,000+ LOC)
+├── core.py                     # AEGISEngine: extraction + 105+ checkers (2,400+ LOC)
+├── role_extractor_v3.py        # AI role extraction (94.7% precision, v3.5.0)
+├── review_report.py            # PDF report generator (reportlab, AEGIS branding)
+├── scan_history.py             # SQLite database operations + WAL mode
+├── *_checker.py                # 30+ quality checker modules
+├── routes/                     # Flask Blueprints
+│   ├── core_routes.py          # Version, index, middleware
+│   ├── review_routes.py        # Document review + folder scan
+│   ├── roles_routes.py         # Roles Studio API
+│   ├── data_routes.py          # Reports, analytics, export
+│   └── config_routes.py        # Settings, diagnostics, updates
+├── statement_forge/            # Statement extraction module
+│   ├── routes.py               # API endpoints
+│   ├── extractor.py            # RequirementsExtractor + WorkInstructionExtractor
+│   └── export.py               # CSV/JSON/PDF export
+├── hyperlink_validator/        # Link validation module
+│   ├── routes.py               # Validation + rescan endpoints
+│   ├── validator.py            # URL checking engine
+│   ├── headless_validator.py   # Playwright deep validation
+│   └── storage.py              # Exclusions + history persistence
+├── document_compare/           # Scan-to-scan comparison module
+├── nlp/                        # NLP integration layer
+│   ├── spacy/                  # spaCy analyzers + checkers
+│   ├── spelling/               # SymSpell + Enchant
+│   ├── semantics/              # WordNet + sentence-transformers
+│   └── style/                  # Proselint + custom style rules
+├── static/                     # Frontend assets
+│   ├── js/                     # JavaScript modules
+│   │   ├── app.js              # Main application + state manager
+│   │   ├── features/           # 15+ IIFE feature modules
+│   │   ├── ui/                 # UI components (modals, state, events)
+│   │   └── vendor/             # D3.js, Chart.js, Lucide, PDF.js
+│   ├── css/                    # Modular stylesheets (20+ files)
+│   │   ├── style.css           # Main (imports all modules)
+│   │   ├── dark-mode.css       # Dark mode variables
+│   │   └── features/           # Per-feature CSS modules
+│   └── audio/demo/             # Pre-generated TTS narration clips
+├── templates/
+│   └── index.html              # Single-page application
+├── wheels/                     # 240 pre-built wheels (offline install)
+├── updates/                    # Drop update files here
+├── backups/                    # Auto-created before updates
+├── logs/                       # Rotating application logs
+├── version.json                # Version info (single source of truth)
+├── config.json                 # User configuration
+├── Install_AEGIS_OneClick.bat  # Windows one-click installer
+└── restart_aegis.sh            # macOS server restart script
 </pre>
 
 <h2><i data-lucide="cog"></i> Key Technologies</h2>
 <table class="help-table">
     <thead><tr><th>Component</th><th>Technology</th><th>Purpose</th></tr></thead>
     <tbody>
-        <tr><td>Backend</td><td>Python 3.8+ / Flask</td><td>API server, document processing</td></tr>
+        <tr><td>Backend</td><td>Python 3.10+ / Flask</td><td>API server, document processing</td></tr>
         <tr><td>Frontend</td><td>Vanilla JavaScript</td><td>UI, no framework dependencies</td></tr>
         <tr><td>Visualization</td><td>D3.js, Chart.js</td><td>Graphs and charts</td></tr>
         <tr><td>Icons</td><td>Lucide</td><td>UI icons</td></tr>
         <tr><td>WSGI Server</td><td>Waitress</td><td>Production-ready, Windows-native</td></tr>
-        <tr><td>Document Parsing</td><td>python-docx, pdfplumber</td><td>Extract text from files</td></tr>
+        <tr><td>Document Parsing</td><td>Docling AI, mammoth, pymupdf4llm</td><td>DOCX/PDF extraction with fallback chain</td></tr>
+        <tr><td>NLP</td><td>spaCy, NLTK, SymSpell, rapidfuzz</td><td>Language analysis, semantic checking</td></tr>
+        <tr><td>ML/AI</td><td>sentence-transformers, scikit-learn</td><td>Duplicate detection, similarity scoring</td></tr>
+        <tr><td>Reports</td><td>reportlab, openpyxl</td><td>PDF/XLSX report generation</td></tr>
     </tbody>
 </table>
 
 <h2><i data-lucide="shield"></i> Air-Gapped Design</h2>
+<p>AEGIS is designed for deployment on classified, ITAR-controlled, and air-gapped networks where internet access is unavailable.</p>
 <ul>
-    <li><strong>No external API calls</strong> — All processing is local</li>
-    <li><strong>Bundled dependencies</strong> — Vendor JS files included</li>
-    <li><strong>Offline NLP</strong> — No cloud language services</li>
-    <li><strong>Local update system</strong> — Apply patches from local files</li>
+    <li><strong>Zero external API calls</strong> — All NLP, AI, and analysis processing runs 100% locally on your machine</li>
+    <li><strong>240 pre-built wheels</strong> — Complete Python dependency set for offline Windows installation</li>
+    <li><strong>Offline NLP models</strong> — spaCy en_core_web_sm, sentence-transformers, NLTK data, and SymSpell dictionaries all bundled</li>
+    <li><strong>Vendor JavaScript</strong> — D3.js, Chart.js, Lucide, PDF.js, Diff-Match-Patch all included locally</li>
+    <li><strong>Local update system</strong> — Drop files in the updates/ folder, apply via Settings with automatic backup</li>
+    <li><strong>No telemetry or analytics</strong> — AEGIS sends zero data outside your machine, ever</li>
+    <li><strong>SQLite database</strong> — All data stored in a single local file (scan_history.db) with WAL journaling</li>
 </ul>
 `
 };
@@ -5122,63 +5552,99 @@ AEGIS/            # Main application folder
 // ============================================================================
 HelpDocs.content['tech-checkers'] = {
     title: 'Checker Engine',
-    subtitle: 'How quality checks are implemented',
+    subtitle: 'How the 105+ quality checkers work',
     html: `
 <h2><i data-lucide="cog"></i> Checker Architecture</h2>
-<p>Each checker is a Python class inheriting from <code>BaseChecker</code>:</p>
+<p>AEGIS runs <strong>105+ quality checkers</strong> across 12 categories. Each checker is a Python class with a factory registration pattern:</p>
 
 <pre class="help-code">
 class AcronymChecker(BaseChecker):
     name = "Acronym Checker"
     category = "Acronyms"
-    
+
     def check(self, document):
         issues = []
         for para_idx, paragraph in enumerate(document.paragraphs):
-            # Detection logic
             acronyms = self.find_acronyms(paragraph.text)
             for acronym in acronyms:
                 if not self.is_defined(acronym, document):
-                    issues.append(Issue(
+                    issues.append(ReviewIssue(
                         severity="high",
                         message=f"Undefined acronym: {acronym}",
-                        flagged=acronym,
-                        paragraph=para_idx,
+                        flagged_text=acronym,
+                        paragraph_index=para_idx,
                         suggestion="Define on first use"
                     ))
         return issues
+
+def create_checker():
+    return {'acronym': AcronymChecker()}
 </pre>
 
-<h2><i data-lucide="list"></i> Checker Registry</h2>
-<p>Checkers register themselves in <code>app.py</code>:</p>
+<h2><i data-lucide="list"></i> Checker Categories</h2>
+<div style="width:100%;overflow-x:auto;padding:12px 0;">
+<div class="acc-root">
+<style>
+.acc-root{max-width:720px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e6edf3}
+.acc-title{text-align:center;font-size:15px;font-weight:700;letter-spacing:2.5px;color:#D6A84A;margin-bottom:16px;animation:accGlow 3s ease-in-out infinite;text-transform:uppercase}
+@keyframes accGlow{0%,100%{text-shadow:0 0 8px rgba(214,168,74,0.3)}50%{text-shadow:0 0 18px rgba(214,168,74,0.6),0 0 30px rgba(214,168,74,0.2)}}
+@keyframes accFadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.acc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.acc-card{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 10px 10px 14px;position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s;cursor:default;animation:accFadeUp .5s ease both}
+.acc-card:hover{transform:scale(1.02);box-shadow:0 0 20px rgba(214,168,74,0.3)}
+.acc-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px}
+.acc-card-title{font-size:11px;font-weight:600;color:#e6edf3;margin-bottom:3px}
+.acc-card-sub{font-size:10px;color:#8b949e;line-height:1.3}
+.acc-bar{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 14px;text-align:center;animation:accFadeUp .5s ease both}
+.acc-bar-title{font-size:11px;font-weight:600;color:#e6edf3;margin-bottom:3px}
+.acc-bar-sub{font-size:10px;color:#8b949e}
+.acc-r1c1{animation-delay:.3s}.acc-r1c2{animation-delay:.5s}.acc-r1c3{animation-delay:.7s}.acc-r1c4{animation-delay:.9s}
+.acc-r2c1{animation-delay:1.1s}.acc-r2c2{animation-delay:1.3s}.acc-r2c3{animation-delay:1.5s}.acc-r2c4{animation-delay:1.7s}
+.acc-r3c1{animation-delay:1.9s}.acc-r3c2{animation-delay:2.1s}.acc-r3c3{animation-delay:2.3s}.acc-r3c4{animation-delay:2.5s}
+.acc-bar-d{animation-delay:2.8s}
+</style>
+<div class="acc-title">105+ Quality Checkers</div>
+<div class="acc-grid">
+<div class="acc-card acc-r1c1" style="--c:#3fb950"><style>.acc-r1c1::before{background:#3fb950}</style><div class="acc-card-title">Grammar &amp; Spelling</div><div class="acc-card-sub">LanguageTool &middot; SymSpell</div></div>
+<div class="acc-card acc-r1c2" style="--c:#d29922"><style>.acc-r1c2::before{background:#d29922}</style><div class="acc-card-title">Requirements</div><div class="acc-card-sub">INCOSE &middot; Directives &middot; Scope</div></div>
+<div class="acc-card acc-r1c3" style="--c:#58a6ff"><style>.acc-r1c3::before{background:#58a6ff}</style><div class="acc-card-title">Writing Quality</div><div class="acc-card-sub">Passive &middot; Readability &middot; Tone</div></div>
+<div class="acc-card acc-r1c4" style="--c:#bc8cff"><style>.acc-r1c4::before{background:#bc8cff}</style><div class="acc-card-title">Acronyms</div><div class="acc-card-sub">1,767 database &middot; First-use</div></div>
 
-<pre class="help-code">
-CHECKERS = {
-    'acronyms': AcronymChecker(),
-    'grammar': GrammarChecker(),
-    'spelling': SpellChecker(),
-    'passive_voice': PassiveVoiceChecker(),
-    'requirements': RequirementsChecker(),
-    # ... 45+ more checkers
-}
-</pre>
+<div class="acc-card acc-r2c1"><style>.acc-r2c1::before{background:#f85149}</style><div class="acc-card-title">Hyperlink Health</div><div class="acc-card-sub">URL check &middot; Deep Validate</div></div>
+<div class="acc-card acc-r2c2"><style>.acc-r2c2::before{background:#e3b341}</style><div class="acc-card-title">Document Structure</div><div class="acc-card-sub">Headings &middot; Tables &middot; Lists</div></div>
+<div class="acc-card acc-r2c3"><style>.acc-r2c3::before{background:#39d3c5}</style><div class="acc-card-title">Style Consistency</div><div class="acc-card-sub">ASD-STE100 &middot; Style Guides</div></div>
+<div class="acc-card acc-r2c4"><style>.acc-r2c4::before{background:#f778ba}</style><div class="acc-card-title">Semantic Analysis</div><div class="acc-card-sub">Duplicates &middot; Similarity</div></div>
+
+<div class="acc-card acc-r3c1"><style>.acc-r3c1::before{background:#3fb950}</style><div class="acc-card-title">Terminology</div><div class="acc-card-sub">Consistency &middot; WordNet</div></div>
+<div class="acc-card acc-r3c2"><style>.acc-r3c2::before{background:#d29922}</style><div class="acc-card-title">Punctuation</div><div class="acc-card-sub">Spacing &middot; Quotes &middot; Dashes</div></div>
+<div class="acc-card acc-r3c3"><style>.acc-r3c3::before{background:#58a6ff}</style><div class="acc-card-title">Standards</div><div class="acc-card-sub">MIL-STD &middot; INCOSE &middot; IEEE</div></div>
+<div class="acc-card acc-r3c4"><style>.acc-r3c4::before{background:#bc8cff}</style><div class="acc-card-title">Readability</div><div class="acc-card-sub">Flesch &middot; Dale-Chall &middot; FOG</div></div>
+</div>
+<div class="acc-bar acc-bar-d">
+<div class="acc-bar-title">Sequential Execution &rarr; Cross-Checker Deduplication &rarr; Category Normalization &rarr; Scoring</div>
+<div class="acc-bar-sub">98 UI-toggleable checkers + 7 always-on &middot; Document-type suppression for requirements docs</div>
+</div>
+</div>
+</div>
 
 <h2><i data-lucide="play"></i> Execution Flow</h2>
 <ol>
-    <li><strong>Document Load</strong> — <code>core.py</code> extracts text and structure</li>
-    <li><strong>Checker Selection</strong> — UI sends enabled checker IDs</li>
-    <li><strong>Parallel Execution</strong> — Checkers run concurrently</li>
-    <li><strong>Issue Aggregation</strong> — Results merged and sorted</li>
-    <li><strong>Response</strong> — JSON sent to frontend</li>
+    <li><strong>Document Load</strong> — <code>core.py</code> extracts text via Docling/mammoth/pymupdf4llm chain</li>
+    <li><strong>Checker Selection</strong> — UI sends enabled checker IDs via <code>option_mapping</code> + <code>additional_checkers</code></li>
+    <li><strong>Sequential Execution</strong> — Checkers run sequentially (not parallel — shared NLP state is not thread-safe)</li>
+    <li><strong>Cross-Checker Dedup</strong> — <code>_deduplicate_issues()</code> normalizes 27+ category pairs to catch overlaps</li>
+    <li><strong>Document-Type Suppression</strong> — Requirements docs downgrade noise categories (readability, noun density) to Info</li>
+    <li><strong>Scoring</strong> — Category concentration discount (logarithmic diminishing returns per category)</li>
+    <li><strong>Response</strong> — JSON with issues, grade, score, and metadata sent to frontend</li>
 </ol>
 
 <h2><i data-lucide="plus"></i> Adding New Checkers</h2>
 <ol>
-    <li>Create <code>my_checker.py</code> extending <code>BaseChecker</code></li>
-    <li>Implement <code>check(document)</code> method</li>
-    <li>Register in <code>CHECKERS</code> dictionary</li>
-    <li>Add UI checkbox in <code>index.html</code></li>
-    <li>Add tests in <code>tests.py</code></li>
+    <li>Create <code>my_checker.py</code> with a <code>create_checker()</code> factory function</li>
+    <li>Implement <code>check(document)</code> method returning <code>ReviewIssue</code> instances</li>
+    <li>Register in <code>_init_checkers()</code> import block in <code>core.py</code></li>
+    <li>Add to <code>option_mapping</code> (if UI toggle) or <code>additional_checkers</code> (if always-on)</li>
+    <li>Add UI checkbox in <code>index.html</code> Settings > Document Profiles</li>
 </ol>
 `
 };
@@ -5198,53 +5664,56 @@ It automatically selects the best method based on what's available and the docum
 </div>
 
 <h3>Extraction Priority Chain</h3>
-<pre class="help-code">
-Document Upload
-      │
-      ▼
-┌─────────────────┐
-│ Format Detection│ ← .docx, .pdf, .pptx, .xlsx, .html
-└────────┬────────┘
-         │
-         ▼
-┌──────────────────────────────────────────────────┐
-│               Extraction Chain (v4.3.0)          │
-│                                                  │
-│  Priority 1: Docling (AI)                        │
-│  ┌─────────────┐                                 │
-│  │ DoclingAdapter│ → AI table/layout recognition │
-│  └──────┬──────┘                                 │
-│         │ fallback                               │
-│         ▼                                        │
-│  Priority 2: mammoth (DOCX) / pymupdf4llm (PDF) │
-│  ┌───────────┐  ┌──────────────┐                 │
-│  │  mammoth  │  │ pymupdf4llm  │                 │
-│  │ DOCX→HTML │  │  PDF→Markdown│                 │
-│  └───────────┘  └──────────────┘                 │
-│         │ fallback                               │
-│         ▼                                        │
-│  Priority 3: Legacy extractors                   │
-│  ┌──────────────┐  ┌─────────────┐               │
-│  │ python-docx  │  │ pdfplumber  │               │
-│  │ DocumentExtr.│  │ PDFExtractV2│               │
-│  └──────────────┘  └─────────────┘               │
-└────────────────────┬─────────────────────────────┘
-                     │
-                     ▼
-           ┌──────────────────┐
-           │ html_preview     │ ← Generated for all paths
-           │ (mammoth/pymu4l) │   via post-extraction step
-           └────────┬─────────┘
-                    ▼
-           ┌─────────────────┐
-           │ NLP Enhancement │ ← spaCy, sklearn
-           │ (role detection)│
-           └────────┬────────┘
-                    ▼
-           ┌─────────────────┐
-           │ Unified Result  │
-           └─────────────────┘
-</pre>
+<div style="width:100%;overflow-x:auto;padding:20px 0;">
+<div class="aep-root">
+<style>
+.aep-root{max-width:720px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e6edf3;display:flex;flex-direction:column;align-items:center}
+.aep-title{text-align:center;font-size:15px;font-weight:700;letter-spacing:2.5px;color:#D6A84A;margin-bottom:18px;animation:aepGlow 3s ease-in-out infinite;text-transform:uppercase}
+@keyframes aepGlow{0%,100%{text-shadow:0 0 8px rgba(214,168,74,0.3)}50%{text-shadow:0 0 18px rgba(214,168,74,0.6),0 0 30px rgba(214,168,74,0.2)}}
+@keyframes aepFadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes aepGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.aep-pill{background:linear-gradient(135deg,#D6A84A,#B8743A);color:#0d1117;font-size:12px;font-weight:700;padding:8px 24px;border-radius:20px;text-align:center;animation:aepFadeUp .5s ease both;display:inline-block}
+.aep-pill:hover{transform:scale(1.02);box-shadow:0 0 20px rgba(214,168,74,0.4)}
+.aep-arrow{display:flex;flex-direction:column;align-items:center;padding:4px 0;animation:aepFadeUp .5s ease both}
+.aep-arrow-line{width:2px;height:22px;background:linear-gradient(180deg,#D6A84A,#B8743A);transform-origin:top;animation:aepGrow .3s ease both}
+.aep-arrow-head{width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #B8743A}
+.aep-arrow-label{font-size:9px;color:#8b949e;margin-top:2px;font-style:italic}
+.aep-arrow-dashed .aep-arrow-line{background:repeating-linear-gradient(180deg,#D6A84A 0,#D6A84A 4px,transparent 4px,transparent 8px)}
+.aep-box{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 16px;width:100%;max-width:480px;text-align:center;animation:aepFadeUp .5s ease both;transition:transform .2s,box-shadow .2s;cursor:default;position:relative}
+.aep-box:hover{transform:scale(1.02);box-shadow:0 0 20px rgba(214,168,74,0.3)}
+.aep-box-title{font-size:12px;font-weight:600;color:#e6edf3;margin-bottom:3px}
+.aep-box-sub{font-size:10px;color:#8b949e;line-height:1.4}
+.aep-priority{border-left:3px solid #D6A84A;padding-left:14px;text-align:left}
+.aep-priority-label{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:9px;color:#D6A84A;font-weight:600;letter-spacing:0.5px}
+.aep-priority-pills{display:flex;gap:8px;justify-content:center;margin-top:6px}
+.aep-mini-pill{background:rgba(63,185,80,0.15);border:1px solid rgba(63,185,80,0.3);color:#3fb950;font-size:10px;padding:3px 10px;border-radius:10px;font-weight:500}
+.aep-mini-pill-label{font-size:9px;color:#8b949e;text-align:center;margin-top:2px}
+.aep-d0{animation-delay:.2s}.aep-d1{animation-delay:.5s}.aep-d1 .aep-arrow-line{animation-delay:.5s}
+.aep-d2{animation-delay:.8s}.aep-d3{animation-delay:1.1s}.aep-d3 .aep-arrow-line{animation-delay:1.1s}
+.aep-d4{animation-delay:1.4s}.aep-d5{animation-delay:1.7s}.aep-d5 .aep-arrow-line{animation-delay:1.7s}
+.aep-d6{animation-delay:2.0s}.aep-d7{animation-delay:2.3s}.aep-d7 .aep-arrow-line{animation-delay:2.3s}
+.aep-d8{animation-delay:2.6s}.aep-d9{animation-delay:2.9s}.aep-d9 .aep-arrow-line{animation-delay:2.9s}
+.aep-d10{animation-delay:3.2s}.aep-d11{animation-delay:3.5s}.aep-d11 .aep-arrow-line{animation-delay:3.5s}
+.aep-d12{animation-delay:3.8s}
+</style>
+<div class="aep-title">Document Extraction Pipeline</div>
+<div class="aep-pill aep-d0">Document Upload</div>
+<div class="aep-arrow aep-d1"><div class="aep-arrow-line"></div><div class="aep-arrow-head"></div></div>
+<div class="aep-box aep-d2"><div class="aep-box-title">Format Detection</div><div class="aep-box-sub">.docx &middot; .pdf &middot; .pptx &middot; .xlsx &middot; .html</div></div>
+<div class="aep-arrow aep-d3"><div class="aep-arrow-line"></div><div class="aep-arrow-head"></div></div>
+<div class="aep-box aep-priority aep-d4"><div class="aep-box-title">Priority 1: Docling AI Engine</div><div class="aep-box-sub">AI-powered table recognition &middot; Layout analysis<br>Subprocess with 120s timeout</div><div class="aep-priority-label">Best Quality</div></div>
+<div class="aep-arrow aep-arrow-dashed aep-d5"><div class="aep-arrow-line"></div><div class="aep-arrow-head"></div><div class="aep-arrow-label">fallback</div></div>
+<div class="aep-box aep-priority aep-d6"><div class="aep-box-title">Priority 2: Format-Specific Parsers</div><div class="aep-priority-pills"><div style="text-align:center"><div class="aep-mini-pill">mammoth</div><div class="aep-mini-pill-label">DOCX &rarr; HTML</div></div><div style="text-align:center"><div class="aep-mini-pill">pymupdf4llm</div><div class="aep-mini-pill-label">PDF &rarr; Markdown</div></div></div></div>
+<div class="aep-arrow aep-arrow-dashed aep-d7"><div class="aep-arrow-line"></div><div class="aep-arrow-head"></div><div class="aep-arrow-label">fallback</div></div>
+<div class="aep-box aep-priority aep-d8"><div class="aep-box-title">Priority 3: Legacy Extractors</div><div class="aep-box-sub">python-docx &middot; pdfplumber &middot; PyMuPDF &middot; Tesseract OCR</div><div class="aep-priority-label">Fallback</div></div>
+<div class="aep-arrow aep-d9"><div class="aep-arrow-line"></div><div class="aep-arrow-head"></div></div>
+<div class="aep-box aep-d10"><div class="aep-box-title">html_preview Generation</div><div class="aep-box-sub">Rich HTML rendering for all extraction paths</div></div>
+<div class="aep-arrow aep-d11"><div class="aep-arrow-line"></div><div class="aep-arrow-head"></div></div>
+<div class="aep-box aep-d10" style="animation-delay:3.2s"><div class="aep-box-title">NLP Enhancement + Role Detection</div><div class="aep-box-sub">spaCy &middot; scikit-learn &middot; Statement Forge &middot; 105+ Quality Checkers</div></div>
+<div class="aep-arrow aep-d11" style="animation-delay:3.5s"><div class="aep-arrow-line" style="animation-delay:3.5s"></div><div class="aep-arrow-head"></div></div>
+<div class="aep-pill aep-d12">Unified Review Results</div>
+</div>
+</div>
 
 <h2><i data-lucide="cpu"></i> Extraction Libraries</h2>
 
@@ -5619,30 +6088,62 @@ generate_picture_images = False   # No picture extraction
 <h2><i data-lucide="cpu"></i> How TWR Uses Docling</h2>
 
 <h3>Automatic Backend Selection</h3>
-<pre class="help-code">
-Document Upload
-      │
-      ▼
-┌─────────────────────┐
-│ Check Docling       │
-│ Available?          │
-└─────────┬───────────┘
-     YES  │   NO
-     ┌────┴────┐
-     ▼         ▼
-┌─────────┐ ┌─────────┐
-│ Docling │ │ Legacy  │
-│   AI    │ │ Parser  │
-└────┬────┘ └────┬────┘
-     │           │
-     └─────┬─────┘
-           ▼
-┌─────────────────────┐
-│ Role Extraction     │
-│ Quality Analysis    │
-│ RACI Detection      │
-└─────────────────────┘
-</pre>
+<div style="width:100%;overflow-x:auto;padding:10px 0;">
+<div class="adb-root">
+<style>
+.adb-root{max-width:480px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e6edf3;display:flex;flex-direction:column;align-items:center}
+@keyframes adbFadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes adbGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes adbGrowH{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.adb-pill{background:linear-gradient(135deg,#D6A84A,#B8743A);color:#0d1117;font-size:12px;font-weight:700;padding:8px 24px;border-radius:20px;text-align:center;animation:adbFadeUp .5s ease both;display:inline-block}
+.adb-pill:hover{transform:scale(1.02);box-shadow:0 0 20px rgba(214,168,74,0.4)}
+.adb-arrow{display:flex;flex-direction:column;align-items:center;padding:4px 0;animation:adbFadeUp .5s ease both}
+.adb-arrow-line{width:2px;height:22px;background:linear-gradient(180deg,#D6A84A,#B8743A);transform-origin:top;animation:adbGrow .3s ease both}
+.adb-arrow-head{width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #B8743A}
+.adb-diamond{width:180px;height:72px;position:relative;animation:adbFadeUp .5s ease both;margin:4px 0}
+.adb-diamond-inner{position:absolute;inset:0;background:#161b22;border:2px solid #D6A84A;transform:rotate(0deg);clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);display:flex;align-items:center;justify-content:center}
+.adb-diamond-text{font-size:12px;font-weight:600;color:#D6A84A;text-align:center;padding:0 20px}
+.adb-branch{display:flex;align-items:flex-start;justify-content:center;gap:40px;width:100%;margin:8px 0;animation:adbFadeUp .5s ease both}
+.adb-branch-arm{display:flex;flex-direction:column;align-items:center;gap:4px}
+.adb-branch-label{font-size:10px;font-weight:700;letter-spacing:0.5px;margin-bottom:2px}
+.adb-branch-label-yes{color:#3fb950}
+.adb-branch-label-no{color:#f85149}
+.adb-branch-line{width:2px;height:18px;transform-origin:top;animation:adbGrow .3s ease both}
+.adb-branch-line-yes{background:#3fb950}
+.adb-branch-line-no{background:#f85149}
+.adb-branch-head-yes{width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #3fb950}
+.adb-branch-head-no{width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #f85149}
+.adb-box{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 16px;text-align:center;transition:transform .2s,box-shadow .2s;cursor:default;animation:adbFadeUp .5s ease both;min-width:120px}
+.adb-box:hover{transform:scale(1.02);box-shadow:0 0 20px rgba(214,168,74,0.3)}
+.adb-box-title{font-size:12px;font-weight:600;color:#e6edf3;margin-bottom:2px}
+.adb-box-sub{font-size:10px;color:#8b949e}
+.adb-converge{display:flex;align-items:flex-start;justify-content:center;gap:40px;width:100%;position:relative;margin:4px 0;animation:adbFadeUp .5s ease both}
+.adb-converge-arm{width:2px;height:20px;background:linear-gradient(180deg,#30363d,#D6A84A);transform-origin:top;animation:adbGrow .3s ease both}
+.adb-converge-head{width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #B8743A}
+.adb-result{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 20px;text-align:center;animation:adbFadeUp .5s ease both;transition:transform .2s,box-shadow .2s;cursor:default}
+.adb-result:hover{transform:scale(1.02);box-shadow:0 0 20px rgba(214,168,74,0.3)}
+.adb-result-title{font-size:12px;font-weight:600;color:#e6edf3;margin-bottom:2px}
+.adb-result-sub{font-size:10px;color:#8b949e}
+.adb-d0{animation-delay:.2s}.adb-d1{animation-delay:.5s}.adb-d1 .adb-arrow-line{animation-delay:.5s}
+.adb-d2{animation-delay:.8s}.adb-d3{animation-delay:1.2s}.adb-d3 .adb-branch-line{animation-delay:1.2s}
+.adb-d4{animation-delay:1.6s}.adb-d4 .adb-converge-arm{animation-delay:1.6s}
+.adb-d5{animation-delay:2.0s}
+</style>
+<div class="adb-pill adb-d0">Document Upload</div>
+<div class="adb-arrow adb-d1"><div class="adb-arrow-line"></div><div class="adb-arrow-head"></div></div>
+<div class="adb-diamond adb-d2"><div class="adb-diamond-inner"><div class="adb-diamond-text">Docling<br>Available?</div></div></div>
+<div class="adb-branch adb-d3">
+<div class="adb-branch-arm"><div class="adb-branch-label adb-branch-label-yes">YES</div><div class="adb-branch-line adb-branch-line-yes"></div><div class="adb-branch-head-yes"></div><div class="adb-box" style="border-left:3px solid #3fb950"><div class="adb-box-title">Docling AI</div><div class="adb-box-sub">Best quality</div></div></div>
+<div class="adb-branch-arm"><div class="adb-branch-label adb-branch-label-no">NO</div><div class="adb-branch-line adb-branch-line-no"></div><div class="adb-branch-head-no"></div><div class="adb-box" style="border-left:3px solid #f85149"><div class="adb-box-title">Legacy Parser</div><div class="adb-box-sub">Fallback</div></div></div>
+</div>
+<div class="adb-converge adb-d4">
+<div style="display:flex;flex-direction:column;align-items:center"><div class="adb-converge-arm"></div></div>
+<div style="display:flex;flex-direction:column;align-items:center"><div class="adb-converge-arm"></div></div>
+</div>
+<div style="display:flex;flex-direction:column;align-items:center;animation:adbFadeUp .5s ease both;animation-delay:1.8s"><div class="adb-arrow-head" style="border-top-color:#B8743A"></div></div>
+<div class="adb-result adb-d5"><div class="adb-result-title">Role Extraction</div><div class="adb-result-sub">Quality Analysis &middot; RACI Detection</div></div>
+</div>
+</div>
 
 <h3>Enhanced Role Extraction</h3>
 <p>When Docling is available, role extraction is enhanced:</p>
@@ -6221,47 +6722,56 @@ HelpDocs.content['tech-nlp'] = {
     </div>
 </div>
 
-<h2><i data-lucide="brain"></i> Enhanced Processing Pipeline (v3.3.0)</h2>
+<h2><i data-lucide="brain"></i> Enhanced Processing Pipeline (v5.9)</h2>
 
-<pre class="help-code">
-Raw Text
-    │
-    ▼
-┌────────────────────┐
-│ Technical Dictionary│ ← 10,000+ aerospace/defense terms
-└─────────┬──────────┘
-          │
-          ▼
-┌────────────────────┐
-│ spaCy Transformer  │ ← en_core_web_trf (best accuracy)
-│ or en_core_web_lg  │   Tokenization, POS, NER, Dependencies
-└─────────┬──────────┘
-          │
-          ▼
-┌────────────────────┐
-│ EntityRuler        │ ← 100+ aerospace/defense patterns
-└─────────┬──────────┘
-          │
-          ▼
-┌────────────────────┐
-│ PhraseMatcher      │ ← 150+ role gazetteer lookups
-└─────────┬──────────┘
-          │
-          ▼
-┌────────────────────┐
-│ Ensemble Extraction│ ← Combine NER + Patterns + Dependency
-└─────────┬──────────┘
-          │
-          ▼
-┌────────────────────┐
-│ Adaptive Learning  │ ← Boost confidence from user decisions
-└─────────┬──────────┘
-          │
-          ▼
-┌────────────────────┐
-│ Results            │ ← Roles, acronyms, issues with confidence
-└────────────────────┘
-</pre>
+<div style="width:100%;overflow-x:auto;padding:20px 0;">
+<div class="anp-root">
+<style>
+.anp-root{max-width:720px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e6edf3;display:flex;flex-direction:column;align-items:center}
+.anp-title{text-align:center;font-size:15px;font-weight:700;letter-spacing:2.5px;color:#D6A84A;margin-bottom:18px;animation:anpGlow 3s ease-in-out infinite;text-transform:uppercase}
+@keyframes anpGlow{0%,100%{text-shadow:0 0 8px rgba(214,168,74,0.3)}50%{text-shadow:0 0 18px rgba(214,168,74,0.6),0 0 30px rgba(214,168,74,0.2)}}
+@keyframes anpFadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes anpGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes anpPulse{0%,100%{box-shadow:0 0 0 0 rgba(214,168,74,0.3)}50%{box-shadow:0 0 12px 3px rgba(214,168,74,0.15)}}
+.anp-pill{background:linear-gradient(135deg,#D6A84A,#B8743A);color:#0d1117;font-size:12px;font-weight:700;padding:8px 24px;border-radius:20px;text-align:center;animation:anpFadeUp .5s ease both;display:inline-block}
+.anp-pill:hover{transform:scale(1.02);box-shadow:0 0 20px rgba(214,168,74,0.4)}
+.anp-arrow{display:flex;flex-direction:column;align-items:center;padding:4px 0;animation:anpFadeUp .5s ease both}
+.anp-arrow-line{width:2px;height:20px;background:linear-gradient(180deg,#D6A84A,#B8743A);transform-origin:top;animation:anpGrow .3s ease both}
+.anp-arrow-head{width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #B8743A}
+.anp-stage{display:flex;align-items:center;width:100%;max-width:560px;gap:12px;animation:anpFadeUp .5s ease both;position:relative;transition:transform .2s,box-shadow .2s;cursor:default}
+.anp-stage:hover{transform:scale(1.02)}
+.anp-stage:hover .anp-stage-body{box-shadow:0 0 20px rgba(214,168,74,0.3)}
+.anp-stage-icon{width:38px;height:38px;border-radius:50%;background:#161b22;border:2px solid #D6A84A;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;animation:anpPulse 3s ease-in-out infinite}
+.anp-stage-body{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 14px;flex:1;transition:box-shadow .2s}
+.anp-stage-title{font-size:12px;font-weight:600;color:#e6edf3;margin-bottom:3px}
+.anp-stage-sub{font-size:10px;color:#8b949e;line-height:1.4}
+.anp-stage-num{font-size:9px;font-weight:700;color:#D6A84A;letter-spacing:1px;text-transform:uppercase;position:absolute;right:-60px;top:50%;transform:translateY(-50%)}
+.anp-d0{animation-delay:.2s}.anp-d1{animation-delay:.5s}.anp-d1 .anp-arrow-line{animation-delay:.5s}
+.anp-d2{animation-delay:.8s}.anp-d3{animation-delay:1.1s}.anp-d3 .anp-arrow-line{animation-delay:1.1s}
+.anp-d4{animation-delay:1.4s}.anp-d5{animation-delay:1.7s}.anp-d5 .anp-arrow-line{animation-delay:1.7s}
+.anp-d6{animation-delay:2.0s}.anp-d7{animation-delay:2.3s}.anp-d7 .anp-arrow-line{animation-delay:2.3s}
+.anp-d8{animation-delay:2.6s}.anp-d9{animation-delay:2.9s}.anp-d9 .anp-arrow-line{animation-delay:2.9s}
+.anp-d10{animation-delay:3.2s}.anp-d11{animation-delay:3.5s}.anp-d11 .anp-arrow-line{animation-delay:3.5s}
+.anp-d12{animation-delay:3.8s}
+</style>
+<div class="anp-title">NLP Processing Pipeline</div>
+<div class="anp-pill anp-d0">Raw Document Text</div>
+<div class="anp-arrow anp-d1"><div class="anp-arrow-line"></div><div class="anp-arrow-head"></div></div>
+<div class="anp-stage anp-d2"><div class="anp-stage-icon">&#x1F4D6;</div><div class="anp-stage-body"><div class="anp-stage-title">Technical Dictionary</div><div class="anp-stage-sub">10,000+ aerospace, defense, government &amp; IT terms</div></div><div class="anp-stage-num">Stage 1</div></div>
+<div class="anp-arrow anp-d3"><div class="anp-arrow-line"></div><div class="anp-arrow-head"></div></div>
+<div class="anp-stage anp-d4"><div class="anp-stage-icon">&#x1F9E0;</div><div class="anp-stage-body"><div class="anp-stage-title">spaCy Transformer NLP</div><div class="anp-stage-sub">en_core_web_sm &middot; Tokenization &middot; POS &middot; NER &middot; Dependencies</div></div><div class="anp-stage-num">Stage 2</div></div>
+<div class="anp-arrow anp-d5"><div class="anp-arrow-line"></div><div class="anp-arrow-head"></div></div>
+<div class="anp-stage anp-d6"><div class="anp-stage-icon">&#x1F50D;</div><div class="anp-stage-body"><div class="anp-stage-title">Entity &amp; Pattern Matching</div><div class="anp-stage-sub">EntityRuler (100+ patterns) &middot; PhraseMatcher (150+ roles)</div></div><div class="anp-stage-num">Stage 3</div></div>
+<div class="anp-arrow anp-d7"><div class="anp-arrow-line"></div><div class="anp-arrow-head"></div></div>
+<div class="anp-stage anp-d8"><div class="anp-stage-icon">&#x2699;</div><div class="anp-stage-body"><div class="anp-stage-title">Ensemble Extraction Engine</div><div class="anp-stage-sub">Combine NER + Patterns + Dependency Parse + Context</div></div><div class="anp-stage-num">Stage 4</div></div>
+<div class="anp-arrow anp-d9"><div class="anp-arrow-line"></div><div class="anp-arrow-head"></div></div>
+<div class="anp-stage anp-d10"><div class="anp-stage-icon">&#x2714;</div><div class="anp-stage-body"><div class="anp-stage-title">105+ Quality Checkers</div><div class="anp-stage-sub">Grammar &middot; Spelling &middot; Requirements &middot; Structure &middot; Acronyms &middot; Style</div></div><div class="anp-stage-num">Stage 5</div></div>
+<div class="anp-arrow anp-d11"><div class="anp-arrow-line"></div><div class="anp-arrow-head"></div></div>
+<div class="anp-stage anp-d12" style="animation-delay:3.8s"><div class="anp-stage-icon">&#x1F504;</div><div class="anp-stage-body"><div class="anp-stage-title">Adaptive Learning &amp; Dedup</div><div class="anp-stage-sub">Confidence boosting &middot; Cross-checker dedup &middot; Category normalization</div></div><div class="anp-stage-num">Stage 6</div></div>
+<div class="anp-arrow" style="animation:anpFadeUp .5s ease both;animation-delay:4.1s"><div class="anp-arrow-line" style="animation-delay:4.1s"></div><div class="anp-arrow-head"></div></div>
+<div class="anp-pill" style="animation:anpFadeUp .5s ease both;animation-delay:4.4s">Roles &middot; Issues &middot; Statements &middot; Confidence Scores</div>
+</div>
+</div>
 
 <h2><i data-lucide="database"></i> Technical Dictionary System</h2>
 <p>Master dictionary with 10,000+ embedded terms:</p>
@@ -6726,6 +7236,131 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.9.20 <span class="changelog-date">February 18, 2026</span></h3>
+        <p><strong>Production Release — Email Diagnostics, Visual Polish, Demo System</strong></p>
+        <ul>
+            <li><strong>Email Diagnostics .eml</strong> — "Email to Support" now generates RFC 2822 .eml files with diagnostic JSON and log files pre-attached. Double-click opens Outlook/Mail as ready-to-send draft.</li>
+            <li><strong>Data Explorer z-index fix</strong> — Stat card drill-downs now open above Roles Studio modal correctly.</li>
+            <li><strong>Global particle canvas</strong> — Particle animation visible through semi-transparent modal backdrops as a subtle background.</li>
+            <li><strong>Light mode metric visibility</strong> — 16 CSS overrides for expanded metric card content using warm stone color palette.</li>
+            <li><strong>Settings scroll indicators</strong> — Gradient fade edges and arrow buttons when settings tabs overflow container.</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.19 <span class="changelog-date">February 18, 2026</span></h3>
+        <p><strong>Light Mode Polish + Settings Scroll Indicators</strong></p>
+        <ul>
+            <li><strong>UI: Light Mode Metric Cards</strong> — 16 CSS overrides for expanded metric card content using warm stone color palette for drill-down panels.</li>
+            <li><strong>UI: Settings Tab Scroll Indicators</strong> — Gradient fade edges and arrow buttons when settings tabs overflow their container.</li>
+            <li><strong>UI: Global Particle Canvas</strong> — Particle animation visible through semi-transparent modal backdrops as a subtle ambient background.</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.18 <span class="changelog-date">February 18, 2026</span></h3>
+        <p><strong>Help Beacon + Compare Sub-Demo QA</strong></p>
+        <ul>
+            <li><strong>FIX: Help Beacon Overlay</strong> — The ? help beacon (z-index:150000) was overlaying the demo bar's X stop button, making it very difficult to click stop during demos. Now hidden during playback.</li>
+            <li><strong>QA: Compare Sub-Demo</strong> — All Document Compare sub-demo scenes verified with correct targets and preActions.</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.15 — v5.9.17 <span class="changelog-date">February 17-18, 2026</span></h3>
+        <p><strong>Sub-Demo QA Pass + SOW Template Upload</strong></p>
+        <ul>
+            <li><strong>QA: Force-Show Modal Pattern (v5.9.15)</strong> — 9 sub-demos fixed with preActions that force-show their target modals. 5 cleanup functions prevent zombie modals when demo stops.</li>
+            <li><strong>QA: IIFE Public API Exposure (v5.9.14)</strong> — MetricsAnalytics.switchTab(), SowGenerator.open(), Portfolio.open() exposed for programmatic control from demo preActions.</li>
+            <li><strong>QA: Target Selector Audit (v5.9.13)</strong> — 168 unique selectors verified against index.html. Fixed 4 mismatches (#btn-fix-assistant, #format-csv-card, #format-json-card, #sf-btn-sow).</li>
+            <li><strong>QA: CSS .hidden Rules (v5.9.12)</strong> — Added missing .panel-help-content.hidden and .panel-footer.hidden CSS rules for demo picker toggle.</li>
+            <li><strong>FEATURE: SOW Template Upload (v5.9.16)</strong> — Upload DOCX templates for Statement of Work generation. PNG/SVG/HTML export for relationship graphs.</li>
+            <li><strong>FIX: Narration Speed Race (v5.9.17)</strong> — BUG #9 race condition fixed where speed changes during narration caused out-of-sync playback. All 12 sections / 93 sub-demos verified.</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.9 — v5.9.11 <span class="changelog-date">February 17, 2026</span></h3>
+        <p><strong>Deep-Dive Sub-Demo System</strong></p>
+        <ul>
+            <li><strong>FEATURE: 93 Sub-Demos</strong> — Deep-dive demonstrations for every sub-function, tab, workflow, export, and import across all 11 AEGIS sections.</li>
+            <li><strong>FEATURE: ~471 Total Scenes</strong> — Hierarchical drill-down content covering individual UI elements and step-by-step workflows.</li>
+            <li><strong>UI: Demo Picker</strong> — Help panel transitions to show overview card + 2-column sub-demo card grid when "Watch Demo" is clicked.</li>
+            <li><strong>UI: Breadcrumb Navigation</strong> — Demo bar shows "Section > Sub-demo" during sub-demo playback for orientation.</li>
+            <li><strong>ARCH: preAction Pattern</strong> — Each sub-demo has an async preAction() that clicks the correct tab and waits for render before playing scenes.</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.8 <span class="changelog-date">February 17, 2026</span></h3>
+        <p><strong>Super-Detailed Demo Scenes + Double-Start Guard</strong></p>
+        <ul>
+            <li><strong>CONTENT: 79 Overview Scenes</strong> — Expanded from 31 to 79 narrated overview scenes across all 11 modules. Every section now has 5-10 detailed scenes.</li>
+            <li><strong>FIX: Tooltip Suppression</strong> — Tour tooltip no longer appears on top of spotlighted elements during demo playback. Uses 400ms delay after 350ms spotlight animation.</li>
+            <li><strong>FIX: Double-Start Guard</strong> — Rapid "Watch Demo" clicks no longer start multiple demos simultaneously.</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.7 <span class="changelog-date">February 17, 2026</span></h3>
+        <p><strong>Voice Narration System</strong></p>
+        <ul>
+            <li><strong>FEATURE: Voice Narration</strong> — Three-tier audio provider chain: (1) Pre-generated MP3 clips, (2) Web Speech API with sentence chunking, (3) Silent timer fallback.</li>
+            <li><strong>FIX: Chrome 15-Second Bug</strong> — Text split into sentences and chained via onend callbacks to avoid Chrome's SpeechSynthesis timeout.</li>
+            <li><strong>UI: Volume Control</strong> — Slider persisted via localStorage (aegis-narration-volume).</li>
+            <li><strong>UI: Voice Preference</strong> — Voice selector persisted via localStorage (aegis-narration-voice).</li>
+            <li><strong>SYNC: Speed Control</strong> — audio.playbackRate and utterance.rate sync with demo speed selector.</li>
+            <li><strong>BACKEND: TTS Generator</strong> — demo_audio_generator.py with edge-tts (neural, requires internet) and pyttsx3 (system voices, offline) providers.</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.5 — v5.9.6 <span class="changelog-date">February 17, 2026</span></h3>
+        <p><strong>Warm Color Palette + FOUC Fix</strong></p>
+        <ul>
+            <li><strong>UI: Warm Color Palette</strong> — Complete CSS fallback audit replacing cool gray/white with warm cream/stone/gold across 15+ CSS files. Guide card text, banner text, and all non-dark-mode elements updated.</li>
+            <li><strong>FIX: Body data-theme Sync</strong> — FOUC prevention scripts set data-theme on html AND body, but theme toggle only updated html. Light mode elements inherited dark mode variables from body. Now both elements sync on every toggle.</li>
+            <li><strong>FIX: Help Docs Print</strong> — Replaced window.open() with hidden iframe pattern to avoid Chrome popup blocker (same as Lesson 9).</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.4 <span class="changelog-date">February 17, 2026</span></h3>
+        <p><strong>Export Suite Complete Rebuild</strong></p>
+        <ul>
+            <li><strong>FEATURE: 5 Export Formats</strong> — DOCX (comments), PDF Report (reportlab), XLSX (openpyxl), CSV, JSON — each with a visual card selector.</li>
+            <li><strong>FEATURE: Pre-Export Filters</strong> — Collapsible panel with severity and category chip-based multi-select. Live preview count updates as filters toggle.</li>
+            <li><strong>FEATURE: Server-Side PDF</strong> — ReviewReportGenerator class using reportlab with cover page, executive summary, severity/category tables, and issue details.</li>
+            <li><strong>FEATURE: Export Progress</strong> — Glassmorphism card with animated progress bar during export.</li>
+            <li><strong>FIX: Fix Assistant Integration</strong> — FA opens from export modal, returns with updated stats. _closingForFinish flag prevents double-modal-open.</li>
+            <li><strong>BACKEND: POST /api/export/pdf</strong> — Filter-aware PDF generation endpoint.</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.3 <span class="changelog-date">February 17, 2026</span></h3>
+        <p><strong>Settings Modal Redesign</strong></p>
+        <ul>
+            <li><strong>UI: 9-Tab Layout</strong> — Glassmorphism styling with tabs: General, Document Profiles, Review Options, Network &amp; Auth, Guide &amp; Demos, Data Management, Diagnostics, Updates, About.</li>
+            <li><strong>FEATURE: Role Template Import</strong> — JSON import for custom role template configurations.</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.0 <span class="changelog-date">February 17, 2026</span></h3>
+        <p><strong>Deep Validation & Scoring Improvements</strong></p>
+        <ul>
+            <li><strong>CRITICAL FIX: Semantic Duplicate Detection</strong> — The SemanticAnalyzer wrapper was silently broken since initial integration. It called dict methods on a List[DuplicateGroup], causing zero duplicate detections. Now correctly iterates dataclass objects.</li>
+            <li><strong>FIX: 12 Unprotected API Calls</strong> — Added response.ok checks to fetch() calls across 7 JS files. Prevents silent failures when server returns HTTP errors.</li>
+            <li><strong>FIX: Null Guard Violations</strong> — 3 querySelector calls in role-source-viewer.js now use safe access patterns.</li>
+            <li><strong>FIX: Dark Mode Contrast</strong> — Grade C badge was unreadable (dark text on gold). Now uses white text across all themes.</li>
+            <li><strong>SCORING: Category Concentration</strong> — 10 issues of the same type now count less than 10 diverse issues. Logarithmic diminishing returns prevent single-category inflation.</li>
+            <li><strong>DEDUP: Expanded Normalization</strong> — Cross-checker dedup map grew from 8 to 27 entries, covering passive voice, grammar, spelling, references, prose/style, and acronym variants.</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.8.2 <span class="changelog-date">February 17, 2026</span></h3>
+        <p><strong>Production Hardening & Accessibility Pass</strong></p>
+        <ul>
+            <li><strong>FIX: ReportLab PDF Crash</strong> — Role names containing HTML-like text (e.g., Case&lt;Br&gt;Group) now properly sanitized with XML entity escaping before PDF generation.</li>
+            <li><strong>FIX: CSRF Header Typo</strong> — X-CSRFToken corrected to X-CSRF-Token in mass-statement-review.js (3 instances).</li>
+            <li><strong>FIX: Help Docs API Reference</strong> — Corrected non-existent /api/metrics/analytics endpoint to /api/metrics/dashboard.</li>
+            <li><strong>ACCESSIBILITY: prefers-reduced-motion</strong> — Added to 10 additional CSS feature files. All 19 animation-heavy stylesheets now respect user motion preferences.</li>
+            <li><strong>ENHANCEMENT: SVO Extraction</strong> — InformationExtractionChecker now uses spaCy dependency parsing for more accurate Subject-Verb-Object extraction from requirements.</li>
+            <li><strong>AUDIT: Full Production Review</strong> — Backend routes, security, frontend event handlers, API contracts, CSS accessibility, and library integration all verified.</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.8.1 <span class="changelog-date">February 17, 2026</span></h3>
         <p><strong>Document Compare — Master Document Selector</strong></p>
         <ul>
@@ -6776,6 +7411,30 @@ HelpDocs.content['version-history'] = {
             <li><strong>FIX: Acronym Deduplication</strong> — Simplified dedup key removes rule_id and message text, catching cross-checker duplicates that were inflating issue counts by ~20-30%.</li>
             <li><strong>FIX: Broken Enhanced Acronym Mapping</strong> — Removed dead option_mapping entry that pointed to non-existent checker key.</li>
             <li><strong>FIX: Windows Compatibility</strong> — Hardcoded Mac paths replaced with pathlib-based relative paths in 3 analysis scripts. New restart_aegis.bat for Windows.</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.6.1 <span class="changelog-date">February 16, 2026</span></h3>
+        <p><strong>ReviewIssue Object Normalization Fix</strong></p>
+        <ul>
+            <li><strong>FIX: ReviewIssue .get() Crash</strong> — Non-NLP checkers produce ReviewIssue dataclass objects but scoring, dedup, and ID-assignment code used dict .get() methods. Added normalization step in review_document() postprocessing that converts all issues to dicts.</li>
+            <li><strong>FIX: Folder Scan Issue Normalization</strong> — _review_single() also normalizes issues to dicts before aggregation and JSON serialization.</li>
+            <li><strong>IMPACT: All Downstream Code</strong> — _calculate_score, _deduplicate_issues, _assign_issue_ids, _count_by_severity, _count_by_category, and enhance_issue_context all now receive consistent dict objects.</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.6.0 <span class="changelog-date">February 16, 2026</span></h3>
+        <p><strong>Guide System v2.0 + Animated Demo Player</strong></p>
+        <ul>
+            <li><strong>GUIDE: Complete Rewrite</strong> — guide-system.js v2.0.0 with real content for all 11 AEGIS sections (Landing, Review, Batch, Roles, Forge, Validator, Compare, Metrics, History, Settings, Portfolio).</li>
+            <li><strong>GUIDE: Animated Demo Player</strong> — Auto-playing live walkthrough system with typewriter narration, spotlight overlay, and step-by-step scene navigation through the actual UI.</li>
+            <li><strong>GUIDE: SVG Mask Spotlight</strong> — Creates SVG with white fill + black cutout rect for target element, applied as CSS mask to semi-transparent overlay.</li>
+            <li><strong>GUIDE: Demo Player Controls</strong> — Play/pause, previous/next, speed selector (0.5x-2x), progress bar with step counter, LIVE DEMO badge.</li>
+            <li><strong>GUIDE: Full Tour and Full Demo</strong> — Walk through every section sequentially with auto-navigation between modals.</li>
+            <li><strong>GUIDE: Section Navigation Grid</strong> — Click any section in the help panel to jump directly to its content.</li>
+            <li><strong>GUIDE: Contextual Help Beacon</strong> — Pulse-animated ? button auto-detects current section.</li>
+            <li><strong>UI: Settings Toggle</strong> — Enable/disable guide system via Settings > General > Show help guide &amp; tours, persisted in localStorage.</li>
+            <li><strong>CSS: Z-Index Hierarchy</strong> — beacon=150000, demoBar=149800, panel=149500, spotlight=149000 (above all app modals).</li>
         </ul>
     </div>
     <div class="changelog-version">
@@ -6938,7 +7597,7 @@ HelpDocs.content['version-history'] = {
             <li><strong>FIX: Wrong Background Behind Modals</strong> — Scan History and Roles Studio now show dashboard behind their backdrop</li>
             <li><strong>FIX: Landing Page Tiles</strong> — Opening modules no longer hides dashboard behind modal</li>
             <li><strong>FIX: Heatmap Hover Flicker</strong> — SVG overlay rendered on top of cells, tooltip shows instantly (no transition)</li>
-            <li><strong>BACKEND: Analytics API</strong> — GET /api/metrics/analytics for aggregated scan history data</li>
+            <li><strong>BACKEND: Analytics API</strong> — GET /api/metrics/dashboard for aggregated scan history data</li>
         </ul>
     </div>
     <div class="changelog-version">
@@ -8306,7 +8965,7 @@ HelpDocs.content['about'] = {
         <div class="help-about-info">
             <h2>AEGIS</h2>
             <p class="help-version-display"><strong id="about-version-display">Version</strong></p>
-            <p>Build Date: February 9, 2026</p>
+            <p>Build Date: February 18, 2026</p>
         </div>
     </div>
 
@@ -8344,80 +9003,6 @@ HelpDocs.content['about'] = {
     <div id="docling-status-container">
         <p><em>Checking Docling status...</em></p>
     </div>
-    <script>
-    (function() {
-        // v4.7.0: All version displays pull from /api/version (single source: version.json)
-        setTimeout(function() {
-            const versionEl = document.getElementById('about-version-display');
-            if (versionEl) {
-                fetch('/api/version')
-                    .then(r => r.ok ? r.json() : null)
-                    .then(data => {
-                        if (data && data.app_version) {
-                            versionEl.textContent = 'Version ' + data.app_version;
-                        }
-                    })
-                    .catch(() => {});
-            }
-        }, 50);
-        
-        // BUG-M22 FIX: Add timeout and better error handling for Docling status check
-        setTimeout(function() {
-            const container = document.getElementById('docling-status-container');
-            if (!container) return;
-
-            // Create an AbortController for timeout
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-
-            fetch('/api/docling/status', { signal: controller.signal })
-                .then(r => {
-                    clearTimeout(timeoutId);
-                    if (!r.ok) throw new Error('Status check failed');
-                    return r.json();
-                })
-                .then(status => {
-                    const available = status.available || status.docling_available;
-                    const backend = status.backend || status.extraction_backend || 'unknown';
-                    const version = status.version || status.docling_version || 'N/A';
-                    const offline = status.offline_ready !== false;
-
-                    container.innerHTML = \`
-                        <table class="help-table" style="margin-top: 0;">
-                            <tr>
-                                <td><strong>Status</strong></td>
-                                <td>\${available ? '<span style="color: #22c55e;">✓ Available</span>' : '<span style="color: #f59e0b;">○ Not Installed</span>'}</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Backend</strong></td>
-                                <td>\${backend}</td>
-                            </tr>
-                            \${available ? \`<tr>
-                                <td><strong>Version</strong></td>
-                                <td>\${version}</td>
-                            </tr>\` : ''}
-                            <tr>
-                                <td><strong>Offline Mode</strong></td>
-                                <td>\${offline ? '<span style="color: #22c55e;">✓ Enabled</span>' : '<span style="color: #ef4444;">✗ Disabled</span>'}</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Image Processing</strong></td>
-                                <td><span style="color: #6b7280;">Disabled (Memory Optimized)</span></td>
-                            </tr>
-                        </table>
-                        \${!available ? '<p style="margin-top: 10px; color: #6b7280;"><i>Run setup_docling.bat to install Docling for enhanced extraction.</i></p>' : ''}
-                    \`;
-                })
-                .catch(err => {
-                    clearTimeout(timeoutId);
-                    const isTimeout = err.name === 'AbortError';
-                    container.innerHTML = isTimeout
-                        ? '<p style="color: #f59e0b;">⚠ Status check timed out. Using legacy extraction.</p>'
-                        : '<p style="color: #6b7280;">Unable to check Docling status. Using legacy extraction.</p>';
-                });
-        }, 100);
-    })();
-    </script>
 
     <h2><i data-lucide="heart"></i> Acknowledgments</h2>
     <p>Built with open-source tools: Flask, Docling (IBM), python-docx, pdfplumber, Chart.js, D3.js, Lucide Icons.</p>
@@ -8485,4 +9070,4 @@ if (typeof window !== 'undefined') {
     }
 }
 
-console.log('[HelpDocs] Module loaded v3.0.96');
+console.log('[HelpDocs] Module loaded v5.9.21');

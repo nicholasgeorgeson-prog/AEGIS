@@ -1,6 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
-title AEGIS One-Click Installer v5.1.0
+title AEGIS One-Click Installer v5.9.21
 color 0B
 
 echo.
@@ -9,12 +9,14 @@ echo.
 echo       A E G I S   I N S T A L L E R
 echo.
 echo       Aerospace Engineering Governance
-echo       ^& Inspection System  v5.1.0
+echo       ^& Inspection System  v5.9.21
 echo.
 echo  ============================================================
 echo.
 echo  This will download and install AEGIS on your computer.
 echo  No prior setup needed - everything is included.
+echo.
+echo  You can install to a local drive, OneDrive, or network path.
 echo.
 echo  Press any key to begin, or close this window to cancel.
 pause >nul
@@ -27,10 +29,14 @@ echo  [Step 1 of 8] Where do you want to install AEGIS?
 echo  ---------------------------------------------------
 echo.
 echo  A folder picker will open. Choose or create a folder.
+echo  Supports: Local drives, OneDrive, SharePoint, UNC paths.
 echo  AEGIS will be installed inside an "AEGIS" subfolder there.
 echo.
 
-for /f "delims=" %%I in ('powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.FolderBrowserDialog; $f.Description = 'Choose where to install AEGIS'; $f.RootFolder = 'MyComputer'; $f.ShowNewFolderButton = $true; if ($f.ShowDialog() -eq 'OK') { $f.SelectedPath } else { 'CANCELLED' }"') do set "PARENT=%%I"
+:: Use COM Shell.Application BrowseForFolder which supports OneDrive, UNC, and all shell locations
+:: Flag 0x0041 = BIF_RETURNONLYFSDIRS (0x0001) + BIF_NEWDIALOGSTYLE (0x0040)
+:: RootFolder 0x0011 = ssfNETWORK merged with Desktop via flag — use 0 (Desktop) for maximum flexibility
+for /f "delims=" %%I in ('powershell -NoProfile -Command "$shell = New-Object -ComObject Shell.Application; $folder = $shell.BrowseForFolder(0, 'Choose where to install AEGIS`n`nYou can select local drives, OneDrive, network (UNC) paths, or any mapped drive.', 0x0040 -bor 0x0010 -bor 0x0001, 0); if ($folder -ne $null) { $folder.Self.Path } else { 'CANCELLED' }"') do set "PARENT=%%I"
 
 if "%PARENT%"=="CANCELLED" (
     echo.
@@ -39,6 +45,20 @@ if "%PARENT%"=="CANCELLED" (
     pause
     exit /b 0
 )
+
+:: Validate the selected path is writable
+echo.>"%PARENT%\aegis_write_test.tmp" 2>nul
+if not exist "%PARENT%\aegis_write_test.tmp" (
+    echo.
+    echo  [ERROR] Cannot write to: %PARENT%
+    echo.
+    echo  Please choose a folder you have write access to.
+    echo  If using OneDrive, ensure it is synced and accessible.
+    echo.
+    pause
+    exit /b 1
+)
+del "%PARENT%\aegis_write_test.tmp" >nul 2>nul
 
 set "INSTALL_DIR=%PARENT%\AEGIS"
 echo.
@@ -103,7 +123,7 @@ set "DL_BINARY=https://github.com/%REPO%/releases/download/v5.1.0"
 set "DL_TORCH=https://github.com/%REPO%/releases/download/v5.1.0-wheels"
 
 echo  Downloading latest source code from GitHub (main branch)...
-echo  (This includes all dependency wheels - ~500 MB total)
+echo  (This includes all dependency wheels - ~600 MB total)
 echo  Please be patient, this may take 5-15 minutes...
 echo.
 powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; try { Invoke-WebRequest -Uri 'https://github.com/%REPO%/archive/refs/heads/main.zip' -OutFile '%SRC_ZIP%' -UseBasicParsing -ErrorAction Stop; Write-Host 'SUCCESS' } catch { Write-Host \"DOWNLOAD_ERROR: $($_.Exception.Message)\" }" > "%TEMP%\aegis_dl_result.txt" 2>nul
@@ -149,7 +169,7 @@ if exist "%INSTALL_DIR%\app.py" (
     exit /b 1
 )
 
-:: The source archive includes wheels/ directory with all 195 dependency packages.
+:: The source archive includes wheels/ directory with all 232 dependency packages.
 :: Copy them to the packaging/wheels location for installation.
 if exist "%INSTALL_DIR%\wheels" (
     echo  Copying bundled wheels to packaging directory...
@@ -194,8 +214,8 @@ if exist "%INSTALL_DIR%\packaging\get-pip.py" (
     exit /b 1
 )
 
-:: Download PyTorch Windows x64 wheel from v5.1.0-wheels release (109 MB)
-echo  [3/3] PyTorch for Windows x64 (109 MB)...
+:: Download PyTorch Windows x64 wheel from v5.1.0-wheels release (139 MB)
+echo  [3/3] PyTorch for Windows x64 (139 MB)...
 echo        (This may take 2-5 minutes)
 powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_TORCH%/torch-2.10.0-cp310-cp310-win_amd64.whl' -OutFile '%INSTALL_DIR%\packaging\wheels\torch-2.10.0-cp310-cp310-win_amd64.whl' -UseBasicParsing" 2>nul
 if not exist "%INSTALL_DIR%\packaging\wheels\torch-2.10.0-cp310-cp310-win_amd64.whl" (
@@ -269,7 +289,7 @@ echo  [OK] pip installed
 :: STEP 6: Install Python packages
 :: ============================================================
 echo.
-echo  [Step 6 of 8] Installing Python packages (195+ packages)...
+echo  [Step 6 of 8] Installing Python packages (232 packages)...
 echo  ---------------------------------------------------
 echo.
 echo  This takes 3-8 minutes. Please wait...
@@ -303,9 +323,12 @@ if errorlevel 1 (
 echo  Installing TorchVision...
 "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location torchvision 2>nul
 
-:: Install from requirements.txt
-echo  Installing remaining packages from requirements.txt...
-if exist "%INSTALL_DIR%\requirements.txt" (
+:: Install from requirements file (prefer Windows-specific, fallback to generic)
+echo  Installing remaining packages from requirements...
+if exist "%INSTALL_DIR%\packaging\requirements-windows.txt" (
+    echo  Using Windows-optimized requirements...
+    "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location -r "%INSTALL_DIR%\packaging\requirements-windows.txt" 2>nul
+) else if exist "%INSTALL_DIR%\requirements.txt" (
     "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location -r "%INSTALL_DIR%\requirements.txt" 2>nul
 )
 
@@ -389,10 +412,10 @@ echo  ---------------------------------------------------
 :: Create Start_AEGIS.bat
 (
 echo @echo off
-echo title AEGIS v5.1.0
+echo title AEGIS v5.9.21
 echo color 0B
 echo echo.
-echo echo  Starting AEGIS v5.1.0...
+echo echo  Starting AEGIS v5.9.21...
 echo echo  Once started, open your browser to: http://localhost:5050
 echo echo.
 echo echo  DO NOT close this window while using AEGIS.
@@ -472,10 +495,10 @@ echo  [OK] Export_Bugs.bat
 set "ICON_FILE=%INSTALL_DIR%\static\img\aegis_icon.ico"
 echo  Creating Desktop shortcut...
 if exist "%ICON_FILE%" (
-    powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.IconLocation = '%ICON_FILE%,0'; $s.Description = 'Start AEGIS v5.1.0 - Document Analysis Tool'; $s.Save()" 2>nul
+    powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.IconLocation = '%ICON_FILE%,0'; $s.Description = 'Start AEGIS v5.9.21 - Document Analysis Tool'; $s.Save()" 2>nul
     echo  [OK] Desktop shortcut created with AEGIS icon
 ) else (
-    powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.Description = 'Start AEGIS v5.1.0 - Document Analysis Tool'; $s.Save()" 2>nul
+    powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.Description = 'Start AEGIS v5.9.21 - Document Analysis Tool'; $s.Save()" 2>nul
     echo  [OK] Desktop shortcut created
 )
 
@@ -503,6 +526,11 @@ echo.
 "%PYTHON_DIR%\python.exe" -c "import sklearn; print('  [OK] scikit-learn')" 2>nul || echo  [SKIP] scikit-learn (optional)
 "%PYTHON_DIR%\python.exe" -c "import docling; print('  [OK] Docling')" 2>nul || echo  [SKIP] Docling (optional)
 "%PYTHON_DIR%\python.exe" -c "import torchvision; print('  [OK] TorchVision ' + torchvision.__version__)" 2>nul || echo  [SKIP] TorchVision (optional)
+"%PYTHON_DIR%\python.exe" -c "import requests_negotiate_sspi; print('  [OK] SSPI Auth')" 2>nul || echo  [SKIP] SSPI Auth (Windows auth)
+"%PYTHON_DIR%\python.exe" -c "import requests_ntlm; print('  [OK] NTLM Auth')" 2>nul || echo  [SKIP] NTLM Auth (Windows auth)
+"%PYTHON_DIR%\python.exe" -c "import mammoth; print('  [OK] mammoth')" 2>nul || echo  [FAIL] mammoth
+"%PYTHON_DIR%\python.exe" -c "import reportlab; print('  [OK] reportlab')" 2>nul || echo  [SKIP] reportlab (optional)
+"%PYTHON_DIR%\python.exe" -c "import lxml; print('  [OK] lxml')" 2>nul || echo  [FAIL] lxml
 
 :: ============================================================
 :: DONE!
@@ -514,11 +542,11 @@ echo       INSTALLATION COMPLETE!
 echo.
 echo  ============================================================
 echo.
-echo  AEGIS v5.1.0 installed to: %INSTALL_DIR%
+echo  AEGIS v5.9.21 installed to: %INSTALL_DIR%
 echo.
 echo  To start:
-echo    1. Double-click "Start AEGIS" on your Desktop
-echo    2. Open http://localhost:5050 in your browser
+echo    1. Double-click "AEGIS" on your Desktop
+echo    2. Your browser will open automatically to http://localhost:5050
 echo.
 echo  Other scripts in install folder:
 echo    Stop_AEGIS.bat    - Stop the server

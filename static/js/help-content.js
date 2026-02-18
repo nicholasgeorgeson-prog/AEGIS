@@ -219,6 +219,85 @@ const HelpContent = {
                 }
             });
         }
+
+        // v5.9.21 FIX: Post-render hooks for sections with dynamic content
+        // Script tags in innerHTML don't execute, so we run section-specific logic here
+        if (sectionId === 'about') {
+            this._postRenderAbout();
+        }
+    },
+
+    // Post-render hook for About section: fetch version + Docling status
+    _postRenderAbout: function() {
+        // Fetch live version
+        setTimeout(function() {
+            const versionEl = document.getElementById('about-version-display');
+            if (versionEl) {
+                fetch('/api/version')
+                    .then(r => r.ok ? r.json() : null)
+                    .then(data => {
+                        if (data && data.app_version) {
+                            versionEl.textContent = 'Version ' + data.app_version;
+                        }
+                    })
+                    .catch(() => {});
+            }
+        }, 50);
+
+        // BUG-M22 FIX: Check Docling status with timeout
+        setTimeout(function() {
+            const container = document.getElementById('docling-status-container');
+            if (!container) return;
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+            fetch('/api/docling/status', { signal: controller.signal })
+                .then(r => {
+                    clearTimeout(timeoutId);
+                    if (!r.ok) throw new Error('Status check failed');
+                    return r.json();
+                })
+                .then(status => {
+                    const available = status.available || status.docling_available;
+                    const backend = status.backend || status.extraction_backend || 'unknown';
+                    const version = status.version || status.docling_version || 'N/A';
+                    const offline = status.offline_mode || status.offline_ready || false;
+
+                    container.innerHTML = `
+                        <table class="help-table" style="margin-top: 0;">
+                            <tr>
+                                <td><strong>Status</strong></td>
+                                <td>${available ? '<span style="color: #22c55e;">✓ Available</span>' : '<span style="color: #f59e0b;">○ Not Installed</span>'}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Backend</strong></td>
+                                <td>${backend}</td>
+                            </tr>
+                            ${available ? `<tr>
+                                <td><strong>Version</strong></td>
+                                <td>${version}</td>
+                            </tr>` : ''}
+                            <tr>
+                                <td><strong>Offline Mode</strong></td>
+                                <td>${offline ? '<span style="color: #22c55e;">✓ Enabled</span>' : '<span style="color: #ef4444;">✗ Disabled</span>'}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Image Processing</strong></td>
+                                <td><span style="color: #6b7280;">Disabled (Memory Optimized)</span></td>
+                            </tr>
+                        </table>
+                        ${!available ? '<p style="margin-top: 10px; color: #6b7280;"><i>Run setup_docling.bat to install Docling for enhanced extraction.</i></p>' : ''}
+                    `;
+                })
+                .catch(err => {
+                    clearTimeout(timeoutId);
+                    const isTimeout = err.name === 'AbortError';
+                    container.innerHTML = isTimeout
+                        ? '<p style="color: #f59e0b;">⚠ Status check timed out. Using legacy extraction.</p>'
+                        : '<p style="color: #6b7280;">Unable to check Docling status. Using legacy extraction.</p>';
+                });
+        }, 100);
     },
     
     // Bind events
@@ -343,30 +422,34 @@ const HelpContent = {
         }
     },
     
-    // Print current section
+    // Print current section — v5.9.5: Uses hidden iframe instead of window.open() to avoid popup blocker (Lesson 9)
     printSection: function() {
         const content = document.querySelector('.help-main');
         if (!content) return;
 
         const sectionData = HelpDocs.content[this.currentSection];
         const title = sectionData ? sectionData.title : 'Help';
+        const version = (typeof HelpDocs !== 'undefined' && HelpDocs.version) ? HelpDocs.version : '5.9.5';
 
-        const printWindow = window.open('', '_blank');
+        // Remove any existing print iframe
+        const existingFrame = document.getElementById('aegis-help-print-frame');
+        if (existingFrame) existingFrame.remove();
 
-        // BUG-M27 FIX: Check if popup was blocked
-        if (!printWindow || !printWindow.document) {
-            console.error('[HelpContent] Print popup blocked - please allow popups for this site');
-            alert('Unable to open print window. Please allow popups for this site and try again.');
-            return;
-        }
+        // Create hidden iframe for printing
+        const iframe = document.createElement('iframe');
+        iframe.id = 'aegis-help-print-frame';
+        iframe.style.cssText = 'position:fixed;top:-10000px;left:-10000px;width:800px;height:600px;border:none;';
+        document.body.appendChild(iframe);
 
-        printWindow.document.write(`
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+        iframeDoc.open();
+        iframeDoc.write(`
             <!DOCTYPE html>
             <html>
             <head>
                 <title>AEGIS Help - ${title}</title>
                 <style>
-                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
+                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; color: #333; }
                     h1 { color: #1a1a1a; font-size: 28px; }
                     h2 { color: #333; margin-top: 24px; font-size: 20px; }
                     h3 { color: #444; font-size: 16px; }
@@ -377,20 +460,41 @@ const HelpContent = {
                     code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
                     kbd { background: #eee; padding: 2px 6px; border-radius: 3px; border: 1px solid #ccc; font-family: monospace; }
                     ul, ol { padding-left: 24px; line-height: 1.8; }
-                    .help-callout { background: #f0f7ff; border-left: 4px solid #3b82f6; padding: 12px 16px; margin: 16px 0; }
+                    .help-callout { background: #f0f7ff; border-left: 4px solid #B8743A; padding: 12px 16px; margin: 16px 0; border-radius: 4px; }
                     .help-hero { display: none; }
                     svg, i[data-lucide] { display: none; }
+                    .help-stat { font-weight: 700; color: #B8743A; }
+                    @media print {
+                        body { padding: 20px; }
+                        .help-callout { break-inside: avoid; }
+                    }
                 </style>
             </head>
             <body>
                 ${content.innerHTML}
                 <hr style="margin-top: 40px; border: none; border-top: 1px solid #ddd;">
-                <p style="color: #999; font-size: 12px;">Printed from AEGIS v${HelpDocs.version} Help</p>
+                <p style="color: #999; font-size: 12px;">Printed from AEGIS v${version} Help</p>
             </body>
             </html>
         `);
-        printWindow.document.close();
-        printWindow.print();
+        iframeDoc.close();
+
+        // Wait for iframe content to load, then print
+        setTimeout(() => {
+            try {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+            } catch (e) {
+                console.error('[HelpContent] Print failed:', e);
+                if (typeof showToast === 'function') {
+                    showToast('error', 'Print failed. Please try Ctrl+P instead.');
+                }
+            }
+            // Clean up iframe after print dialog closes
+            setTimeout(() => {
+                iframe.remove();
+            }, 2000);
+        }, 300);
     }
 };
 

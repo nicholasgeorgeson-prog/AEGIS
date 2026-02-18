@@ -1,6 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
-title AEGIS One-Click Installer v5.0.5
+title AEGIS One-Click Installer v5.9.21
 color 0B
 
 echo.
@@ -9,12 +9,14 @@ echo.
 echo       A E G I S   I N S T A L L E R
 echo.
 echo       Aerospace Engineering Governance
-echo       ^& Inspection System  v5.0.5
+echo       ^& Inspection System  v5.9.21
 echo.
 echo  ============================================================
 echo.
 echo  This will download and install AEGIS on your computer.
 echo  No prior setup needed - everything is included.
+echo.
+echo  You can install to a local drive, OneDrive, or network path.
 echo.
 echo  Press any key to begin, or close this window to cancel.
 pause >nul
@@ -27,10 +29,14 @@ echo  [Step 1 of 8] Where do you want to install AEGIS?
 echo  ---------------------------------------------------
 echo.
 echo  A folder picker will open. Choose or create a folder.
+echo  Supports: Local drives, OneDrive, SharePoint, UNC paths.
 echo  AEGIS will be installed inside an "AEGIS" subfolder there.
 echo.
 
-for /f "delims=" %%I in ('powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.FolderBrowserDialog; $f.Description = 'Choose where to install AEGIS'; $f.RootFolder = 'MyComputer'; $f.ShowNewFolderButton = $true; if ($f.ShowDialog() -eq 'OK') { $f.SelectedPath } else { 'CANCELLED' }"') do set "PARENT=%%I"
+:: Use COM Shell.Application BrowseForFolder which supports OneDrive, UNC, and all shell locations
+:: Flag 0x0041 = BIF_RETURNONLYFSDIRS (0x0001) + BIF_NEWDIALOGSTYLE (0x0040)
+:: RootFolder 0x0011 = ssfNETWORK merged with Desktop via flag — use 0 (Desktop) for maximum flexibility
+for /f "delims=" %%I in ('powershell -NoProfile -Command "$shell = New-Object -ComObject Shell.Application; $folder = $shell.BrowseForFolder(0, 'Choose where to install AEGIS`n`nYou can select local drives, OneDrive, network (UNC) paths, or any mapped drive.', 0x0040 -bor 0x0010 -bor 0x0001, 0); if ($folder -ne $null) { $folder.Self.Path } else { 'CANCELLED' }"') do set "PARENT=%%I"
 
 if "%PARENT%"=="CANCELLED" (
     echo.
@@ -39,6 +45,20 @@ if "%PARENT%"=="CANCELLED" (
     pause
     exit /b 0
 )
+
+:: Validate the selected path is writable
+echo.>"%PARENT%\aegis_write_test.tmp" 2>nul
+if not exist "%PARENT%\aegis_write_test.tmp" (
+    echo.
+    echo  [ERROR] Cannot write to: %PARENT%
+    echo.
+    echo  Please choose a folder you have write access to.
+    echo  If using OneDrive, ensure it is synced and accessible.
+    echo.
+    pause
+    exit /b 1
+)
+del "%PARENT%\aegis_write_test.tmp" >nul 2>nul
 
 set "INSTALL_DIR=%PARENT%\AEGIS"
 echo.
@@ -96,22 +116,23 @@ echo  ---------------------------------------------------
 echo.
 
 set "REPO=nicholasgeorgeson-prog/AEGIS"
-set "TAG=v5.0.5"
 set "SRC_ZIP=%INSTALL_DIR%\aegis_source.zip"
-:: Binary assets (Python, wheels, pip, models) hosted on v5.0.5 release
-set "DL_BASE=https://github.com/%REPO%/releases/download/v5.0.5"
+:: Binary assets (Python, pip, models) hosted on v5.1.0 release
+set "DL_BINARY=https://github.com/%REPO%/releases/download/v5.1.0"
+:: Torch wheel hosted on v5.1.0-wheels release
+set "DL_TORCH=https://github.com/%REPO%/releases/download/v5.1.0-wheels"
 
 echo  Downloading latest source code from GitHub (main branch)...
+echo  (This includes all dependency wheels - ~600 MB total)
+echo  Please be patient, this may take 5-15 minutes...
+echo.
 powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; try { Invoke-WebRequest -Uri 'https://github.com/%REPO%/archive/refs/heads/main.zip' -OutFile '%SRC_ZIP%' -UseBasicParsing -ErrorAction Stop; Write-Host 'SUCCESS' } catch { Write-Host \"DOWNLOAD_ERROR: $($_.Exception.Message)\" }" > "%TEMP%\aegis_dl_result.txt" 2>nul
 set /p DL_RESULT=<"%TEMP%\aegis_dl_result.txt"
 del "%TEMP%\aegis_dl_result.txt" >nul 2>nul
 
 if not "%DL_RESULT%"=="SUCCESS" (
     echo.
-    echo  [ERROR] Failed to download source code!
-    echo  %DL_RESULT%
-    echo.
-    echo  Trying alternative method with curl...
+    echo  [WARN] PowerShell download failed, trying curl...
     curl.exe -L -o "%SRC_ZIP%" "https://github.com/%REPO%/archive/refs/heads/main.zip" 2>nul
     if not exist "%SRC_ZIP%" (
         echo  [ERROR] Both download methods failed!
@@ -148,23 +169,28 @@ if exist "%INSTALL_DIR%\app.py" (
     exit /b 1
 )
 
+:: The source archive includes wheels/ directory with all 232 dependency packages.
+:: Copy them to the packaging/wheels location for installation.
+if exist "%INSTALL_DIR%\wheels" (
+    echo  Copying bundled wheels to packaging directory...
+    xcopy /E /I /Y /Q "%INSTALL_DIR%\wheels\*" "%INSTALL_DIR%\packaging\wheels\" >nul 2>nul
+    echo  [OK] Bundled wheels ready
+)
+
 :: ============================================================
-:: STEP 4: Download Python + pip + wheels
+:: STEP 4: Download Python + pip + torch
 :: ============================================================
 echo.
-echo  [Step 4 of 8] Downloading Python and dependencies...
+echo  [Step 4 of 8] Downloading Python, pip, and PyTorch...
 echo  ---------------------------------------------------
 echo.
-echo  This downloads ~400 MB total. Please be patient.
-echo.
 
-:: Helper function - download with PowerShell, fallback to curl
 :: Download Python embedded (8 MB)
-echo  [1/4] Python 3.10.11 embedded (8 MB)...
-powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_BASE%/python-3.10.11-embed-amd64.zip' -OutFile '%INSTALL_DIR%\packaging\python-3.10.11-embed-amd64.zip' -UseBasicParsing" 2>nul
+echo  [1/3] Python 3.10.11 embedded (8 MB)...
+powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_BINARY%/python-3.10.11-embed-amd64.zip' -OutFile '%INSTALL_DIR%\packaging\python-3.10.11-embed-amd64.zip' -UseBasicParsing" 2>nul
 if not exist "%INSTALL_DIR%\packaging\python-3.10.11-embed-amd64.zip" (
     echo  [WARN] PowerShell download failed, trying curl...
-    curl.exe -L -o "%INSTALL_DIR%\packaging\python-3.10.11-embed-amd64.zip" "%DL_BASE%/python-3.10.11-embed-amd64.zip" 2>nul
+    curl.exe -L -o "%INSTALL_DIR%\packaging\python-3.10.11-embed-amd64.zip" "%DL_BINARY%/python-3.10.11-embed-amd64.zip" 2>nul
 )
 if exist "%INSTALL_DIR%\packaging\python-3.10.11-embed-amd64.zip" (
     echo  [OK] Python downloaded
@@ -175,10 +201,10 @@ if exist "%INSTALL_DIR%\packaging\python-3.10.11-embed-amd64.zip" (
 )
 
 :: Download pip (2 MB)
-echo  [2/4] pip bootstrapper (2 MB)...
-powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_BASE%/get-pip.py' -OutFile '%INSTALL_DIR%\packaging\get-pip.py' -UseBasicParsing" 2>nul
+echo  [2/3] pip bootstrapper (2 MB)...
+powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_BINARY%/get-pip.py' -OutFile '%INSTALL_DIR%\packaging\get-pip.py' -UseBasicParsing" 2>nul
 if not exist "%INSTALL_DIR%\packaging\get-pip.py" (
-    curl.exe -L -o "%INSTALL_DIR%\packaging\get-pip.py" "%DL_BASE%/get-pip.py" 2>nul
+    curl.exe -L -o "%INSTALL_DIR%\packaging\get-pip.py" "%DL_BINARY%/get-pip.py" 2>nul
 )
 if exist "%INSTALL_DIR%\packaging\get-pip.py" (
     echo  [OK] pip downloaded
@@ -188,54 +214,30 @@ if exist "%INSTALL_DIR%\packaging\get-pip.py" (
     exit /b 1
 )
 
-:: Download wheels part 1 (136 MB)
-echo  [3/5] Dependency packages part 1 (136 MB)...
+:: Download PyTorch Windows x64 wheel from v5.1.0-wheels release (139 MB)
+echo  [3/3] PyTorch for Windows x64 (139 MB)...
 echo        (This may take 2-5 minutes)
-powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_BASE%/aegis_wheels_part1.zip' -OutFile '%INSTALL_DIR%\packaging\wheels\part1.zip' -UseBasicParsing" 2>nul
-if not exist "%INSTALL_DIR%\packaging\wheels\part1.zip" (
+powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_TORCH%/torch-2.10.0-cp310-cp310-win_amd64.whl' -OutFile '%INSTALL_DIR%\packaging\wheels\torch-2.10.0-cp310-cp310-win_amd64.whl' -UseBasicParsing" 2>nul
+if not exist "%INSTALL_DIR%\packaging\wheels\torch-2.10.0-cp310-cp310-win_amd64.whl" (
     echo  [WARN] PowerShell failed, trying curl...
-    curl.exe -L -o "%INSTALL_DIR%\packaging\wheels\part1.zip" "%DL_BASE%/aegis_wheels_part1.zip" 2>nul
+    curl.exe -L -o "%INSTALL_DIR%\packaging\wheels\torch-2.10.0-cp310-cp310-win_amd64.whl" "%DL_TORCH%/torch-2.10.0-cp310-cp310-win_amd64.whl" 2>nul
 )
-if exist "%INSTALL_DIR%\packaging\wheels\part1.zip" (
-    echo  [OK] Part 1 downloaded
+if exist "%INSTALL_DIR%\packaging\wheels\torch-2.10.0-cp310-cp310-win_amd64.whl" (
+    echo  [OK] PyTorch downloaded
 ) else (
-    echo  [ERROR] Wheels part 1 download failed!
-    pause
-    exit /b 1
+    echo  [WARN] PyTorch download failed - AI features will be limited
+    echo         You can install it later with: pip install torch
 )
 
-:: Download wheels part 2 (311 MB)
-echo  [4/5] Dependency packages part 2 (311 MB)...
-echo        (This may take 3-8 minutes)
-powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_BASE%/aegis_wheels_part2.zip' -OutFile '%INSTALL_DIR%\packaging\wheels\part2.zip' -UseBasicParsing" 2>nul
-if not exist "%INSTALL_DIR%\packaging\wheels\part2.zip" (
-    echo  [WARN] PowerShell failed, trying curl...
-    curl.exe -L -o "%INSTALL_DIR%\packaging\wheels\part2.zip" "%DL_BASE%/aegis_wheels_part2.zip" 2>nul
-)
-if exist "%INSTALL_DIR%\packaging\wheels\part2.zip" (
-    echo  [OK] Part 2 downloaded
-) else (
-    echo  [ERROR] Wheels part 2 download failed!
-    pause
-    exit /b 1
-)
-
-:: Extract wheel packages
+:: Download NLP/ML models (240 MB) - hosted on v5.0.5 release (unchanged between versions)
+set "DL_MODELS=https://github.com/%REPO%/releases/download/v5.0.5"
 echo.
-echo  Extracting dependency packages...
-powershell -NoProfile -Command "Expand-Archive -Path '%INSTALL_DIR%\packaging\wheels\part1.zip' -DestinationPath '%INSTALL_DIR%\packaging\wheels' -Force" 2>nul
-powershell -NoProfile -Command "Expand-Archive -Path '%INSTALL_DIR%\packaging\wheels\part2.zip' -DestinationPath '%INSTALL_DIR%\packaging\wheels' -Force" 2>nul
-del "%INSTALL_DIR%\packaging\wheels\part1.zip" >nul 2>nul
-del "%INSTALL_DIR%\packaging\wheels\part2.zip" >nul 2>nul
-echo  [OK] All packages extracted
-
-:: Download NLP/ML models (240 MB)
-echo  [5/5] NLP/ML models (240 MB)...
-echo        (sentence-transformers, NLTK data)
-powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_BASE%/aegis_models.zip' -OutFile '%INSTALL_DIR%\packaging\aegis_models.zip' -UseBasicParsing" 2>nul
+echo  Downloading NLP/ML models (240 MB)...
+echo  (sentence-transformers, NLTK data)
+powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_MODELS%/aegis_models.zip' -OutFile '%INSTALL_DIR%\packaging\aegis_models.zip' -UseBasicParsing" 2>nul
 if not exist "%INSTALL_DIR%\packaging\aegis_models.zip" (
     echo  [WARN] PowerShell failed, trying curl...
-    curl.exe -L -o "%INSTALL_DIR%\packaging\aegis_models.zip" "%DL_BASE%/aegis_models.zip" 2>nul
+    curl.exe -L -o "%INSTALL_DIR%\packaging\aegis_models.zip" "%DL_MODELS%/aegis_models.zip" 2>nul
 )
 if exist "%INSTALL_DIR%\packaging\aegis_models.zip" (
     echo  [OK] Models downloaded
@@ -287,30 +289,53 @@ echo  [OK] pip installed
 :: STEP 6: Install Python packages
 :: ============================================================
 echo.
-echo  [Step 6 of 8] Installing 135 Python packages...
+echo  [Step 6 of 8] Installing Python packages (232 packages)...
 echo  ---------------------------------------------------
 echo.
-echo  This takes 2-5 minutes. Please wait...
+echo  This takes 3-8 minutes. Please wait...
 echo.
 
 set "WHEELS=%INSTALL_DIR%\packaging\wheels"
+
+:: Remove any Linux-only wheels that would cause confusion
+del "%WHEELS%\*manylinux*aarch64*.whl" >nul 2>nul
 
 :: Install core packages first
 "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-deps --no-warn-script-location flask 2>nul
 "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-deps --no-warn-script-location spacy beautifulsoup4 mammoth python-docx openpyxl pymupdf chardet requests 2>nul
 
-:: Install from requirements.txt
-if exist "%INSTALL_DIR%\requirements.txt" (
+:: Install torch first (large, has dependencies)
+echo  Installing PyTorch...
+"%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location torch 2>nul
+if errorlevel 1 (
+    echo  [WARN] PyTorch offline install failed, trying online...
+    "%PYTHON_DIR%\python.exe" -m pip install torch --no-warn-script-location 2>nul
+    if errorlevel 1 (
+        echo  [WARN] PyTorch installation failed - AI features will be limited
+    ) else (
+        echo  [OK] PyTorch installed from PyPI
+    )
+) else (
+    echo  [OK] PyTorch installed from bundled wheel
+)
+
+:: Install torchvision
+echo  Installing TorchVision...
+"%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location torchvision 2>nul
+
+:: Install from requirements file (prefer Windows-specific, fallback to generic)
+echo  Installing remaining packages from requirements...
+if exist "%INSTALL_DIR%\packaging\requirements-windows.txt" (
+    echo  Using Windows-optimized requirements...
+    "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location -r "%INSTALL_DIR%\packaging\requirements-windows.txt" 2>nul
+) else if exist "%INSTALL_DIR%\requirements.txt" (
     "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location -r "%INSTALL_DIR%\requirements.txt" 2>nul
 )
 
-:: Install any remaining wheels individually
+:: Install any remaining wheels individually (catch stragglers)
 for %%f in ("%WHEELS%\*.whl") do (
     "%PYTHON_DIR%\python.exe" -m pip install --no-index --no-deps --no-warn-script-location "%%f" 2>nul
 )
-
-:: colorama & requests-negotiate-sspi are now included in wheel packages
-:: No need for live pip install
 
 :: Install Playwright browser (for headless .mil/.gov link validation)
 echo  Installing headless browser for link validation...
@@ -334,13 +359,25 @@ echo  ---------------------------------------------------
 echo.
 
 :: Install spaCy English model from bundled wheel
-if exist "%WHEELS%\en_core_web_md-*.whl" (
+set "SPACY_MODEL_FOUND=0"
+for %%f in ("%WHEELS%\en_core_web_sm*.whl") do (
+    set "SPACY_MODEL_FOUND=1"
     echo  Installing spaCy English model from package...
-    "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-deps --no-warn-script-location en_core_web_md 2>nul
+    "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-deps --no-warn-script-location "%%f" 2>nul
     echo  [OK] spaCy model installed
-) else (
+)
+if "%SPACY_MODEL_FOUND%"=="0" (
+    :: Try en_core_web_md if sm not available
+    for %%f in ("%WHEELS%\en_core_web_md*.whl") do (
+        set "SPACY_MODEL_FOUND=1"
+        echo  Installing spaCy English model ^(medium^) from package...
+        "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-deps --no-warn-script-location "%%f" 2>nul
+        echo  [OK] spaCy model installed
+    )
+)
+if "%SPACY_MODEL_FOUND%"=="0" (
     echo  Downloading spaCy English model...
-    "%PYTHON_DIR%\python.exe" -m spacy download en_core_web_md --no-warn-script-location 2>nul
+    "%PYTHON_DIR%\python.exe" -m spacy download en_core_web_sm --no-warn-script-location 2>nul
     if errorlevel 1 (
         echo  [WARN] spaCy model download failed - will retry on first launch
     ) else (
@@ -369,22 +406,27 @@ echo  [OK] NLP models configured
 :: STEP 8: Create shortcuts and launcher scripts
 :: ============================================================
 echo.
-echo  [Step 7 of 8] Creating shortcuts...
+echo  [Step 8 of 8] Creating shortcuts...
 echo  ---------------------------------------------------
 
 :: Create Start_AEGIS.bat
 (
 echo @echo off
-echo title AEGIS v5.0.5
+echo title AEGIS v5.9.21
 echo color 0B
 echo echo.
-echo echo  Starting AEGIS...
+echo echo  Starting AEGIS v5.9.21...
 echo echo  Once started, open your browser to: http://localhost:5050
 echo echo.
 echo echo  DO NOT close this window while using AEGIS.
 echo echo  Press Ctrl+C to stop the server.
 echo echo.
 echo cd /d "%INSTALL_DIR%"
+echo set "HF_HUB_OFFLINE=1"
+echo set "TRANSFORMERS_OFFLINE=1"
+echo set "HF_HUB_DISABLE_TELEMETRY=1"
+echo set "DO_NOT_TRACK=1"
+echo set "TOKENIZERS_PARALLELISM=false"
 echo if exist "%INSTALL_DIR%\models\nltk_data" set "NLTK_DATA=%INSTALL_DIR%\models\nltk_data"
 echo if exist "%INSTALL_DIR%\models\sentence_transformers" set "SENTENCE_TRANSFORMERS_HOME=%INSTALL_DIR%\models\sentence_transformers"
 echo "%PYTHON_DIR%\python.exe" app.py
@@ -449,10 +491,46 @@ echo pause
 ) > "%INSTALL_DIR%\Export_Bugs.bat"
 echo  [OK] Export_Bugs.bat
 
-:: Create Desktop shortcut
+:: Create Desktop shortcut with AEGIS icon
+set "ICON_FILE=%INSTALL_DIR%\static\img\aegis_icon.ico"
 echo  Creating Desktop shortcut...
-powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\Start AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.Description = 'Start AEGIS - Document Analysis Tool'; $s.Save()" 2>nul
-echo  [OK] Desktop shortcut created
+if exist "%ICON_FILE%" (
+    powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.IconLocation = '%ICON_FILE%,0'; $s.Description = 'Start AEGIS v5.9.21 - Document Analysis Tool'; $s.Save()" 2>nul
+    echo  [OK] Desktop shortcut created with AEGIS icon
+) else (
+    powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.Description = 'Start AEGIS v5.9.21 - Document Analysis Tool'; $s.Save()" 2>nul
+    echo  [OK] Desktop shortcut created
+)
+
+:: Clean up packaging directory to save space
+echo  Cleaning up temporary files...
+rmdir /S /Q "%INSTALL_DIR%\packaging" >nul 2>nul
+echo  [OK] Cleanup complete
+
+:: ============================================================
+:: VERIFICATION
+:: ============================================================
+echo.
+echo  Verifying installation...
+echo  ---------------------------------------------------
+echo.
+
+"%PYTHON_DIR%\python.exe" -c "import flask; print('  [OK] Flask ' + flask.__version__)" 2>nul || echo  [FAIL] Flask
+"%PYTHON_DIR%\python.exe" -c "import docx; print('  [OK] python-docx')" 2>nul || echo  [FAIL] python-docx
+"%PYTHON_DIR%\python.exe" -c "import pandas; print('  [OK] Pandas ' + pandas.__version__)" 2>nul || echo  [FAIL] Pandas
+"%PYTHON_DIR%\python.exe" -c "import numpy; print('  [OK] NumPy ' + numpy.__version__)" 2>nul || echo  [FAIL] NumPy
+"%PYTHON_DIR%\python.exe" -c "import torch; print('  [OK] PyTorch ' + torch.__version__)" 2>nul || echo  [SKIP] PyTorch (optional - AI features)
+"%PYTHON_DIR%\python.exe" -c "import spacy; print('  [OK] spaCy ' + spacy.__version__)" 2>nul || echo  [SKIP] spaCy (optional)
+"%PYTHON_DIR%\python.exe" -c "import spacy; nlp=spacy.load('en_core_web_sm'); print('  [OK] spaCy en_core_web_sm model')" 2>nul || echo  [SKIP] spaCy model (optional)
+"%PYTHON_DIR%\python.exe" -c "import fitz; print('  [OK] PyMuPDF')" 2>nul || echo  [FAIL] PyMuPDF
+"%PYTHON_DIR%\python.exe" -c "import sklearn; print('  [OK] scikit-learn')" 2>nul || echo  [SKIP] scikit-learn (optional)
+"%PYTHON_DIR%\python.exe" -c "import docling; print('  [OK] Docling')" 2>nul || echo  [SKIP] Docling (optional)
+"%PYTHON_DIR%\python.exe" -c "import torchvision; print('  [OK] TorchVision ' + torchvision.__version__)" 2>nul || echo  [SKIP] TorchVision (optional)
+"%PYTHON_DIR%\python.exe" -c "import requests_negotiate_sspi; print('  [OK] SSPI Auth')" 2>nul || echo  [SKIP] SSPI Auth (Windows auth)
+"%PYTHON_DIR%\python.exe" -c "import requests_ntlm; print('  [OK] NTLM Auth')" 2>nul || echo  [SKIP] NTLM Auth (Windows auth)
+"%PYTHON_DIR%\python.exe" -c "import mammoth; print('  [OK] mammoth')" 2>nul || echo  [FAIL] mammoth
+"%PYTHON_DIR%\python.exe" -c "import reportlab; print('  [OK] reportlab')" 2>nul || echo  [SKIP] reportlab (optional)
+"%PYTHON_DIR%\python.exe" -c "import lxml; print('  [OK] lxml')" 2>nul || echo  [FAIL] lxml
 
 :: ============================================================
 :: DONE!
@@ -464,11 +542,11 @@ echo       INSTALLATION COMPLETE!
 echo.
 echo  ============================================================
 echo.
-echo  AEGIS installed to: %INSTALL_DIR%
+echo  AEGIS v5.9.21 installed to: %INSTALL_DIR%
 echo.
 echo  To start:
-echo    1. Double-click "Start AEGIS" on your Desktop
-echo    2. Open http://localhost:5050 in your browser
+echo    1. Double-click "AEGIS" on your Desktop
+echo    2. Your browser will open automatically to http://localhost:5050
 echo.
 echo  Other scripts in install folder:
 echo    Stop_AEGIS.bat    - Stop the server

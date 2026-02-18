@@ -11,7 +11,7 @@
 - **Static files**: `static/js/`, `static/css/`, `templates/`
 - **Database**: `scan_history.db` (SQLite) - roles, documents, scans, etc.
 - **Quality Checkers**: 100+ document review checkers with UI toggle controls (98 UI + 7 always-on)
-- **Guided Tour System**: Interactive help panels and spotlight tours via `guide-system.js`
+- **Guided Tour System**: Interactive help panels, spotlight tours, and voice narration via `guide-system.js`
 - **Print Support**: Print-optimized stylesheet with URL display and page break controls
 
 ## Server Management - CRITICAL
@@ -52,7 +52,13 @@
 | `static/css/features/guide-system.css` | Guide system styling (beacon, panel, spotlight) |
 | `static/css/print.css` | Print-optimized stylesheet |
 | `config.json` | App configuration |
+| `review_report.py` | PDF review report generator (reportlab, AEGIS branding) |
+| `export_module.py` | Excel/CSV/PDF/JSON exporters |
+| `markup_engine.py` | DOCX comment insertion (COM→lxml fallback) |
 | `download_win_wheels.py` | Downloads Windows x64 wheels on connected machine |
+| `demo_audio_generator.py` | TTS audio generation for demo narration (edge-tts/pyttsx3) |
+| `static/js/features/demo-simulator.js` | Demo mock data injection IIFE (progress, results, SOW preview) |
+| `graph_export_html.py` | Interactive HTML graph export generator (D3.js, filters, search) |
 | `install_offline.bat` | Offline wheel installer for air-gapped Windows |
 
 ## CSS Patterns
@@ -160,7 +166,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.8.1
+- **Current version**: 5.9.21
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -242,14 +248,25 @@ additional_checkers = [
 **Fix**: Added `get_spacy_model()` function in `nlp_utils.py` that caches the model globally. All checkers share one instance.
 **Lesson**: Heavy NLP models (spaCy, transformers) should be loaded ONCE and shared via a module-level cache function. Never load in a checker's `__init__` if multiple checkers need the same model.
 
-### 25. Guided Tour System Architecture
-**Pattern**: The AEGIS Guide system (`guide-system.js` + `guide-system.css`) uses:
+### 25. Guided Tour System Architecture (v2.3.0)
+**Pattern**: The AEGIS Guide system (`guide-system.js` v2.3.0 + `guide-system.css`) uses:
 - SVG mask for spotlight cutouts (not box-shadow hack)
-- `getBoundingClientRect()` + `scrollIntoView()` for element targeting
-- Section registry pattern — each section defines: whatIsThis, keyActions, proTips, tourSteps
+- `getBoundingClientRect()` + `scrollIntoView()` for element targeting (fixed `offsetParent` check → `getBoundingClientRect().width > 0` for modal elements)
+- Section registry pattern — each section defines: whatIsThis, keyActions, proTips, tourSteps, demoScenes, **subDemos**
 - Tour steps reference CSS selectors that must exist in index.html
-**Files**: `static/js/features/guide-system.js`, `static/css/features/guide-system.css`
-**API**: `AEGISGuide.startFullTour()`, `AEGISGuide.openPanel('sectionId')`, `AEGISGuide.addHelpButton(modal, sectionId)`
+- **79 overview demo scenes** across 11 sections (~10 min full demo with voice narration)
+- **93 sub-demos with ~471 deep-dive scenes** covering every sub-function, tab, workflow, export, import, and feature
+- **Demo picker UI** in help panel: overview card + 2-column sub-demo card grid
+- **preAction pattern**: each sub-demo has an async preAction() that clicks the correct tab before scenes play
+- **Breadcrumb display**: demo bar shows "Section › Sub-demo" during sub-demo playback
+- Voice narration provider chain: pre-generated MP3 → Web Speech API → silent timer fallback
+- Demo bar: fixed-bottom glassmorphism UI with typewriter narration, controls (play/pause/prev/next/stop), speed selector, progress bar
+- Double-start guard prevents rapid-click demo restarts
+- Tooltip suppression during demo mode (400ms setTimeout after showSpotlight's 350ms)
+**Files**: `static/js/features/guide-system.js`, `static/css/features/guide-system.css`, `demo_audio_generator.py`
+**API**: `AEGISGuide.startFullTour()`, `AEGISGuide.startFullDemo()`, `AEGISGuide.startDemo(sectionId)`, `AEGISGuide.startSubDemo(sectionId, subDemoId)`, `AEGISGuide.openPanel('sectionId')`, `AEGISGuide.addHelpButton(modal, sectionId)`
+**Z-index hierarchy**: beacon=150000, demoBar=149800, panel=149500, spotlight=149000
+**Settings**: localStorage key `aegis-guide-enabled`, toggle in Settings > General
 
 ### 26. Print Stylesheet Approach
 **Pattern**: `static/css/print.css` loaded with `media="print"` — only activates during Ctrl+P.
@@ -309,20 +326,27 @@ additional_checkers = [
 **Frontend**: Folder path input in batch upload modal with "Preview" (discovery only) and "Scan All" buttons.
 **Lesson**: For large batch operations, chunk processing with inter-chunk GC is essential. Don't try to hold all engine instances in memory simultaneously. The discovery/review two-phase approach lets users preview before committing. Always provide a dry-run option for potentially long operations.
 
-### 35. Animated Demo Player Architecture (v5.6.0)
+### 35. Animated Demo Player Architecture (v5.6.0 → v5.9.9)
 **Problem**: Users wanted "live video" walkthroughs of every AEGIS feature, but actual screen-recorded video files would be massive and stale after any UI change.
-**Solution**: Built an animated demo player system in pure HTML/CSS/JS that runs on the live UI. Each section defines `demoScenes` — arrays of steps with `target` (CSS selector), `narration` (text), and optional `navigate` (function to open the correct modal first).
+**Solution**: Built an animated demo player system in pure HTML/CSS/JS that runs on the live UI. Each section defines `demoScenes` (overview) + `subDemos` (deep-dive) — arrays of steps with `target` (CSS selector), `narration` (text), `duration` (ms), and optional `navigate` (function to open the correct modal first).
 **Architecture**:
 - Demo bar: Fixed-bottom glass-morphism UI with typewriter narration, controls (play/pause/prev/next/stop), speed selector, progress bar
 - SVG mask spotlight: Creates SVG with white fill + black cutout rect for target element, applied as CSS mask to semi-transparent overlay
 - Section navigation: `_navigateToSection(sectionId)` opens the correct modal/view, waits 600ms for DOM to settle, then spotlights elements within it
 - Typewriter effect: Characters typed one at a time at configurable speed (adjusted by playback speed multiplier)
-- Auto-advance: Each step displays for `demoStepDuration / speed` milliseconds before advancing
+- Auto-advance: Each step displays for `duration / speed` milliseconds before advancing
 - Full Demo mode: Iterates through all 11 sections sequentially, navigating between modals automatically
-**Key files**: `guide-system.js` (logic), `guide-system.css` (styles)
+- Voice narration: Web Speech API with `SpeechSynthesisUtterance`, provider chain (MP3 → WebSpeech → silent timer)
+- **79 overview scenes** across 11 sections — full demo ~10 min with narration at 1x speed
+- **93 sub-demos with ~471 deep-dive scenes** — hierarchical drill-down covering every sub-function, export, import, and workflow
+- **Demo picker**: Help panel transitions to show overview card + 2-column sub-demo card grid when "Watch Demo" is clicked
+- **preAction pattern**: Each sub-demo has `preAction: async () => { ... }` that clicks the correct tab, waits for render
+- **startSubDemo(sectionId, subDemoId)**: Navigates to section → runs preAction → plays scenes with breadcrumb title
+- Content guidelines: 150-300 char narration, 7000-10000ms duration, one teaching point per scene, workflow order
+**Key files**: `guide-system.js` (logic, v2.3.0), `guide-system.css` (styles), `demo_audio_generator.py` (pre-gen TTS)
 **Z-index hierarchy**: beacon=150000, demoBar=149800, panel=149500, spotlight=149000
 **Settings**: localStorage key `aegis-guide-enabled`, toggle in Settings > General, synced via `saveSettings()` in app.js
-**Lesson**: For feature walkthrough "videos," an animated demo player on the live UI is better than pre-recorded videos — it stays current with UI changes, requires no video hosting, and can be interactive. The key design pattern is: define scenes declaratively (selector + narration + navigation), then a generic player engine handles spotlight, narration, timing, and controls.
+**Lesson**: For feature walkthrough "videos," an animated demo player on the live UI is better than pre-recorded videos — it stays current with UI changes, requires no video hosting, and can be interactive. The key design pattern is: define scenes declaratively (selector + narration + navigation), then a generic player engine handles spotlight, narration, timing, and controls. For sub-function drill-down, the `subDemos` object alongside `demoScenes` provides hierarchical depth without restructuring existing overview demos.
 
 ### 36. ReviewIssue Object vs Dict in Folder Scan (v5.6.1)
 **Problem**: Folder scan returned `errors: 5` for all documents. Error message: `'ReviewIssue' object has no attribute 'get'`.
@@ -374,6 +398,132 @@ additional_checkers = [
 **Root Cause**: The modal header had a static `.dc-doc-title` span showing the filename as plain text. Only scan-level `<select>` dropdowns existed (`#dc-old-scan`, `#dc-new-scan`) for choosing which scans to compare. No document-level selector was ever built — the original design assumed users would always enter via the document picker or current-document path.
 **Fix**: (1) Replaced `.dc-doc-title` span with a `<select id="dc-doc-select">` dropdown in `index.html`. (2) Added `populateDocumentSelector()` in `doc-compare.js` that fetches all comparable documents from `/api/compare/documents` and populates the dropdown on modal open. (3) Added change event listener that re-initializes state, reloads scans, and auto-compares when user switches documents. (4) Styled for both light and dark mode in `doc-compare.css`.
 **Lesson**: Any modal that operates on a specific entity (document, role, scan) should always provide a way to switch that entity from within the modal. Don't assume users will always enter via the "correct" path. The `/api/compare/documents` endpoint already existed but was only used by the picker dialog — reusing it in the modal header was trivial.
+
+### 44. Export Suite Architecture — Filter + Format + Progress Pattern (v5.9.4)
+**Problem**: Export system had only 3 formats (DOCX, CSV, JSON), no server-side PDF, no pre-export filtering, and the PDF "export" was just a client-side print dialog (`window.open()` → `print()`). No way to filter by severity or category before exporting. No progress feedback during export.
+**Solution**: Complete export suite rebuild:
+1. **5 format cards**: DOCX (comments), PDF Report (reportlab), XLSX (openpyxl), CSV, JSON
+2. **Pre-export filter panel**: Collapsible panel with severity and category chip-based multi-select. Live preview count updates as filters are toggled. Filters stack on top of export mode (All/Filtered/Selected).
+3. **Server-side PDF**: New `review_report.py` with `ReviewReportGenerator` class using reportlab. Cover page, executive summary, severity/category breakdown tables, issue details grouped by category. AEGIS gold/bronze branding. Filter notice banner when filters are active.
+4. **Export progress overlay**: Glassmorphism card with animated progress bar, format-specific title, and issue count detail. Shown during export, hidden on completion.
+5. **Backend endpoint**: `POST /api/export/pdf` with filter support. Issues can come from request body or session. Filters applied server-side as well.
+**Files**: `review_report.py` (NEW), `static/css/features/export-suite.css` (NEW), `templates/index.html` (modal update), `static/js/app.js` (export logic), `routes/review_routes.py` (PDF endpoint)
+**Key patterns**:
+- Export filters are applied CLIENT-SIDE before sending to backend (reduces payload, works for all formats including client-side JSON)
+- `_populateExportFilterChips()` builds chips from `State.issues` on modal open
+- `_getExportFilters()` reads active chips and returns `{severities: [], categories: []}`
+- `_updateExportFilterPreview()` counts matching issues and updates the preview bar
+- `_showExportProgress()` / `_hideExportProgress()` manage the overlay
+- PDF report uses same branding patterns as `adjudication_report.py` (AEGIS_GOLD, AEGIS_BRONZE, letter size, Helvetica fonts)
+**Lesson**: For export features, always (1) provide format-specific progress feedback (users hate staring at "Exporting..."), (2) allow pre-export filtering so users can create focused deliverables, and (3) do server-side generation for complex formats (PDF) while keeping simple formats (JSON) client-side.
+
+### 45. Fix Assistant ↔ Export Modal Integration (v5.9.4)
+**Problem**: Fix Assistant v2 opened on top of the export modal, but when it closed, the export modal was gone (FA's `showModal()` closes all other `.modal.active`). Additionally, the launcher stats ("X selected") never updated after review because the `fixAssistantDone` event had no listener. And `handleFinishReview()` populated `State.selectedFixes` using array indices instead of actual fix indices.
+**Root Causes**: (1) Fix Assistant's `showModal()` at line 7432 calls `otherModal.classList.remove('active')` on all modals except `fav2-modal` — this closes the export modal. (2) `fixAssistantDone` custom event was dispatched but never listened for. (3) `FixAssistantState.getSelectedFixes()` returns an array of objects, not a Map — so `.forEach((_, idx)` gives sequential array indices, not the original fix indices from the decisions Map.
+**Fix**: (1) Added `fixAssistantDone` event listener in `initNewFeatureListeners()` that re-shows the export modal, updates launcher stats, and auto-checks the "Apply selected fixes" checkbox. (2) Added `close()` re-show logic with `setTimeout(100ms)` for the cancel/X path. (3) Added `_closingForFinish` flag to prevent double-modal-open when `handleFinishReview()` calls `close()` then dispatches `fixAssistantDone`. (4) Fixed `State.selectedFixes` population to use `FixAssistantState.getDecision(originalIdx)` iteration over all fixes. (5) Added stats restoration in `showExportModal()` when returning after previous FA review.
+**Data format gotcha**: `FixAssistantState.getSelectedFixes()` returns `{original_text, replacement_text, ...}` (mapped from raw fix's `flagged_text`/`suggestion`). Legacy `FixAssistant.getSelectedFixes()` fallback returns `{flagged_text, suggestion, ...}` directly from `State.fixes[idx]`. Always use `||` fallbacks: `f.original_text || f.flagged_text || ''`.
+**Lesson**: When a full-screen modal (like Fix Assistant) closes all other modals on open, it MUST re-show the originating modal on close. Use a flag (`_closingForFinish`) to distinguish between user-cancelled close (re-show with current state) and finish-review close (re-show with updated stats via custom event). Always check what data format `.getSelectedFixes()` actually returns — the same method name can return different shapes depending on the initialization state.
+
+### 46. FOUC Script Sets data-theme on Body — Must Sync on Toggle (v5.9.5)
+**Problem**: "New to AEGIS?" banner text invisible in light mode. `.gs-card-title` had `color: var(--text-primary)` but `--text-primary` resolved to `#e6edf3` (white) on the body element despite being in light mode.
+**Root Cause**: Three-layer FOUC (Flash of Unstyled Content) prevention system was out of sync:
+1. `<head>` script sets `data-theme="dark"` and inline styles on `<html>` element
+2. `<body>` inline script (line 131 of index.html) sets `data-theme="dark"` on `<body>` element
+3. `toggleTheme()` and `initThemeToggle()` in app.js only synced `data-theme` on `<html>`, never on `<body>`
+
+When user toggled to light: `<html data-theme="light">` but `<body data-theme="dark">` — the CSS selector `[data-theme="dark"]` matched `<body>`, applying dark mode variables to all body descendants.
+**Fix**:
+1. Added `document.body.setAttribute('data-theme', isDark ? 'dark' : 'light')` in BOTH `toggleTheme()` and `initThemeToggle()`
+2. Previous session's fix already cleared inline CSS variable overrides from both `<html>` and `<body>`
+**Lesson**: When FOUC prevention scripts set `data-theme` on MULTIPLE elements (html AND body), ALL theme-switching code must update ALL elements. Check every `setAttribute('data-theme', ...)` call and ensure it covers both `document.documentElement` and `document.body`. Use `getComputedStyle(document.body).getPropertyValue('--text-primary')` to debug — if body's variable differs from html's, they're out of sync.
+
+### 47. Help Docs Print Uses window.open() — Popup Blocker (v5.9.5)
+**Problem**: Clicking the print button in Help & Documentation showed "Unable to open print window" alert.
+**Root Cause**: `HelpContent.printSection()` used `window.open('', '_blank')` to create a new window for printing. Chrome's popup blocker blocks `window.open()` even when called from a click handler if there's any asynchronous code path involved. This is the same pattern as Lesson 9.
+**Fix**: Replaced `window.open()` with hidden `<iframe>` approach — creates an off-screen iframe, writes the help content HTML into it, then calls `iframe.contentWindow.print()`. The iframe is cleaned up after the print dialog closes.
+**Lesson**: NEVER use `window.open()` for printing. Always use the hidden iframe pattern: create iframe → write content → `contentWindow.focus()` → `contentWindow.print()` → cleanup. This avoids popup blockers entirely.
+
+### 48. Voice Narration System Architecture (v5.9.7)
+**Feature**: Added voice narration to the existing Live Demo player system in guide-system.js.
+**Architecture**: Three-tier provider chain — (1) Pre-generated MP3 clips from `static/audio/demo/` with manifest.json, (2) Web Speech API (`speechSynthesis`) with automatic sentence chunking to avoid Chrome's 15-second timeout bug, (3) Silent timer fallback (existing behavior).
+**Key Design Decisions**:
+- Progressive enhancement: demo works identically with or without audio — narration is a pure overlay
+- Audio timing overrides step timer: when narration is enabled and audio plays, the step advances when audio finishes + 800ms pause (not on a fixed timer)
+- `_showDemoStep()` fires `_playNarration()` as a Promise alongside the typewriter effect — they run in parallel
+- Volume control persists via localStorage (`aegis-narration-volume`)
+- Voice preference persists via localStorage (`aegis-narration-voice`)
+- Chrome 15-sec bug: `_speakText()` splits text into sentences and chains them via `onend` callbacks
+- Speed sync: `audio.playbackRate` and `utterance.rate` both sync with `demo.speed` selector
+**Server-side**: `demo_audio_generator.py` provides `generate_demo_audio()` that extracts narration text from guide-system.js and generates MP3s via edge-tts (neural, requires internet) or pyttsx3 (system voices, offline). API endpoints at `/api/demo/audio/*`.
+**Files**: `guide-system.js` (narration state + provider chain), `guide-system.css` (narration controls styling), `demo_audio_generator.py` (TTS generation), `routes/config_routes.py` (API endpoints), `static/audio/demo/` (audio files + manifest).
+**Lesson**: When adding audio to an existing visual system, use a provider chain with automatic fallback. The frontend should never fail because audio is unavailable — it should gracefully degrade. The `_playNarration()` → `true`/`false` return pattern lets the step timer know whether to wait for audio or use its own timing.
+
+### 49. Demo Tooltip Suppression and Double-Start Guard (v5.9.8)
+**Problem**: During demo playback, the spotlight tooltip ("STEP 1 OF 1" with Skip/Back/Next buttons) appeared on top of the spotlighted element, obscuring the view. Also, clicking "Watch Demo" rapidly could start multiple demos simultaneously.
+**Root Cause**: `showSpotlight()` internally calls `positionTooltip()` which sets `tooltip.style.display = 'block'` and `tooltip.style.visibility = 'visible'` inside a 350ms `setTimeout`. The `_showDemoStep()` code set `tooltip.style.display = 'none'` BEFORE calling `showSpotlight()`, but the 350ms async delay in `showSpotlight` re-showed it.
+**Fix**: (1) Moved tooltip hiding to AFTER `showSpotlight()` with a 400ms `setTimeout` (longer than the 350ms in `showSpotlight`), setting both `display: none` and `visibility: hidden`. (2) Added `if (this.demo.isPlaying) return;` guard at top of `startDemo()` and `startFullDemo()` to prevent double-starts from rapid clicks.
+**Lesson**: When hiding UI elements that are manipulated by async/setTimeout code, your hiding code must run AFTER the async code completes. Use a longer timeout or a callback/flag to ensure ordering. For user-triggered actions (button clicks), always add idempotency guards (`if (already_running) return`) to prevent duplicate invocations.
+
+### 50. Super-Detailed Demo Scenes — Content Architecture (v5.9.8)
+**Enhancement**: Expanded demo scene count from 31 to 79 across all 11 AEGIS modules. Every section now has 5-10 detailed narration scenes covering individual UI elements, sub-features, workflows, and tips.
+**Content guidelines for narrated demo scenes**:
+- Each narration should be 150-300 characters (2-4 sentences) — enough for 8-10 seconds of speech
+- Duration should be 7000-10000ms to allow narration to complete with natural pacing
+- Every scene should teach something specific, not repeat general statements
+- Scenes should follow the user's workflow order (open → configure → execute → review results → export)
+- Sections with tabs (Roles Studio, Metrics) should have one scene per tab
+- Scenes can reference features that other sections cover (cross-references build understanding)
+- Narration text should use full words ("one hundred" not "100") since it's read aloud by TTS
+**Full demo timing**: 79 content scenes + 11 section transition scenes = 90 total scenes. At 1x speed with narration, the full demo runs approximately 10 minutes.
+
+### 51. Missing CSS .hidden Rules for Demo Picker Toggle (v5.9.12)
+**Problem**: Demo picker sub-demo cards were invisible when user clicked "Watch Demo" in the guide panel. All 11 sections affected — cards existed in DOM but were pushed below the visible scroll area.
+**Root Cause**: The JS code in `_showDemoPicker()` used `helpContent.classList.add('hidden')` and `footer.classList.add('hidden')` to hide help content before showing the picker. But no CSS rules existed for `.panel-help-content.hidden` or `.panel-footer.hidden`. The project had only component-specific `.hidden` selectors (e.g., `.demo-picker.hidden`, `.tips-list.hidden`), not a generic `.hidden { display: none; }`. So the help content stayed visible (512px tall) and pushed the picker to offsetTop 636, below the 774px panel body viewport.
+**Fix**: Added two CSS rules in `guide-system.css`: `.panel-help-content.hidden { display: none !important; }` and `.panel-footer.hidden { display: none !important; }`.
+**Lesson**: Never assume `.hidden` class works generically. This project uses component-specific `.hidden` selectors — every element that uses `classList.add('hidden')` needs a matching CSS rule. When adding new toggle logic, always verify the CSS selector exists. Use `getComputedStyle(el).display` to confirm elements are actually hidden, not just that the class was added.
+
+### 52. IIFE Public API Must Expose Functions Used by Other Modules (v5.9.14)
+**Problem**: Metrics sub-demo preActions used `.click()` on tab buttons (`#ma-tab-btn-quality`, etc.) to switch tabs before playing scenes. But the clicks did nothing — the tab didn't switch.
+**Root Cause**: MetricsAnalytics is an IIFE that uses event delegation on `#modal-metrics-analytics` with `e.target.closest('.ma-tab')`. The `switchTab()` function is defined inside the IIFE closure and only exposed `{ init, open, close }` in its public API (line 1492). Despite `.click()` dispatching a real click event that bubbles, the event delegation wasn't triggering. Additionally, `_navigateToSection('metrics')` used `showModal('modal-metrics-analytics')` instead of `MetricsAnalytics.open()`, so data wasn't loaded, making tab rendering impossible even if the click had worked.
+**Fix**: (1) Added `switchTab` to the IIFE's public return: `return { init, open, close, switchTab }`. (2) Changed `_navigateToSection('metrics')` to use `MetricsAnalytics.open()`. (3) Updated all 5 metrics preActions to call `window.MetricsAnalytics.switchTab('quality')` directly instead of `.click()`. (4) Fixed namespace from `TWR.MetricsAnalytics` to `window.MetricsAnalytics` (the IIFE assigns to `window.MetricsAnalytics`, not `window.TWR.MetricsAnalytics`).
+**Lesson**: When module A (guide-system) needs to control module B (MetricsAnalytics), module B MUST expose that function in its public API. `.click()` on elements controlled by IIFE event delegation is unreliable for programmatic control. Always check the IIFE's `return` statement to see what's actually exposed, and verify the correct namespace (`window.X` vs `window.TWR.X`).
+
+### 53. Sub-Demo Target Selector Audit Checklist (v5.9.13-14)
+**Problem**: Of 168 unique selectors used as `target:` in sub-demo scenes, 3 referenced non-existent elements: `#btn-fix-assistant` (actual: `#btn-open-fix-assistant`), `#format-csv-card` and `#format-json-card` (no IDs on those `<label>` elements). Additionally, `#sf-btn-sow` was used in a preAction but doesn't exist — SOW generator is opened via `SowGenerator.open()` API.
+**Fix**: Corrected the Fix Assistant target, added IDs to CSV/JSON export cards in index.html, and changed SOW preAction to call the module API.
+**Lesson**: When creating sub-demo targets: (1) ALWAYS verify the exact `id` attribute in index.html — don't guess based on naming conventions. (2) For IIFE modules (MetricsAnalytics, SowGenerator, etc.), use their public API methods in preActions, not `.click()` on buttons that trigger internal event delegation. (3) Run a programmatic audit: extract all `target:` selectors from guide-system.js and cross-reference against index.html to catch mismatches before shipping. (4) Elements in modals/dropdowns that only render after user interaction need preActions that open the containing modal first.
+
+### 54. Sub-Demo Modal Force-Show Pattern (v5.9.15)
+**Problem**: 9 sub-demos were rated BAD because their preActions didn't open the target modal, so all scenes spotlighted the trigger button instead of actual content. 18 more were PARTIAL — preActions opened the right section but every scene targeted the same element.
+**Root Cause**: Sub-demos for modals that aren't normally visible (export, triage, score breakdown, function tags, help) need their preAction to force-show the modal before scenes can target elements inside it. Portfolio sub-demos called `#nav-portfolio` click but needed to use the `Portfolio.open()` API. Several targets used IDs that don't exist (`#sf-sidebar` → `.sf-sidebar`, `#advanced-settings-panel` → `#advanced-panel`, `#file-dropzone` → `#dropzone`, `#results-table` → `#issues-container`).
+**Fix pattern for force-shown modals**:
+```javascript
+preAction: async () => {
+    try {
+        const modal = document.getElementById('modal-xxx');
+        if (modal) {
+            modal.classList.add('active');
+            modal.style.display = 'flex';
+            modal.style.zIndex = '148000';
+            AEGISGuide._xxxCleanup = () => {
+                modal.classList.remove('active');
+                modal.style.display = '';
+                modal.style.zIndex = '';
+            };
+        }
+        await AEGISGuide._wait(300);
+    } catch(e) { console.warn('[AEGIS Guide] preAction error:', e); }
+},
+```
+**Cleanup**: Each force-shown modal stores a cleanup function on `AEGISGuide._xxxCleanup`. These are called in both `stopDemo()` and `_navigateToSection()`. Currently 5 cleanups: `_exportCleanup`, `_triageCleanup`, `_scoreCleanup`, `_funcTagsCleanup`, `_helpCleanup`.
+**For IIFE modules**: Use the module's public API (e.g., `Portfolio.open()`, `TWR.FunctionTags.showModal()`, `MetricsAnalytics.open()`) instead of `.click()` on nav buttons.
+**Lesson**: Every sub-demo that targets elements inside a modal/overlay MUST: (1) force-show the modal in preAction with `display:flex` + `zIndex:148000`, (2) store a cleanup function, (3) have cleanup called on stop AND section navigation. Always verify target selectors exist in the DOM — use `.class-name` for elements without IDs. Run programmatic verification of all targets after changes.
+
+### 55. Help Beacon Must Hide During Demo Playback (v5.9.18)
+**Problem**: The ? help beacon (`z-index:150000`) overlaid the demo bar's X stop button (`z-index:149800`) in the bottom-right corner, making it very difficult to click stop during demos.
+**Root Cause**: The beacon is `position: fixed; bottom: 32px; right: 32px` and sits at the highest z-index in the app (150000). The demo bar is `position: fixed; bottom: 0` at z-index 149800. The beacon's position directly overlaps the demo bar's control area.
+**Fix**: Added `this.refs.beacon.style.display = 'none'` in all 3 demo start locations (`startDemo()`, `startFullDemo()`, `startSubDemo()`) right after `this.demo.isPlaying = true`. Added `this.refs.beacon.style.display = ''` in `stopDemo()` to restore it when demo ends.
+**Lesson**: Any persistent floating UI element (beacons, FABs, chat widgets) must be hidden when a full-screen overlay or bottom-bar UI is active. Check all fixed-position elements' z-indices when adding new fixed-position features. The beacon's z-index (150000) was intentionally highest for normal use, but that same priority made it block demo controls.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
