@@ -425,7 +425,7 @@ PRESETS['aerospace'] = StylePreset(
 PRESETS['all_checks'] = StylePreset(
     name='all_checks',
     display_name='All Checks',
-    description='Enable all 84 checkers for maximum coverage',
+    description='Enable all 105+ checkers for maximum coverage',
     target_audience='Comprehensive review',
     checkers={checker: True for checker in [
         'check_spelling', 'check_grammar', 'check_acronyms', 'check_passive_voice',

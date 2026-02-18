@@ -1202,3 +1202,11 @@ body:not(.dark-mode):not([data-theme="dark"]) .pf-modal {
 body:not(.dark-mode):not([data-theme="dark"]) .pf-main {
     background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
 }
+
+/* ===== ACCESSIBILITY ===== */
+@media (prefers-reduced-motion: reduce) {
+    [class*="pf-"] {
+        animation: none !important;
+        transition-duration: 0.01ms !important;
+    }
+}

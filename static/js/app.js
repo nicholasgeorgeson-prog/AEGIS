@@ -114,6 +114,17 @@
 window._TWR_fileProcessing = false;
 window._TWR_lastFileTime = 0;
 
+/**
+ * v5.9.2: Reset upload state so user can select a new file
+ * Called after scan completes, HV validation completes, or any processing exit path
+ */
+function resetUploadState() {
+    window._TWR_fileProcessing = false;
+    const fileInput = document.getElementById('file-input');
+    if (fileInput) fileInput.value = '';
+    console.log('[TWR] Upload state reset — ready for new file');
+}
+
 // ============================================================
 // GLOBAL STATE - Use module or inline fallback
 // ============================================================
@@ -630,7 +641,23 @@ function initThemeToggle() {
     } else {
         document.body.classList.remove('dark-mode');
         document.documentElement.classList.remove('dark-mode');
+        // v5.9.5: Clear FOUC inline styles that override CSS file light mode variables
+        // The FOUC prevention script in index.html sets inline --text-primary, --bg-deep etc.
+        // for dark mode. When light mode is stored, these must be cleared so base.css takes effect.
+        const htmlEl = document.documentElement;
+        const bodyEl = document.body;
+        htmlEl.style.removeProperty('background-color');
+        htmlEl.style.removeProperty('color');
+        htmlEl.style.removeProperty('--bg-deep');
+        htmlEl.style.removeProperty('--bg-primary');
+        htmlEl.style.removeProperty('--text-primary');
+        htmlEl.style.removeProperty('--bg-secondary');
+        bodyEl.style.removeProperty('background-color');
+        bodyEl.style.removeProperty('color');
     }
+    // v5.9.1: Sync data-theme attribute on BOTH html and body
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.body.setAttribute('data-theme', isDark ? 'dark' : 'light');
     updateThemeIcons(isDark);
 
     // Toggle button handler
@@ -641,6 +668,38 @@ function toggleTheme() {
     const isDark = document.body.classList.toggle('dark-mode');
     // v5.0.0: Sync html element too (for instant dark mode on reload)
     document.documentElement.classList.toggle('dark-mode', isDark);
+    // v5.9.5: Sync data-theme attribute on BOTH html and body (body gets data-theme="dark"
+    // from FOUC script in index.html — must be cleared when toggling to light mode)
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.body.setAttribute('data-theme', isDark ? 'dark' : 'light');
+
+    // v5.9.5: Clear/set FOUC inline styles — inline CSS variables on <html> have highest
+    // specificity and override stylesheet values. Must be cleared when switching to light mode
+    // or updated when switching to dark mode (originally set by FOUC prevention script in index.html)
+    const htmlEl = document.documentElement;
+    const bodyEl = document.body;
+    if (isDark) {
+        // Set dark mode inline vars for FOUC prevention on reload
+        htmlEl.style.setProperty('background-color', '#0d1117');
+        htmlEl.style.setProperty('color', '#e6edf3');
+        htmlEl.style.setProperty('--bg-deep', '#0d1117');
+        htmlEl.style.setProperty('--bg-primary', '#161b22');
+        htmlEl.style.setProperty('--text-primary', '#e6edf3');
+        htmlEl.style.setProperty('--bg-secondary', '#1c2128');
+        // v5.9.18: Body stays transparent so particle canvas shows through gaps
+        bodyEl.style.removeProperty('background-color');
+        bodyEl.style.setProperty('color', '#e6edf3');
+    } else {
+        // Clear inline overrides so CSS file values take effect
+        htmlEl.style.removeProperty('background-color');
+        htmlEl.style.removeProperty('color');
+        htmlEl.style.removeProperty('--bg-deep');
+        htmlEl.style.removeProperty('--bg-primary');
+        htmlEl.style.removeProperty('--text-primary');
+        htmlEl.style.removeProperty('--bg-secondary');
+        bodyEl.style.removeProperty('background-color');
+        bodyEl.style.removeProperty('color');
+    }
 
     // v3.0.46: Use unified storage if available
     if (window.TWR?.Storage?.ui) {
@@ -1162,6 +1221,7 @@ async function runReviewWithJobs() {
             toast('error', job.error || 'Review failed');
             State.currentJobId = null;
             window.cancelCurrentJob = null; // v4.6.1
+            resetUploadState(); // v5.9.2: Allow new file selection after failure
             return;
         } else if (job.status === 'cancelled') {
             console.log(`[TWR] Job ${jobId} cancelled`);
@@ -1170,6 +1230,7 @@ async function runReviewWithJobs() {
             setLoading(false);
             State.currentJobId = null;
             window.cancelCurrentJob = null; // v4.6.1
+            resetUploadState(); // v5.9.2: Allow new file selection after cancel
             return;
         }
     }
@@ -1195,6 +1256,7 @@ async function runReviewWithJobs() {
         toast('error', resultResponse?.error || 'Failed to get results');
         State.currentJobId = null;
         window.cancelCurrentJob = null; // v4.6.1
+        resetUploadState(); // v5.9.2: Allow new file selection after error
         return;
     }
 
@@ -1329,10 +1391,23 @@ function processReviewResults(result, duration) {
     }
 
     // v2.9.4: Auto-run Statement Forge extraction in background (#4)
+    // v5.9.2: Added feedback toast so user knows extraction happened
     if (State.currentText && window.StatementForge) {
-        setTimeout(() => {
-            console.log('[TWR] Auto-extracting statements in background...');
-            window.StatementForge.extractStatements(true); // silent mode
+        setTimeout(async () => {
+            try {
+                console.log('[TWR] Auto-extracting statements in background...');
+                await window.StatementForge.extractStatements(true); // silent mode
+                // v5.9.2: Show feedback after auto-extraction
+                const stmtCount = window.StatementForge?.getStatements?.()?.length;
+                if (stmtCount !== undefined && stmtCount > 0) {
+                    toast('info', `Statement Forge: ${stmtCount} statements auto-extracted`);
+                } else if (stmtCount === 0) {
+                    toast('info', 'Statement Forge: No statements found in document');
+                }
+            } catch (sfErr) {
+                console.warn('[TWR] Statement Forge auto-extract failed:', sfErr);
+                toast('warning', 'Statement extraction skipped: ' + (sfErr.message || 'module error'));
+            }
         }, 500);
     }
 
@@ -1370,6 +1445,9 @@ function processReviewResults(result, duration) {
 
     // Save state to sessionStorage for back button support
     saveSessionState();
+
+    // v5.9.2: Reset upload state so user can immediately select a new file
+    resetUploadState();
 }
 
 /**
@@ -3041,6 +3119,26 @@ function downloadBlob(blob, filename) {
     URL.revokeObjectURL(url);
 }
 
+/**
+ * Download CSV content as a file with Excel-compatible formatting.
+ * Adds UTF-8 BOM and normalizes line endings to CRLF for Windows Excel compatibility.
+ * @param {string} csvContent - The CSV content string
+ * @param {string} filename - The download filename
+ */
+function downloadCSV(csvContent, filename) {
+    const bom = '\uFEFF';
+    const crlf = csvContent.replace(/\r?\n/g, '\r\n');
+    const blob = new Blob([bom + crlf], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 function getTimestamp() {
     if (window.TWR?.Roles?.getTimestamp) {
         return TWR.Roles.getTimestamp();
@@ -3055,17 +3153,17 @@ function showExportModal() {
         toast('warning', 'Please run a review first');
         return;
     }
-    
+
     // Handle PDF vs DOCX export options
     const isPDF = State.fileType === 'pdf';
     const docxCard = document.getElementById('format-docx-card');
     const docxRadio = document.querySelector('input[name="export-format"][value="docx"]');
-    const csvRadio = document.querySelector('input[name="export-format"][value="csv"]');
+    const pdfReportRadio = document.querySelector('input[name="export-format"][value="pdf"]');
     const pdfNotice = document.getElementById('export-pdf-notice');
     const applyFixesGroup = document.getElementById('apply-fixes-group');
     const applyFixesCheckbox = document.getElementById('export-apply-fixes');
     const launcher = document.getElementById('fix-assistant-launcher');
-    
+
     if (isPDF) {
         // Disable DOCX export for PDF files
         if (docxCard) {
@@ -3073,7 +3171,8 @@ function showExportModal() {
             docxCard.style.pointerEvents = 'none';
         }
         if (docxRadio) docxRadio.disabled = true;
-        if (csvRadio) csvRadio.checked = true;
+        // v5.9.4: Default to PDF Report for PDF source files
+        if (pdfReportRadio) pdfReportRadio.checked = true;
         if (pdfNotice) pdfNotice.style.display = 'block';
         if (applyFixesGroup) applyFixesGroup.style.display = 'none';
     } else {
@@ -3088,7 +3187,7 @@ function showExportModal() {
         }
         if (pdfNotice) pdfNotice.style.display = 'none';
         if (applyFixesGroup) applyFixesGroup.style.display = 'block';
-        
+
         // v3.0.96: Initialize Fix Assistant
         if (window.FixAssistant) {
             FixAssistant.init();
@@ -3098,8 +3197,24 @@ function showExportModal() {
         if (launcher) {
             launcher.style.display = 'flex';
         }
+
+        // v5.9.4: Restore Fix Assistant stats if user already reviewed fixes
+        if (window.FixAssistantState && FixAssistantState.isInitialized()) {
+            const faStats = FixAssistantState.getStatistics();
+            const selectedEl = document.getElementById('selected-fix-count');
+            const fixableEl = document.getElementById('fixable-count');
+            if (selectedEl) selectedEl.textContent = faStats.accepted || 0;
+            if (fixableEl) fixableEl.textContent = (State.fixes || []).length;
+            // Auto-check apply fixes if user previously accepted fixes
+            if (applyFixesCheckbox && faStats.accepted > 0) {
+                applyFixesCheckbox.checked = true;
+            }
+        }
     }
-    
+
+    // v5.9.4: Populate export filter chips
+    _populateExportFilterChips();
+
     updateSelectionUI();
     updateExportOptions();
     showModal('modal-export');
@@ -3147,14 +3262,17 @@ window.openExportReview = openExportReview;
 function updateExportOptions() {
     const format = document.querySelector('input[name="export-format"]:checked')?.value || 'docx';
     const applyFixesGroup = document.getElementById('apply-fixes-group');
-    
+
     // Hide apply fixes for non-docx formats
     if (applyFixesGroup) {
         applyFixesGroup.style.display = format === 'docx' ? 'block' : 'none';
     }
-    
+
     // Update fixable preview with checkboxes
     populateFixPreview();
+
+    // v5.9.4: Update export filter preview count
+    _updateExportFilterPreview();
 }
 
 async function executeExport() {
@@ -3180,13 +3298,26 @@ async function executeExport() {
             issuesToExport = State.issues;
     }
 
+    // v5.9.4: Apply export filter panel filters
+    const exportFilters = _getExportFilters();
+    if (exportFilters.severities.length > 0 || exportFilters.categories.length > 0) {
+        if (exportFilters.severities.length > 0) {
+            issuesToExport = issuesToExport.filter(i => exportFilters.severities.includes(i.severity || 'Info'));
+        }
+        if (exportFilters.categories.length > 0) {
+            issuesToExport = issuesToExport.filter(i => exportFilters.categories.includes(i.category || ''));
+        }
+    }
+
     if (issuesToExport.length === 0) {
         toast('warning', 'No issues to export');
         return;
     }
 
     closeModals();
-    setLoading(true, `Exporting ${format.toUpperCase()}...`);
+
+    // v5.9.4: Show export progress overlay
+    _showExportProgress(format, issuesToExport.length);
 
     try {
         let endpoint, body;
@@ -3195,17 +3326,11 @@ async function executeExport() {
             case 'xlsx':
             case 'excel':
                 // v3.0.35: Use enhanced XLSX endpoint
-                // Send issues in body to support selected/filtered modes
-                // (server session may not have current filter/selection state)
                 endpoint = '/export/xlsx';
                 body = {
                     mode: mode,
-                    severities: null,  // Could be populated from UI severity filter
-                    // v3.0.35 Fix: Include issues directly so export works
-                    // regardless of server-side session state
+                    severities: exportFilters.severities.length > 0 ? exportFilters.severities : null,
                     issues: issuesToExport,
-                    // v3.0.35: Send minimal results (score + document_info only)
-                    // to reduce payload size for large documents
                     results: {
                         score: State.reviewResults?.score,
                         document_info: State.reviewResults?.document_info
@@ -3217,21 +3342,18 @@ async function executeExport() {
                 body = { issues: issuesToExport, type: 'issues' };
                 break;
             case 'pdf': {
-                // v5.0.2: Client-side PDF via print dialog (no backend endpoint needed)
-                const pdfHtml = generatePrintableReport(issuesToExport);
-                const pdfWin = window.open('', '_blank');
-                if (pdfWin) {
-                    pdfWin.document.write(pdfHtml);
-                    pdfWin.document.close();
-                    pdfWin.onload = () => { pdfWin.print(); };
-                } else {
-                    // Fallback: download as HTML file for manual print
-                    const htmlBlob = new Blob([pdfHtml], { type: 'text/html' });
-                    downloadBlob(htmlBlob, `${State.filename}_review.html`);
-                    toast('info', 'Report downloaded as HTML — open and use Print → Save as PDF');
-                }
-                setLoading(false);
-                return;
+                // v5.9.4: Server-side PDF report via reportlab
+                endpoint = '/export/pdf';
+                body = {
+                    issues: issuesToExport,
+                    mode: mode,
+                    reviewer_name: reviewerName,
+                    filters: {
+                        severities: exportFilters.severities.length > 0 ? exportFilters.severities : null,
+                        categories: exportFilters.categories.length > 0 ? exportFilters.categories : null
+                    }
+                };
+                break;
             }
             case 'json': {
                 // v5.0.2: Client-side JSON export (no backend endpoint needed)
@@ -3242,33 +3364,50 @@ async function executeExport() {
                     grade: State.reviewResults?.grade,
                     issue_count: issuesToExport.length,
                     document_info: State.reviewResults?.document_info,
-                    issues: issuesToExport
+                    issues: issuesToExport,
+                    filters_applied: (exportFilters.severities.length > 0 || exportFilters.categories.length > 0) ? exportFilters : null
                 }, null, 2);
                 const jsonBlob = new Blob([jsonData], { type: 'application/json' });
                 downloadBlob(jsonBlob, `${State.filename}_review.json`);
                 toast('success', `Exported ${issuesToExport.length} issues to JSON`);
-                setLoading(false);
+                _hideExportProgress();
                 return;
             }
             case 'docx':
             default:
                 // v3.0.96: Get selected fixes from Fix Assistant if available
                 let selectedFixes = [];
+                let rejectedFixes = [];
                 if (applyFixes && window.FixAssistant) {
                     selectedFixes = FixAssistant.getSelectedFixes();
+                    // v5.9.4: Also get rejected fixes to add as comments
+                    if (typeof FixAssistant.getRejectedFixes === 'function') {
+                        rejectedFixes = FixAssistant.getRejectedFixes();
+                    }
                 }
-                
+
                 endpoint = '/export';
                 body = {
                     issues: issuesToExport.map((issue, i) => ({ ...issue, index: i })),
                     reviewer_name: reviewerName,
                     apply_fixes: applyFixes && selectedFixes.length > 0,
+                    // v5.9.4: Fix Assistant v2 returns {original_text, replacement_text, ...}
+                    // Legacy fallback returns {flagged_text, suggestion, ...}
+                    // Normalize to backend format with safe fallbacks for both
                     selected_fixes: selectedFixes.map(f => ({
-                        original_text: f.flagged_text,
-                        replacement_text: f.suggestion,
-                        category: f.category,
-                        message: f.message,
-                        paragraph_index: f.paragraph_index
+                        original_text: f.original_text || f.flagged_text || '',
+                        replacement_text: f.replacement_text || f.suggestion || '',
+                        category: f.category || '',
+                        message: f.message || '',
+                        paragraph_index: f.paragraph_index || 0
+                    })),
+                    // v5.9.4: Rejected fixes from Fix Assistant v2 added as margin comments
+                    comment_only_issues: rejectedFixes.map(f => ({
+                        original_text: f.original_text || f.flagged_text || '',
+                        suggestion: f.replacement_text || f.suggestion || '',
+                        category: f.category || '',
+                        paragraph_index: f.paragraph_index || 0,
+                        reviewer_note: f.reviewer_note || f.note || ''
                     })),
                     export_type: 'docx'
                 };
@@ -3285,24 +3424,37 @@ async function executeExport() {
 
         if (response.ok) {
             const blob = await response.blob();
-            // v3.0.35: Get filename from Content-Disposition header if available
-            const disposition = response.headers.get('Content-Disposition');
-            let filename = `${State.filename}_review.${format === 'excel' ? 'xlsx' : format}`;
-            if (disposition) {
-                const match = disposition.match(/filename="?([^";\n]+)"?/);
-                if (match) filename = match[1];
+            // v5.9.2: Validate blob has content before downloading
+            if (blob.size === 0) {
+                toast('error', 'Export produced an empty file. The markup engine may need lxml installed.');
+            } else {
+                // v3.0.35: Get filename from Content-Disposition header if available
+                const disposition = response.headers.get('Content-Disposition');
+                let filename = `${State.filename}_review.${format === 'excel' ? 'xlsx' : format}`;
+                if (disposition) {
+                    const match = disposition.match(/filename="?([^";\n]+)"?/);
+                    if (match) filename = match[1];
+                }
+                downloadBlob(blob, filename);
+                toast('success', `Exported ${issuesToExport.length} issues to ${format.toUpperCase()}`);
             }
-            downloadBlob(blob, filename);
-            toast('success', `Exported ${issuesToExport.length} issues to ${format.toUpperCase()}`);
         } else {
-            const error = await response.json();
-            toast('error', error.error || 'Export failed');
+            // v5.9.2: Safely parse error response (may not be JSON on 500)
+            let errorMsg = 'Export failed';
+            try {
+                const error = await response.json();
+                errorMsg = error.error || error.message || `Export failed (HTTP ${response.status})`;
+            } catch (parseErr) {
+                errorMsg = `Export failed with HTTP ${response.status}. Check server logs for details.`;
+            }
+            toast('error', errorMsg);
         }
     } catch (e) {
-        toast('error', 'Export failed: ' + e.message);
+        console.error('[TWR] Export error:', e);
+        toast('error', 'Export failed: ' + (e.message || 'Unknown error'));
     }
 
-    setLoading(false);
+    _hideExportProgress();
 }
 
 // v5.0.2: Generate printable HTML report for PDF export via browser print
@@ -3358,6 +3510,203 @@ function downloadBlob(blob, filename) {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+}
+
+// ============================================================
+// EXPORT FILTER PANEL (v5.9.4)
+// ============================================================
+
+/**
+ * Populate severity and category filter chips in the export modal.
+ * Called when the export modal opens.
+ */
+function _populateExportFilterChips() {
+    const issues = State.issues || [];
+    if (issues.length === 0) return;
+
+    // Severity chips
+    const sevContainer = document.getElementById('export-filter-severity-chips');
+    if (sevContainer) {
+        const sevCounts = {};
+        issues.forEach(i => {
+            const s = i.severity || 'Info';
+            sevCounts[s] = (sevCounts[s] || 0) + 1;
+        });
+
+        sevContainer.innerHTML = '';
+        ['Critical', 'High', 'Medium', 'Low', 'Info'].forEach(sev => {
+            const count = sevCounts[sev] || 0;
+            if (count === 0) return;
+            const chip = document.createElement('span');
+            chip.className = 'export-filter-chip';
+            chip.dataset.severity = sev;
+            chip.dataset.type = 'severity';
+            chip.innerHTML = `${sev} <span class="chip-count">(${count})</span>`;
+            chip.onclick = () => {
+                chip.classList.toggle('active');
+                _updateExportFilterPreview();
+            };
+            sevContainer.appendChild(chip);
+        });
+    }
+
+    // Category chips
+    const catContainer = document.getElementById('export-filter-category-chips');
+    if (catContainer) {
+        const catCounts = {};
+        issues.forEach(i => {
+            const c = i.category || 'Uncategorized';
+            catCounts[c] = (catCounts[c] || 0) + 1;
+        });
+
+        // Sort by count descending
+        const sortedCats = Object.entries(catCounts).sort((a, b) => b[1] - a[1]);
+
+        catContainer.innerHTML = '';
+        sortedCats.forEach(([cat, count]) => {
+            const chip = document.createElement('span');
+            chip.className = 'export-filter-chip';
+            chip.dataset.category = cat;
+            chip.dataset.type = 'category';
+            chip.innerHTML = `${cat} <span class="chip-count">(${count})</span>`;
+            chip.onclick = () => {
+                chip.classList.toggle('active');
+                _updateExportFilterPreview();
+            };
+            catContainer.appendChild(chip);
+        });
+    }
+
+    // Reset filter panel state
+    const panel = document.getElementById('export-filter-panel');
+    if (panel) panel.classList.remove('expanded');
+    const preview = document.getElementById('export-filter-preview');
+    if (preview) preview.style.display = 'none';
+}
+
+/**
+ * Toggle the export filter panel expanded/collapsed.
+ */
+function toggleExportFilterPanel() {
+    const panel = document.getElementById('export-filter-panel');
+    if (!panel) return;
+    panel.classList.toggle('expanded');
+    const toggleText = panel.querySelector('.export-filter-toggle span');
+    if (toggleText) {
+        toggleText.textContent = panel.classList.contains('expanded') ? 'Collapse' : 'Expand';
+    }
+}
+window.toggleExportFilterPanel = toggleExportFilterPanel;
+
+/**
+ * Get currently active export filter selections.
+ * @returns {{severities: string[], categories: string[]}}
+ */
+function _getExportFilters() {
+    const severities = [];
+    const categories = [];
+
+    document.querySelectorAll('#export-filter-severity-chips .export-filter-chip.active').forEach(chip => {
+        if (chip.dataset.severity) severities.push(chip.dataset.severity);
+    });
+
+    document.querySelectorAll('#export-filter-category-chips .export-filter-chip.active').forEach(chip => {
+        if (chip.dataset.category) categories.push(chip.dataset.category);
+    });
+
+    return { severities, categories };
+}
+
+/**
+ * Update the export filter preview count.
+ */
+function _updateExportFilterPreview() {
+    const filters = _getExportFilters();
+    const hasFilters = filters.severities.length > 0 || filters.categories.length > 0;
+    const preview = document.getElementById('export-filter-preview');
+    const countEl = document.getElementById('export-filter-count');
+
+    if (!preview) return;
+
+    if (!hasFilters) {
+        preview.style.display = 'none';
+        return;
+    }
+
+    // Count matching issues
+    const mode = document.querySelector('input[name="export-mode"]:checked')?.value || 'all';
+    let baseIssues;
+    switch (mode) {
+        case 'filtered': baseIssues = State.filteredIssues; break;
+        case 'selected':
+            baseIssues = (State.filteredIssues || []).filter((issue, i) => {
+                const key = getIssueKey(issue, i);
+                return State.selectedIssues?.has(key);
+            });
+            break;
+        default: baseIssues = State.issues;
+    }
+
+    let filtered = baseIssues || [];
+    if (filters.severities.length > 0) {
+        filtered = filtered.filter(i => filters.severities.includes(i.severity || 'Info'));
+    }
+    if (filters.categories.length > 0) {
+        filtered = filtered.filter(i => filters.categories.includes(i.category || ''));
+    }
+
+    if (countEl) countEl.textContent = filtered.length;
+    preview.style.display = 'flex';
+}
+
+/**
+ * Clear all export filter selections.
+ */
+function clearExportFilters() {
+    document.querySelectorAll('.export-filter-chip.active').forEach(chip => {
+        chip.classList.remove('active');
+    });
+    _updateExportFilterPreview();
+}
+window.clearExportFilters = clearExportFilters;
+
+// ============================================================
+// EXPORT PROGRESS OVERLAY (v5.9.4)
+// ============================================================
+
+/**
+ * Show the export progress overlay with format-specific messaging.
+ */
+function _showExportProgress(format, issueCount) {
+    const overlay = document.getElementById('export-progress-overlay');
+    const title = document.getElementById('export-progress-title');
+    const detail = document.getElementById('export-progress-detail');
+    const barFill = document.getElementById('export-progress-bar-fill');
+
+    if (!overlay) return;
+
+    const formatLabels = {
+        'docx': 'Word Document',
+        'pdf': 'PDF Report',
+        'xlsx': 'Excel Spreadsheet',
+        'csv': 'CSV File',
+        'json': 'JSON Data'
+    };
+
+    if (title) title.textContent = `Generating ${formatLabels[format] || format.toUpperCase()}...`;
+    if (detail) detail.textContent = `Processing ${issueCount} issue${issueCount !== 1 ? 's' : ''}`;
+    if (barFill) barFill.classList.remove('determinate');
+
+    overlay.classList.add('active');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+/**
+ * Hide the export progress overlay.
+ */
+function _hideExportProgress() {
+    const overlay = document.getElementById('export-progress-overlay');
+    if (overlay) overlay.classList.remove('active');
 }
 
 // ============================================================
@@ -3770,12 +4119,75 @@ function showSettingsModal() {
 }
 
 function switchSettingsTab(tabName) {
+    // v5.9.3: Use class-based switching (no inline display styles — Lesson 2)
     document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.settings-content').forEach(c => c.style.display = 'none');
-    
-    document.querySelector(`.settings-tab[data-tab="${tabName}"]`)?.classList.add('active');
-    document.getElementById(`settings-${tabName}`)?.style.setProperty('display', 'block');
+    document.querySelectorAll('.settings-content').forEach(c => {
+        c.classList.remove('active-tab');
+        c.style.removeProperty('display'); // Clean up any legacy inline display
+    });
+
+    const activeTab = document.querySelector(`.settings-tab[data-tab="${tabName}"]`);
+    if (activeTab) {
+        activeTab.classList.add('active');
+        // v5.9.19: Scroll active tab into view
+        activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+    const panel = document.getElementById(`settings-${tabName}`);
+    if (panel) {
+        panel.classList.add('active-tab');
+        panel.style.removeProperty('display');
+    }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
+
+// v5.9.19: Settings tabs scroll indicator — shows fade + arrow when tabs overflow
+function _initSettingsTabsScroll() {
+    const wrapper = document.getElementById('settings-tabs-wrapper');
+    const tabs = document.getElementById('settings-tabs-scroll');
+    const arrowLeft = document.getElementById('settings-arrow-left');
+    const arrowRight = document.getElementById('settings-arrow-right');
+    if (!wrapper || !tabs) return;
+
+    function updateScrollIndicators() {
+        const { scrollLeft, scrollWidth, clientWidth } = tabs;
+        const canScrollLeft = scrollLeft > 2;
+        const canScrollRight = scrollLeft + clientWidth < scrollWidth - 2;
+        wrapper.classList.toggle('scroll-left', canScrollLeft);
+        wrapper.classList.toggle('scroll-right', canScrollRight);
+    }
+
+    tabs.addEventListener('scroll', updateScrollIndicators);
+    // Also check on resize
+    window.addEventListener('resize', updateScrollIndicators);
+
+    // Arrow button clicks
+    if (arrowLeft) {
+        arrowLeft.addEventListener('click', (e) => {
+            e.stopPropagation();
+            tabs.scrollBy({ left: -120, behavior: 'smooth' });
+        });
+    }
+    if (arrowRight) {
+        arrowRight.addEventListener('click', (e) => {
+            e.stopPropagation();
+            tabs.scrollBy({ left: 120, behavior: 'smooth' });
+        });
+    }
+
+    // Initial check (delayed to let layout settle)
+    requestAnimationFrame(updateScrollIndicators);
+    // Also check when settings modal opens
+    const obs = new MutationObserver(() => {
+        const modal = document.getElementById('modal-settings');
+        if (modal?.classList.contains('active')) {
+            requestAnimationFrame(updateScrollIndicators);
+        }
+    });
+    const settingsModal = document.getElementById('modal-settings');
+    if (settingsModal) obs.observe(settingsModal, { attributes: true, attributeFilter: ['class'] });
+}
+
+document.addEventListener('DOMContentLoaded', _initSettingsTabsScroll);
 
 // ============================================================
 // HELP
@@ -3930,35 +4342,9 @@ function updateValidationCounts() {
 }
 
 function updateCategoryFilters(byCategory) {
-    const pinnedContainer = document.getElementById('category-pinned');
-    const listContainer = document.getElementById('category-list');
-    if (!pinnedContainer || !listContainer) return;
-
-    const sorted = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
-    
-    // Top 5 categories are pinned
-    const pinned = sorted.slice(0, 5);
-    const rest = sorted.slice(5);
-    
-    pinnedContainer.innerHTML = pinned.map(([cat, count]) => `
-        <label class="checkbox-label">
-            <input type="checkbox" data-category="${escapeHtml(cat)}" onchange="applyFilters()">
-            <span>${escapeHtml(cat)}</span>
-            <span class="cat-count">${count}</span>
-        </label>
-    `).join('');
-    
-    listContainer.innerHTML = rest.map(([cat, count]) => `
-        <label class="checkbox-label">
-            <input type="checkbox" data-category="${escapeHtml(cat)}" onchange="applyFilters()">
-            <span>${escapeHtml(cat)}</span>
-            <span class="cat-count">${count}</span>
-        </label>
-    `).join('');
-    
-    if (rest.length === 0 && pinned.length === 0) {
-        listContainer.innerHTML = '<p class="text-muted">No categories found</p>';
-    }
+    // v5.9.3: Legacy containers (category-pinned, category-list) no longer exist.
+    // Route to the unified category dropdown which has counts + click filtering.
+    updateUnifiedCategoryDropdown(byCategory);
 }
 
 // ============================================================
@@ -6129,6 +6515,7 @@ const FixAssistant = (function() {
     // ═══════════════════════════════════════════════════════════════════════════
 
     let isOpen = false;
+    let _closingForFinish = false;  // v5.9.4: Flag to skip export modal re-show during handleFinishReview
     let sessionStartTime = null;
     let documentId = null;
     let documentScoreBefore = null;
@@ -6366,6 +6753,25 @@ const FixAssistant = (function() {
         // Hide modal
         hideModal();
         isOpen = false;
+
+        // v5.9.4: Re-show export modal (Fix Assistant's showModal() closed it on open)
+        // Skip re-show if called from handleFinishReview() — it dispatches fixAssistantDone
+        // which has its own re-show logic with stat updates
+        if (!_closingForFinish) {
+            setTimeout(() => {
+                showModal('modal-export');
+                // Restore Fix Assistant stats in launcher if state has decisions
+                if (FixAssistantState.isInitialized()) {
+                    const faStats = FixAssistantState.getStatistics();
+                    const selectedEl = document.getElementById('selected-fix-count');
+                    const fixableEl = document.getElementById('fixable-count');
+                    if (selectedEl) selectedEl.textContent = faStats.accepted || 0;
+                    if (fixableEl) fixableEl.textContent = (State.fixes || []).length;
+                }
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }, 100);
+        }
+        _closingForFinish = false;
 
         console.log('[TWR FixAssistant] Closed');
     }
@@ -7266,19 +7672,28 @@ const FixAssistant = (function() {
         }
 
         // Close and trigger export
+        // v5.9.4: Flag to skip close()'s export modal re-show (fixAssistantDone handles it)
+        _closingForFinish = true;
         close();
 
-        // Update global State with selected fixes
+        // v5.9.4: Update global State with selected fixes
+        // getSelectedFixes() returns array of objects — use actual fix indices from decisions Map
         State.selectedFixes = new Set();
-        FixAssistantState.getSelectedFixes().forEach((_, idx) => {
-            State.selectedFixes.add(idx);
+        const allFixes = State.fixes || [];
+        allFixes.forEach((fix, originalIdx) => {
+            const decision = FixAssistantState.getDecision(originalIdx);
+            if (decision && decision.decision === 'accepted') {
+                State.selectedFixes.add(originalIdx);
+            }
         });
 
         // Emit event for export integration
+        const selectedFixesList = getSelectedFixes();
+        const rejectedFixesList = getRejectedFixes();
         document.dispatchEvent(new CustomEvent('fixAssistantDone', {
             detail: {
-                selectedFixes: getSelectedFixes(),
-                rejectedFixes: getRejectedFixes(),
+                selectedFixes: selectedFixesList,
+                rejectedFixes: rejectedFixesList,
                 statistics: stats
             }
         }));
@@ -7931,15 +8346,7 @@ function exportReviewLog() {
     });
     
     const csv = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `review_log_${State.filename || 'document'}_${new Date().toISOString().slice(0,10)}.csv`;
-    a.click();
-    
-    URL.revokeObjectURL(url);
+    downloadCSV(csv, `review_log_${State.filename || 'document'}_${new Date().toISOString().slice(0,10)}.csv`);
     toast('success', `Exported ${State.workflow.reviewLog.length} review decisions`);
 }
 
@@ -8209,6 +8616,60 @@ function initNewFeatureListeners() {
         if (e.target.checked && window.FixAssistant) {
             FixAssistant.init();
         }
+    });
+
+    // v5.9.4: Export format radio change → update UI (show/hide fixes, update filter preview)
+    document.querySelectorAll('input[name="export-format"]').forEach(radio => {
+        radio.addEventListener('change', updateExportOptions);
+    });
+
+    // v5.9.4: Export mode radio change → update filter preview count
+    document.querySelectorAll('input[name="export-mode"]').forEach(radio => {
+        radio.addEventListener('change', _updateExportFilterPreview);
+    });
+
+    // v5.9.4: Fix Assistant Done → update export modal launcher stats and re-show export modal
+    document.addEventListener('fixAssistantDone', (e) => {
+        const detail = e.detail || {};
+        const selectedCount = detail.selectedFixes?.length || 0;
+        const rejectedCount = detail.rejectedFixes?.length || 0;
+        const stats = detail.statistics || {};
+
+        console.log('[TWR Export] Fix Assistant done:', { selectedCount, rejectedCount, stats });
+
+        // Re-show the export modal (Fix Assistant's showModal() closes it on open)
+        // Use setTimeout to ensure Fix Assistant modal is fully hidden first
+        setTimeout(() => {
+            showModal('modal-export');
+
+            // Update launcher stat badges in export modal
+            const selectedEl = document.getElementById('selected-fix-count');
+            if (selectedEl) selectedEl.textContent = selectedCount;
+
+            // Update fixable count to show total reviewed (accepted + rejected)
+            const fixableEl = document.getElementById('fixable-count');
+            if (fixableEl) {
+                const totalFixes = (State.fixes || []).length;
+                fixableEl.textContent = totalFixes;
+            }
+
+            // Auto-check the "Apply selected fixes" checkbox if fixes were selected
+            const applyFixesCb = document.getElementById('export-apply-fixes');
+            if (applyFixesCb && selectedCount > 0) {
+                applyFixesCb.checked = true;
+            }
+
+            // Update the legacy State.selectedFixes count display
+            updateSelectedFixCount();
+
+            // Re-initialize Lucide icons in the export modal
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            // Show summary toast
+            if (selectedCount > 0 || rejectedCount > 0) {
+                toast('success', `Fix review complete: ${selectedCount} accepted, ${rejectedCount} rejected`);
+            }
+        }, 150);
     });
     
     // Triage mode buttons
@@ -9056,114 +9517,69 @@ Actual behavior:
     return body;
 }
 
-// Email diagnostics via Outlook (mailto: link)
-// v2.9.1 D3: Export file first and provide clear path for attachment
-// v2.9.3 B21: Fixed email not working - improved error handling and file path display
+// Email diagnostics via .eml file download
+// v5.9.20: Rewritten to use server-generated .eml file with logs ATTACHED.
+// The .eml format (RFC 2822) opens in Outlook/Apple Mail as a pre-composed
+// draft with diagnostic JSON + aegis.log already attached. No more manual
+// "drag the file from Downloads" workflow.
 window.emailDiagnosticsViaOutlook = async function() {
     const toEmail = getDiagnosticsEmail();
-    
-    toast('info', 'Preparing diagnostic report...');
-    
-    // Show loading indicator
+
+    toast('info', 'Preparing diagnostic email with log attachments...');
+
     if (typeof showLoading === 'function') {
-        showLoading('Preparing email with diagnostics...');
+        showLoading('Generating email with attached logs...');
     }
-    
+
     try {
-        // v5.0.5: Export diagnostic file — fixed GET→POST and stale CSRF (Lesson 18)
-        let exportedFilePath = null;
+        // Get fresh CSRF token
+        let csrfToken = (typeof State !== 'undefined' && State.csrfToken) ||
+                        document.querySelector('meta[name="csrf-token"]')?.content || '';
         try {
-            console.log('[TWR] Exporting diagnostic file for email attachment...');
-            // Get fresh CSRF token from response header (meta tag can be stale after reloads)
-            let csrfToken = (typeof State !== 'undefined' && State.csrfToken) ||
-                            document.querySelector('meta[name="csrf-token"]')?.content || '';
-            try {
-                const tokenResp = await fetch('/api/version', { credentials: 'same-origin' });
-                const freshCsrf = tokenResp.headers.get('X-CSRF-Token');
-                if (freshCsrf) csrfToken = freshCsrf;
-            } catch (_) {}
+            const tokenResp = await fetch('/api/version', { credentials: 'same-origin' });
+            const freshCsrf = tokenResp.headers.get('X-CSRF-Token');
+            if (freshCsrf) csrfToken = freshCsrf;
+        } catch (_) {}
 
-            const response = await fetch('/api/diagnostics/export', {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken
-                },
-                body: JSON.stringify({ format: 'json' })
-            });
+        // Request .eml file from server (includes diagnostic JSON + log files as attachments)
+        const response = await fetch('/api/diagnostics/email', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
+            },
+            body: JSON.stringify({ to_email: toEmail })
+        });
 
-            if (response.ok) {
-                const result = await response.json();
-                if (result.success && result.filepath) {
-                    exportedFilePath = result.filepath;
-                    console.log('[TWR] Diagnostic file exported to:', exportedFilePath);
-                }
-            }
-        } catch (exportErr) {
-            console.warn('[TWR] Could not export diagnostic file:', exportErr);
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData?.error?.message || `Server returned ${response.status}`);
         }
-        
-        // Collect diagnostic data for email body
-        const data = await collectDiagnosticData();
-        const body = formatDiagnosticsForEmail(data);
-        
-        // Create subject with timestamp
-        const subject = `AEGIS Diagnostic Report - ${new Date().toLocaleDateString()}`;
-        
-        // v2.9.1 D3: Add clear instructions about the exported file
-        let emailBody = body;
-        if (exportedFilePath) {
-            emailBody = `[ATTACHMENT REQUIRED]\n\nPlease attach the diagnostic file from:\n${exportedFilePath}\n\n---\n\nSUMMARY:\n${body}`;
+
+        const result = await response.json();
+
+        if (!result.success) {
+            throw new Error(result?.error?.message || 'Failed to generate diagnostic email');
         }
-        
-        // Encode for mailto
-        const encodedSubject = encodeURIComponent(subject);
-        const encodedBody = encodeURIComponent(emailBody);
-        
-        // Build mailto URL
-        const mailtoUrl = `mailto:${toEmail}?subject=${encodedSubject}&body=${encodedBody}`;
-        
-        // Check if body is too long (mailto has ~2000 char limit in some clients)
-        if (mailtoUrl.length > 2000) {
-            // Truncate body and add note
-            let truncatedBody = '';
-            if (exportedFilePath) {
-                truncatedBody = `[ATTACHMENT REQUIRED]\n\nPlease attach the diagnostic file from:\n${exportedFilePath}\n\n[Report truncated - see attached file for full details]`;
-            } else {
-                truncatedBody = body.substring(0, 1500) + '\n\n[Report truncated - please export and attach full diagnostic file]';
-            }
-            const truncatedMailto = `mailto:${toEmail}?subject=${encodedSubject}&body=${encodeURIComponent(truncatedBody)}`;
-            window.location.href = truncatedMailto;
-            
-            if (exportedFilePath) {
-                toast('success', `Diagnostic file exported to: ${exportedFilePath}`, 8000);
-            } else {
-                toast('warning', 'Report truncated. Please also export and attach the full diagnostic file.');
-            }
-        } else {
-            window.location.href = mailtoUrl;
-            if (exportedFilePath) {
-                toast('success', `Opening email. Attach file from: ${exportedFilePath}`, 8000);
-            } else {
-                toast('success', 'Opening Outlook...');
-            }
-        }
-        
-        // v2.9.3 B21: Always show file path modal if file was exported (more reliable than mailto)
-        if (exportedFilePath) {
+
+        console.log('[TWR] Diagnostic .eml generated:', result.filename, '| Attachments:', result.attachments, '| Opened:', result.opened);
+
+        if (result.opened) {
+            toast('success', `Opening diagnostic email in Outlook with ${result.attachments} log files attached...`, 6000);
+            // Show confirmation modal
             setTimeout(() => {
-                showDiagnosticFilePathModal(exportedFilePath);
+                showDiagnosticEmlModal(result.filename, result.attachments, result.opened);
+            }, 500);
+        } else {
+            toast('warning', `Email file created but could not auto-open. File: ${result.path}`, 10000);
+            setTimeout(() => {
+                showDiagnosticEmlModal(result.filename, result.attachments, false);
             }, 500);
         }
-        
-        // Close modal after short delay
-        setTimeout(() => {
-            closeModals();
-        }, 1000);
-        
+
     } catch (e) {
-        console.error('[TWR] Error preparing email:', e);
+        console.error('[TWR] Error preparing diagnostic email:', e);
         toast('error', 'Failed to prepare email: ' + e.message);
     } finally {
         if (typeof hideLoading === 'function') {
@@ -9172,49 +9588,64 @@ window.emailDiagnosticsViaOutlook = async function() {
     }
 };
 
-// v2.9.1 D3: Show modal with file path for easy copying
-function showDiagnosticFilePathModal(filepath) {
+// v5.9.20: Show modal confirming diagnostic email opened in Outlook
+function showDiagnosticEmlModal(filename, attachmentCount, opened) {
     const existingModal = document.getElementById('diagnostic-filepath-modal');
-    if (existingModal) {
-        existingModal.remove();
-    }
-    
+    if (existingModal) existingModal.remove();
+
     const modal = document.createElement('div');
     modal.id = 'diagnostic-filepath-modal';
     modal.className = 'modal-overlay';
-    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
-    
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:250000;';
+
+    const statusIcon = opened ? 'check-circle' : 'alert-circle';
+    const statusTitle = opened ? 'Email Opened in Outlook' : 'Email File Created';
+    const statusMsg = opened
+        ? `A diagnostic email with <strong>${attachmentCount || 'all'} log files attached</strong> has been opened in Outlook. Review the email and click <strong>Send</strong>.`
+        : `The email file was created but could not auto-open in Outlook. You can find it and double-click to open:`;
+
     modal.innerHTML = `
-        <div style="background:var(--bg-primary, white);border-radius:8px;padding:24px;max-width:600px;margin:20px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
-            <h3 style="margin:0 0 16px 0;color:var(--text-primary, #1a1a2e);">
-                <i data-lucide="file-text" style="width:20px;height:20px;margin-right:8px;"></i>
-                Diagnostic File Exported
-            </h3>
-            <p style="margin:0 0 12px 0;color:var(--text-secondary, #666);">
-                Attach this file to your email:
-            </p>
-            <div style="background:var(--bg-secondary, #f5f5f5);padding:12px;border-radius:4px;font-family:monospace;font-size:12px;word-break:break-all;margin-bottom:16px;">
-                ${escapeHtml(filepath)}
+        <div style="background:var(--bg-primary, white);border-radius:12px;padding:28px;max-width:520px;margin:20px;box-shadow:0 8px 32px rgba(0,0,0,0.3);border:1px solid var(--border-muted, #ddd6c9);">
+            <div style="text-align:center;margin-bottom:20px;">
+                <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg, #D6A84A 0%, #B8743A 100%);display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;">
+                    <i data-lucide="${statusIcon}" style="width:28px;height:28px;color:white;"></i>
+                </div>
+                <h3 style="margin:0;color:var(--text-primary, #1a1a2e);font-size:18px;">
+                    ${statusTitle}
+                </h3>
             </div>
-            <div style="display:flex;gap:8px;justify-content:flex-end;">
-                <button onclick="navigator.clipboard.writeText('${escapeHtml(filepath).replace(/'/g, "\\'")}');toast('success','Path copied!');this.textContent='Copied!'" 
-                        class="btn btn-primary" style="padding:8px 16px;">
-                    <i data-lucide="copy" style="width:14px;height:14px;margin-right:4px;"></i>
-                    Copy Path
-                </button>
-                <button onclick="this.closest('.modal-overlay').remove()" class="btn btn-secondary" style="padding:8px 16px;">
-                    Close
+            <p style="margin:0 0 16px 0;color:var(--text-secondary, #666);text-align:center;line-height:1.5;">
+                ${statusMsg}
+            </p>
+            ${!opened ? `<div style="background:var(--bg-secondary, #f5f5f5);padding:14px;border-radius:8px;font-family:'SF Mono',Monaco,monospace;font-size:13px;word-break:break-all;margin-bottom:20px;border:1px solid var(--border-default, #cfc7b8);text-align:center;">
+                <i data-lucide="mail" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"></i> ${escapeHtml(filename)}
+            </div>` : ''}
+            <div style="background:linear-gradient(135deg, rgba(214,168,74,0.1), rgba(184,116,58,0.1));border-radius:8px;padding:14px;margin-bottom:20px;border:1px solid rgba(214,168,74,0.2);">
+                <p style="margin:0;color:var(--text-primary, #1a1a2e);font-size:13px;line-height:1.6;">
+                    <strong>Attached:</strong> Diagnostic JSON report, aegis.log, and ${attachmentCount ? attachmentCount - 2 : 'all other'} module log files.
+                </p>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:center;">
+                <button onclick="this.closest('.modal-overlay').remove()" class="btn btn-primary" style="padding:8px 20px;border-radius:6px;">
+                    ${opened ? 'Done' : 'Got It'}
                 </button>
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(modal);
     modal.addEventListener('click', (e) => {
         if (e.target === modal) modal.remove();
     });
-    
+
     if (typeof lucide !== 'undefined') { try { lucide.createIcons(); } catch(e) {} }
+}
+
+// Legacy compatibility aliases
+function showDiagnosticFileDownloadedModal(filename) { showDiagnosticEmlModal(filename); }
+function showDiagnosticFilePathModal(filepath) {
+    const filename = filepath.split(/[/\\]/).pop() || filepath;
+    showDiagnosticEmlModal(filename);
 }
 
 // v3.0.11: Removed duplicate window.saveSettings override - now using single saveSettings() in SETTINGS section
@@ -9359,43 +9790,67 @@ async function testSharedConnection() {
 }
 
 async function loadSharingSettingsStatus() {
+    // v5.9.5: Show proper state indicators instead of staying stuck on "Checking..."
+    const localEl = document.getElementById('status-local-db');
+    const masterEl = document.getElementById('status-master-file');
+    const sharedEl = document.getElementById('status-shared-location');
+
     try {
         const response = await fetch('/api/roles/dictionary/status');
         const result = await response.json();
-        
+
         if (result.success) {
             const status = result.data;
-            
-            // Update local DB status
-            const localEl = document.getElementById('status-local-db');
+
+            // Update local DB status with status indicator
             if (localEl) {
-                localEl.textContent = status.database?.exists 
-                    ? `${status.database.role_count} roles` 
-                    : 'Not created';
-            }
-            
-            // Update master file status
-            const masterEl = document.getElementById('status-master-file');
-            if (masterEl) {
-                masterEl.textContent = status.master_file?.exists
-                    ? `${status.master_file.role_count} roles`
-                    : 'Not found';
-            }
-            
-            // Update shared location status
-            const sharedEl = document.getElementById('status-shared-location');
-            if (sharedEl) {
-                if (status.shared_folder?.configured) {
-                    sharedEl.textContent = status.shared_folder.exists
-                        ? `Connected (${status.shared_folder.role_count} roles)`
-                        : 'Configured but not accessible';
+                if (status.database?.exists) {
+                    localEl.textContent = `✓ Connected — ${status.database.role_count} roles`;
+                    localEl.style.color = 'var(--success, #4ade80)';
                 } else {
-                    sharedEl.textContent = 'Not configured';
+                    localEl.textContent = '○ Not created';
+                    localEl.style.color = 'var(--text-secondary)';
                 }
             }
+
+            // Update master file status
+            if (masterEl) {
+                if (status.master_file?.exists) {
+                    masterEl.textContent = `✓ Found — ${status.master_file.role_count} roles`;
+                    masterEl.style.color = 'var(--success, #4ade80)';
+                } else {
+                    masterEl.textContent = '○ Not found';
+                    masterEl.style.color = 'var(--text-secondary)';
+                }
+            }
+
+            // Update shared location status
+            if (sharedEl) {
+                if (status.shared_folder?.configured) {
+                    if (status.shared_folder.exists) {
+                        sharedEl.textContent = `✓ Connected — ${status.shared_folder.role_count} roles`;
+                        sharedEl.style.color = 'var(--success, #4ade80)';
+                    } else {
+                        sharedEl.textContent = '⚠ Configured but not accessible';
+                        sharedEl.style.color = 'var(--warning, #f59e0b)';
+                    }
+                } else {
+                    sharedEl.textContent = '○ Not configured';
+                    sharedEl.style.color = 'var(--text-secondary)';
+                }
+            }
+        } else {
+            // API returned success: false
+            if (localEl) { localEl.textContent = '✗ Status unavailable'; localEl.style.color = 'var(--error, #f87171)'; }
+            if (masterEl) { masterEl.textContent = '✗ Status unavailable'; masterEl.style.color = 'var(--error, #f87171)'; }
+            if (sharedEl) { sharedEl.textContent = '✗ Status unavailable'; sharedEl.style.color = 'var(--error, #f87171)'; }
         }
     } catch (e) {
         console.warn('[TWR] Error loading sharing status:', e);
+        // v5.9.5: Show error state instead of leaving "Checking..."
+        if (localEl) { localEl.textContent = '✗ Connection error'; localEl.style.color = 'var(--error, #f87171)'; }
+        if (masterEl) { masterEl.textContent = '✗ Connection error'; masterEl.style.color = 'var(--error, #f87171)'; }
+        if (sharedEl) { sharedEl.textContent = '✗ Connection error'; sharedEl.style.color = 'var(--error, #f87171)'; }
     }
 }
 
@@ -14619,9 +15074,10 @@ const StatementForge = (function() {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' }
             });
-            
+            if (!statusResponse.ok) throw new Error(`Status check failed: ${statusResponse.status}`);
+
             const status = await statusResponse.json();
-            
+
             if (!status.can_map) {
                 let msg = 'Cannot map statements to roles: ';
                 if (!status.statements_available) msg += 'No statements extracted. ';
@@ -14675,6 +15131,7 @@ const StatementForge = (function() {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' }
             });
+            if (!statusResponse.ok) return null;
 
             const status = await statusResponse.json();
 
@@ -15989,6 +16446,18 @@ document.addEventListener('DOMContentLoaded', function() {
         exportTxtBtn.addEventListener('click', () => exportDiagnostics('txt'));
     }
 
+    // v5.9.3: Email diagnostics via Outlook
+    const emailBtn = document.getElementById('btn-diag-email');
+    if (emailBtn) {
+        emailBtn.addEventListener('click', () => {
+            if (typeof window.emailDiagnosticsViaOutlook === 'function') {
+                window.emailDiagnosticsViaOutlook();
+            } else {
+                showToast('error', 'Email function not available');
+            }
+        });
+    }
+
     // v4.9.9: Dependency Health Check
     const healthCheckBtn = document.getElementById('btn-diag-health-check');
     if (healthCheckBtn) {
@@ -15997,7 +16466,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const contentDiv = document.getElementById('health-check-content');
             if (!resultsDiv || !contentDiv) return;
 
-            resultsDiv.style.display = 'block';
+            resultsDiv.classList.add('visible');
+            resultsDiv.style.display = 'block'; // Fallback for legacy
             contentDiv.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><i data-lucide="loader" class="spin"></i> Running health check...</div>';
             if (typeof lucide !== 'undefined') lucide.createIcons();
 
@@ -16165,7 +16635,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } finally {
                 clearHistoryBtn.disabled = false;
-                clearHistoryBtn.innerHTML = '<i data-lucide="trash-2"></i> Clear Scan History';
+                clearHistoryBtn.innerHTML = '<i data-lucide="trash-2"></i> Clear';
                 if (typeof lucide !== 'undefined') {
                     lucide.createIcons();
                 }
@@ -16202,7 +16672,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 else if (typeof toast === 'function') toast('error', 'Failed: ' + e.message);
             } finally {
                 clearStatementsBtn.disabled = false;
-                clearStatementsBtn.innerHTML = '<i data-lucide="trash-2"></i> Clear Statement Data';
+                clearStatementsBtn.innerHTML = '<i data-lucide="trash-2"></i> Clear';
                 if (typeof lucide !== 'undefined') { try { lucide.createIcons(); } catch(e) {} }
             }
         });
@@ -16234,7 +16704,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 (typeof showToast === 'function' ? showToast : toast)('error', 'Failed: ' + e.message);
             } finally {
                 clearRoleDictBtn.disabled = false;
-                clearRoleDictBtn.innerHTML = '<i data-lucide="trash-2"></i> Clear Role Dictionary';
+                clearRoleDictBtn.innerHTML = '<i data-lucide="trash-2"></i> Clear';
                 if (typeof lucide !== 'undefined') { try { lucide.createIcons(); } catch(e) {} }
             }
         });
@@ -16265,7 +16735,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 (typeof showToast === 'function' ? showToast : toast)('error', 'Failed: ' + e.message);
             } finally {
                 clearLearningBtn.disabled = false;
-                clearLearningBtn.innerHTML = '<i data-lucide="trash-2"></i> Clear Learning Data';
+                clearLearningBtn.innerHTML = '<i data-lucide="trash-2"></i> Clear';
                 if (typeof lucide !== 'undefined') { try { lucide.createIcons(); } catch(e) {} }
             }
         });

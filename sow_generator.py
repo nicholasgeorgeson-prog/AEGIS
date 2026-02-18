@@ -14,6 +14,8 @@ Author: AEGIS
 """
 
 import json
+import re
+import io
 import html as html_module
 from datetime import datetime, timezone
 from typing import List, Dict, Optional, Any
@@ -1128,3 +1130,210 @@ def _get_styles() -> str:
         .sow-meta-grid { gap: 1rem; }
     }
     </style>'''
+
+
+# =============================================================================
+# TEMPLATE POPULATION (v5.9.16)
+# =============================================================================
+
+def populate_sow_template(
+    template_path: str,
+    config: Dict[str, Any],
+    roles: List[Dict],
+    statements: List[Dict],
+    documents: List[Dict],
+    function_categories: List[Dict],
+    relationships: List[Dict],
+    metadata: Optional[Dict] = None
+) -> bytes:
+    """
+    Populate a user-uploaded DOCX template with AEGIS data.
+
+    Replaces {{PLACEHOLDER}} markers in the template with extracted data.
+    Returns the populated document as bytes.
+
+    Supported placeholders:
+        {{TITLE}}           - SOW title
+        {{DOC_NUMBER}}      - Document number
+        {{VERSION}}         - Version string
+        {{DATE}}            - Effective date
+        {{PREPARED_BY}}     - Author name
+        {{ORGANIZATION}}    - Organization name
+        {{INTRO}}           - Introduction text
+        {{SCOPE}}           - Scope text
+        {{REQUIREMENTS}}    - Requirements table (formatted text)
+        {{ROLES}}           - Roles and responsibilities summary
+        {{DOCUMENTS}}       - Applicable documents list
+        {{ACCEPTANCE}}      - Acceptance criteria
+        {{STANDARDS}}       - Standards and references
+        {{ASSUMPTIONS}}     - Assumptions text
+        {{TOTAL_DOCS}}      - Number of documents
+        {{TOTAL_STMTS}}     - Number of statements
+        {{TOTAL_ROLES}}     - Number of roles
+        {{AEGIS_VERSION}}   - AEGIS version string
+        {{EXPORT_DATE}}     - Export date
+    """
+    try:
+        from docx import Document
+    except ImportError:
+        raise ImportError("python-docx required for template population. Install: pip install python-docx")
+
+    doc = Document(template_path)
+    meta = metadata or {}
+
+    # Build replacement data
+    active_roles = [r for r in roles if r.get('is_active', True)]
+    deliverable_roles = [r for r in active_roles if r.get('is_deliverable')]
+
+    # Group statements by directive
+    directive_groups = {}
+    for s in statements:
+        d = (s.get('directive') or 'other').lower().strip()
+        directive_groups.setdefault(d, []).append(s)
+
+    # Build requirements text
+    req_lines = []
+    req_num = 1
+    for directive in ['shall', 'must', 'will', 'should', 'may']:
+        group = directive_groups.get(directive, [])
+        if group:
+            req_lines.append(f"\n{directive.upper()} Requirements ({len(group)}):")
+            for s in group:
+                desc = s.get('description', '').strip()
+                role = s.get('role', 'Unassigned')
+                source = s.get('source_document', '')
+                req_lines.append(f"  {req_num}. [{directive.upper()}] {desc}")
+                if role:
+                    req_lines.append(f"     Role: {role}")
+                if source:
+                    req_lines.append(f"     Source: {source}")
+                req_num += 1
+    requirements_text = '\n'.join(req_lines) if req_lines else 'No requirements extracted.'
+
+    # Build roles text
+    role_lines = []
+    for r in active_roles:
+        name = r.get('role_name', 'Unknown')
+        rtype = r.get('role_type', '')
+        is_del = ' [Deliverable]' if r.get('is_deliverable') else ''
+        desc = r.get('description', '')
+        tags = r.get('function_tags', [])
+        tag_str = ', '.join(t.get('name', t.get('code', '')) for t in tags) if tags else ''
+
+        role_lines.append(f"- {name}{is_del}")
+        if rtype:
+            role_lines.append(f"  Type: {rtype}")
+        if desc:
+            role_lines.append(f"  Description: {desc}")
+        if tag_str:
+            role_lines.append(f"  Function Tags: {tag_str}")
+
+        # Count assigned statements
+        role_stmts = [s for s in statements if (s.get('role') or '').lower().strip() == name.lower().strip()]
+        if role_stmts:
+            role_lines.append(f"  Assigned Statements: {len(role_stmts)}")
+        role_lines.append('')
+    roles_text = '\n'.join(role_lines) if role_lines else 'No roles defined.'
+
+    # Build documents text
+    doc_lines = []
+    for d in documents:
+        fname = d.get('filename', 'Unknown')
+        words = d.get('word_count', 0)
+        score = d.get('latest_score', 'N/A')
+        grade = d.get('latest_grade', '')
+        doc_lines.append(f"- {fname} ({words:,} words, Score: {score}{f', Grade: {grade}' if grade else ''})")
+    documents_text = '\n'.join(doc_lines) if doc_lines else 'No documents.'
+
+    # Build acceptance criteria text
+    shall_stmts = directive_groups.get('shall', [])
+    acceptance_lines = []
+    for i, s in enumerate(shall_stmts[:50], 1):
+        desc = s.get('description', '').strip()
+        role = s.get('role', 'Unassigned')
+        acceptance_lines.append(f"  {i}. {desc}")
+        acceptance_lines.append(f"     Responsible: {role}")
+    acceptance_text = '\n'.join(acceptance_lines) if acceptance_lines else 'No SHALL requirements for acceptance criteria.'
+
+    # Build standards text
+    standards = _extract_standards(statements, documents)
+    standards_text = '\n'.join(f"- {s}" for s in sorted(standards)) if standards else 'No standards references detected.'
+
+    # Replacement map
+    replacements = {
+        '{{TITLE}}': config.get('title', 'Statement of Work'),
+        '{{DOC_NUMBER}}': config.get('doc_number', ''),
+        '{{VERSION}}': config.get('version', '1.0'),
+        '{{DATE}}': config.get('date', datetime.now().strftime('%Y-%m-%d')),
+        '{{PREPARED_BY}}': config.get('prepared_by', ''),
+        '{{ORGANIZATION}}': config.get('organization', ''),
+        '{{INTRO}}': config.get('intro_text', '') or f"This Statement of Work defines the technical requirements, roles, and deliverables for {config.get('title', 'the project')}.",
+        '{{SCOPE}}': config.get('scope_text', '') or f"This SOW covers {len(statements)} requirements across {len(documents)} source documents.",
+        '{{REQUIREMENTS}}': requirements_text,
+        '{{ROLES}}': roles_text,
+        '{{DOCUMENTS}}': documents_text,
+        '{{ACCEPTANCE}}': acceptance_text,
+        '{{STANDARDS}}': standards_text,
+        '{{ASSUMPTIONS}}': config.get('assumptions_text', '') or 'See AEGIS-generated assumptions.',
+        '{{TOTAL_DOCS}}': str(len(documents)),
+        '{{TOTAL_STMTS}}': str(len(statements)),
+        '{{TOTAL_ROLES}}': str(len(active_roles)),
+        '{{AEGIS_VERSION}}': meta.get('version', 'Unknown'),
+        '{{EXPORT_DATE}}': meta.get('export_date', datetime.now().isoformat()),
+    }
+
+    # Replace placeholders in paragraphs
+    for paragraph in doc.paragraphs:
+        _replace_in_paragraph(paragraph, replacements)
+
+    # Replace in tables
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    _replace_in_paragraph(paragraph, replacements)
+
+    # Replace in headers/footers
+    for section in doc.sections:
+        for header in [section.header, section.first_page_header]:
+            if header:
+                for paragraph in header.paragraphs:
+                    _replace_in_paragraph(paragraph, replacements)
+        for footer in [section.footer, section.first_page_footer]:
+            if footer:
+                for paragraph in footer.paragraphs:
+                    _replace_in_paragraph(paragraph, replacements)
+
+    # Save to bytes
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def _replace_in_paragraph(paragraph, replacements: Dict[str, str]):
+    """
+    Replace {{PLACEHOLDER}} markers in a DOCX paragraph.
+
+    Handles the case where python-docx splits placeholders across multiple runs
+    (e.g., run1="{{", run2="TITLE", run3="}}") by joining all runs, replacing,
+    then putting the result back into the first run.
+    """
+    full_text = ''.join(run.text for run in paragraph.runs)
+    if '{{' not in full_text:
+        return
+
+    # Check if any placeholder is present
+    modified = full_text
+    for placeholder, value in replacements.items():
+        if placeholder in modified:
+            modified = modified.replace(placeholder, value)
+
+    if modified == full_text:
+        return  # No changes
+
+    # Reconstruct: put all text in the first run, clear the rest
+    if paragraph.runs:
+        paragraph.runs[0].text = modified
+        for run in paragraph.runs[1:]:
+            run.text = ''

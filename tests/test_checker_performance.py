@@ -2,7 +2,7 @@
 """
 Performance Test Suite for AEGIS Checkers
 =====================================================
-Tests the performance of all 84 checkers on documents of varying sizes.
+Tests the performance of all 105+ checkers on documents of varying sizes.
 
 Run with: pytest tests/test_checker_performance.py -v -s
 
@@ -170,13 +170,13 @@ class TestCheckerPerformance:
         )
 
     def test_checker_count(self, checker):
-        """Verify we have approximately 84 checkers registered."""
+        """Verify we have approximately 105+ checkers registered."""
         count = len(checker.checkers)
         print(f"\n[PERF] Registered checkers: {count}")
 
-        # We expect around 84 checkers (may vary slightly)
-        assert count >= 70, f"Expected at least 70 checkers, got {count}"
-        assert count <= 100, f"Unexpectedly high checker count: {count}"
+        # We expect around 105 checkers (may vary based on optional deps)
+        assert count >= 90, f"Expected at least 90 checkers, got {count}"
+        assert count <= 130, f"Unexpectedly high checker count: {count}"
 
     def test_small_document_performance(self, checker):
         """Test performance on small documents (< 100KB)."""

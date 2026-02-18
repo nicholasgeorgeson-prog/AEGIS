@@ -83,6 +83,7 @@ TWR.MassStatementReview = (function() {
 
         const url = '/api/roles/all-statements' + (params.toString() ? '?' + params : '');
         const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
         const data = await resp.json();
         if (!data.success) throw new Error(data.error || 'Failed to fetch statements');
         return data;
@@ -91,33 +92,35 @@ TWR.MassStatementReview = (function() {
     async function bulkUpdateStatements(stmtList, updates) {
         const csrfMeta = document.querySelector('meta[name="csrf-token"]');
         const headers = { 'Content-Type': 'application/json' };
-        if (csrfMeta) headers['X-CSRFToken'] = csrfMeta.content;
+        if (csrfMeta) headers['X-CSRF-Token'] = csrfMeta.content;
 
         const resp = await fetch('/api/roles/bulk-update-statements', {
             method: 'PUT',
             headers,
             body: JSON.stringify({ statements: stmtList, updates })
         });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
         return await resp.json();
     }
 
     async function bulkDeleteStatements(deletionList) {
         const csrfMeta = document.querySelector('meta[name="csrf-token"]');
         const headers = { 'Content-Type': 'application/json' };
-        if (csrfMeta) headers['X-CSRFToken'] = csrfMeta.content;
+        if (csrfMeta) headers['X-CSRF-Token'] = csrfMeta.content;
 
         const resp = await fetch('/api/roles/bulk-delete-statements', {
             method: 'POST',
             headers,
             body: JSON.stringify({ deletions: deletionList })
         });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
         return await resp.json();
     }
 
     async function updateSingleStatement(roleName, document, stmtIndex, updates) {
         const csrfMeta = document.querySelector('meta[name="csrf-token"]');
         const headers = { 'Content-Type': 'application/json' };
-        if (csrfMeta) headers['X-CSRFToken'] = csrfMeta.content;
+        if (csrfMeta) headers['X-CSRF-Token'] = csrfMeta.content;
 
         const resp = await fetch('/api/roles/responsibility', {
             method: 'PUT',
@@ -129,6 +132,7 @@ TWR.MassStatementReview = (function() {
                 updates
             })
         });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
         return await resp.json();
     }
 

@@ -1495,9 +1495,9 @@
    v3.0.119: Statement Forge Help Modal - 3/4 screen with opaque backdrop
    ============================================================================= */
 
-/* Semi-transparent backdrop for help modal */
+/* v5.9.19: Semi-transparent backdrop — particles visible around edges */
 #modal-sf-help.active {
-    background: rgba(0, 0, 0, 0.7) !important;
+    background: rgba(0, 0, 0, 0.45) !important;
 }
 
 /* Help modal content - 3/4 screen like Roles modal */
@@ -1560,6 +1560,14 @@
         max-width: none;
         max-height: none;
         border-radius: 0;
+    }
+}
+
+/* ===== ACCESSIBILITY ===== */
+@media (prefers-reduced-motion: reduce) {
+    [class*="sf-"], .forge-panel, .forge-directive-chip, .forge-checkbox-card {
+        animation: none !important;
+        transition-duration: 0.01ms !important;
     }
 }
 

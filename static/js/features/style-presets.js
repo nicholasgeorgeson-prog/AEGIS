@@ -12,7 +12,7 @@
  * - asd_ste100: ASD Simplified Technical English
  * - government: US Government/Federal style
  * - aerospace: Aerospace/Defense documentation
- * - all_checks: Enable all 84 checkers
+ * - all_checks: Enable all 105+ checkers
  * - minimal: Basic grammar and spelling only
  */
 
@@ -56,7 +56,7 @@
         },
         all_checks: {
             name: 'All Checks',
-            description: 'Enable all 84 checkers for maximum coverage',
+            description: 'Enable all 105+ checkers for maximum coverage',
             icon: 'check-circle'
         },
         minimal: {

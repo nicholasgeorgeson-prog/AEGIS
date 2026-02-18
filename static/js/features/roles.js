@@ -9647,6 +9647,7 @@ TWR.Roles = (function() {
         try {
             // Fetch roles for specific document
             const response = await fetch(`/api/scan-history/document/${docId}/roles`);
+            if (!response.ok) throw new Error(`Document roles fetch failed: ${response.status}`);
             const result = await response.json();
             
             if (!result.success || !result.data || result.data.length === 0) {

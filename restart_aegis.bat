@@ -1,6 +1,0 @@
-@echo off
-echo Stopping AEGIS...
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr :5050') do taskkill /PID %%a /F 2>nul
-timeout /t 2 >nul
-echo Starting AEGIS...
-python app.py --debug

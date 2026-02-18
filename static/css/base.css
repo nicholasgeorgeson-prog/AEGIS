@@ -28,21 +28,23 @@
  * Created by Nicholas Georgeson
  */
 
-/* ===== LIGHT MODE (DEFAULT) ===== */
+/* ===== LIGHT MODE (DEFAULT) — v5.9.5: warm professional palette ===== */
 :root {
     /* ─────────────────────────────────────────────────────────────────────────
        BACKGROUND COLORS
-       Layered surface system for visual depth and hierarchy
+       Warm cream/stone surface system to complement AEGIS gold branding.
+       Less eye strain than pure white, professional aerospace aesthetic.
        ───────────────────────────────────────────────────────────────────────── */
-    --bg-deep: #f8f9fa;
-    --bg-primary: #ffffff;
-    --bg-secondary: #f9fafb;
-    --bg-elevated: #f3f4f6;
-    --bg-surface: #e5e7eb;
-    --bg-hover: #dfe3e8;
-    --bg-active: #d1d5db;
-    --bg-selected: rgba(37, 99, 235, 0.08);
-    --bg-backdrop: rgba(0, 0, 0, 0.5);
+    --bg-deep: #ede8e0;
+    --bg-primary: #f5f1ea;
+    --bg-secondary: #f0ebe3;
+    --bg-elevated: #e8e2d8;
+    --bg-surface: #ddd6ca;
+    --bg-hover: #d4cdc0;
+    --bg-active: #c9c1b3;
+    --bg-selected: rgba(139, 105, 20, 0.08);
+    /* v5.9.19: Reduced from 0.5 so particle canvas visible around modal edges */
+    --bg-backdrop: rgba(0, 0, 0, 0.35);
 
     /* ─────────────────────────────────────────────────────────────────────────
        TEXT COLORS
@@ -52,19 +54,19 @@
     --text-secondary: #4b5563;
     --text-muted: #6b7280;
     --text-disabled: #9ca3af;
-    --text-link: #2563eb;
-    --text-link-hover: #1d4ed8;
+    --text-link: #9b7b1c;
+    --text-link-hover: #7d6316;
     --text-inverse: #ffffff;
 
     /* ─────────────────────────────────────────────────────────────────────────
        ACCENT COLORS (Primary Brand)
-       Blue-based accent with full state range
+       Gold-based accent with full state range
        ───────────────────────────────────────────────────────────────────────── */
-    --accent: #2563eb;
-    --accent-hover: #1d4ed8;
-    --accent-emphasis: #1e40af;
-    --accent-muted: rgba(37, 99, 235, 0.4);
-    --accent-subtle: rgba(37, 99, 235, 0.1);
+    --accent: #9b7b1c;
+    --accent-hover: #8b6914;
+    --accent-emphasis: #7a5c10;
+    --accent-muted: rgba(155, 123, 28, 0.4);
+    --accent-subtle: rgba(155, 123, 28, 0.1);
     --accent-fg: #ffffff;
 
     /* ─────────────────────────────────────────────────────────────────────────
@@ -123,9 +125,9 @@
     --high-bg: rgba(217, 119, 6, 0.1);
     --high-border: rgba(217, 119, 6, 0.3);
     --high-text: #d97706;
-    --medium-bg: rgba(37, 99, 235, 0.1);
-    --medium-border: rgba(37, 99, 235, 0.3);
-    --medium-text: #2563eb;
+    --medium-bg: rgba(202, 138, 4, 0.1);
+    --medium-border: rgba(202, 138, 4, 0.3);
+    --medium-text: #ca8a04;
     --low-bg: rgba(22, 163, 74, 0.1);
     --low-border: rgba(22, 163, 74, 0.3);
     --low-text: #16a34a;
@@ -134,10 +136,10 @@
        BORDER COLORS
        Consistent border hierarchy
        ───────────────────────────────────────────────────────────────────────── */
-    --border-default: #d1d5db;
-    --border-muted: #e5e7eb;
-    --border-subtle: rgba(0, 0, 0, 0.06);
-    --border-emphasis: #9ca3af;
+    --border-default: #cfc7b8;
+    --border-muted: #ddd6c9;
+    --border-subtle: rgba(44, 36, 22, 0.06);
+    --border-emphasis: #b0a795;
     --border-focus: var(--accent);
 
     /* ─────────────────────────────────────────────────────────────────────────
@@ -301,8 +303,15 @@ body {
     font-weight: var(--font-weight-normal);
     line-height: var(--line-height-normal);
     color: var(--text-primary);
-    background: var(--bg-deep);
+    /* v5.9.18: Body background removed — particles canvas is the global background.
+       html element gets the fallback bg color. App containers have opaque backgrounds. */
+    background: transparent;
     overflow: hidden;
+}
+
+/* v5.9.18: html gets the background color as fallback behind the particle canvas */
+html {
+    background: var(--bg-deep);
 }
 
 /* =============================================================================

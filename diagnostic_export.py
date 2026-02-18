@@ -325,13 +325,13 @@ class DiagnosticCollector:
     """
     
     _instance = None
-    _lock = threading.Lock()
-    
+    _lock = threading.RLock()
+
     # Limits
     MAX_ERRORS = 500
     MAX_REQUESTS = 1000
     MAX_WARNINGS = 200
-    
+
     def __init__(self):
         self.errors: deque = deque(maxlen=self.MAX_ERRORS)
         self.warnings: deque = deque(maxlen=self.MAX_WARNINGS)
@@ -339,7 +339,10 @@ class DiagnosticCollector:
         self.session_id = str(uuid.uuid4())[:8]
         self.session_start = datetime.now().isoformat()
         self._error_counts: Dict[str, int] = {}  # Track error frequency
-        self._lock = threading.Lock()
+        # v5.9.0: RLock (reentrant) — export_diagnostics() holds lock then calls
+        # get_error_summary() / get_request_stats() which also acquire it.
+        # threading.Lock would deadlock; RLock allows same-thread re-entry.
+        self._lock = threading.RLock()
     
     @classmethod
     def get_instance(cls) -> 'DiagnosticCollector':
@@ -1100,16 +1103,25 @@ def format_diagnostic_report(data: Dict[str, Any]) -> str:
 def register_diagnostic_routes(app):
     """
     Register diagnostic API routes with a Flask app.
-    
+
     Usage:
         from diagnostic_export import register_diagnostic_routes
         register_diagnostic_routes(app)
-    
+
     v2.9.3 B20/B21/B25: Fixed export not working, improved error handling
+    v5.9.1: Added CSRF protection to export endpoint
     """
     from flask import jsonify, send_file, request
     import logging
-    
+
+    # Import CSRF decorator for protecting state-changing endpoints
+    try:
+        from routes._shared import require_csrf
+    except ImportError:
+        # Fallback: no-op decorator if routes._shared not available
+        def require_csrf(f):
+            return f
+
     logger = logging.getLogger('diagnostic_export')
     
     @app.route('/api/diagnostics/summary')
@@ -1134,6 +1146,7 @@ def register_diagnostic_routes(app):
             }), 500
     
     @app.route('/api/diagnostics/export', methods=['GET', 'POST'])
+    @require_csrf
     def export_diagnostic_file():
         """
         Export diagnostic data to a downloadable file.

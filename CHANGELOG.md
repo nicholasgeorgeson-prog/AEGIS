@@ -4,6 +4,594 @@ All notable changes to AEGIS (Aerospace Engineering Governance & Inspection Syst
 
 ---
 
+## [5.9.20] - 2026-02-18 - Data Explorer Z-Index Fix + Particle Visibility + Email Diagnostics with Attachments
+
+### Bug Fixes
+- **Data Explorer hidden behind Roles Studio**: Clicking stat cards (Unique Roles, Responsibilities, etc.) in Roles Studio Overview opened the Data Explorer at z-index 10000, but the Roles modal sat at 10001 via `body.landing-active .modal.active` rule. Bumped Data Explorer overlay z-index to 15000
+
+### Enhancements
+- **Particles visible through Data Explorer**: Reduced Data Explorer overlay opacity from 0.85→0.45 (dark) and 0.6→0.4 (light), removed `backdrop-filter: blur(10px)` so particle canvas shows through the semi-transparent backdrop
+- **Email Diagnostics with attached logs**: Complete rewrite of "Email to Support" in Settings > Diagnostics. Now generates an `.eml` file (RFC 2822) with the diagnostic JSON report, `aegis.log`, and any other active log files already attached. Double-clicking the `.eml` opens Outlook or Apple Mail as a pre-composed draft with all attachments included. Replaces the old `mailto:` approach which could not attach files and required manual file drag-drop
+
+---
+
+## [5.9.19] - 2026-02-18 - Light Mode Metric Cards + Settings Scroll + Global Particles
+
+### Bug Fixes
+- **Light mode metric card drill-downs invisible**: Expanded metric card content (labels, bar counts, chips, stat values, ring stats) used white text (`rgba(230,237,243,*)`) designed for dark mode with no light mode overrides. Added 16 `body:not(.dark-mode)` CSS rules with warm stone tones (`#2c2416`, `#5a4e3a`, `#6b5d47`)
+- **Metric cards stuck in expanded state**: `closeAllDrillDowns()` removed the `lp-mexp-open` class from the expand element but forgot to remove `lp-metric-expanded` from the parent card, leaving it visually expanded until page refresh or re-click
+
+### Enhancements
+- **Settings tabs scroll indicators**: Wrapped settings tabs in a scroll-aware container with gradient fade edges and arrow buttons (`‹`/`›`) that appear only when tabs overflow. Active tab auto-scrolls into view on switch. Previously there was no visual indication that more tabs existed off-screen
+- **Global particle canvas**: Moved canvas from inside `#aegis-landing-page` to `<body>` level so particles serve as a subtle background visible through semi-transparent modal backdrops and any UI gaps. Body background set to transparent; `<html>` element gets the fallback color
+
+---
+
+## [5.9.18] - 2026-02-18 - Help Beacon Hide During Demo + Compare Sub-Demo QA
+
+### Bug Fixes
+- **Help beacon overlays demo controls**: The ? help beacon (z-index:150000) now hides when any demo starts and reappears when the demo ends or is stopped. Previously it overlapped the X stop button in the demo bar, making it hard to click
+- **Compare sub-demo preActions showed picker instead of modal**: All 5 Document Compare sub-demo preActions used `#nav-compare` click which triggered `openCompareFromNav()` → picker overlay. Replaced with `_navigateToSection('compare')` which auto-selects a comparable document and opens `DocCompare.open()` directly
+
+### QA Verification
+- All 5 Document Compare sub-demos re-verified: document_selection, diff_views, change_navigation, compare_export, compare_doc_switcher — all open the actual comparison modal with real data, no picker overlay
+
+---
+
+## [5.9.17] - 2026-02-17 - Narration Speed Fix + Full Demo QA Pass
+
+### Bug Fixes
+- **BUG #9 — Narration speed race condition**: Changing playback speed mid-demo now properly syncs all active components — Web Speech utterances cancelled and restarted at new rate, pending step timers rescheduled with adjusted delays, typewriter effect restarts from current position at new speed, audio element playbackRate updates immediately
+- **Compare demo opens picker instead of modal**: `_navigateToSection('compare')` now auto-selects the first comparable document and opens the real Document Comparison modal instead of falling through to the document picker
+- **Compare picker X button not closing**: `showCompareDocumentPicker()` could stack duplicate overlays with the same `#compare-picker-overlay` ID when called multiple times; now removes existing picker before creating a new one
+- **Particle canvas covering UI**: Moved canvas from `<body>` (z-index:100000) into `#aegis-landing-page` (z-index:0) so particles render as a background behind all tiles, cards, and modals
+
+### QA Verification
+- Full demo system verification complete across 4 QA sessions
+- All 12 sections tested: Landing, Review, Batch, Roles, Forge, SOW, Validator, Compare, Metrics, History, Settings, Portfolio
+- 79 overview scenes + 93 sub-demos (~471 deep-dive scenes) — ALL PASS
+- Bugs #1-#12 found and fixed during testing (see v5.9.12-5.9.16 changelogs)
+
+### Modified Files
+- `static/js/features/guide-system.js` — Speed change handler rewritten with 4-part sync; Compare navigation auto-selects document
+- `static/js/history-fixes.js` — Duplicate picker overlay prevention in `showCompareDocumentPicker()`
+- `static/css/features/landing-page.css` — Particle canvas z-index dropped from 100000 to 0
+- `templates/index.html` — Canvas element moved inside `#aegis-landing-page` before `.lp-content`
+
+---
+
+## [5.9.16] - 2026-02-17 - Live Demo Overhaul + SOW Template Upload + Graph Export
+
+### New Features
+- **SOW Generator template upload** — Upload a DOCX template with `{{PLACEHOLDER}}` markers (`{{TITLE}}`, `{{REQUIREMENTS}}`, `{{ROLES}}`, etc.) and AEGIS populates it with extracted data, returning a ready-to-use DOCX
+- **Graph View export** — New Export dropdown button with PNG (high-res 3x), SVG (vector), and Interactive HTML formats
+- **Interactive HTML graph export** — Standalone D3.js force-directed graph with pan/zoom, search, tooltip details, and filter by function tag, role type, and org group
+- **DemoSimulator module** — IIFE for injecting mock DOM elements during live demos (progress dashboard, simulated results, SOW preview, batch results)
+
+### Live Demo Improvements
+- SOW Generator promoted to its own guide section with dedicated demoScenes, subDemos, and navigation handler
+- All 11 overview demoScenes rewritten with diverse targets matching narration content — eliminated same-target syndrome
+- 20+ sub-demos updated with correct preActions (DemoSimulator data injection, module API calls), diverse scene targets, and proper navigate properties
+- Fixed `advanced-settings-panel` ID (actual: `advanced-panel`) throughout guide-system.js
+- DemoSimulator cleanup called in both stopDemo() and _navigateToSection()
+
+### New Files
+- `static/js/features/demo-simulator.js` — Demo mock data injection module
+- `graph_export_html.py` — Interactive HTML graph generator
+
+### Modified Files
+- `static/js/features/guide-system.js` — Demo scene fixes, SOW section, DemoSimulator integration
+- `static/js/features/sow-generator.js` — Template upload handlers, FormData generation
+- `static/js/roles-tabs-fix.js` — Graph export button wiring, interactive HTML export
+- `static/css/features/sow-generator.css` — Template upload dropzone styling
+- `static/css/features/roles-studio.css` — Graph export dropdown menu styling
+- `routes/data_routes.py` — Multipart form handling for SOW template upload
+- `routes/roles_routes.py` — Interactive HTML graph export endpoint
+- `sow_generator.py` — Template population with python-docx (populate_sow_template)
+- `templates/index.html` — SOW template upload UI, graph export button
+
+---
+
+## [5.9.15] - 2026-02-17 - Sub-Demo Modal Force-Show Pattern + Cleanup System
+
+### Bug Fixes
+- **9 BAD sub-demos fixed**: Force-show target modals (export, triage, score breakdown, function tags, 5 portfolio) in preActions using `display:flex` + `zIndex:148000` pattern with automatic cleanup on demo stop or section switch
+- **18 PARTIAL sub-demos updated**: Replaced generic trigger-button targets with varied scene targets across forge (4), HV (5), settings (3), review (1), history (1), batch (2), help (2)
+- **Portfolio sub-demos**: Now use `Portfolio.open()` API instead of nav button click, spotlighting actual content (`.pf-header`, `#pf-stats-mini`, `#pf-batch-grid`, etc.)
+- **Function tags sub-demo**: Uses `TWR.FunctionTags.showModal()` with cleanup that removes the dynamically-created modal
+- **Help/keyboard sub-demos**: Force-show `#modal-help` with cleanup; accessibility sub-demo opens Settings display tab
+- **Forge history_overview target**: Corrected `#sf-sidebar` to `.sf-sidebar` (class selector, element has no ID)
+- **5 cleanup functions added**: `_exportCleanup`, `_triageCleanup`, `_scoreCleanup`, `_funcTagsCleanup`, `_helpCleanup` called in both `stopDemo()` and `_navigateToSection()`
+
+### QA Verification
+- All 27 fixed sub-demo targets confirmed existing in live DOM via browser MCP testing
+
+---
+
+## [5.9.14] - 2026-02-17 - IIFE Public API Exposure + Sub-Demo Selector Audit
+
+### Bug Fixes
+- **MetricsAnalytics.switchTab() exposed**: Programmatic `.click()` on IIFE-scoped tab buttons failed to trigger event delegation; added `switchTab` to the IIFE's public return object
+- **Metrics navigation fixed**: `_navigateToSection('metrics')` now uses `MetricsAnalytics.open()` instead of generic `showModal()` so data loads before tab switching
+- **Metrics sub-demo preActions rewritten**: All 5 call `MetricsAnalytics.switchTab()` directly instead of `.click()` on tab buttons
+- **MetricsAnalytics namespace corrected**: Changed from `TWR.MetricsAnalytics` to `window.MetricsAnalytics` (IIFE assigns to window, not TWR)
+- **SOW generator sub-demo**: Replaced non-existent `#sf-btn-sow` with `SowGenerator.open()` API call
+- **Fix Assistant sub-demo target**: Corrected `#btn-fix-assistant` to `#btn-open-fix-assistant` (actual element ID)
+- **Export format card IDs added**: Added `id='format-csv-card'` and `id='format-json-card'` to index.html for sub-demo spotlight targeting
+- **Fix Assistant sub-demo scenes**: Now shows actual FA modal (`#fav2-modal`) with scenes targeting change preview, action buttons, and progress bar instead of all pointing at the small launcher button
+
+---
+
+## [5.9.13] - 2026-02-17 - Comprehensive Sub-Demo Target Audit
+
+### Bug Fixes
+- **Full sub-demo target audit**: Rewrote ALL 93 sub-demo scene targets across 11 sections to spotlight correct, visible UI elements instead of generic nav buttons or hidden modals
+- **Metrics sub-demos**: 4 preActions were clicking `#ma-tab-btn-overview` instead of their correct tab buttons; all scene targets now point to tab-specific chart and content elements
+- **Batch sub-demos**: All scenes previously targeted `#btn-batch-load`; now target `#batch-dropzone`, `#folder-scan-path`, `#batch-file-list`, `#batch-progress`, `#batch-results`
+- **Compare sub-demos**: All scenes previously targeted `#nav-compare`; now target `#dc-doc-select`, `#dc-old-scan`, `#dc-new-scan`, `#dc-stats`, `#dc-minimap`, `#dc-btn-compare`
+- **History sub-demos**: All scenes previously targeted `#nav-history`; now target `#scan-history-body`, `#history-search`, `#modal-scan-history`
+- **Settings sub-demos**: 9 sub-demos all targeted `#btn-settings` with no tab navigation; each now clicks its specific settings tab and targets tab-specific elements
+- **Roles sub-demos**: Adjudication exports/sharing targeted hidden dropdown items; now target visible toolbar buttons. Dictionary imports targets `#btn-import-dictionary` and `#dict-content-area`
+- **dictionary_exports**: `#hierarchy-export-modal` changed to `#btn-export-hierarchy` (button is visible, modal is not)
+- **checker_categories**: `#btn-toggle-advanced` changed to `[data-tab='review']` (toggle is in review sidebar)
+- **profile_management**: `#btn-preset-reqs` changed to `#btn-profile-reset-default` (preset buttons are in review sidebar)
+
+---
+
+## [5.9.12] - 2026-02-17 - Demo Picker Visibility Fix + Sub-Demo Navigate Fix
+
+### Bug Fixes
+- **Demo picker sub-demo cards invisible**: Missing CSS rules for `.panel-help-content.hidden` and `.panel-footer.hidden` caused help content to remain visible (512px tall), pushing picker cards below the scroll viewport at offset 636px
+- **Root cause**: JS used `classList.add('hidden')` but only component-specific `.hidden` selectors existed (e.g., `.demo-picker.hidden`), not rules for `.panel-help-content.hidden` or `.panel-footer.hidden`
+- **Sub-demo navigate redundancy**: Sub-demos using the `navigate` property (e.g., graph_view) no longer reset back to Overview tab; `_showDemoStep` now skips redundant `_navigateToSection` when already in the correct section
+
+---
+
+## [5.9.11] - 2026-02-17 - Sub-Demo Scene Target Rewrite
+
+### Bug Fixes
+- **35 sub-demo scene targets rewritten**: All new sub-demo scenes now use specific UI element selectors instead of generic section containers
+- **Export sub-demos** (DOCX, PDF, Excel/CSV, Filters): Now spotlight actual export modal elements (format cards, filter chips, preview bar, export button) with preActions that open the export modal
+- **Adjudication sub-demos**: Target specific buttons and action items (`#btn-export-adjudication`, `.adj-export-item[data-action=csv/html/pdf/import]`, `#btn-auto-adjudicate`, `#btn-undo-adj`, `#adj-select-all`)
+- **Dictionary sub-demos**: Target `#btn-import-dictionary`, `.dict-import-option`, `#btn-export-dictionary`, `#btn-download-template`, `#btn-export-hierarchy`
+- **Function Tags / Graph targets**: `#btn-function-tags`, `#btn-role-reports`, `#graph-max-nodes`, `#graph-layout`, `#graph-labels`, `#graph-weight-filter`, `#graph-info-panel`
+- **Role Editing targets**: `#edit-role-modal`, `#edit-role-category`, `#edit-role-tag-select`, `#btn-save-role`
+- **Forge sub-modal targets**: `#sf-btn-add`, `#sf-btn-renumber`, `#sf-btn-merge`, `#sf-btn-split`, `#modal-sf-role-mapping`; SOW targets `#modal-sow-generator`, `#sow-title`, `#sow-btn-generate`
+- **HV Export targets**: `#hv-btn-export-csv`, `#hv-btn-export-json`, `#hv-btn-export-html`, `#hv-btn-export-highlighted`
+- **Metrics targets**: `#severity-chart-card`, `#category-chart-card`, `#ma-tab-btn-quality/statements/roles/documents`
+- **Settings targets**: `#btn-toggle-advanced`, diagnostic buttons, `#btn-load-backups`, `#btn-factory-reset`, `#btn-save-profile`
+- **Triage/Score targets**: `#modal-triage`, `#btn-triage-keep/prev/next`, `#modal-score-breakdown`, `#score-breakdown-value/grade`
+
+---
+
+## [5.9.10] - 2026-02-17 - Massive Sub-Demo Expansion (35 New Sub-Demos)
+
+### New Features
+- **35 new sub-demos with ~159 new scenes**: Complete end-to-end feature coverage across every AEGIS module
+- **Document Review deep-dives**: Review Presets, Triage Mode, Family Patterns, Score Breakdown, Selection Tools, DOCX/PDF/Excel/CSV export formats, Export Filters
+- **Roles Studio deep-dives**: Adjudication Exports, Sharing & Collaboration, Auto-Classify & Undo, Dictionary Imports (CSV/SIPOC/Package), Dictionary Exports (CSV/Template/Hierarchy), Function Tags & Reports, Graph Controls, Role Editing
+- **Additional deep-dives**: Server Folder Scan, Forge Advanced Ops, SOW Generator, HV Export Formats, Doc Compare Switcher, Chart Drill-Down, Metrics Insights, Checker Categories, Profile Management, Diagnostics, Backup & Recovery, Scan Actions, Statement History Link, Batch Groups, Portfolio Actions, Keyboard Shortcuts, Help Navigation, Accessibility Features
+
+### Enhancements
+- All new preActions wrapped in try/catch for defensive error handling
+
+### Architecture
+- Combined total: 79 overview + ~471 sub-demo scenes = ~550 total demo scenes across 93 sub-demos
+
+### Bug Fixes
+- **Logger references in scan_history.py**: Fixed 12+ bare `logger` references changed to `_log()` helper
+
+---
+
+## [5.9.9] - 2026-02-17 - Deep-Dive Sub-Demo System
+
+### New Features
+- **Sub-demo architecture**: 58 sub-demos with ~312 narrated scenes covering every sub-function in AEGIS
+- **Demo picker UI**: Clicking "Watch Demo" shows a picker with overview card + 2-column sub-demo card grid
+- **Per-module sub-demos**: Dashboard (3), Review (6), Batch (4), Roles (8), Forge (6), HV (7), Compare (4), Metrics (5), History (3), Settings (9), Portfolio (3)
+- **preAction system**: Each sub-demo has an async `preAction()` that navigates to the correct tab before scenes play
+- **Breadcrumb display**: Demo bar shows "Section > Sub-demo" during sub-demo playback
+- **Duration estimates**: Each sub-demo card in the picker shows estimated runtime
+
+### Bug Fixes
+- **Visibility check for modal elements**: Replaced `offsetParent` check with `getBoundingClientRect().width > 0` for elements inside fixed-position modals
+
+### Architecture
+- guide-system.js v2.3.0 with hierarchical sub-demo architecture: `startSubDemo()`, `_showDemoPicker()`, `_hideDemoPicker()`
+- Combined total: 79 overview scenes + 312 sub-demo scenes = ~391 total demo scenes
+
+---
+
+## [5.9.8] - 2026-02-17 - Super-Detailed Demo Scenes (31 to 79)
+
+### Enhancements
+- **Demo scene expansion**: From 31 to 79 narrated walkthrough scenes across all 11 modules; full demo ~10 min at 1x speed
+- **Dashboard demo**: 4 to 7 scenes -- covers metrics, tiles, getting started, recent docs
+- **Document Review demo**: 6 to 10 scenes -- covers batch, checkers, Fix Assistant, export suite
+- **Batch Scan demo**: 2 to 6 scenes -- covers file picker, folder scan, preview, progress, fault tolerance
+- **Roles Studio demo**: 5 to 10 scenes -- covers all 7 tabs, adjudication export, sharing
+- **Statement Forge demo**: 4 to 8 scenes -- covers extraction pipeline, filtering, bulk ops, history
+- **Hyperlink Validator demo**: 3 to 7 scenes -- covers modes, Deep Validate, exclusions, domain filter
+- **Document Compare demo**: 1 to 6 scenes -- covers auto-compare, diff highlighting, statement tracking
+- **Metrics demo**: 3 to 7 scenes -- covers all 4 tabs, severity and category analysis
+- **Scan History demo**: 1 to 5 scenes -- covers reload, progression tracking, data management
+- **Settings demo**: 2 to 8 scenes -- covers all 9 tabs individually
+- **Portfolio demo**: 1 to 5 scenes -- covers sorting, filtering, grade visualization
+
+### Architecture
+- guide-system.js v2.2.0 -- comprehensive narrated walkthrough system
+
+---
+
+## [5.9.7] - 2026-02-17 - Voice Narration System for Live Demo
+
+### New Features
+- **Voice Narration System**: Three-tier audio provider chain for the Live Demo player
+- **Audio providers**: Pre-generated MP3 (from `/static/audio/demo/`) -> Web Speech API -> Silent timer fallback
+- **Narration toggle**: Button with AEGIS gold pulse indicator in demo bar
+- **Volume control**: Slider with persistent localStorage preferences
+- **Chrome 15-second TTS workaround**: Automatic sentence chunking for Web Speech API to bypass Chrome's timeout bug
+- **Voice selection**: Auto-detects best available TTS voice (Google US English > Samantha > system default)
+- **Pre-generated audio manifest**: Server-side system at `/static/audio/demo/manifest.json`
+- **TTS generation endpoints**: `/api/demo/audio/status`, `/api/demo/audio/generate`, `/api/demo/audio/voices`
+- **demo_audio_generator.py**: Supports edge-tts (neural, requires internet) and pyttsx3 (system voices, offline)
+- **Speed sync**: Audio `playbackRate` and `utterance.rate` both sync with demo speed selector (0.5x to 2x)
+- **Pause/resume**: Narration pauses and resumes with demo player controls
+
+### Architecture
+- Progressive enhancement: demo works identically with or without audio enabled
+- Audio narration layer is completely optional with zero new required dependencies
+
+---
+
+## [5.9.6] - 2026-02-17 - Complete Warm Palette Deep Pass
+
+### Visual Improvements
+- **Complete CSS fallback value audit** — 40+ CSS variable fallback values updated from cool gray/white (#f8fafc, #e2e8f0, #e5e7eb, #fff) to warm cream/stone (#f0ebe3, #cfc7b8, #e8e2d8, #f5f1ea) across 15+ CSS files
+- **Hyperlink Validator progress bar** — Light mode progress bar overhauled with gold gradient, warm particles, orbs, and streaks replacing blue/purple
+- **Roles Studio deep pass** — Export dialog, smart search, function tree, report builder, action items, and form inputs all updated to gold accent palette with warm backgrounds
+- **Data Explorer light mode** — Cards, stats, tables, nav buttons, hero stats, and viz containers all warmed from cool white/gray to cream/stone tones
+- **Fix Assistant fallback alignment** — All bg-primary, bg-secondary, bg-tertiary, border-default, border-subtle fallbacks aligned to warm palette
+- **Charts and components** — Sparkline, fix group items, and batch upload modal fallbacks synced to warm palette
+
+### Semantic Colors Preserved
+- RACI matrix type colors (A=blue, C=blue) — data category distinction
+- Directive colors (shall=blue, will=blue) — statement type distinction
+- Severity-info badges — severity classification
+- Redirect status colors — hyperlink validation status
+- Per-tool icon colors on landing page — tool identity
+- All dark mode styles untouched
+
+---
+
+## [5.9.5] - 2026-02-17 - Cinematic Help Docs + Warm Palette + Windows CSV Fix
+
+### Enhancements
+- **Cinematic SVG diagrams in Help docs**: Inline SVG diagrams replace ASCII art -- NLP Pipeline (7 stages), System Architecture (3-tier), Document Extraction (priority chain)
+- **Enterprise Grade callout boxes**: Changed from green to AEGIS gold/bronze branding across all 8 instances
+- **Light mode warm palette overhaul**: Cream/stone/gold tones replace harsh whites across base, landing page, modals, settings
+- **Light mode accent colors**: Blue replaced with gold across Roles Studio, settings, hyperlink validator, metrics, export suite
+- **Landing page particles**: Increased to 140 count with deep gold coloring and warm gradient background
+- **Dashboard counter accuracy**: Dynamic checker count replaces hardcoded values
+
+### Bug Fixes
+- **Windows CSV exports**: Now include UTF-8 BOM and CRLF line endings for Excel compatibility across 5 JS files (app.js, roles-tabs-fix.js, hyperlink-validator-state.js, doc-compare.js, roles-export-fix.js)
+- **Settings modal size**: Enlarged to 860px with visible gold-accented scrollbar for better navigation
+- **Sharing tab Connection Status**: Now shows actual result instead of stuck "Checking..." state
+- **Email to Support**: Auto-downloads diagnostic file and includes inline health check data in email body
+
+### Documentation
+- Help documentation version updated to 5.9.5 with refreshed content across all sections
+
+---
+
+## [5.9.4] - 2026-02-17 - Complete Export Suite Rebuild
+
+### New Features
+- **Export suite overhaul**: 5 format options (DOCX comments, PDF Report, Excel XLSX, CSV, JSON) with pre-export filtering
+- **PDF Report export**: Server-side reportlab generation with AEGIS branded cover page, executive summary, severity/category breakdown, full issue details
+- **Pre-export filter panel**: Collapsible panel with severity and category chip-based multi-select and live preview count
+- **Excel (XLSX) format card**: Detailed multi-sheet workbook with charts and metadata
+- **Export progress overlay**: Glassmorphism card with animated progress bar and format-specific messaging
+- **`review_report.py` module**: `ReviewReportGenerator` class with cover page, severity distribution, category breakdown, issue detail tables
+- **`export-suite.css`**: Dedicated stylesheet for export modal, filter chips, progress overlay, dark mode
+- **POST `/api/export/pdf`**: Server-side PDF generation with filter support and AEGIS branding
+
+### Bug Fixes
+- **PDF source files**: Now default to PDF Report format instead of disabled DOCX
+- **Export filters**: Applied client-side before sending to backend (reduces payload, works for all formats)
+- **JSON export**: Includes `filters_applied` metadata when filters are active
+- **Fix Assistant v2 field mapping**: Normalized `original_text`/`replacement_text` with safe fallbacks for both v2 and legacy formats
+- **Fix Assistant Done event**: Properly updates export modal launcher stats (selected count, fixable count)
+- **Fix Assistant close re-shows export modal**: FA's `showModal()` closes other modals; now re-shows export on FA close
+- **Rejected fixes**: Now sent as `comment_only_issues` for DOCX margin comments
+- **Fix Assistant state persistence**: Re-opening export modal restores previous review stats
+- **`handleFinishReview()`**: Correctly populates `State.selectedFixes` using actual fix indices from decisions Map instead of array indices
+
+---
+
+## [5.9.3] - 2026-02-17 - Settings Modal Redesign (9 Tabs)
+
+### New Features
+- **Settings modal redesign**: 9 organized tabs with card-based layout, toggle switches, glassmorphism styling
+- **Network & Auth tab**: SSL/proxy, client certificates, hyperlink validation mode consolidated into one tab
+- **CSS class-based tab switching**: Uses `.active-tab` instead of inline display styles
+- **Data Management tab**: Compact redesign with danger zone for factory reset
+- **Diagnostics tab**: Error/warning/request stat cards with health check and email-to-support button
+- **Role template JSON import**: Import Decisions now accepts `role_dictionary_import` format from exported HTML templates
+
+### Bug Fixes
+- **Function category grandchild badges**: Show parent code abbreviation (e.g., PS-FFS shows "PS" not "PF")
+- **Review page category filters**: Legacy dead containers replaced with unified dropdown route
+- **FileRouter coverage**: Now covers `routes/`, `hyperlink_validator/`, and `nlp/` flat-file prefixes
+- **Role source viewer**: Category change and tag removal now show error toasts on failure
+- **Settings delete buttons**: Show correct short labels in finally blocks matching new compact UI
+- **Installer scripts**: Updated to v5.9.3 with `packaging/requirements-windows.txt`, auth package verification, OneDrive path note
+
+---
+
+## [5.9.2] - 2026-02-17 - Bug Fix Sweep (10 Fixes)
+
+### Bug Fixes
+- **Scan history "Load this scan"**: No longer shows `[object Object]` -- structured error objects now properly extracted
+- **Statement source viewer edit mode**: No longer gets stuck after save failure -- `editMode` resets on all exit paths
+- **SIPOC role_source migration**: Uses `PRAGMA table_info()` check instead of catching ALTER TABLE errors
+- **Fix Impact Analysis text**: No longer truncated -- removed `overflow:hidden`, `max-height` caps, and `nowrap`/`ellipsis` from category names
+- **Scan re-upload**: Now works after first scan completes -- `resetUploadState()` called on all completion/failure/cancel paths
+- **Statement Forge auto-extraction**: Shows toast feedback with statement count or warning if module unavailable
+- **Metrics & Analytics empty state**: Shows descriptive messages instead of blank panel when data is missing or API fails
+- **DOCX export fallback**: Falls back to lxml XML-based comments when COM/Word unavailable, with detailed error propagation
+- **Export error messages**: Include specific engine errors instead of generic "Failed to create marked document"
+- **Frontend export handler**: Safely parses non-JSON error responses and validates blob size before download
+
+---
+
+## [5.9.1] - 2026-02-17 - Corporate Network URL Handling + Windows Auth
+
+### Bug Fixes
+- **Corporate network URLs**: `*.northgrum.com`, `*.myngc.com` no longer marked BROKEN -- reclassified as AUTH_REQUIRED with "requires VPN" message
+- **ConnectionError classification**: Timeout-like errors now correctly categorized as TIMEOUT instead of BROKEN
+
+### Enhancements
+- **`categorize_domain()`**: Recognizes NGC corporate domains (`myngc.com`, `northgrum.com`, `sharepoint.us`) as "internal"
+- **HTML export report**: Donut chart now includes Auth Required as a separate status category
+- **Windows Auth warning banner**: Shown when Windows Auth mode is selected but `requests-negotiate-sspi` not installed
+
+### Packaging
+- Added `requests-negotiate-sspi`, `requests-ntlm`, `pyspnego`, `pywin32` wheels for Windows SSO auth
+
+---
+
+## [5.9.0] - 2026-02-17 - Deep Validation & Scoring Improvements
+
+### Critical Bug Fix
+- **FIX: SemanticAnalyzer duplicate detection was silently broken** — The wrapper in `enhanced_analyzers.py` called `.get()` (dict method) on a `List[DuplicateGroup]` return value. The `except Exception` block swallowed the AttributeError, producing zero semantic duplicate detections. Now correctly iterates `DuplicateGroup` dataclass objects using `.indices` and `.similarity_score` attributes.
+
+### Bug Fixes
+- **FIX: 12 unprotected fetch() calls** — Added `response.ok` checks to fetch calls in mass-statement-review.js (4), data-explorer.js (2), portfolio.js (1), function-tags.js (2), app.js (2), statement-history.js (1), roles.js (1). Prevents silent failures on HTTP errors.
+- **FIX: Null guard violations** — 3 `querySelector()` calls in role-source-viewer.js (lines 1699, 1704, 1738) accessed result directly without null checks. Now uses safe pattern.
+- **FIX: Dark mode contrast** — `.batch-score.grade-c` had dark text (#1a1a1a) on gold background in dark mode — unreadable. Changed to white.
+
+### Scoring Improvements
+- **Category concentration discount** — 10 issues of the same type now count less than 10 diverse issues. Uses logarithmic diminishing returns per category group (1st issue = full weight, 2nd = 80%, 3rd = 65%, etc.)
+- **Expanded dedup normalization** — `_CATEGORY_NORM` grew from 8 to 27 entries, covering passive voice, grammar, spelling, cross-references, prose/style, acronym variants, and quantifier precision overlaps
+
+### Accessibility
+- **Dark mode consistency** — Added explicit dark mode rules for `progress-3d-text` and `progress-3d-info` indicators
+
+---
+
+## [5.8.2] - 2026-02-17 - Production Hardening & Accessibility Pass
+
+### Bug Fixes
+- **FIX: ReportLab XML parser crash** — Role names containing HTML-like text (e.g., `Case<Br>Group`) now sanitized with XML entity escaping before PDF generation
+- **FIX: CSRF header typo** — `X-CSRFToken` corrected to `X-CSRF-Token` in mass-statement-review.js (3 instances)
+- **FIX: Help docs API reference** — Corrected `/api/metrics/analytics` to `/api/metrics/dashboard` in changelog docs
+
+### Accessibility (WCAG 2.1)
+- **prefers-reduced-motion** media queries added to 10 additional CSS feature files (batch-progress-dashboard, data-explorer, portfolio, hyperlink-validator, hv-cinematic-progress, scan-progress-dashboard, mass-statement-review, statement-forge + 2 more)
+- Total CSS files with motion accessibility: **19** (all animation-heavy stylesheets now covered)
+
+### Library Integration
+- **Enhanced SVO extraction** — InformationExtractionChecker now uses spaCy dependency parsing for more accurate Subject-Verb-Object extraction from requirements, with regex fallback
+- **Library audit completed** — 11 major libraries verified installed and active, textacy/sentence-transformers/spaCy usage documented
+
+### Test & Quality
+- Full backend route testing (23 endpoints verified)
+- Security audit (CSRF, path traversal, XSS, file type validation)
+- Frontend audit (event handlers, API contracts, CSS accessibility)
+- Integration testing (version consistency, updater, end-to-end workflows)
+
+---
+
+## [5.8.1] - 2026-02-17 - Document Compare Master Selector
+
+### New Features
+- **Master document selector**: Document Compare modal now includes a dropdown to switch between any comparable document without closing the modal -- previously locked into the pre-selected document
+
+### Bug Fixes
+- **Document Compare no longer locks**: All 15+ documents with multiple scans are accessible from the header dropdown
+
+### UI
+- New document selector styled for both light and dark mode; auto-selects newest scan pair on document switch
+
+---
+
+## [5.8.0] - 2026-02-16 - Cross-Checker Dedup + Document-Type-Aware Review
+
+### New Features
+- **Cross-checker category normalization**: Issues flagged by multiple checkers under different category names (e.g., "Requirement Traceability" + "INCOSE Compliance") are properly deduplicated via `_CATEGORY_NORM` map
+- **Document-type-aware suppression**: Requirements documents auto-suppress noise issues (noun phrase density, readability scores for domain vocabulary, per-paragraph INCOSE repeats)
+
+### New Checkers
+- **Directive Verb Consistency**: Flags documents mixing shall/should/must/will/require without a definitions section
+- **Unresolved Cross-Reference**: Flags dangling references like "the approved procurement schedule" that lack specific document IDs
+
+### Enhancements
+- Spelling dictionary expanded with aerospace/PM terms -- "deliverables", "baselines", "procurement", "workaround", NASA acronyms (CDR, PDR, SRR, FMEA, etc.)
+- Total checkers: 111 (was 109)
+
+---
+
+## [5.7.2] - 2026-02-16 - detectCurrentSection() Fixes + Landing Page Overlay
+
+### Bug Fixes
+- **Statement Forge false match**: `detectCurrentSection()` no longer falsely matches Statement Forge -- removed `el.style.display` check, uses only `.active` class like all other modals
+- **Landing page detection**: Uses `body.classList.contains('landing-active')` instead of `offsetParent` (which fails on `position:fixed` elements)
+- **Modals hidden behind landing page**: Help panel section nav now dismisses landing page before opening modals
+- **Missing section checks**: Added `batch` and `portfolio` to `detectCurrentSection()` checks array
+
+### Architecture
+- Moved landing page dismissal to top of `_navigateToSection()` for all non-landing sections
+
+---
+
+## [5.7.1] - 2026-02-16 - Background Thread Robustness for Async Scans
+
+### Bug Fixes
+- **Folder scan thread stall**: Added per-file timeout (5 min), chunk-level timeout, and try/except around `future.result()` -- no more infinite hangs on problematic files
+- **Elapsed time freeze**: Now computed LIVE in progress endpoint from `started_at` instead of only updating inside the `as_completed` loop
+- **Current file display**: Shows chunk contents (up to 3 filenames) while processing, not just last-completed file
+- **Chunk timeout recovery**: Gracefully marks remaining files as errors and continues to next chunk instead of crashing
+- **Spotlight CSS overlay**: Background set to transparent -- eliminates double-dimming over SVG mask cutout
+- **Tooltip positioning**: `positionTooltip()` rewrite -- centers on target, prefers target-edge alignment, flips vertically, final viewport safety clamp
+
+### Architecture
+- Extracted `_update_scan_state_with_result()` helper for cleaner background thread code
+
+---
+
+## [5.7.0] - 2026-02-16 - Async Folder Scan + Dedup Key Fix + Threading
+
+### New Features
+- **Async folder scan with progress polling**: `POST /folder-scan-start` returns `scan_id` immediately; `GET /folder-scan-progress/<scan_id>` provides per-file updates via background thread
+- **Folder scan progress dashboard**: Live per-file status rows, progress bar, elapsed/remaining time, speed, chunk tracking (reuses `bpd-*` batch dashboard CSS)
+- **`restart_aegis.bat`**: Windows equivalent of macOS restart script -- stops port 5050 process and restarts with debug mode
+
+### Bug Fixes
+- **Acronym dedup key simplified**: Key reduced to `(paragraph_index, category, flagged_text)` -- removes `rule_id` and `message` so cross-checker duplicates are properly caught (~20-30% fewer duplicate issues)
+- **Broken option_mapping entry**: Removed `'check_enhanced_acronyms' -> 'enhanced_acronyms'` mapping to non-existent checker key
+- **Hardcoded Mac paths**: Replaced with pathlib-based relative paths in `run_enhancement_analysis.py`, `defense_role_analysis.py`, `defense_role_analysis_expanded.py`
+
+### Performance
+- Flask debug mode now runs with `threaded=True` -- server no longer blocks during long-running folder scans
+
+---
+
+## [5.6.1] - 2026-02-16 - ReviewIssue Object/Dict Normalization
+
+### Bug Fixes
+- **ReviewIssue `.get()` crash**: Non-NLP checkers produce `ReviewIssue` dataclass objects but scoring/dedup/ID-assignment used dict `.get()`. Added normalization step in `review_document()` postprocessing to convert all issues to dicts
+- **Folder scan issue normalization**: `_review_single()` also normalizes issues to dicts for aggregation and JSON serialization
+- **All downstream code fixed**: `_calculate_score`, `_deduplicate_issues`, `_assign_issue_ids`, `_count_by_severity`, `_count_by_category`, `enhance_issue_context` now all receive dicts consistently
+
+---
+
+## [5.6.0] - 2026-02-16 - Guided Tour & Demo Player System
+
+### New Features
+- **guide-system.js v2.0.0**: Complete rewrite with real content for all 11 sections (landing, review, batch, roles, forge, validator, compare, metrics, history, settings, portfolio)
+- **Animated Demo Player**: Auto-playing live walkthroughs with typewriter narration, spotlight overlay, and step-by-step scene navigation
+- **Demo player controls**: Play/pause, previous/next, speed selector (0.5x-2x), progress bar with step counter, LIVE DEMO badge
+- **SVG mask spotlight**: Tour and demo element highlighting with smooth transitions using SVG mask cutout (not box-shadow hack)
+- **Section navigation grid**: Click any section in help panel to jump directly to its content
+- **Contextual help beacon**: Pulse-animated ? button that auto-detects current section
+- **Full Tour and Full Demo modes**: Walk through every section sequentially with auto-navigation between modals
+- **Per-section content**: whatIsThis descriptions, keyActions with icons, proTips, tourSteps targeting real DOM selectors, demoScenes
+
+### UI
+- Settings toggle to globally enable/disable guide system (Settings > General > Show help guide & tours)
+- Guide enabled state persisted via localStorage, synced with settings checkbox on page load
+
+### CSS
+- Z-index hierarchy: beacon=150000, demoBar=149800, panel=149500, spotlight=149000 (above all app modals)
+- Demo bar with glassmorphism dark UI, gradient progress bar, animated LIVE DEMO badge
+- Section navigation grid with hover effects and active state indicators
+
+---
+
+## [5.5.0] - 2026-02-16 - Server-Side Folder Scanning
+
+### New Features
+- **Server-side recursive folder scanning**: Scan entire document repositories with nested subdirectories via `/api/review/folder-scan`
+- **Dry-run preview**: `/api/review/folder-discover` endpoint shows what would be scanned before committing
+- **Smart file discovery**: Skips hidden dirs, empty files, files >100MB, common non-doc directories (`.git`, `node_modules`, `__pycache__`)
+- **Folder scan UI**: Enter a server path in batch upload modal, preview files, then scan all
+
+### Architecture
+- Chunked `ThreadPoolExecutor` processing (5 files per chunk, 3 concurrent workers) with per-chunk `gc.collect()` for memory safety
+- Comprehensive results aggregation: grade distribution, severity breakdown, role discovery across all documents
+- Graceful error handling: individual file errors do not stop the whole scan
+
+### Enhancements
+- Batch limits increased from 10/100MB to 50/500MB per upload batch for large repositories
+
+### Testing
+- Local test script (`test_scan_local.py`) for single file and batch folder verification
+
+---
+
+## [5.4.0] - 2026-02-16 - Performance + NLP Checker Integration
+
+### Performance
+- **Dark mode FOUC eliminated**: Inline CSS variables + `data-theme` attribute set before any stylesheet loads
+- **Script deferral**: 30+ feature module scripts now use `defer` attribute -- initial paint 40-60% faster
+- **Async CSS loading**: 13 feature stylesheets use `media='print' onload` pattern -- only critical CSS blocks render
+- **Batch scan multi-threading**: `ThreadPoolExecutor` with up to 3 concurrent documents per batch
+
+### Bug Fixes
+- **Terminology checker naming conflict**: v3.3.0 and v5.3.0 checkers both used `terminology_consistency` key; v5.3.0 renamed to `wordnet_terminology`
+
+### NLP Integration
+- 11 new v5.3.0 spaCy Ecosystem checkers fully integrated with UI toggles
+- 6 new v5.2.0 Advanced NLP Enhancement Suite checkers with graceful fallback
+- 8 new checker files: negation, text_metrics, terminology_consistency, subjectivity, vocabulary, yake, similarity, advanced_analysis
+- New libraries: negspacy, textdescriptives, spacy-wordnet, spacytextblob, lexical_diversity, yake
+- Total checker count now 100+ (98 UI-controlled + 7 always-on)
+
+### UI
+- v5.3.0 spaCy Deep Analysis section in Settings with 4 subcategories and 11 checkboxes
+
+### Packaging
+- Windows x64 wheels for all new NLP dependencies included for air-gapped deployment
+
+---
+
+## [5.3.0] - 2026-02-16 - spaCy Ecosystem & Deep Analysis Suite
+
+### New Checkers
+- **Negation detection**: negspacy + spaCy dependency tree for scope analysis
+- **Text quality metrics**: textdescriptives pipeline (readability, coherence, POS, quality)
+- **Sentence complexity scoring**: Dependency tree depth and clause count analysis
+- **Terminology consistency**: spacy-wordnet synonym detection + curated aerospace groups
+- **Subjectivity and tone**: spacytextblob sentiment analysis for requirements objectivity
+- **Lexical diversity**: MTLD, HD-D, TTR metrics for boilerplate and copy-paste detection
+- **YAKE keyword extraction**: Statistical keyword extraction with domain coverage and distribution analysis
+- **Requirement similarity**: sentence-transformers with TF-IDF fallback for near-duplicate detection
+- **Cross-sentence coherence**: Defined-before-used enforcement, quantifier precision checking
+
+### Packaging
+- 6 new dependencies: negspacy, textdescriptives, spacy-wordnet, spacytextblob, lexical_diversity, yake
+
+---
+
+## [5.2.0] - 2026-02-16 - Advanced NLP Enhancement Suite
+
+### New Checkers
+- **Coreference resolution**: coreferee for ambiguous pronoun detection in requirements
+- **Advanced prose quality**: proselint integration for cliches, hedging, redundancy
+- **Document verbosity analysis**: sumy for summarization and verbosity detection
+- **Keyword extraction**: textacy SGRANK algorithm for complexity analysis
+- **INCOSE requirements compliance**: Standards-based requirement structure checking
+- **Semantic role labeling**: Requirement structure analysis via SRL
+
+### Bug Fixes
+- **Excel/CSV export BytesIO bug**: Fixed `make_response` pattern for binary content
+- **UTF-8 BOM for CSV exports**: Added for Windows Excel compatibility
+- **HTML report charset**: Added meta tag for proper encoding display
+
+---
+
 ## [5.1.0] - 2026-02-16 - Security Hardening + Accessibility + Print Support
 
 ### Security & CSRF Protection

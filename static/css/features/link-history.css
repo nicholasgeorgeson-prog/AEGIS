@@ -15,9 +15,9 @@
     --lh-text-primary: #111827;
     --lh-text-secondary: #6b7280;
     --lh-text-muted: #9ca3af;
-    --lh-border-color: #e5e7eb;
-    --lh-accent: #3b82f6;
-    --lh-accent-hover: #2563eb;
+    --lh-border-color: #cfc7b8;
+    --lh-accent: #9b7b1c;
+    --lh-accent-hover: #7d6316;
     --lh-success: #22c55e;
     --lh-warning: #f59e0b;
     --lh-error: #ef4444;
@@ -195,7 +195,7 @@ body.lh-modal-open {
 }
 
 .lh-tab.lh-tab-active .lh-tab-count {
-    background: rgba(59, 130, 246, 0.1);
+    background: rgba(155, 123, 28, 0.1);
     color: var(--lh-accent);
 }
 
@@ -278,7 +278,7 @@ body.lh-modal-open {
 .lh-input:focus {
     outline: none;
     border-color: var(--lh-accent);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    box-shadow: 0 0 0 3px rgba(155, 123, 28, 0.1);
 }
 
 .lh-input::placeholder {

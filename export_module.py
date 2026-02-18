@@ -291,6 +291,8 @@ class ExcelExporter:
             
             # Provenance columns
             source = issue.get('source', {})
+            if isinstance(source, str):
+                source = {}  # Some checkers set source as a string name, not a dict
             is_validated = source.get('is_validated', False) if source else False
             original_text = source.get('original_text', '') if source else ''
             

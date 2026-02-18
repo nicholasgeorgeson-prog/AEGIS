@@ -39,7 +39,7 @@
     max-width: 1600px;
     height: 94vh;
     max-height: none;
-    background: var(--bg-primary, #ffffff);
+    background: var(--bg-primary, #f5f1ea);
     border-radius: var(--radius-lg, 12px);
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     overflow: hidden;
@@ -56,8 +56,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 0.75rem 1.5rem;
-    border-bottom: 1px solid var(--border-default, #e5e7eb);
-    background: var(--bg-elevated, #f9fafb);
+    border-bottom: 1px solid var(--border-default, #cfc7b8);
+    background: var(--bg-elevated, #e8e2d8);
     flex-shrink: 0;
 }
 
@@ -119,8 +119,8 @@
     display: flex;
     gap: 0;
     padding: 0 1.5rem;
-    border-bottom: 1px solid var(--border-default, #e5e7eb);
-    background: var(--bg-elevated, #f9fafb);
+    border-bottom: 1px solid var(--border-default, #cfc7b8);
+    background: var(--bg-elevated, #e8e2d8);
     flex-shrink: 0;
     overflow-x: auto;
 }
@@ -199,8 +199,8 @@
     display: flex;
     flex-direction: column;
     padding: 1rem;
-    background: var(--bg-surface, #ffffff);
-    border: 1px solid var(--border-default, #e5e7eb);
+    background: var(--bg-surface, #ddd6ca);
+    border: 1px solid var(--border-default, #cfc7b8);
     border-radius: var(--radius-md, 8px);
     position: relative;
     overflow: hidden;
@@ -282,8 +282,8 @@
 .ma-grid-3col  { grid-template-columns: 1fr 1fr 1fr; }
 
 .ma-chart-box {
-    background: var(--bg-surface, #ffffff);
-    border: 1px solid var(--border-default, #e5e7eb);
+    background: var(--bg-surface, #ddd6ca);
+    border: 1px solid var(--border-default, #cfc7b8);
     border-radius: var(--radius-md, 8px);
     padding: 1rem;
     display: flex;
@@ -373,6 +373,17 @@
     rx: 2;
     ry: 2;
     cursor: pointer;
+    /* Neutralize charts.css .heatmap-cell hover (designed for HTML divs, not SVG rects).
+       The scale transform causes SVG cells to visually shift on hover, creating a
+       "two boxes selected" flicker effect. */
+    transition: none !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.ma-heatmap-body .heatmap-cell:hover {
+    transform: none !important;
+    box-shadow: none !important;
 }
 
 .ma-heatmap-body .heatmap-label {
@@ -452,8 +463,8 @@
     flex-direction: column;
     align-items: center;
     padding: 0.625rem;
-    background: var(--bg-surface, #ffffff);
-    border: 1px solid var(--border-default, #e5e7eb);
+    background: var(--bg-surface, #ddd6ca);
+    border: 1px solid var(--border-default, #cfc7b8);
     border-radius: var(--radius-sm, 6px);
     text-align: center;
 }
@@ -504,8 +515,8 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--text-muted, #9ca3af);
-    background: var(--bg-elevated, #f9fafb);
-    border-bottom: 1px solid var(--border-default, #e5e7eb);
+    background: var(--bg-elevated, #e8e2d8);
+    border-bottom: 1px solid var(--border-default, #cfc7b8);
     cursor: pointer;
     user-select: none;
     transition: color 0.15s;
@@ -524,12 +535,12 @@
 
 .ma-table td {
     padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid var(--border-subtle, #f3f4f6);
+    border-bottom: 1px solid var(--border-subtle, #ddd6c9);
     color: var(--text-secondary, #6b7280);
 }
 
 .ma-table tr:hover td {
-    background: var(--bg-hover, #f9fafb);
+    background: var(--bg-hover, #d4cdc0);
 }
 
 .ma-table tr.ma-clickable {
@@ -606,7 +617,7 @@
     overflow: hidden;
     transition: max-height 0.35s ease, opacity 0.2s ease, padding 0.35s ease;
     opacity: 0;
-    background: var(--bg-elevated, #f9fafb);
+    background: var(--bg-elevated, #e8e2d8);
     border: 1px solid transparent;
     border-radius: var(--radius-md, 8px);
     margin-bottom: 0;
@@ -617,7 +628,7 @@
     opacity: 1;
     overflow-y: auto;
     padding: 1rem;
-    border-color: var(--border-default, #e5e7eb);
+    border-color: var(--border-default, #cfc7b8);
     margin-bottom: 1.25rem;
 }
 
@@ -658,12 +669,12 @@
 
 /* Inline drill-down rows (appear below table rows) */
 .ma-drill-inline {
-    background: var(--bg-elevated, #f9fafb);
+    background: var(--bg-elevated, #e8e2d8);
 }
 
 .ma-drill-inline td {
     padding: 0.75rem 1rem;
-    border-bottom: 2px solid var(--border-default, #e5e7eb);
+    border-bottom: 2px solid var(--border-default, #cfc7b8);
 }
 
 /* =============================================================================
@@ -675,7 +686,7 @@
     inset: 0;
     padding: 1.25rem 1.5rem;
     z-index: 2;
-    background: var(--bg-primary, #ffffff);
+    background: var(--bg-primary, #f5f1ea);
 }
 
 .ma-loading.hidden {
@@ -701,7 +712,7 @@
 }
 
 .ma-skeleton {
-    background: linear-gradient(90deg, var(--bg-elevated, #f3f4f6) 25%, var(--bg-hover, #e5e7eb) 50%, var(--bg-elevated, #f3f4f6) 75%);
+    background: linear-gradient(90deg, var(--bg-elevated, #e8e2d8) 25%, var(--bg-hover, #d4cdc0) 50%, var(--bg-elevated, #e8e2d8) 75%);
     background-size: 200% 100%;
     animation: ma-shimmer 1.5s infinite;
     border-radius: var(--radius-sm, 6px);
@@ -1036,5 +1047,17 @@ body.dark-mode .ma-table .ma-hint,
     .ma-tab {
         padding: 0.5rem 0.75rem;
         font-size: 0.75rem;
+    }
+}
+
+/* Accessibility: respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+    .ma-hero-stat,
+    .ma-stat-number,
+    .ma-tab,
+    .ma-mini-stat,
+    [class*="ma-"] {
+        animation: none !important;
+        transition-duration: 0.01ms !important;
     }
 }

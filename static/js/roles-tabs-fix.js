@@ -1083,14 +1083,8 @@
         csv += totalsRow.join(',') + '\n';
         
         // Download
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'role_crossref_' + new Date().toISOString().slice(0, 10) + '.csv';
-        link.click();
-        URL.revokeObjectURL(url);
-        
+        downloadCSV(csv, 'role_crossref_' + new Date().toISOString().slice(0, 10) + '.csv');
+
         showToast('success', 'Cross-reference exported to CSV');
     }
     
@@ -3235,12 +3229,7 @@
         const csv = ['Role Name,Status,Category,Confidence,Documents,Mentions,Function Tags']
             .concat(data.map(d => `"${d.role_name}","${d.status}","${d.category}",${d.confidence},"${d.documents}",${d.mentions},"${d.function_tags}"`))
             .join('\n');
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `adjudication_export_${new Date().toISOString().slice(0, 10)}.csv`;
-        a.click();
-        URL.revokeObjectURL(a.href);
+        downloadCSV(csv, `adjudication_export_${new Date().toISOString().slice(0, 10)}.csv`);
         showToast('success', 'Adjudication data exported as CSV');
     }
 
@@ -3306,9 +3295,25 @@
             const text = await file.text();
             const data = JSON.parse(text);
 
-            // Validate format
-            if (data.export_type !== 'adjudication_decisions') {
-                showToast('error', 'Invalid file format. Expected adjudication decisions JSON.');
+            // Validate format — accept both adjudication decisions and role template imports
+            if (data.export_type === 'role_dictionary_import' && Array.isArray(data.roles)) {
+                // v5.9.3: Convert role template export format to adjudication decisions format
+                data.decisions = data.roles.map(r => ({
+                    role_name: r.role_name,
+                    action: r.is_deliverable ? 'deliverable' : 'confirmed',
+                    category: r.category || 'Role',
+                    notes: r.description || `Imported from role template`,
+                    function_tags: r.function_tags || [],
+                    role_type: r.role_type || '',
+                    role_disposition: r.role_disposition || '',
+                    org_group: r.org_group || '',
+                    baselined: r.baselined || false,
+                    aliases: r.aliases || []
+                }));
+                data.export_type = 'adjudication_decisions';
+                showToast('info', `Converting ${data.decisions.length} roles from template...`);
+            } else if (data.export_type !== 'adjudication_decisions') {
+                showToast('error', 'Invalid file format. Expected adjudication decisions or role template JSON.');
                 return;
             }
 
@@ -3333,12 +3338,14 @@
             }
 
             // v4.0.4: Get diff preview before importing
+            // v5.9.3: Use stringified data (may have been converted from role template)
+            const importBody = JSON.stringify(data);
             showToast('info', 'Analyzing import file...');
             const csrfToken = getCSRFToken();
             const previewResp = await fetch('/api/roles/adjudication/import-preview', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-                body: text
+                body: importBody
             });
             const preview = await previewResp.json();
 
@@ -3378,7 +3385,7 @@
                         'Content-Type': 'application/json',
                         'X-CSRF-Token': getCSRFToken()
                     },
-                    body: text
+                    body: importBody
                 });
 
                 const result = await resp.json();
@@ -4494,7 +4501,103 @@
             console.log('[TWR RolesTabs] ✓ SmartSearch initialized');
         }
 
+        // v5.9.16: Graph export button + dropdown menu
+        const exportBtn = document.getElementById('btn-graph-export');
+        const exportMenu = document.getElementById('graph-export-menu');
+        if (exportBtn && exportMenu && !exportBtn._tabsFixInitialized) {
+            exportBtn._tabsFixInitialized = true;
+
+            // Toggle dropdown
+            exportBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const isOpen = exportMenu.style.display !== 'none';
+                exportMenu.style.display = isOpen ? 'none' : 'block';
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function() {
+                if (exportMenu) exportMenu.style.display = 'none';
+            });
+
+            // Handle export option clicks
+            exportMenu.addEventListener('click', function(e) {
+                const option = e.target.closest('.graph-export-option');
+                if (!option) return;
+                e.stopPropagation();
+
+                const format = option.dataset.format;
+                const svg = document.getElementById('roles-graph-svg');
+                const filename = window.GraphExport?.generateFilename('AEGIS_Graph') || 'AEGIS_Graph';
+
+                exportMenu.style.display = 'none';
+
+                if (format === 'png') {
+                    if (svg && window.GraphExport?.exportSvgToPng) {
+                        window.GraphExport.exportSvgToPng(svg, { filename, scale: 3 });
+                        if (typeof showToast === 'function') showToast('success', 'Graph exported as PNG');
+                    } else {
+                        if (typeof showToast === 'function') showToast('error', 'No graph to export');
+                    }
+                } else if (format === 'svg') {
+                    if (svg && window.GraphExport?.exportSvgToFile) {
+                        window.GraphExport.exportSvgToFile(svg, { filename });
+                        if (typeof showToast === 'function') showToast('success', 'Graph exported as SVG');
+                    } else {
+                        if (typeof showToast === 'function') showToast('error', 'No graph to export');
+                    }
+                } else if (format === 'html') {
+                    exportGraphAsInteractiveHtml();
+                }
+
+                console.log('[TWR RolesTabs] Graph exported as:', format);
+            });
+
+            console.log('[TWR RolesTabs] ✓ Graph export button initialized');
+        }
+
         console.log('[TWR RolesTabs] Graph controls initialization complete');
+    }
+
+    /**
+     * v5.9.16: Export the graph as a standalone interactive HTML file.
+     * Downloads the SVG + data as a self-contained HTML page with
+     * pan/zoom, search, and filter controls.
+     */
+    async function exportGraphAsInteractiveHtml() {
+        try {
+            const csrfToken = window.CSRF_TOKEN
+                || document.querySelector('meta[name="csrf-token"]')?.content
+                || '';
+
+            const resp = await fetch('/api/roles/graph-export-html', {
+                headers: { 'X-CSRF-Token': csrfToken }
+            });
+
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                const msg = typeof err.error === 'string' ? err.error : err.error?.message || `HTTP ${resp.status}`;
+                throw new Error(msg);
+            }
+
+            const blob = await resp.blob();
+            const disposition = resp.headers.get('Content-Disposition') || '';
+            const match = disposition.match(/filename=([^;]+)/);
+            const filename = match ? match[1].trim() : `AEGIS_Graph_${new Date().toISOString().split('T')[0]}.html`;
+
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            if (typeof showToast === 'function') showToast('success', 'Interactive graph exported');
+        } catch (err) {
+            console.error('[TWR RolesTabs] Graph HTML export failed:', err);
+            if (typeof showToast === 'function') showToast('error', 'Graph export failed: ' + err.message);
+        }
     }
     
     // =========================================================================
@@ -4580,11 +4683,7 @@
                 const csv = ['Role Name,Documents,Mentions,Category,Source,Adjudicated,Deliverable']
                     .concat(roles.map(r => `"${(r.role_name||'').replace(/"/g,'""')}",${r.document_count||0},${r.total_mentions||0},"${r.category||''}","${r.source||''}",${r.is_active?'Yes':'No'},${r.is_deliverable?'Yes':'No'}`))
                     .join('\n');
-                const blob = new Blob([csv], { type: 'text/csv' });
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = `AEGIS_All_Roles_${new Date().toISOString().slice(0,10)}.csv`;
-                a.click(); URL.revokeObjectURL(a.href);
+                downloadCSV(csv, `AEGIS_All_Roles_${new Date().toISOString().slice(0,10)}.csv`);
                 showToast('success', `Exported ${roles.length} roles as CSV`);
             } catch(e) { showToast('error', 'Export failed: ' + e.message); }
         });
@@ -4595,11 +4694,7 @@
             const csv = ['Role Name,Mentions,Statements'].concat(
                 roles.map(r => `"${(r.role_name||'').replace(/"/g,'""')}",${r.total_mentions||0},${r.statement_count||0}`)
             ).join('\n');
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `AEGIS_Roles_${new Date().toISOString().slice(0,10)}.csv`;
-            a.click(); URL.revokeObjectURL(a.href);
+            downloadCSV(csv, `AEGIS_Roles_${new Date().toISOString().slice(0,10)}.csv`);
             showToast('success', `Exported ${roles.length} roles as CSV`);
         });
         document.getElementById('btn-export-all-json')?.addEventListener('click', async function() {

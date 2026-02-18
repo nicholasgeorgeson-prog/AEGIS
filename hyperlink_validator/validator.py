@@ -1128,8 +1128,16 @@ class StandaloneHyperlinkValidator:
                 else:
                     last_error = e
                     if attempt == retries:
-                        result.status = 'BROKEN'
-                        result.message = f'Connection error: {str(e)[:50]}'
+                        # v5.9.1: Better classify connection errors by error string
+                        if 'timed out' in error_str or 'timeout' in error_str:
+                            result.status = 'TIMEOUT'
+                            result.message = f'Connection timed out: {str(e)[:50]}'
+                        elif 'reset by peer' in error_str or 'broken pipe' in error_str:
+                            result.status = 'BLOCKED'
+                            result.message = f'Connection reset: {str(e)[:50]}'
+                        else:
+                            result.status = 'BROKEN'
+                            result.message = f'Connection error: {str(e)[:50]}'
 
             except requests.RequestException as e:
                 last_error = e
@@ -1145,6 +1153,32 @@ class StandaloneHyperlinkValidator:
 
         result.response_time_ms = (time.time() - start_time) * 1000
         result.attempts = min(attempt + 1, retries + 1) if 'attempt' in dir() else 1
+
+        # v5.9.1: Corporate network domain false-positive mitigation
+        # URLs on known corporate/internal domains fail validation from outside the VPN.
+        # These are not truly broken — they require corporate network access.
+        CORPORATE_NETWORK_DOMAINS = (
+            '.myngc.com', '.northgrum.com', '.northropgrumman.com',
+            'ngc.sharepoint.us', '.ngc.sharepoint.us',
+        )
+
+        if result.status in ('BROKEN', 'TIMEOUT', 'BLOCKED', 'DNSFAILED'):
+            try:
+                domain = urlparse(url).netloc.lower()
+                is_corporate = any(
+                    domain.endswith(d.lstrip('.')) or domain == d.lstrip('.')
+                    for d in CORPORATE_NETWORK_DOMAINS
+                )
+                if is_corporate:
+                    original_status = result.status
+                    result.status = 'AUTH_REQUIRED'
+                    result.message = (
+                        f'Corporate network link — requires VPN or internal network access '
+                        f'(original: {original_status}). '
+                        f'This link likely works from within the corporate network.'
+                    )
+            except Exception:
+                pass
 
         # v5.0.5: Document URL false-positive mitigation
         # URLs pointing to document files (.docx, .pdf, .xlsx, etc.) on enterprise/gov

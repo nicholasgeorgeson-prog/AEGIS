@@ -27,7 +27,8 @@
     --bg-hover: #3c434d;
     --bg-active: #4a5260;
     --bg-selected: rgba(56, 139, 253, 0.15);
-    --bg-backdrop: rgba(0, 0, 0, 0.7);
+    /* v5.9.19: Reduced from 0.7 so particle canvas visible around modal edges */
+    --bg-backdrop: rgba(0, 0, 0, 0.45);
 
     /* ─────────────────────────────────────────────────────────────────────────
        TEXT COLORS
@@ -763,5 +764,16 @@
 [data-theme="dark"] .cross-ref-cell,
 [data-theme="dark"] td[style*="background"] {
     border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+/* v5.9.0: Progress indicator dark mode consistency */
+.dark-mode .progress-3d-text,
+[data-theme="dark"] .progress-3d-text {
+    color: #fff;
+}
+
+.dark-mode .progress-3d-info,
+[data-theme="dark"] .progress-3d-info {
+    color: rgba(255, 255, 255, 0.7);
 }
 

@@ -132,7 +132,7 @@ TWR.LandingPage = (function() {
         totalRoles: 0,
         totalStatements: 0,
         avgScore: 0,
-        checkerCount: 84,  // v4.7.0: default to known count, updated from /api/version if available
+        checkerCount: 105,  // v5.9.5: default to known count (96 UI + 9 always-on), updated dynamically from /api/metrics/landing
         recentScans: [],
         adjudicated: 0,
         deliverable: 0,
@@ -211,7 +211,7 @@ TWR.LandingPage = (function() {
                 data.totalStatements = m.total_statements || 0;
                 data.adjudicated = m.adjudicated || 0;
                 data.deliverable = m.deliverable || 0;
-                data.checkerCount = m.checker_count || 84;
+                data.checkerCount = m.checker_count || 105;
                 data.recentScans = m.recent_scans || [];
             }
 
@@ -380,6 +380,12 @@ TWR.LandingPage = (function() {
         const recentEl = document.getElementById('lp-recent');
         if (recentEl) {
             recentEl.innerHTML = buildRecentHTML();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+        // v5.9.5: Also update footer (checker count, NLP engines, extractors)
+        const footerEl = document.getElementById('lp-footer');
+        if (footerEl) {
+            footerEl.innerHTML = buildFooterHTML();
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
     }
@@ -668,7 +674,10 @@ TWR.LandingPage = (function() {
             if (prev) {
                 prev.classList.remove('lp-mexp-open');
                 const card = prev.closest('.lp-metric-card');
-                if (card) card.style.gridColumn = '';
+                if (card) {
+                    card.classList.remove('lp-metric-expanded');
+                    card.style.gridColumn = '';
+                }
             }
             openMetricId = null;
         }
@@ -1090,8 +1099,8 @@ TWR.LandingPage = (function() {
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
 
-        // Create particles — v4.7.0: more particles, faster movement
-        const count = Math.min(120, Math.floor((canvas.width * canvas.height) / 10000));
+        // Create particles — v5.9.5: same density in both modes, stronger light mode colors
+        const count = Math.min(140, Math.floor((canvas.width * canvas.height) / 8000));
         particles = [];
         const isDark = document.body.classList.contains('dark-mode');
         for (let i = 0; i < count; i++) {
@@ -1100,9 +1109,9 @@ TWR.LandingPage = (function() {
                 y: Math.random() * canvas.height,
                 vx: (Math.random() - 0.5) * 0.7,
                 vy: (Math.random() - 0.5) * 0.7,
-                r: isDark ? 1 + Math.random() * 1.5 : 1.5 + Math.random() * 2,
-                alpha: isDark ? 0.2 + Math.random() * 0.4 : 0.4 + Math.random() * 0.4,
-                // Gold/amber palette — stronger in light mode
+                r: isDark ? 1 + Math.random() * 1.5 : 1.2 + Math.random() * 1.8,
+                alpha: isDark ? 0.2 + Math.random() * 0.4 : 0.35 + Math.random() * 0.45,
+                // Gold/amber palette — rich tones for both modes
                 color: pickParticleColor()
             });
         }
@@ -1111,7 +1120,7 @@ TWR.LandingPage = (function() {
     }
 
     function pickParticleColor() {
-        // v4.7.0: Visible particles in both modes — gold/amber palette
+        // v5.9.5: Rich visible particles — dark golds on warm cream bg, bright golds on dark bg
         const isDark = document.body.classList.contains('dark-mode');
         const colors = isDark ? [
             'rgba(214, 168, 74,',   // Gold
@@ -1119,10 +1128,11 @@ TWR.LandingPage = (function() {
             'rgba(230, 237, 243,',  // White-ish
             'rgba(214, 168, 74,',   // Gold (weighted)
         ] : [
-            'rgba(184, 130, 30,',   // Rich gold
-            'rgba(160, 100, 20,',   // Deep amber
-            'rgba(140, 90, 30,',    // Bronze
-            'rgba(200, 155, 50,',   // Bright gold
+            'rgba(139, 105, 20,',   // Deep antique gold
+            'rgba(120, 80, 15,',    // Dark bronze
+            'rgba(160, 120, 30,',   // Warm amber
+            'rgba(100, 70, 10,',    // Rich dark gold
+            'rgba(170, 130, 40,',   // Burnished gold
         ];
         return colors[Math.floor(Math.random() * colors.length)];
     }

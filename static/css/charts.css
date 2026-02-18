@@ -51,8 +51,8 @@
 
 /* Smart Recommendations */
 .smart-recommendations {
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(139, 92, 246, 0.08));
-    border: 1px solid rgba(59, 130, 246, 0.2);
+    background: linear-gradient(135deg, rgba(155, 123, 28, 0.08), rgba(139, 92, 246, 0.08));
+    border: 1px solid rgba(155, 123, 28, 0.2);
     border-radius: var(--radius-lg);
     margin-bottom: var(--space-4);
     overflow: hidden;
@@ -64,8 +64,8 @@
     align-items: center;
     gap: var(--space-2);
     padding: var(--space-3) var(--space-4);
-    background: rgba(59, 130, 246, 0.1);
-    border-bottom: 1px solid rgba(59, 130, 246, 0.15);
+    background: rgba(155, 123, 28, 0.1);
+    border-bottom: 1px solid rgba(155, 123, 28, 0.15);
 }
 
 .recommendations-header i {
@@ -484,12 +484,12 @@
 
 /* Dark mode adjustments for dashboard */
 .dark-mode .smart-recommendations {
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(139, 92, 246, 0.12));
-    border-color: rgba(59, 130, 246, 0.25);
+    background: linear-gradient(135deg, rgba(155, 123, 28, 0.12), rgba(139, 92, 246, 0.12));
+    border-color: rgba(155, 123, 28, 0.25);
 }
 
 .dark-mode .recommendations-header {
-    background: rgba(59, 130, 246, 0.15);
+    background: rgba(155, 123, 28, 0.15);
 }
 
 .dark-mode .recommendation-item {
@@ -655,7 +655,7 @@
 
 .sparkline-line {
     fill: none;
-    stroke: #3b82f6;
+    stroke: var(--accent, #9b7b1c);
     stroke-width: 2;
 }
 
@@ -665,7 +665,7 @@
 }
 
 .sparkline-point {
-    fill: #3b82f6;
+    fill: var(--accent, #9b7b1c);
     cursor: pointer;
     transition: r 0.2s ease;
 }
@@ -828,9 +828,9 @@
 
 /* v3.0.35 POL-1: Active state for heatmap cell selection */
 .heatmap-cell.active {
-    outline: 2px solid var(--color-primary);
+    outline: 2px solid var(--accent);
     outline-offset: -2px;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+    box-shadow: 0 0 0 3px rgba(155, 123, 28, 0.2);
 }
 
 .dark-mode .heatmap-cell.intensity-0 {
@@ -856,7 +856,7 @@
 }
 
 .dark-mode .heatmap-cell.active {
-    outline: 2px solid var(--color-primary);
+    outline: 2px solid var(--accent);
     box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.3);
 }
 
@@ -1205,6 +1205,7 @@
    Compact version for the three-column analytics grid
    ================================================================= */
 
+/* v5.9.2: Removed overflow:hidden that was clipping content */
 .analytics-panel.impact-analyzer-panel {
     display: flex;
     flex-direction: column;
@@ -1212,7 +1213,7 @@
     border-right: 1px solid var(--border-light);
     flex: 1;
     min-width: 0;
-    overflow: hidden;
+    overflow-y: auto;
 }
 
 .analytics-panel.impact-analyzer-panel .panel-subtitle {
@@ -1231,13 +1232,14 @@
     color: var(--accent);
 }
 
+/* v5.9.2: Changed overflow to visible so content isn't clipped */
 .impact-analyzer-inline {
     flex: 1;
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
 }
 
 /* Score gauges */
@@ -1247,7 +1249,7 @@
     justify-content: center;
     gap: var(--space-4);
     padding: var(--space-3);
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(34, 197, 94, 0.05) 100%);
+    background: linear-gradient(135deg, rgba(155, 123, 28, 0.05) 0%, rgba(34, 197, 94, 0.05) 100%);
     border-radius: var(--radius-md);
     border: 1px solid var(--border-default);
     position: relative;
@@ -1378,7 +1380,7 @@
     padding: 3px 8px;
 }
 
-/* Fix items list */
+/* Fix items list — v5.9.2: Removed max-height cap so list can expand */
 .top-fixes-list-inline {
     flex: 1;
     overflow-y: auto;
@@ -1386,7 +1388,7 @@
     flex-direction: column;
     gap: 6px;
     min-height: 0;
-    max-height: 200px;
+    max-height: none;
     padding: var(--space-2) 0;
     scrollbar-width: thin;
     scrollbar-color: var(--border-default) transparent;
@@ -1410,6 +1412,7 @@
 }
 
 /* v4.5.3 Path to 100 — grouped category rows */
+/* v5.9.2: Changed overflow to visible so text content isn't clipped */
 .top-fixes-list-inline .fix-group-item {
     position: relative;
     display: flex;
@@ -1419,9 +1422,9 @@
     border-radius: 6px;
     cursor: pointer;
     transition: color 0.15s ease, opacity 0.15s ease, transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-    overflow: hidden;
+    overflow: visible;
     margin-bottom: 3px;
-    background: var(--bg-secondary, #f8fafc);
+    background: var(--bg-secondary, #f0ebe3);
 }
 
 .top-fixes-list-inline .fix-group-item:hover {
@@ -1430,7 +1433,7 @@
 }
 
 .top-fixes-list-inline .fix-group-item.selected {
-    background: rgba(59, 130, 246, 0.08);
+    background: rgba(155, 123, 28, 0.08);
     border-color: var(--accent);
 }
 
@@ -1460,13 +1463,13 @@
     gap: 8px;
 }
 
+/* v5.9.2: Allow text wrapping so names aren't truncated */
 .top-fixes-list-inline .fix-group-name {
     font-size: 14px;
     font-weight: 600;
     color: var(--text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    word-break: break-word;
     flex: 1;
     min-width: 0;
 }
@@ -1474,7 +1477,7 @@
 .top-fixes-list-inline .fix-group-score-step {
     font-size: 12px;
     font-weight: 700;
-    color: var(--accent, #3b82f6);
+    color: var(--accent, #9b7b1c);
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
 }
@@ -1576,7 +1579,7 @@
 }
 
 .top-fixes-list-inline .fix-item.selected {
-    background: rgba(59, 130, 246, 0.1);
+    background: rgba(155, 123, 28, 0.1);
     border-color: var(--accent);
 }
 
@@ -1672,7 +1675,7 @@
 
 /* Dark mode support */
 .dark-mode .score-projection-inline {
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(34, 197, 94, 0.08) 100%);
+    background: linear-gradient(135deg, rgba(155, 123, 28, 0.08) 0%, rgba(34, 197, 94, 0.08) 100%);
 }
 
 .dark-mode .top-fixes-list-inline .fix-item {
@@ -1773,3 +1776,4 @@
 }
 
 /* Heatmap tooltip */
+

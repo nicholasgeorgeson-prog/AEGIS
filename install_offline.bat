@@ -21,7 +21,7 @@ setlocal enabledelayedexpansion
 
 echo.
 echo ============================================================
-echo AEGIS v5.0.5 - Offline Dependency Installation
+echo AEGIS v5.9.4 - Offline Dependency Installation
 echo Aerospace Engineering Governance ^& Inspection System
 echo ============================================================
 echo.
@@ -38,7 +38,7 @@ if errorlevel 1 (
 
 REM Get Python version
 for /f "tokens=2" %%i in ('python --version 2^>^&1') do set PYTHON_VERSION=%%i
-echo Detected Python version: %PYTHOON_VERSION%
+echo Detected Python version: %PYTHON_VERSION%
 echo.
 
 REM Determine which wheels directory to use
@@ -46,11 +46,11 @@ set WHEELS_DIR=wheels
 if exist "wheels_win\" (
     echo Found wheels_win/ directory - using Windows-optimized packages
     set WHEELS_DIR=wheels_win
-) E3se if exist "wheels\" (
+) else if exist "wheels\" (
     echo Using wheels/ directory
     echo NOTE: For best results on Windows, run download_win_wheels.py
-    echo        on a connected machine and copy wheels_win/ here.
-) E Ga`E+AEW.) (
+    echo       on a connected machine and copy wheels_win/ here.
+) else (
     echo ERROR: No wheels directory found!
     echo Expected: %cd%\wheels\ or %cd%\wheels_win\
     pause
@@ -60,10 +60,10 @@ echo.
 
 REM Count wheels
 set COUNT=0
-for /F %%f in (%WHEELS_DIR%\*) do (
+for %%f in (%WHEELS_DIR%\*) do (
     set /a COUNT+=1
 )
-echo Found %COUNT%: files in %WHEELS_DIR%/
+echo Found %COUNT% packages in %WHEELS_DIR%/
 echo.
 
 REM Install from wheels
@@ -117,6 +117,9 @@ python -c "import torch; print('[OK] PyTorch ' + torch.__version__)" 2>nul || ec
 python -c "import docling; print('[OK] Docling')" 2>nul || echo [SKIP] Docling (optional)
 python -c "import sklearn; print('[OK] scikit-learn')" 2>nul || echo [SKIP] scikit-learn (optional)
 python -c "import fitz; print('[OK] PyMuPDF')" 2>nul || echo [FAIL] PyMuPDF
+python -c "import requests_negotiate_sspi; print('[OK] SSPI Auth')" 2>nul || echo [SKIP] SSPI Auth (Windows auth)
+python -c "import requests_ntlm; print('[OK] NTLM Auth')" 2>nul || echo [SKIP] NTLM Auth (Windows auth)
+python -c "import mammoth; print('[OK] mammoth')" 2>nul || echo [FAIL] mammoth
 
 echo.
 echo ============================================================

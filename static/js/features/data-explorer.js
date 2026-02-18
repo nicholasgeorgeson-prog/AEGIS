@@ -517,6 +517,7 @@ TWR.DataExplorer = (function() {
 
             // Strategy 2: Try the RACI endpoint (has rich role data)
             response = await fetch('/api/roles/raci');
+            if (!response.ok) throw new Error(`RACI fetch failed: ${response.status}`);
             result = await response.json();
 
             if (result.success && result.data?.roles) {
@@ -602,6 +603,7 @@ TWR.DataExplorer = (function() {
         try {
             // Try the context API endpoint - returns detailed occurrences
             let response = await fetch(`/api/roles/context?role=${encodeURIComponent(roleName)}`);
+            if (!response.ok) throw new Error(`Role context fetch failed: ${response.status}`);
             let result = await response.json();
 
             if (result.success) {

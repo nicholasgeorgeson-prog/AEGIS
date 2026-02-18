@@ -35,6 +35,22 @@ STATUS_LABELS = {
 }
 
 
+def _sanitize_for_reportlab(text):
+    """Sanitize text for ReportLab's XML paragraph parser.
+
+    ReportLab's Paragraph() uses an XML parser that chokes on raw HTML tags
+    like <Br>, <br/>, etc. This escapes all XML-special characters so the
+    text renders literally instead of being parsed as markup.
+    """
+    if not text or not isinstance(text, str):
+        return text or ''
+    # Escape XML entities — order matters: & first
+    text = text.replace('&', '&amp;')
+    text = text.replace('<', '&lt;')
+    text = text.replace('>', '&gt;')
+    return text
+
+
 class AdjudicationReportGenerator:
     """Generate PDF adjudication reports for AEGIS."""
 
@@ -245,11 +261,11 @@ class AdjudicationReportGenerator:
         data = [header]
 
         for role in sorted(roles, key=lambda r: r.get('role_name', '').lower()):
-            name = role.get('role_name', '')
-            category = role.get('category', 'Role')
+            name = _sanitize_for_reportlab(role.get('role_name', ''))
+            category = _sanitize_for_reportlab(role.get('category', 'Role'))
             tags = role.get('function_tags', [])
-            tag_names = [cat_lookup.get(t, t) for t in tags] if tags else []
-            notes = role.get('notes', '') or ''
+            tag_names = [_sanitize_for_reportlab(cat_lookup.get(t, t)) for t in tags] if tags else []
+            notes = _sanitize_for_reportlab(role.get('notes', '') or '')
 
             # Truncate long notes for table display
             if len(notes) > 80:
@@ -325,8 +341,8 @@ class AdjudicationReportGenerator:
         for code, count in sorted_tags:
             info = cat_lookup.get(code, {'name': code, 'color': '#6b7280'})
             data.append([
-                Paragraph(info['name'], self.styles['CellText']),
-                Paragraph(code, self.styles['CellText']),
+                Paragraph(_sanitize_for_reportlab(info['name']), self.styles['CellText']),
+                Paragraph(_sanitize_for_reportlab(code), self.styles['CellText']),
                 Paragraph(str(count), self.styles['CellText'])
             ])
 

@@ -25,7 +25,7 @@ WHEELS_DIR = Path(__file__).parent / "wheels_win"
 PYTHON_VERSION = "310"  # cp310 = Python 3.10
 PLATFORM = "win_amd64"
 
-# ══════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════
 # PACKAGE GROUPS - organized by function
 # ═══════════════════════════════════════════════════════════════════
 
@@ -143,7 +143,7 @@ def download_wheels():
 
     print(f"\n{'='*60}")
     print(f"  AEGIS Offline Wheel Downloader")
-    print(f"  Target: Python {PYTHON_VERSION} / {PLATFEMM}")
+    print(f"  Target: Python {PYTHON_VERSION} / {PLATFORM}")
     print(f"  Output: {WHEELS_DIR}")
     print(f"{'='*60}\n")
 

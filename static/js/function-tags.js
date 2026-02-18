@@ -986,12 +986,19 @@ TWR.FunctionTags = (function() {
 
             const nodeClass = isRoot ? 'root-node' : (isChild ? 'child-node' : 'grandchild-node');
 
-            // Abbreviate code for badge
-            const abbrevCode = cat.code.length > 3 ?
-                (cat.code.includes('-') ?
-                    cat.code.split('-').map(p => p[0]).join('').substring(0, 3) :
-                    cat.code.substring(0, 3)) :
-                cat.code;
+            // v5.9.3: Abbreviate code for badge — grandchildren use parent_code (Issue 19)
+            let abbrevCode;
+            if (isGrandchild && cat.parent_code) {
+                // Grandchild: use parent code as badge (e.g., PS-FFS shows "PS" not "PF")
+                const pc = cat.parent_code;
+                abbrevCode = pc.length > 3 ? pc.substring(0, 3) : pc;
+            } else {
+                abbrevCode = cat.code.length > 3 ?
+                    (cat.code.includes('-') ?
+                        cat.code.split('-').map(p => p[0]).join('').substring(0, 3) :
+                        cat.code.substring(0, 3)) :
+                    cat.code;
+            }
 
             let html = `
                 <div class="func-mindmap-node" data-mindmap-code="${escapeHtml(cat.code)}">
@@ -2036,6 +2043,7 @@ TWR.FunctionTags = (function() {
                     document_name: doc.filename
                 })
             });
+            if (!res.ok) throw new Error(`Auto-detect failed: ${res.status}`);
 
             const data = await res.json();
             if (data.success && data.data.detected) {
@@ -2095,6 +2103,7 @@ TWR.FunctionTags = (function() {
                     },
                     body: JSON.stringify({ document_name: doc.filename })
                 });
+                if (!res.ok) continue;  // Skip this doc on HTTP error
 
                 const data = await res.json();
                 if (data.success && data.data.detected) {

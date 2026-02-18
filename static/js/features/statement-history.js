@@ -90,6 +90,7 @@ TWR.StatementHistory = (function() {
             defaults.headers['X-CSRF-Token'] = getCSRF();
         }
         const res = await fetch(url, { ...defaults, ...options });
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         return res.json();
     }
 
@@ -2140,10 +2141,16 @@ TWR.StatementHistory = (function() {
 
                 if (typeof showToast === 'function') showToast('success', 'Statement updated');
             } else {
+                // v5.9.2: Always exit edit mode on failure (prevents stuck state)
+                State.editMode = false;
+                showStatementDetail(stmt, idx);
                 if (typeof showToast === 'function') showToast('error', data.error || 'Failed to update');
             }
         } catch (err) {
             log('Save statement error: ' + err, 'error');
+            // v5.9.2: Always exit edit mode on exception (prevents stuck state)
+            State.editMode = false;
+            showStatementDetail(stmt, idx);
             if (typeof showToast === 'function') showToast('error', 'Failed to save changes');
         }
     }

@@ -588,6 +588,14 @@ window.HyperlinkValidatorState = (function() {
 
         if (!content) return null;
 
+        // For CSV: add UTF-8 BOM and normalize to CRLF for Windows Excel compatibility
+        if (format === 'csv') {
+            const bom = '\uFEFF';
+            const crlf = content.replace(/\r?\n/g, '\r\n');
+            const blob = new Blob([bom + crlf], { type: 'text/csv;charset=utf-8;' });
+            return { blob, filename, mimeType: 'text/csv;charset=utf-8;' };
+        }
+
         const blob = new Blob([content], { type: mimeType });
         return { blob, filename, mimeType };
     }
@@ -600,6 +608,7 @@ window.HyperlinkValidatorState = (function() {
             redirect: 0,
             timeout: 0,
             blocked: 0,
+            auth_required: 0,
             unknown: 0,
             mailto: 0
         };
@@ -611,6 +620,7 @@ window.HyperlinkValidatorState = (function() {
             else if (status === 'REDIRECT') summary.redirect++;
             else if (status === 'TIMEOUT') summary.timeout++;
             else if (status === 'BLOCKED') summary.blocked++;
+            else if (status === 'AUTH_REQUIRED') summary.auth_required++;
             else if (status === 'MAILTO' || status === 'EXTRACTED') summary.mailto++;
             else summary.unknown++;
         });
@@ -987,6 +997,7 @@ body.light .timing-stat .tv { color: #b8743a; }
     <div class="stat-card s-redirect"><div class="stat-value">${(summary?.redirect || 0).toLocaleString()}</div><div class="stat-label">Redirects</div></div>
     <div class="stat-card s-timeout"><div class="stat-value">${(summary?.timeout || 0).toLocaleString()}</div><div class="stat-label">Timeouts</div></div>
     <div class="stat-card s-blocked"><div class="stat-value">${(summary?.blocked || 0).toLocaleString()}</div><div class="stat-label">Blocked</div></div>
+    <div class="stat-card s-auth"><div class="stat-value">${(summary?.auth_required || 0).toLocaleString()}</div><div class="stat-label">Auth Required</div></div>
 </div>
 
 <!-- ── Status Distribution Donut + Timing ─────────── -->
@@ -1011,6 +1022,7 @@ body.light .timing-stat .tv { color: #b8743a; }
                 <div class="legend-item"><span class="legend-dot" style="background:var(--blue)"></span><span class="legend-count">${(summary?.redirect||0).toLocaleString()}</span> Redirects</div>
                 <div class="legend-item"><span class="legend-dot" style="background:var(--orange)"></span><span class="legend-count">${(summary?.timeout||0).toLocaleString()}</span> Timeouts</div>
                 <div class="legend-item"><span class="legend-dot" style="background:var(--purple)"></span><span class="legend-count">${(summary?.blocked||0).toLocaleString()}</span> Blocked</div>
+                <div class="legend-item"><span class="legend-dot" style="background:#f97316"></span><span class="legend-count">${(summary?.auth_required||0).toLocaleString()}</span> Auth Required</div>
             </div>
         </div>
     </div>
@@ -1238,7 +1250,8 @@ filterTable();
             { count: summary?.broken || 0, color: '#ef4444' },
             { count: summary?.redirect || 0, color: '#3b82f6' },
             { count: summary?.timeout || 0, color: '#f59e0b' },
-            { count: summary?.blocked || 0, color: '#8b5cf6' }
+            { count: summary?.blocked || 0, color: '#8b5cf6' },
+            { count: summary?.auth_required || 0, color: '#f97316' }
         ].filter(s => s.count > 0);
 
         const circumference = 2 * Math.PI * 86; // radius=86

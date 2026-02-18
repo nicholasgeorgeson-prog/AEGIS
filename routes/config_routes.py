@@ -635,7 +635,7 @@ def version():
         checker_count = len(engine.checkers)
     except Exception as e:
         logger.warning(f'Error getting checker count: {e}')
-    resp = jsonify({'app_name': APP_NAME, 'app_version': _ver, 'core_version': _ver, 'api_version': '2.0', 'checker_count': checker_count})
+    resp = jsonify({'app_name': APP_NAME, 'version': _ver, 'app_version': _ver, 'core_version': _ver, 'api_version': '2.0', 'checker_count': checker_count})
     resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return resp
 @config_bp.route('/api/health', methods=['GET'])
@@ -671,7 +671,7 @@ def ready():
     except ImportError:
         checks['core_module'] = False
     all_ready = all([checks['temp_dir'], checks['core_module']])
-    return (jsonify({'ready': all_ready, 'checks': checks, 'version': VERSION, 'timestamp': datetime.now(timezone.utc).isoformat() + 'Z'}), 200 if all_ready else 503)
+    return (jsonify({'ready': all_ready, 'checks': checks, 'version': get_version(), 'timestamp': datetime.now(timezone.utc).isoformat() + 'Z'}), 200 if all_ready else 503)
 @config_bp.route('/api/docling/status', methods=['GET'])
 @handle_api_errors
 def docling_status():
@@ -722,7 +722,7 @@ def extraction_capabilities():
     - NLP enhancements (spaCy, sklearn)
     - Table extraction accuracy estimates
     """
-    caps = {'version': '3.0.91', 'pdf': {'docling': False, 'camelot': False, 'tabula': False, 'pdfplumber': False, 'pymupdf': False}, 'ocr': {'tesseract': False, 'pdf2image': False}, 'nlp': {'spacy': False, 'sklearn': False, 'nltk': False, 'textstat': False}, 'estimated_accuracy': {'table_extraction': 0.7, 'role_detection': 0.75, 'text_extraction': 0.8}, 'recommended_setup': []}
+    caps = {'version': '5.9.5', 'pdf': {'docling': False, 'camelot': False, 'tabula': False, 'pdfplumber': False, 'pymupdf': False, 'mammoth': False, 'pymupdf4llm': False}, 'ocr': {'tesseract': False, 'pdf2image': False}, 'nlp': {'spacy': False, 'sklearn': False, 'nltk': False, 'textstat': False, 'sentence_transformers': False, 'languagetool': False}, 'estimated_accuracy': {'table_extraction': 0.7, 'role_detection': 0.75, 'text_extraction': 0.8}, 'recommended_setup': []}
     try:
         from docling_extractor import DoclingManager
         if DoclingManager.check_installation().get('offline_ready'):
@@ -753,6 +753,17 @@ def extraction_capabilities():
         import fitz
         caps['pdf']['pymupdf'] = True
         caps['estimated_accuracy']['text_extraction'] = 0.9
+    except Exception:
+        pass
+    # v5.9.5: Added mammoth and pymupdf4llm detection (DOCX/PDF extractors)
+    try:
+        import mammoth
+        caps['pdf']['mammoth'] = True
+    except Exception:
+        pass
+    try:
+        import pymupdf4llm
+        caps['pdf']['pymupdf4llm'] = True
     except Exception:
         pass
     try:
@@ -789,6 +800,17 @@ def extraction_capabilities():
         caps['nlp']['textstat'] = True
     except Exception:
         pass
+    # v5.9.5: Added sentence-transformers and languagetool detection
+    try:
+        from sentence_transformers import SentenceTransformer
+        caps['nlp']['sentence_transformers'] = True
+    except Exception:
+        pass
+    try:
+        import language_tool_python
+        caps['nlp']['languagetool'] = True
+    except Exception:
+        pass
     if not caps['pdf']['docling'] and (not caps['pdf']['camelot']):
             caps['recommended_setup'].append('Install Camelot for better table extraction: pip install camelot-py')
     if not caps['ocr']['tesseract']:
@@ -817,7 +839,98 @@ def health_assets():
         if not exists:
             missing.append(asset_path)
     all_present = len(missing) == 0
-    response = {'status': 'ok' if all_present else 'missing_assets', 'success': all_present, 'checks': checks, 'version': VERSION, 'timestamp': datetime.now(timezone.utc).isoformat() + 'Z'}
+    response = {'status': 'ok' if all_present else 'missing_assets', 'success': all_present, 'checks': checks, 'version': get_version(), 'timestamp': datetime.now(timezone.utc).isoformat() + 'Z'}
     if missing:
         response['missing'] = missing
     return (jsonify(response), 200 if all_present else 503)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# DEMO AUDIO GENERATION (v5.9.7 — Voice Narration Feature)
+# ═══════════════════════════════════════════════════════════════════════
+
+@config_bp.route('/api/demo/audio/status', methods=['GET'])
+@handle_api_errors
+def demo_audio_status():
+    """Check TTS provider availability and existing audio files."""
+    try:
+        from demo_audio_generator import get_tts_status, get_demo_scenes_from_js
+    except ImportError:
+        return jsonify({
+            'success': True,
+            'providers': {},
+            'has_audio': False,
+            'scene_count': 0
+        })
+
+    status = get_tts_status()
+    scenes = get_demo_scenes_from_js()
+    scene_count = sum(len(steps) for steps in scenes.values())
+
+    # Check if manifest exists
+    manifest_path = config.base_dir / 'static' / 'audio' / 'demo' / 'manifest.json'
+    has_audio = manifest_path.exists()
+    manifest = None
+    if has_audio:
+        try:
+            with open(manifest_path) as f:
+                manifest = json.load(f)
+        except Exception:
+            pass
+
+    return jsonify({
+        'success': True,
+        'providers': status,
+        'has_audio': has_audio,
+        'scene_count': scene_count,
+        'sections': list(scenes.keys()),
+        'manifest_summary': {
+            'provider': manifest.get('provider') if manifest else None,
+            'voice': manifest.get('voice') if manifest else None,
+            'section_count': len(manifest.get('sections', {})) if manifest else 0
+        } if manifest else None
+    })
+
+
+@config_bp.route('/api/demo/audio/generate', methods=['POST'])
+@require_csrf
+@handle_api_errors
+def demo_audio_generate():
+    """Generate narration audio files from demo scene text."""
+    try:
+        from demo_audio_generator import generate_demo_audio, get_demo_scenes_from_js
+    except ImportError:
+        return api_error_response('Demo audio generator not available', 500)
+
+    data = request.get_json(silent=True) or {}
+    voice = data.get('voice', 'en-US-GuyNeural')
+    force = data.get('force', False)
+
+    scenes = get_demo_scenes_from_js()
+    if not scenes:
+        return api_error_response('No demo scenes found in guide-system.js', 404)
+
+    output_dir = str(config.base_dir / 'static' / 'audio' / 'demo')
+    result = generate_demo_audio(scenes, output_dir=output_dir, voice=voice, force=force)
+
+    return jsonify({
+        'success': result.get('success', False),
+        'stats': result.get('stats', {}),
+        'error': result.get('error'),
+        'provider': result.get('manifest', {}).get('provider')
+    })
+
+
+@config_bp.route('/api/demo/audio/voices', methods=['GET'])
+@handle_api_errors
+def demo_audio_voices():
+    """List available edge-tts voices."""
+    voices = {
+        'en-US-GuyNeural': {'name': 'Guy (US Male)', 'lang': 'en-US', 'gender': 'male'},
+        'en-US-JennyNeural': {'name': 'Jenny (US Female)', 'lang': 'en-US', 'gender': 'female'},
+        'en-GB-RyanNeural': {'name': 'Ryan (UK Male)', 'lang': 'en-GB', 'gender': 'male'},
+        'en-GB-SoniaNeural': {'name': 'Sonia (UK Female)', 'lang': 'en-GB', 'gender': 'female'},
+        'en-AU-WilliamNeural': {'name': 'William (AU Male)', 'lang': 'en-AU', 'gender': 'male'},
+        'en-AU-NatashaNeural': {'name': 'Natasha (AU Female)', 'lang': 'en-AU', 'gender': 'female'},
+    }
+    return jsonify({'success': True, 'voices': voices})

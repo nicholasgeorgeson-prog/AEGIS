@@ -1079,7 +1079,350 @@
     color: white;
 }
 
+/* ─── Voice Narration Controls (v2.1.0) ──────────────────────────── */
+
+.demo-narration-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 4px;
+    padding-left: 8px;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.demo-narration-btn {
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.demo-narration-btn i,
+.demo-narration-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.demo-narration-btn.narration-active {
+    background: rgba(214, 168, 74, 0.25);
+    border-color: rgba(214, 168, 74, 0.5);
+    color: #D6A84A;
+}
+
+.demo-narration-btn.narration-active:hover {
+    background: rgba(214, 168, 74, 0.35);
+}
+
+/* Pulse animation when narration is active and audio is playing */
+.demo-narration-btn.narration-active::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    background: #D6A84A;
+    border-radius: 50%;
+    animation: narration-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes narration-pulse {
+    0%, 100% { opacity: 0.4; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.2); }
+}
+
+.demo-volume-slider {
+    width: 60px;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.demo-volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #D6A84A;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 0 4px rgba(214, 168, 74, 0.4);
+}
+
+.demo-volume-slider::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #D6A84A;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 0 4px rgba(214, 168, 74, 0.4);
+}
+
+.demo-volume-slider:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+/* Hide volume slider when narration is off */
+.demo-narration-controls:not(:has(.narration-active)) .demo-volume-slider {
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+/* Responsive: hide volume slider on small screens */
+@media (max-width: 768px) {
+    .demo-volume-slider {
+        display: none;
+    }
+    .demo-narration-controls {
+        border-left: none;
+        padding-left: 4px;
+    }
+}
+
 /* Dark mode demo bar — already dark by default, minimal changes */
 [data-theme="dark"] .demo-bar-inner {
     background: rgba(10, 10, 15, 0.95);
+}
+
+/* ============================================
+   10. DEMO PICKER (v2.3.0 - Sub-demo selector)
+   ============================================ */
+
+.demo-picker {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    animation: picker-fade-in 250ms ease forwards;
+}
+
+.demo-picker.hidden {
+    display: none;
+}
+
+.panel-help-content.hidden {
+    display: none !important;
+}
+
+.panel-footer.hidden {
+    display: none !important;
+}
+
+@keyframes picker-fade-in {
+    0% { opacity: 0; transform: translateX(12px); }
+    100% { opacity: 1; transform: translateX(0); }
+}
+
+.demo-picker-back {
+    background: none;
+    border: none;
+    color: var(--aegis-blue, #33b8ff);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 12px 16px;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: color 200ms;
+}
+
+.demo-picker-back:hover {
+    color: var(--aegis-blue-dark, #2990cc);
+}
+
+.demo-picker-content {
+    padding: 0 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+    max-height: calc(100vh - 280px);
+}
+
+/* Overview card — prominent top card */
+.demo-picker-overview-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px;
+    background: linear-gradient(135deg, rgba(255, 107, 53, 0.12), rgba(247, 147, 26, 0.08));
+    border: 1px solid rgba(255, 107, 53, 0.25);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.demo-picker-overview-card:hover {
+    background: linear-gradient(135deg, rgba(255, 107, 53, 0.2), rgba(247, 147, 26, 0.14));
+    border-color: rgba(255, 107, 53, 0.4);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(255, 107, 53, 0.15);
+}
+
+.demo-picker-overview-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #ff6b35, #f7931a);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.demo-picker-overview-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.demo-picker-overview-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary, #e6edf3);
+}
+
+.demo-picker-overview-meta {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255, 107, 53, 0.8);
+    letter-spacing: 0.3px;
+}
+
+.demo-picker-overview-desc {
+    font-size: 12px;
+    color: var(--text-secondary, #8b949e);
+    margin-top: 2px;
+}
+
+/* Divider with label */
+.demo-picker-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 4px 0;
+}
+
+.demo-picker-divider span {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-secondary, #8b949e);
+    white-space: nowrap;
+}
+
+.demo-picker-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-primary, rgba(255,255,255,0.1));
+}
+
+/* Sub-demo card grid */
+.demo-picker-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.demo-picker-card {
+    padding: 12px;
+    background: var(--bg-surface, rgba(255,255,255,0.04));
+    border: 1px solid var(--border-primary, rgba(255,255,255,0.08));
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.demo-picker-card:hover {
+    background: var(--bg-surface-hover, rgba(255,255,255,0.08));
+    border-color: var(--aegis-blue, #33b8ff);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(51, 184, 255, 0.1);
+}
+
+.demo-picker-card-icon {
+    width: 28px;
+    height: 28px;
+    color: var(--aegis-blue, #33b8ff);
+    opacity: 0.8;
+}
+
+.demo-picker-card-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.demo-picker-card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary, #e6edf3);
+    line-height: 1.3;
+}
+
+.demo-picker-card-desc {
+    font-size: 11px;
+    color: var(--text-secondary, #8b949e);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.demo-picker-card-meta {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-tertiary, #6e7681);
+    margin-top: auto;
+}
+
+/* Light mode overrides */
+body:not(.dark-mode) .demo-picker-overview-card,
+body.light-mode .demo-picker-overview-card {
+    background: linear-gradient(135deg, rgba(255, 107, 53, 0.08), rgba(247, 147, 26, 0.05));
+}
+
+body:not(.dark-mode) .demo-picker-card,
+body.light-mode .demo-picker-card {
+    background: rgba(0, 0, 0, 0.02);
+    border-color: rgba(0, 0, 0, 0.1);
+}
+
+body:not(.dark-mode) .demo-picker-card:hover,
+body.light-mode .demo-picker-card:hover {
+    background: rgba(51, 184, 255, 0.05);
+    border-color: var(--aegis-blue, #33b8ff);
+}
+
+body:not(.dark-mode) .demo-picker-overview-title,
+body:not(.dark-mode) .demo-picker-card-title,
+body.light-mode .demo-picker-overview-title,
+body.light-mode .demo-picker-card-title {
+    color: var(--text-primary, #1f2328);
+}
+
+body:not(.dark-mode) .demo-picker-back,
+body.light-mode .demo-picker-back {
+    color: var(--aegis-blue, #0969da);
+}
+
+/* Responsive: single column on narrow screens */
+@media (max-width: 400px) {
+    .demo-picker-grid {
+        grid-template-columns: 1fr;
+    }
 }

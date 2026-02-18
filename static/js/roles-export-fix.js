@@ -141,9 +141,11 @@
         return String(str).replace(/"/g, '""');
     }
     
-    // Helper: Download CSV file
+    // Helper: Download CSV file (with BOM + CRLF for Windows Excel)
     function downloadCSV(csv, filename) {
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const bom = '\uFEFF';
+        const crlf = csv.replace(/\r?\n/g, '\r\n');
+        const blob = new Blob([bom + crlf], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;

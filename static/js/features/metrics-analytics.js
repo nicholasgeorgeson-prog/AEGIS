@@ -576,7 +576,11 @@ window.MetricsAnalytics = (function () {
             return dayNames[d.getDay()] + ', ' + monthNames[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
         }
 
-        // v4.6.1: Render cells first, then overlay rect on top (SVG paints later children on top)
+        // Build a lookup map: "week,day" → cell data for O(1) hit-testing
+        var cellLookup = {};
+        cells.forEach(function (c) { cellLookup[c.week + ',' + c.day] = c; });
+
+        // Render cells (no mouse events — handled by overlay)
         svg.selectAll('.heatmap-cell')
             .data(cells)
             .enter()
@@ -588,39 +592,9 @@ window.MetricsAnalytics = (function () {
             .attr('height', cellSize)
             .attr('fill', function (d) { return colorScale(d.count); })
             .attr('rx', 2)
-            .attr('ry', 2)
-            .on('mouseenter', function (event, d) {
-                var el = d3.select(this);
-                var cx = +el.attr('x');
-                var cy = +el.attr('y');
-                hoverRect
-                    .attr('x', cx - 1)
-                    .attr('y', cy - 1)
-                    .style('visibility', 'visible');
+            .attr('ry', 2);
 
-                var cellData = d || el.datum();
-                if (!cellData) return;
-                var countText = cellData.count > 0
-                    ? '<span class="htt-count">' + cellData.count + ' scan' + (cellData.count !== 1 ? 's' : '') + '</span>'
-                    : '<span class="htt-zero">No scans</span>';
-                tooltip.innerHTML = countText + ' &mdash; ' + formatDate(cellData.date);
-
-                var e = event || d3.event;
-                tooltip.style.left = (e.clientX + 12) + 'px';
-                tooltip.style.top = (e.clientY - 10) + 'px';
-                tooltip.style.opacity = '1';
-            })
-            .on('mousemove', function (event) {
-                var e = event || d3.event;
-                tooltip.style.left = (e.clientX + 12) + 'px';
-                tooltip.style.top = (e.clientY - 10) + 'px';
-            })
-            .on('mouseleave', function () {
-                hoverRect.style('visibility', 'hidden');
-                tooltip.style.opacity = '0';
-            });
-
-        // v4.6.1: Hover overlay rect — appended AFTER cells so it renders on top
+        // Hover highlight rect (rendered after cells so it paints on top)
         var hoverStroke = isDark() ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)';
         var hoverRect = svg.append('rect')
             .attr('class', 'heatmap-hover')
@@ -632,6 +606,77 @@ window.MetricsAnalytics = (function () {
             .attr('stroke-width', 1.5)
             .style('pointer-events', 'none')
             .style('visibility', 'hidden');
+
+        // v5.9.0: Single transparent overlay for ALL mouse tracking.
+        // Per-cell mouseenter/mouseleave caused flickering when crossing the 2px
+        // gap between 12px cells — the mouse would leave cell A, enter the gap
+        // (no cell), then enter cell B, causing rapid tooltip hide/show cycles.
+        // Instead, one overlay catches all mouse movement and uses math to
+        // determine which cell the cursor is over. No gap = no flicker.
+        var gridOriginX = 34;
+        var gridOriginY = 16;
+        var lastHitKey = null;
+
+        svg.append('rect')
+            .attr('class', 'heatmap-overlay')
+            .attr('x', gridOriginX)
+            .attr('y', gridOriginY)
+            .attr('width', weeks * (cellSize + cellPad))
+            .attr('height', 7 * (cellSize + cellPad))
+            .attr('fill', 'transparent')
+            .on('mousemove', function (event) {
+                var e = event || d3.event;
+                var svgNode = svg.node();
+                var pt = svgNode.createSVGPoint();
+                pt.x = e.clientX;
+                pt.y = e.clientY;
+                var svgPt = pt.matrixTransform(svgNode.getScreenCTM().inverse());
+
+                // Which cell is the mouse over?
+                var col = Math.floor((svgPt.x - gridOriginX) / (cellSize + cellPad));
+                var row = Math.floor((svgPt.y - gridOriginY) / (cellSize + cellPad));
+
+                // Check if we're actually inside a cell (not in the 2px gap)
+                var localX = (svgPt.x - gridOriginX) - col * (cellSize + cellPad);
+                var localY = (svgPt.y - gridOriginY) - row * (cellSize + cellPad);
+                var inCell = localX >= 0 && localX < cellSize && localY >= 0 && localY < cellSize;
+
+                var hitKey = inCell ? col + ',' + row : null;
+                var cellData = hitKey ? cellLookup[hitKey] : null;
+
+                if (cellData) {
+                    // Update tooltip only when we enter a different cell
+                    if (hitKey !== lastHitKey) {
+                        lastHitKey = hitKey;
+                        var cx = col * (cellSize + cellPad) + gridOriginX;
+                        var cy = row * (cellSize + cellPad) + gridOriginY;
+                        hoverRect
+                            .attr('x', cx - 1)
+                            .attr('y', cy - 1)
+                            .style('visibility', 'visible');
+
+                        var countText = cellData.count > 0
+                            ? '<span class="htt-count">' + cellData.count + ' scan' + (cellData.count !== 1 ? 's' : '') + '</span>'
+                            : '<span class="htt-zero">No scans</span>';
+                        tooltip.innerHTML = countText + ' &mdash; ' + formatDate(cellData.date);
+                    }
+                    tooltip.style.left = (e.clientX + 12) + 'px';
+                    tooltip.style.top = (e.clientY - 10) + 'px';
+                    tooltip.style.opacity = '1';
+                } else {
+                    // In a gap or outside grid — hide
+                    if (lastHitKey !== null) {
+                        lastHitKey = null;
+                        hoverRect.style('visibility', 'hidden');
+                        tooltip.style.opacity = '0';
+                    }
+                }
+            })
+            .on('mouseleave', function () {
+                lastHitKey = null;
+                hoverRect.style('visibility', 'hidden');
+                tooltip.style.opacity = '0';
+            });
 
         // Month labels
         var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -1268,9 +1313,17 @@ window.MetricsAnalytics = (function () {
         $$('.ma-tab-content', modal).forEach(function (tc) { tc.style.visibility = ''; });
     }
 
-    function showEmpty() {
+    // v5.9.2: Accept optional message for descriptive empty states
+    function showEmpty(message) {
         var el = document.getElementById('ma-empty');
-        if (el) el.classList.add('visible');
+        if (el) {
+            el.classList.add('visible');
+            // Update the message text if provided
+            if (message) {
+                var msgEl = el.querySelector('.ma-empty-message') || el.querySelector('p');
+                if (msgEl) msgEl.textContent = message;
+            }
+        }
     }
 
     function loadDashboardData(forceRefresh) {
@@ -1300,6 +1353,9 @@ window.MetricsAnalytics = (function () {
                 isLoading = false;
                 if (refreshBtn) refreshBtn.classList.remove('spinning');
 
+                // v5.9.2: More robust data validation with detailed logging
+                console.log('[MetricsAnalytics] API response:', json.success, json.data ? 'has data' : 'no data');
+
                 if (json.success && json.data) {
                     data = json.data;
                     dataTimestamp = Date.now();
@@ -1310,24 +1366,28 @@ window.MetricsAnalytics = (function () {
 
                     hideLoading();
 
-                    // Check if we have any meaningful data
-                    if ((data.overview || {}).total_documents === 0) {
-                        showEmpty();
+                    // v5.9.2: Defensive check — overview might be missing or malformed
+                    if (!data.overview || typeof data.overview !== 'object') {
+                        console.warn('[MetricsAnalytics] Missing or invalid overview data:', data.overview);
+                        showEmpty('No scan data found. Scan some documents to see analytics.');
+                    } else if (data.overview.total_documents === 0) {
+                        showEmpty('No documents scanned yet. Run your first document scan to start tracking metrics.');
                     } else {
                         renderCurrentTab();
                     }
                 } else {
                     hideLoading();
-                    showEmpty();
-                    if (typeof showToast === 'function') showToast('error', 'Failed to load metrics data');
+                    console.warn('[MetricsAnalytics] API returned failure:', json.error || 'unknown');
+                    showEmpty('Failed to load metrics data. Check server logs.');
+                    if (typeof showToast === 'function') showToast('error', json.error || 'Failed to load metrics data');
                 }
             })
             .catch(function (err) {
                 isLoading = false;
                 if (refreshBtn) refreshBtn.classList.remove('spinning');
                 hideLoading();
-                showEmpty();
                 console.error('[MetricsAnalytics] Load error:', err);
+                showEmpty('Error loading metrics: ' + err.message);
                 if (typeof showToast === 'function') showToast('error', 'Failed to load metrics: ' + err.message);
             });
     }
@@ -1429,5 +1489,6 @@ window.MetricsAnalytics = (function () {
     }
 
     // ── Public API ───────────────────────────────────────────────
-    return { init: init, open: open, close: close };
+    // v5.9.14: Expose switchTab for guide system preActions
+    return { init: init, open: open, close: close, switchTab: switchTab };
 })();

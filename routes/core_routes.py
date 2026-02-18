@@ -363,6 +363,291 @@ def diagnostics_export():
         return (jsonify({'success': False, 'error': {'code': 'EXPORT_ERROR', 'message': str(e)}}), 500)
 
 
+@core_bp.route('/api/diagnostics/email', methods=['POST'])
+@require_csrf
+@handle_api_errors
+def diagnostics_email():
+    """
+    Generate a .eml file with diagnostic logs attached.
+
+    The .eml format is a standard RFC 2822 email message that Outlook and
+    Apple Mail can open as a pre-composed draft with attachments already
+    included. This solves the mailto: limitation of not being able to attach files.
+
+    Expects JSON body:
+      to_email - recipient email address (optional, defaults to configured support email)
+    """
+    import json as json_mod
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    from email.mime.base import MIMEBase
+    from email import encoders
+    import io
+
+    try:
+        data = request.get_json(silent=True) or {}
+        to_email = data.get('to_email', '')
+
+        # --- Collect diagnostic data (same as diagnostics_export) ---
+        export_data = {
+            'export_timestamp': datetime.now(timezone.utc).isoformat() + 'Z',
+            'app_version': get_version()
+        }
+
+        export_data['system'] = {
+            'platform': platform.platform(),
+            'python_version': platform.python_version(),
+            'architecture': platform.machine(),
+            'processor': platform.processor() or 'unknown',
+            'app_version': get_version()
+        }
+
+        export_data['config'] = {
+            'debug_mode': config.debug,
+            'log_level': config.log_level,
+            'auth_enabled': config.auth_enabled,
+            'csrf_enabled': config.csrf_enabled,
+            'max_content_length_mb': config.max_content_length / 1048576
+        }
+
+        # Log file info
+        log_file = config.log_dir / 'aegis.log'
+        log_size_mb = 0
+        if log_file.exists():
+            log_size_mb = round(log_file.stat().st_size / (1024 * 1024), 2)
+        export_data['log_file'] = {
+            'path': str(log_file),
+            'size_mb': log_size_mb,
+            'exists': log_file.exists()
+        }
+
+        # Recent errors
+        entries = read_recent_error_logs(count=50)
+        export_data['recent_errors'] = entries
+        export_data['error_summary'] = {'total': len(entries), 'by_type': {}}
+        for entry in entries:
+            err_type = entry.get('error_type', 'Unknown')
+            export_data['error_summary']['by_type'][err_type] = export_data['error_summary']['by_type'].get(err_type, 0) + 1
+
+        # Feature availability
+        try:
+            import importlib
+            features = {}
+            for mod_name, label in [
+                ('docx', 'python-docx'), ('nltk', 'NLTK'), ('spacy', 'spaCy'),
+                ('textstat', 'textstat'), ('openpyxl', 'openpyxl'), ('requests', 'requests'),
+            ]:
+                try:
+                    mod = importlib.import_module(mod_name)
+                    ver = getattr(mod, '__version__', 'installed')
+                    features[label] = {'available': True, 'version': ver}
+                except ImportError:
+                    features[label] = {'available': False, 'version': None}
+            export_data['features'] = features
+        except Exception:
+            pass
+
+        # Health check data
+        health_data = {}
+        try:
+            import importlib as il2
+            pkgs = {}
+            for mod_name, label in [
+                ('flask', 'Flask'), ('docx', 'python-docx'), ('nltk', 'NLTK'),
+                ('spacy', 'spaCy'), ('textstat', 'textstat'), ('openpyxl', 'openpyxl'),
+                ('requests', 'requests'), ('waitress', 'Waitress'), ('mammoth', 'mammoth'),
+            ]:
+                try:
+                    mod = il2.import_module(mod_name)
+                    ver = getattr(mod, '__version__', 'installed')
+                    pkgs[label] = {'status': 'installed', 'version': ver, 'available': True}
+                except ImportError:
+                    pkgs[label] = {'status': 'missing', 'version': None, 'available': False}
+            health_data['packages'] = pkgs
+        except Exception:
+            pass
+
+        # --- Build email body text ---
+        version_str = get_version()
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        date_str = datetime.now().strftime('%Y-%m-%d %H:%M')
+
+        body_lines = [
+            'AEGIS DIAGNOSTIC REPORT',
+            '=' * 50,
+            f'Generated: {date_str}',
+            f'Version: {version_str}',
+            '',
+            'SYSTEM INFORMATION',
+            '-' * 30,
+            f"  Platform: {export_data['system']['platform']}",
+            f"  Python: {export_data['system']['python_version']}",
+            f"  Architecture: {export_data['system']['architecture']}",
+            '',
+            'CONFIGURATION',
+            '-' * 30,
+            f"  Debug Mode: {export_data['config']['debug_mode']}",
+            f"  Log Level: {export_data['config']['log_level']}",
+            f"  Max Upload: {export_data['config']['max_content_length_mb']:.0f} MB",
+            '',
+            'LOG FILE',
+            '-' * 30,
+            f"  Path: {export_data['log_file']['path']}",
+            f"  Size: {export_data['log_file']['size_mb']} MB",
+            f"  Exists: {export_data['log_file']['exists']}",
+            '',
+        ]
+
+        # Feature availability
+        if 'features' in export_data:
+            body_lines.append('FEATURE AVAILABILITY')
+            body_lines.append('-' * 30)
+            for name, info in export_data['features'].items():
+                status = f"v{info['version']}" if info['available'] else 'NOT INSTALLED'
+                body_lines.append(f"  {name}: {status}")
+            body_lines.append('')
+
+        # Health check packages
+        if health_data.get('packages'):
+            pkgs = health_data['packages']
+            installed = [k for k, v in pkgs.items() if v.get('available')]
+            missing = [k for k, v in pkgs.items() if not v.get('available')]
+            body_lines.append('DEPENDENCY HEALTH')
+            body_lines.append('-' * 30)
+            body_lines.append(f"  Installed: {len(installed)} | Missing: {len(missing)}")
+            if missing:
+                body_lines.append(f"  Missing: {', '.join(missing)}")
+            body_lines.append('')
+
+        # Recent errors summary
+        error_count = export_data['error_summary']['total']
+        body_lines.append(f'RECENT ERRORS ({error_count})')
+        body_lines.append('-' * 30)
+        if error_count == 0:
+            body_lines.append('  No recent errors logged.')
+        else:
+            for entry in export_data['recent_errors'][:15]:
+                ts = entry.get('timestamp', '?')
+                etype = entry.get('error_type', '?')
+                emsg = entry.get('error_message', '?')
+                body_lines.append(f"  [{ts}] {etype}: {emsg}")
+            if error_count > 15:
+                body_lines.append(f"  ... and {error_count - 15} more (see attached log)")
+        body_lines.append('')
+        body_lines.append('Full diagnostic data and log entries are attached to this email.')
+
+        body_text = '\n'.join(body_lines)
+
+        # --- Build .eml with MIME ---
+        subject = f'AEGIS Diagnostic Report - {date_str} - v{version_str}'
+
+        msg = MIMEMultipart()
+        msg['Subject'] = subject
+        msg['To'] = to_email
+        msg['From'] = ''
+        msg['X-Unsent'] = '1'  # Mark as draft (Outlook/Apple Mail will open as unsent)
+
+        # Email body
+        msg.attach(MIMEText(body_text, 'plain', 'utf-8'))
+
+        # Attachment 1: Diagnostic JSON
+        diag_json = json_mod.dumps(export_data, indent=2, default=str)
+        diag_attachment = MIMEBase('application', 'json')
+        diag_attachment.set_payload(diag_json.encode('utf-8'))
+        encoders.encode_base64(diag_attachment)
+        diag_filename = f'aegis_diagnostics_{timestamp}.json'
+        diag_attachment.add_header('Content-Disposition', 'attachment', filename=diag_filename)
+        msg.attach(diag_attachment)
+
+        # Attachment 2: aegis.log (if it exists and is non-empty)
+        if log_file.exists() and log_file.stat().st_size > 0:
+            try:
+                log_content = log_file.read_bytes()
+                # Cap at 5MB to prevent huge email
+                if len(log_content) > 5 * 1024 * 1024:
+                    log_content = log_content[-5 * 1024 * 1024:]  # Last 5MB
+                log_attachment = MIMEBase('text', 'plain')
+                log_attachment.set_payload(log_content)
+                encoders.encode_base64(log_attachment)
+                log_attachment.add_header('Content-Disposition', 'attachment', filename='aegis.log')
+                msg.attach(log_attachment)
+            except Exception as log_err:
+                logger.warning(f'Could not attach aegis.log: {log_err}')
+
+        # Attachment 3: Other .log files (only non-trivial ones, capped at 10MB total)
+        try:
+            total_attached = 0
+            max_total = 10 * 1024 * 1024  # 10MB budget for additional logs
+            # Sort by size descending so we get the most important logs first
+            other_logs = sorted(
+                [f for f in config.log_dir.glob('*.log') if f.name != 'aegis.log' and f.stat().st_size > 1024],
+                key=lambda f: f.stat().st_size,
+                reverse=True
+            )
+            for other_log in other_logs:
+                if total_attached >= max_total:
+                    break
+                try:
+                    content_bytes = other_log.read_bytes()
+                    if len(content_bytes) > 2 * 1024 * 1024:
+                        content_bytes = content_bytes[-2 * 1024 * 1024:]  # Last 2MB
+                    total_attached += len(content_bytes)
+                    att = MIMEBase('text', 'plain')
+                    att.set_payload(content_bytes)
+                    encoders.encode_base64(att)
+                    att.add_header('Content-Disposition', 'attachment', filename=other_log.name)
+                    msg.attach(att)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # Save .eml to temp file and open in default mail client
+        import subprocess
+        import tempfile
+
+        eml_content = msg.as_string()
+        eml_filename = f'aegis_diagnostic_email_{timestamp}.eml'
+
+        # Save to a temp directory (persists until manually cleaned or reboot)
+        eml_dir = Path(tempfile.gettempdir()) / 'aegis_emails'
+        eml_dir.mkdir(exist_ok=True)
+        eml_path = eml_dir / eml_filename
+        eml_path.write_text(eml_content, encoding='utf-8')
+
+        # Auto-open in the default mail client (Outlook / Apple Mail)
+        opened = False
+        try:
+            if platform.system() == 'Darwin':
+                # macOS: try Outlook first, fall back to default handler
+                try:
+                    subprocess.Popen(['open', '-a', 'Microsoft Outlook', str(eml_path)])
+                    opened = True
+                except Exception:
+                    try:
+                        subprocess.Popen(['open', str(eml_path)])
+                        opened = True
+                    except Exception:
+                        pass
+            elif platform.system() == 'Windows':
+                os.startfile(str(eml_path))
+                opened = True
+        except Exception as open_err:
+            logger.warning(f'Could not auto-open .eml: {open_err}')
+
+        return jsonify({
+            'success': True,
+            'opened': opened,
+            'filename': eml_filename,
+            'path': str(eml_path),
+            'attachments': len(msg.get_payload()) - 1  # subtract body part
+        })
+
+    except Exception as e:
+        logger.exception(f'Error generating diagnostic email: {e}')
+        return (jsonify({'success': False, 'error': {'code': 'EMAIL_EXPORT_ERROR', 'message': str(e)}}), 500)
+
+
 @core_bp.route('/api/diagnostics/health')
 @handle_api_errors
 def diagnostics_health():
@@ -376,21 +661,37 @@ def diagnostics_health():
 
         # Check required Python packages
         required_packages = [
+            # Core framework
             ('flask', 'Flask'),
+            ('werkzeug', 'Werkzeug'),
+            ('jinja2', 'Jinja2'),
+            ('waitress', 'Waitress'),
+            # Document processing
             ('docx', 'python-docx'),
+            ('mammoth', 'mammoth'),
+            ('openpyxl', 'openpyxl'),
+            ('pymupdf4llm', 'pymupdf4llm'),
+            ('reportlab', 'reportlab'),
+            # NLP & text analysis
             ('nltk', 'NLTK'),
             ('spacy', 'spaCy'),
             ('textstat', 'textstat'),
-            ('openpyxl', 'openpyxl'),
+            ('proselint', 'proselint'),
+            ('symspellpy', 'symspellpy'),
+            # Scientific computing
+            ('numpy', 'NumPy'),
+            ('pandas', 'pandas'),
+            ('scipy', 'SciPy'),
+            ('sklearn', 'scikit-learn'),
+            ('torch', 'PyTorch'),
+            # Web & parsing
             ('requests', 'requests'),
-            ('colorama', 'colorama'),
             ('chardet', 'chardet'),
             ('bs4', 'BeautifulSoup4'),
             ('lxml', 'lxml'),
-            ('PIL', 'Pillow'),
-            ('jinja2', 'Jinja2'),
-            ('werkzeug', 'Werkzeug'),
             ('yaml', 'PyYAML'),
+            # Imaging
+            ('PIL', 'Pillow'),
         ]
 
         all_ok = True

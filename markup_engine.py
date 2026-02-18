@@ -147,14 +147,34 @@ class MarkupEngine:
                 shutil.copy2(source_path, output_path)
             return True
         
-        # Use COM if available (preferred on Windows)
+        # v5.9.2: Try COM first, fall back to lxml if COM fails (e.g., Word not installed)
         if WIN32_AVAILABLE:
-            return self._create_with_com(source_path, output_path, valid_issues, enable_track_changes)
+            try:
+                result = self._create_with_com(source_path, output_path, valid_issues, enable_track_changes)
+                if result:
+                    return True
+                # COM returned False — try lxml fallback
+                _log("[MarkupEngine] COM method returned False, falling back to lxml...")
+                self._errors.append("COM export returned False — attempting lxml fallback")
+            except Exception as com_err:
+                _log(f"[MarkupEngine] COM method raised exception: {com_err}")
+                self._errors.append(f"COM export failed: {com_err}")
+
+            # Fall through to lxml
+            if LXML_AVAILABLE:
+                _log("[MarkupEngine] Falling back to lxml XML-based comment insertion")
+                return self._create_with_lxml(source_path, output_path, valid_issues)
+            else:
+                _log("[MarkupEngine] ERROR: COM failed and lxml not available")
+                self._errors.append("COM export failed and lxml is not available as fallback")
+                if source_path != output_path:
+                    shutil.copy2(source_path, output_path)
+                return False
         elif LXML_AVAILABLE:
             return self._create_with_lxml(source_path, output_path, valid_issues)
         else:
             _log("[MarkupEngine] ERROR: No markup method available")
-            self._errors.append("Neither pywin32 nor lxml is available")
+            self._errors.append("Neither pywin32 nor lxml is available. Install pywin32 (Windows) or lxml.")
             if source_path != output_path:
                 shutil.copy2(source_path, output_path)
             return False
@@ -640,11 +660,16 @@ class MarkupEngine:
         }
         
         if not WIN32_AVAILABLE:
-            result['errors'].append("Word COM not available")
-            if source_path != output_path:
-                shutil.copy2(source_path, output_path)
-            return result
-        
+            # v5.9.4: lxml fallback — apply text replacements + comments without COM
+            if LXML_AVAILABLE:
+                _log("[MarkupEngine] COM not available — using lxml fallback for fixes + comments")
+                return self._apply_fixes_with_lxml(source_path, output_path, issues, reviewer_name, also_add_comments)
+            else:
+                result['errors'].append("Word COM not available and lxml not installed")
+                if source_path != output_path:
+                    shutil.copy2(source_path, output_path)
+                return result
+
         # Separate fixable issues from comment-only issues
         # v2.9.1 FIX A12: Enhanced deduplication to prevent duplicate redlines
         # The bug occurs when the same fix is applied multiple times, causing
@@ -993,6 +1018,330 @@ class MarkupEngine:
         
         return result
     
+    def _apply_fixes_with_lxml(self, source_path, output_path, issues, reviewer_name=None, also_add_comments=True):
+        """
+        v5.9.4: lxml fallback for apply_fixes_with_track_changes.
+
+        Applies text replacements directly in document.xml and adds comments
+        for non-fixable issues. Does NOT create true tracked changes (no redlines)
+        since that requires COM. Instead, applies edits directly and adds a comment
+        noting each change that was made.
+
+        Preserves existing comments in the document.
+        """
+        result = {
+            'success': False,
+            'fixes_applied': 0,
+            'fixes_attempted': 0,
+            'comments_added': 0,
+            'errors': []
+        }
+
+        if reviewer_name:
+            self.author = reviewer_name
+
+        # Separate fixable from comment-only
+        fixable = []
+        comment_only = []
+        seen_fix_pairs = set()
+
+        for issue in (issues or []):
+            orig = issue.get('original_text', '').strip()
+            repl = issue.get('replacement_text', '')
+            if orig and repl is not None and orig != repl:
+                norm_key = (orig.lower().strip()[:100], (repl or '').lower().strip()[:100])
+                if norm_key not in seen_fix_pairs:
+                    seen_fix_pairs.add(norm_key)
+                    fixable.append(issue)
+            elif also_add_comments:
+                comment_only.append(issue)
+
+        result['fixes_attempted'] = len(fixable)
+        _log(f"[lxml-fixes] {len(fixable)} fixable, {len(comment_only)} comment-only issues")
+
+        try:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                # Extract docx
+                with zipfile.ZipFile(source_path, 'r') as zf:
+                    zf.extractall(temp_dir)
+
+                parser = etree.XMLParser(recover=True)
+                doc_path = os.path.join(temp_dir, 'word', 'document.xml')
+                doc_tree = etree.parse(doc_path, parser)
+                doc_root = doc_tree.getroot()
+                paragraphs = doc_root.findall('.//w:p', NAMESPACES)
+
+                # ── Phase 1: Apply text replacements ──
+                fixes_applied = 0
+                fix_comments = []  # Comments noting what was changed
+
+                for fix in fixable:
+                    orig_text = fix.get('original_text', '').strip()
+                    repl_text = fix.get('replacement_text', '').strip()
+                    para_idx = fix.get('paragraph_index', -1)
+
+                    if not orig_text:
+                        continue
+
+                    # Find the target paragraph
+                    target_para = None
+                    if 0 <= para_idx < len(paragraphs):
+                        # Verify text match in the expected paragraph
+                        para_text = ''.join(t.text or '' for t in paragraphs[para_idx].findall('.//w:t', NAMESPACES))
+                        if orig_text in para_text:
+                            target_para = paragraphs[para_idx]
+
+                    if target_para is None:
+                        # Fall back to searching all paragraphs
+                        for para in paragraphs:
+                            para_text = ''.join(t.text or '' for t in para.findall('.//w:t', NAMESPACES))
+                            if orig_text in para_text:
+                                target_para = para
+                                break
+
+                    if target_para is None:
+                        _log(f"[lxml-fixes] Could not find '{orig_text[:30]}...' in document")
+                        continue
+
+                    # Apply the text replacement in the paragraph's <w:t> elements
+                    replaced = self._lxml_replace_text_in_para(target_para, orig_text, repl_text)
+                    if replaced:
+                        fixes_applied += 1
+                        # Create a comment noting the change
+                        fix_comments.append({
+                            'paragraph_index': para_idx,
+                            'flagged_text': repl_text,
+                            'category': fix.get('category', 'Fix Applied'),
+                            'message': f"AEGIS Fix: Changed \"{orig_text}\" → \"{repl_text}\"",
+                            'severity': 'Info'
+                        })
+                        _log(f"[lxml-fixes] Replaced: '{orig_text[:30]}' → '{repl_text[:30]}'")
+
+                result['fixes_applied'] = fixes_applied
+
+                # ── Phase 2: Add comments (preserve existing) ──
+                all_comment_issues = fix_comments + comment_only
+
+                if all_comment_issues:
+                    # Read existing comments.xml if present
+                    comments_path = os.path.join(temp_dir, 'word', 'comments.xml')
+                    existing_comment_id = 0
+
+                    if os.path.exists(comments_path):
+                        # Parse existing comments to find max ID
+                        existing_tree = etree.parse(comments_path, parser)
+                        existing_root = existing_tree.getroot()
+                        for existing in existing_root:
+                            try:
+                                cid = int(existing.get(f'{W_NS}id', '0'))
+                                existing_comment_id = max(existing_comment_id, cid + 1)
+                            except (ValueError, TypeError):
+                                pass
+                        comments_root = existing_root
+                        _log(f"[lxml-fixes] Preserving {existing_comment_id} existing comments")
+                    else:
+                        # Create new comments.xml
+                        COMMENTS_NSMAP = {
+                            'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
+                            'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+                        }
+                        comments_root = etree.Element(f'{W_NS}comments', nsmap=COMMENTS_NSMAP)
+
+                    comment_id = existing_comment_id
+                    comments_added = 0
+
+                    for issue in all_comment_issues:
+                        search_text = self._get_search_text(issue)
+                        if not search_text:
+                            search_text = issue.get('flagged_text', '')[:50]
+                        if not search_text:
+                            continue
+
+                        p_idx = issue.get('paragraph_index', -1)
+                        target_para = None
+                        if 0 <= p_idx < len(paragraphs):
+                            target_para = paragraphs[p_idx]
+                        else:
+                            for para in paragraphs:
+                                ptxt = ''.join(t.text or '' for t in para.findall('.//w:t', NAMESPACES))
+                                if search_text in ptxt:
+                                    target_para = para
+                                    break
+
+                        if target_para is None:
+                            continue
+
+                        comment_text = self._build_comment_text(issue)
+
+                        # Create comment element
+                        comment = etree.SubElement(comments_root, f'{W_NS}comment')
+                        comment.set(f'{W_NS}id', str(comment_id))
+                        comment.set(f'{W_NS}author', self.author)
+                        comment.set(f'{W_NS}date', datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ'))
+                        comment.set(f'{W_NS}initials', self.author[:2].upper() if self.author else 'TR')
+
+                        comment_p = etree.SubElement(comment, f'{W_NS}p')
+                        comment_r = etree.SubElement(comment_p, f'{W_NS}r')
+                        comment_t = etree.SubElement(comment_r, f'{W_NS}t')
+                        comment_t.text = comment_text
+
+                        # Add comment reference to paragraph
+                        first_run = target_para.find('.//w:r', NAMESPACES)
+                        if first_run is not None:
+                            cs = etree.Element(f'{W_NS}commentRangeStart')
+                            cs.set(f'{W_NS}id', str(comment_id))
+                            first_run.insert(0, cs)
+
+                            ce = etree.Element(f'{W_NS}commentRangeEnd')
+                            ce.set(f'{W_NS}id', str(comment_id))
+                            first_run.append(ce)
+
+                            cr = etree.Element(f'{W_NS}commentReference')
+                            cr.set(f'{W_NS}id', str(comment_id))
+                            ref_run = etree.SubElement(target_para, f'{W_NS}r')
+                            ref_run.append(cr)
+
+                        comment_id += 1
+                        comments_added += 1
+
+                    result['comments_added'] = comments_added
+
+                    # Write comments.xml
+                    with open(comments_path, 'wb') as f:
+                        f.write(etree.tostring(comments_root, xml_declaration=True, encoding='UTF-8', standalone='yes'))
+
+                    # Ensure comments relationship exists
+                    rels_path = os.path.join(temp_dir, 'word', '_rels', 'document.xml.rels')
+                    if os.path.exists(rels_path):
+                        rels_tree = etree.parse(rels_path, parser)
+                        rels_root = rels_tree.getroot()
+                        RELS_NS = 'http://schemas.openxmlformats.org/package/2006/relationships'
+                        has_comments_rel = any('comments' in (e.get('Target') or '').lower() for e in rels_root)
+                        if not has_comments_rel:
+                            existing_ids = [int(e.get('Id', 'rId0').replace('rId', '')) for e in rels_root if e.get('Id', '').startswith('rId')]
+                            next_id = max(existing_ids, default=0) + 1
+                            rel = etree.SubElement(rels_root, f'{{{RELS_NS}}}Relationship')
+                            rel.set('Id', f'rId{next_id}')
+                            rel.set('Type', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments')
+                            rel.set('Target', 'comments.xml')
+                            with open(rels_path, 'wb') as f:
+                                f.write(etree.tostring(rels_tree, xml_declaration=True, encoding='UTF-8', standalone='yes'))
+
+                    # Update [Content_Types].xml
+                    ct_path = os.path.join(temp_dir, '[Content_Types].xml')
+                    if os.path.exists(ct_path):
+                        ct_tree = etree.parse(ct_path, parser)
+                        ct_root = ct_tree.getroot()
+                        CT_NS = ct_root.tag.replace('Types', '').strip('{}') if ct_root.tag.startswith('{') else ''
+                        has_comments = any('comments.xml' in (e.get('PartName') or '') for e in ct_root)
+                        if not has_comments:
+                            if CT_NS:
+                                override = etree.SubElement(ct_root, f'{{{CT_NS}}}Override')
+                            else:
+                                override = etree.SubElement(ct_root, 'Override')
+                            override.set('PartName', '/word/comments.xml')
+                            override.set('ContentType', 'application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml')
+                            with open(ct_path, 'wb') as f:
+                                f.write(etree.tostring(ct_tree, xml_declaration=True, encoding='UTF-8', standalone='yes'))
+
+                # Write modified document.xml
+                with open(doc_path, 'wb') as f:
+                    f.write(etree.tostring(doc_tree, xml_declaration=True, encoding='UTF-8', standalone='yes'))
+
+                # Repack the docx
+                with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+                    for root_dir, dirs, files in os.walk(temp_dir):
+                        for file in files:
+                            file_path = os.path.join(root_dir, file)
+                            arc_name = os.path.relpath(file_path, temp_dir).replace('\\', '/')
+                            zf.write(file_path, arc_name)
+
+                result['success'] = True
+                _log(f"[lxml-fixes] Done: {fixes_applied} fixes applied, {result['comments_added']} comments added")
+
+        except Exception as e:
+            _log(f"[lxml-fixes] Error: {e}")
+            import traceback
+            _log(traceback.format_exc())
+            result['errors'].append(str(e))
+            if source_path != output_path:
+                shutil.copy2(source_path, output_path)
+
+        return result
+
+    def _lxml_replace_text_in_para(self, para, original_text, replacement_text):
+        """
+        Replace text within a paragraph's <w:t> elements.
+
+        Handles the case where text may be split across multiple <w:r>/<w:t> elements.
+        Returns True if replacement was made.
+        """
+        # Get all text nodes in order
+        text_nodes = para.findall('.//w:t', NAMESPACES)
+        if not text_nodes:
+            return False
+
+        # Build combined text and track positions
+        combined = ''
+        node_map = []  # [(node, start_pos, end_pos)]
+        for t_node in text_nodes:
+            txt = t_node.text or ''
+            start = len(combined)
+            combined += txt
+            node_map.append((t_node, start, start + len(txt)))
+
+        # Find the original text in the combined text
+        idx = combined.find(original_text)
+        if idx == -1:
+            return False
+
+        end_idx = idx + len(original_text)
+
+        # Simple case: text is within a single <w:t> node
+        for t_node, start, end in node_map:
+            if start <= idx and end >= end_idx:
+                # Entire match is within this node
+                txt = t_node.text or ''
+                local_start = idx - start
+                local_end = end_idx - start
+                t_node.text = txt[:local_start] + replacement_text + txt[local_end:]
+                return True
+
+        # Complex case: text spans multiple nodes
+        # Replace in first node, clear in middle nodes, truncate last node
+        replaced = False
+        for t_node, start, end in node_map:
+            if end <= idx:
+                continue  # Before the match
+            if start >= end_idx:
+                break  # After the match
+
+            txt = t_node.text or ''
+
+            if start <= idx and end < end_idx:
+                # First node — keep prefix + replacement
+                local_start = idx - start
+                if not replaced:
+                    t_node.text = txt[:local_start] + replacement_text
+                    replaced = True
+                else:
+                    t_node.text = ''
+            elif start > idx and end <= end_idx:
+                # Middle node — clear entirely
+                t_node.text = ''
+            elif start > idx and end > end_idx:
+                # Last node — keep suffix
+                local_end = end_idx - start
+                t_node.text = txt[local_end:]
+            elif start <= idx and end >= end_idx:
+                # Single node (already handled above)
+                local_start = idx - start
+                local_end = end_idx - start
+                t_node.text = txt[:local_start] + replacement_text + txt[local_end:]
+                replaced = True
+
+        return replaced
+
     def _create_with_lxml(self, source_path: str, output_path: str, issues: List[Dict]) -> bool:
         """
         Fallback: Create marked document using lxml.
@@ -1017,25 +1366,35 @@ class MarkupEngine:
                 # Get all paragraphs and their text
                 paragraphs = doc_root.findall('.//w:p', NAMESPACES)
                 
-                # Create/update comments.xml
+                # Create/update comments.xml — preserve existing comments
                 comments_path = os.path.join(temp_dir, 'word', 'comments.xml')
-                
-                # Start new comments XML with proper namespace declarations
-                COMMENTS_NSMAP = {
-                    'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
-                    'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-                    'mc': 'http://schemas.openxmlformats.org/markup-compatibility/2006',
-                    'w14': 'http://schemas.microsoft.com/office/word/2010/wordml',
-                    'w15': 'http://schemas.microsoft.com/office/word/2012/wordml',
-                }
-                
-                comments_root = etree.Element(
-                    f'{W_NS}comments',
-                    nsmap=COMMENTS_NSMAP
-                )
-                
+
                 comment_id = 0
                 comments_added = 0
+
+                if os.path.exists(comments_path):
+                    # v5.9.4: Parse existing comments to preserve them
+                    existing_tree = etree.parse(comments_path, parser)
+                    comments_root = existing_tree.getroot()
+                    for existing in comments_root:
+                        try:
+                            cid = int(existing.get(f'{W_NS}id', '0'))
+                            comment_id = max(comment_id, cid + 1)
+                        except (ValueError, TypeError):
+                            pass
+                    _log(f"[MarkupEngine] lxml: Preserving {comment_id} existing comments")
+                else:
+                    COMMENTS_NSMAP = {
+                        'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
+                        'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+                        'mc': 'http://schemas.openxmlformats.org/markup-compatibility/2006',
+                        'w14': 'http://schemas.microsoft.com/office/word/2010/wordml',
+                        'w15': 'http://schemas.microsoft.com/office/word/2012/wordml',
+                    }
+                    comments_root = etree.Element(
+                        f'{W_NS}comments',
+                        nsmap=COMMENTS_NSMAP
+                    )
                 
                 for issue in issues:
                     # Find matching paragraph

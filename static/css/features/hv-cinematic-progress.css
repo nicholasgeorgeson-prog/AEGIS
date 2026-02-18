@@ -871,3 +871,11 @@
         overflow-y: auto;
     }
 }
+
+/* ===== ACCESSIBILITY ===== */
+@media (prefers-reduced-motion: reduce) {
+    [class*="hvcp-"] {
+        animation: none !important;
+        transition-duration: 0.01ms !important;
+    }
+}

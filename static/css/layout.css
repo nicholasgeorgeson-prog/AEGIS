@@ -157,11 +157,14 @@
 }
 
 /* App container adjusts for top nav */
-.app-container { 
-    display: flex; 
-    height: calc(100vh - 48px); 
+/* v5.9.18: position:relative + z-index:1 ensures app renders above the particle canvas (z-index:0) */
+.app-container {
+    display: flex;
+    height: calc(100vh - 48px);
     margin-top: 48px;
-    overflow: hidden; 
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
 }
 
 .sidebar { width: var(--sidebar-width); min-width: var(--sidebar-width); background: var(--bg-primary); border-right: 1px solid var(--border-default); display: flex; flex-direction: column; overflow: hidden; }
@@ -1415,7 +1418,7 @@ kbd { background: var(--bg-elevated); border: 1px solid var(--border-default); b
     width: 16px;
     height: 16px;
     color: var(--accent);
-    filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.3));
+    filter: drop-shadow(0 0 4px rgba(155, 123, 28, 0.3));
 }
 .panel-subtitle {
     font-size: 11px;
@@ -1557,7 +1560,7 @@ kbd { background: var(--bg-elevated); border: 1px solid var(--border-default); b
     justify-content: center;
     gap: var(--space-4);
     padding: var(--space-3);
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(34, 197, 94, 0.05) 100%);
+    background: linear-gradient(135deg, rgba(155, 123, 28, 0.05) 0%, rgba(34, 197, 94, 0.05) 100%);
     border-radius: var(--radius-lg);
     border: 1px solid var(--border-default);
     flex-shrink: 0;
@@ -1763,10 +1766,10 @@ kbd { background: var(--bg-elevated); border: 1px solid var(--border-default); b
     transform: scaleY(1);
 }
 .fix-item.selected {
-    background: rgba(59, 130, 246, 0.1);
+    background: rgba(155, 123, 28, 0.1);
     border-color: var(--accent);
     transform: translateX(6px);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    box-shadow: 0 4px 12px rgba(155, 123, 28, 0.15);
 }
 .fix-item.selected::before {
     transform: scaleY(1);
@@ -1914,7 +1917,7 @@ kbd { background: var(--bg-elevated); border: 1px solid var(--border-default); b
     transform: translateX(4px);
 }
 .fix-item.selected {
-    background: rgba(59, 130, 246, 0.15);
+    background: rgba(155, 123, 28, 0.15);
     border-left: 3px solid var(--accent);
     transform: translateX(4px);
 }
@@ -1983,8 +1986,8 @@ kbd { background: var(--bg-elevated); border: 1px solid var(--border-default); b
 
 /* Highlight pulse animation */
 @keyframes highlight-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
-    50% { box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(155, 123, 28, 0); }
+    50% { box-shadow: 0 0 0 4px rgba(155, 123, 28, 0.3); }
 }
 .highlight-pulse {
     animation: highlight-pulse 0.5s ease 3;
@@ -2059,10 +2062,10 @@ kbd { background: var(--bg-elevated); border: 1px solid var(--border-default); b
     height: 16px;
     border-radius: var(--radius-sm);
 }
-.legend-color.correlation-none { background: #f3f4f6; }
-.legend-color.correlation-low { background: #dbeafe; }
-.legend-color.correlation-medium { background: #93c5fd; }
-.legend-color.correlation-high { background: #3b82f6; }
+.legend-color.correlation-none { background: #e8e2d8; }
+.legend-color.correlation-low { background: #e4d5a8; }
+.legend-color.correlation-medium { background: #D6A84A; }
+.legend-color.correlation-high { background: #9b7b1c; }
 .dark-mode .legend-color.correlation-none { background: #374151; }
 .dark-mode .legend-color.correlation-low { background: #1e3a5f; }
 .dark-mode .legend-color.correlation-medium { background: #1e40af; }
@@ -2345,3 +2348,4 @@ kbd { background: var(--bg-elevated); border: 1px solid var(--border-default); b
 @media (max-width: 500px) {
     .shortcuts-grid { grid-template-columns: 1fr; }
 }
+

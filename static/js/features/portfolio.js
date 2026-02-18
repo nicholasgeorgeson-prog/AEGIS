@@ -671,6 +671,7 @@ window.Portfolio = (function() {
 
         try {
             const response = await fetch(`/api/portfolio/document/${scanId}/preview`);
+            if (!response.ok) throw new Error(`Preview fetch failed: ${response.status}`);
             const data = await response.json();
 
             if (!data.success) {

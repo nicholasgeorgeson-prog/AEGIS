@@ -142,53 +142,8 @@
             }
         });
         
-        // ============================================================
-        // btn-export-roles-report - Roles Modal: Export report
-        // ============================================================
-        document.getElementById('btn-export-roles-report')?.addEventListener('click', async () => {
-            console.log('[TWR] btn-export-roles-report clicked');
-            
-            // Check if we have roles data
-            if (typeof State === 'undefined' || !State.results || !State.results.roles) {
-                if (typeof toast === 'function') {
-                    toast('warning', 'No roles data to export. Run a review first.');
-                }
-                return;
-            }
-            
-            try {
-                const result = await api('/roles/export', 'POST', {
-                    format: 'csv',
-                    roles: State.results.roles
-                });
-                
-                if (result && result.success && result.data) {
-                    // Download the file
-                    const blob = new Blob([result.data], { type: 'text/csv' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `roles_report_${new Date().toISOString().slice(0,10)}.csv`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                    
-                    if (typeof toast === 'function') {
-                        toast('success', 'Roles report exported');
-                    }
-                } else {
-                    if (typeof toast === 'function') {
-                        toast('error', result?.error || 'Export failed');
-                    }
-                }
-            } catch (e) {
-                console.error('[TWR] Export roles error:', e);
-                if (typeof toast === 'function') {
-                    toast('error', 'Error exporting roles');
-                }
-            }
-        });
+        // btn-export-roles-report — REMOVED v5.9.1: now toggles a dropdown menu
+        // handled by roles-tabs-fix.js initOverviewExportDropdown()
         
         // ============================================================
         // btn-prev-issue / btn-next-issue - Issue Detail Modal Navigation

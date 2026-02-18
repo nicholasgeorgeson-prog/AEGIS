@@ -416,6 +416,85 @@ def get_role_graph():
         else:
             graph_data = db.get_role_graph_data(max_nodes, min_weight)
         return jsonify({'success': True, 'data': graph_data})
+
+
+@roles_bp.route('/api/roles/graph-export-html', methods=['GET'])
+@handle_api_errors
+def export_graph_html():
+    """
+    v5.9.16: Export the role relationship graph as a standalone interactive HTML file.
+    Includes embedded D3.js, pan/zoom, search, and filter by function/role type.
+    """
+    if not _shared.SCAN_HISTORY_AVAILABLE:
+        return jsonify({'success': False, 'error': 'Graph data not available'})
+
+    db = get_scan_history_db()
+    graph_data = db.get_role_graph_data(max_nodes=500, min_weight=1)
+
+    # Get role dictionary for enrichment
+    dictionary = db.get_role_dictionary(include_inactive=False)
+    role_lookup = {}
+    for r in dictionary:
+        rn = r.get('role_name', '').lower().strip()
+        role_lookup[rn] = {
+            'role_type': r.get('role_type', ''),
+            'category': r.get('category', ''),
+            'is_deliverable': r.get('is_deliverable', False),
+            'org_group': r.get('org_group', ''),
+            'description': r.get('description', '')
+        }
+
+    # Get function tags
+    with db.connection() as (conn, cursor):
+        cursor.execute('''
+            SELECT rft.role_name, rft.function_code,
+                   fc.name as function_name, fc.color as function_color
+            FROM role_function_tags rft
+            LEFT JOIN function_categories fc ON fc.code = rft.function_code
+        ''')
+        tag_rows = cursor.fetchall()
+        tag_lookup = {}
+        for tr in tag_rows:
+            rn = tr['role_name'].lower().strip()
+            if rn not in tag_lookup:
+                tag_lookup[rn] = []
+            tag_lookup[rn].append({
+                'code': tr['function_code'],
+                'name': tr['function_name'] or tr['function_code'],
+                'color': tr['function_color'] or '#3b82f6'
+            })
+
+    # Enrich nodes with role metadata
+    for node in graph_data.get('nodes', []):
+        if node.get('type') == 'role':
+            rn = node.get('name', '').lower().strip()
+            meta = role_lookup.get(rn, {})
+            node['role_type'] = meta.get('role_type', '')
+            node['category'] = meta.get('category', '')
+            node['is_deliverable'] = meta.get('is_deliverable', False)
+            node['org_group'] = meta.get('org_group', '')
+            node['description'] = meta.get('description', '')
+            node['function_tags'] = tag_lookup.get(rn, [])
+
+    from graph_export_html import generate_graph_html
+    from config_logging import get_version
+
+    html_content = generate_graph_html(
+        graph_data=graph_data,
+        metadata={
+            'version': get_version(),
+            'export_date': datetime.now(timezone.utc).isoformat(),
+            'hostname': socket.gethostname()
+        }
+    )
+
+    response = make_response(html_content)
+    response.headers['Content-Type'] = 'text/html; charset=utf-8'
+    date_str = datetime.now().strftime('%Y-%m-%d')
+    response.headers['Content-Disposition'] = f'attachment; filename=AEGIS_Graph_{date_str}.html'
+    return response
+
+
 @roles_bp.route('/api/roles/adjudicate', methods=['POST'])
 @require_csrf
 @handle_api_errors

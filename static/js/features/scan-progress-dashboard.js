@@ -126,9 +126,13 @@ TWR.ScanProgress = (function() {
         if (!overlay || idx < 0 || idx >= STEPS.length) return;
         if (idx === state.currentStepIdx) return;
 
-        // Complete previous step
+        // v5.9.4: Complete ALL steps between current and target (not just the previous one)
+        // This prevents intermediate steps from appearing "skipped" when the backend
+        // jumps phases (e.g., upload → checking skips extract and parse).
         if (state.currentStepIdx >= 0) {
-            completeStep(state.currentStepIdx);
+            for (let i = state.currentStepIdx; i < idx; i++) {
+                completeStep(i);
+            }
         }
 
         state.currentStepIdx = idx;

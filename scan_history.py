@@ -294,13 +294,18 @@ class ScanHistoryDB:
                 )
             ''')
 
-        # v5.0.5: Ensure roles table has role_source column (migration for older databases)
+        # v5.9.2: Robust migration — check column exists before ALTER TABLE
         try:
             with self.connection() as (conn, cursor):
-                cursor.execute("ALTER TABLE roles ADD COLUMN role_source TEXT DEFAULT 'discovered'")
+                cursor.execute("PRAGMA table_info(roles)")
+                columns = [row[1] for row in cursor.fetchall()]
+                if 'role_source' not in columns:
+                    cursor.execute("ALTER TABLE roles ADD COLUMN role_source TEXT DEFAULT 'discovered'")
+                    _log('Migration: added role_source column to roles table')
+                else:
+                    _log('Migration: role_source column already exists in roles table')
         except Exception as e:
-            if 'duplicate column' not in str(e).lower():
-                logger.warning(f'Migration: could not add role_source to roles: {e}')
+            _log(f'Migration: could not verify/add role_source to roles: {e}', 'warning')
 
         self._create_table_safe('role_dictionary', '''
                 CREATE TABLE IF NOT EXISTS role_dictionary (
@@ -345,7 +350,7 @@ class ScanHistoryDB:
                     cursor.execute(f'ALTER TABLE role_dictionary ADD COLUMN {col_name} {col_type}')
             except Exception as e:
                 if 'duplicate column' not in str(e).lower():
-                    logger.warning(f'Migration: could not add column {col_name}: {e}')
+                    _log(f'Migration: could not add column {col_name}: {e}', 'warning')
 
         self._create_table_safe('document_roles', '''
                 CREATE TABLE IF NOT EXISTS document_roles (
@@ -529,7 +534,7 @@ class ScanHistoryDB:
                     cursor.execute(f'ALTER TABLE scan_statements ADD COLUMN {col_name} {col_type}')
             except Exception as e:
                 if 'duplicate column' not in str(e).lower():
-                    logger.warning(f'Migration: could not add {col_name} to scan_statements: {e}')
+                    _log(f'Migration: could not add {col_name} to scan_statements: {e}', 'warning')
 
         # Seed function categories if empty (in its own transaction)
         self._seed_function_categories()
@@ -650,7 +655,7 @@ class ScanHistoryDB:
             with open(filepath, 'rb') as f:
                 return hashlib.md5(f.read()).hexdigest()
         except Exception as e:
-            logger.warning(f'Could not hash file {filepath}: {e}')
+            _log(f'Could not hash file {filepath}: {e}', 'warning')
             return ""
     
     def record_scan(self, filename: str, filepath: str, results: Dict, options: Dict) -> Dict:
@@ -1864,7 +1869,7 @@ class ScanHistoryDB:
                 cursor.execute("SELECT COUNT(*) FROM role_relationships WHERE relationship_type = 'inherits-from'")
                 rel_count = cursor.fetchone()[0]
             except Exception as e:
-                logger.debug(f'role_relationships table query failed (may not exist yet): {e}')
+                _log(f'role_relationships table query failed (may not exist yet): {e}')
                 rel_count = 0
 
             if rel_count == 0:
@@ -1873,7 +1878,7 @@ class ScanHistoryDB:
                     cursor.execute('SELECT COUNT(*) FROM function_categories')
                     fc_count = cursor.fetchone()[0]
                 except Exception as e:
-                    logger.debug(f'function_categories table query failed: {e}')
+                    _log(f'function_categories table query failed: {e}')
                     fc_count = 0
                 if fc_count > 0:
                     return self._get_role_hierarchy_by_function_tags()
@@ -1943,7 +1948,7 @@ class ScanHistoryDB:
                         role_info[rname]['dict_category'] = row[1] or ''
                         role_info[rname]['description'] = row[3] or ''
             except Exception as e:
-                logger.warning(f'Hierarchy enrichment from dictionary failed: {e}')
+                _log(f'Hierarchy enrichment from dictionary failed: {e}', 'warning')
 
             # Roots = roles that appear as parents but never as children
             roots_set = all_role_names - set(parent_of.keys())
@@ -2404,7 +2409,7 @@ class ScanHistoryDB:
                                 ''', (rid_row[0], rname, code_to_assign, created_by))
                                 tags_assigned += cursor.rowcount
                             except Exception as e:
-                                logger.warning(f'SIPOC: Failed to assign tag {code_to_assign} to {rname}: {e}')
+                                _log(f'SIPOC: Failed to assign tag {code_to_assign} to {rname}: {e}', 'warning')
 
             # Import relationships
             for rel in parsed.get('relationships', []):
@@ -2853,8 +2858,251 @@ class ScanHistoryDB:
             return {'success': success, 'deleted': success}
         except Exception as e:
             return {'success': False, 'error': str(e)}
-    
-    def import_roles_to_dictionary(self, roles: List[Dict], source: str, 
+
+    def get_role_by_name(self, role_name: str) -> Optional[Dict]:
+        """Get a role from the dictionary by name (case-insensitive)."""
+        normalized = role_name.lower().strip()
+        try:
+            with self.connection() as (conn, cursor):
+                cursor.execute('''
+                    SELECT id, role_name, normalized_name, aliases, category, source,
+                           source_document, description, is_active, is_deliverable,
+                           created_at, created_by, updated_at, updated_by, notes,
+                           role_type, role_disposition, org_group, hierarchy_level, baselined
+                    FROM role_dictionary
+                    WHERE normalized_name = ?
+                ''', (normalized,))
+                row = cursor.fetchone()
+                if row:
+                    cols = [desc[0] for desc in cursor.description]
+                    return dict(zip(cols, row))
+                return None
+        except Exception as e:
+            _log(f'Error getting role by name "{role_name}": {e}', 'error')
+            return None
+
+    def batch_adjudicate(self, decisions: List[Dict]) -> Dict:
+        """Batch adjudicate multiple roles in a single transaction.
+
+        Each decision: {role_name, action, category?, notes?, function_tags?[],
+                        role_type?, role_disposition?, org_group?, hierarchy_level?,
+                        baselined?, aliases?, new_role_name?}
+        """
+        processed = 0
+        errors = []
+        results = []
+
+        try:
+            with self.connection() as (conn, cursor):
+                for decision in decisions:
+                    role_name = decision.get('role_name', '').strip()
+                    action = decision.get('action', 'confirmed')
+
+                    if not role_name:
+                        errors.append({'role_name': '', 'error': 'Missing role_name'})
+                        continue
+
+                    normalized = role_name.lower().strip()
+                    is_active = 1 if action != 'rejected' else 0
+                    is_deliverable = 1 if action == 'deliverable' else 0
+
+                    try:
+                        # Check if role exists
+                        cursor.execute(
+                            'SELECT id FROM role_dictionary WHERE normalized_name = ?',
+                            (normalized,)
+                        )
+                        existing = cursor.fetchone()
+
+                        if existing:
+                            role_id = existing[0]
+                            # Build dynamic update
+                            updates = ['is_active = ?', 'is_deliverable = ?',
+                                       'source = ?', 'updated_at = CURRENT_TIMESTAMP',
+                                       'updated_by = ?']
+                            values = [is_active, is_deliverable, 'adjudication',
+                                      'batch_adjudication']
+
+                            if decision.get('category'):
+                                updates.append('category = ?')
+                                values.append(decision['category'])
+                            if decision.get('notes'):
+                                updates.append('notes = ?')
+                                values.append(decision['notes'])
+                            if decision.get('role_type'):
+                                updates.append('role_type = ?')
+                                values.append(decision['role_type'])
+                            if decision.get('role_disposition'):
+                                updates.append('role_disposition = ?')
+                                values.append(decision['role_disposition'])
+                            if decision.get('org_group'):
+                                updates.append('org_group = ?')
+                                values.append(decision['org_group'])
+                            if decision.get('hierarchy_level'):
+                                updates.append('hierarchy_level = ?')
+                                values.append(decision['hierarchy_level'])
+                            if 'baselined' in decision:
+                                updates.append('baselined = ?')
+                                values.append(1 if decision['baselined'] else 0)
+                            if decision.get('aliases'):
+                                aliases = decision['aliases']
+                                if isinstance(aliases, list):
+                                    aliases = json.dumps(aliases)
+                                updates.append('aliases = ?')
+                                values.append(aliases)
+                            if decision.get('new_role_name'):
+                                new_name = decision['new_role_name'].strip()
+                                updates.append('role_name = ?')
+                                values.append(new_name)
+                                updates.append('normalized_name = ?')
+                                values.append(new_name.lower().strip())
+
+                            values.append(role_id)
+                            cursor.execute(
+                                f'UPDATE role_dictionary SET {", ".join(updates)} WHERE id = ?',
+                                values
+                            )
+                        else:
+                            # Insert new role
+                            category = decision.get('category', 'Role')
+                            notes = decision.get('notes', f'Batch adjudicated as {action}')
+                            cursor.execute('''
+                                INSERT INTO role_dictionary
+                                    (role_name, normalized_name, category, source,
+                                     is_active, is_deliverable, created_by, notes)
+                                VALUES (?, ?, ?, 'adjudication', ?, ?, 'batch_adjudication', ?)
+                            ''', (role_name, normalized, category,
+                                  is_active, is_deliverable, notes))
+                            role_id = cursor.lastrowid
+
+                        # Handle function tags
+                        for tag_code in decision.get('function_tags', []):
+                            try:
+                                cursor.execute('''
+                                    INSERT OR IGNORE INTO role_function_tags
+                                        (role_id, role_name, function_code, assigned_by)
+                                    VALUES (?, ?, ?, 'batch_adjudication')
+                                ''', (role_id, role_name, tag_code.strip().upper()))
+                            except Exception:
+                                pass
+
+                        processed += 1
+                        results.append({
+                            'role_name': role_name,
+                            'action': action,
+                            'role_id': role_id,
+                            'is_new': existing is None
+                        })
+
+                    except Exception as e:
+                        errors.append({'role_name': role_name, 'error': str(e)})
+
+        except Exception as e:
+            _log(f'Batch adjudicate error: {e}', 'error')
+            return {'processed': 0, 'total': len(decisions),
+                    'errors': [{'error': str(e)}], 'results': []}
+
+        return {
+            'processed': processed,
+            'total': len(decisions),
+            'errors': errors,
+            'results': results
+        }
+
+    def get_adjudication_summary(self) -> Dict:
+        """Get adjudication statistics and breakdown."""
+        try:
+            with self.connection() as (conn, cursor):
+                # Total roles
+                cursor.execute('SELECT COUNT(*) FROM role_dictionary')
+                total = cursor.fetchone()[0]
+
+                # Active roles
+                cursor.execute('SELECT COUNT(*) FROM role_dictionary WHERE is_active = 1')
+                active = cursor.fetchone()[0]
+
+                # Inactive/rejected roles
+                inactive = total - active
+
+                # Deliverables
+                cursor.execute('SELECT COUNT(*) FROM role_dictionary WHERE is_deliverable = 1')
+                deliverables = cursor.fetchone()[0]
+
+                # Adjudicated (source = 'adjudication')
+                cursor.execute(
+                    "SELECT COUNT(*) FROM role_dictionary WHERE source = 'adjudication'"
+                )
+                adjudicated = cursor.fetchone()[0]
+
+                # By category
+                cursor.execute('''
+                    SELECT category, COUNT(*) as cnt
+                    FROM role_dictionary WHERE is_active = 1
+                    GROUP BY category ORDER BY cnt DESC
+                ''')
+                by_category = {row[0] or 'Uncategorized': row[1]
+                               for row in cursor.fetchall()}
+
+                # By source
+                cursor.execute('''
+                    SELECT source, COUNT(*) as cnt
+                    FROM role_dictionary
+                    GROUP BY source ORDER BY cnt DESC
+                ''')
+                by_source = {row[0] or 'unknown': row[1]
+                             for row in cursor.fetchall()}
+
+                # By disposition
+                cursor.execute('''
+                    SELECT role_disposition, COUNT(*) as cnt
+                    FROM role_dictionary WHERE is_active = 1 AND role_disposition != ''
+                    GROUP BY role_disposition ORDER BY cnt DESC
+                ''')
+                by_disposition = {row[0]: row[1] for row in cursor.fetchall()}
+
+                # Recent activity (last 10 adjudicated)
+                cursor.execute('''
+                    SELECT role_name, category, is_deliverable, updated_at
+                    FROM role_dictionary
+                    WHERE source = 'adjudication'
+                    ORDER BY updated_at DESC LIMIT 10
+                ''')
+                recent = [{
+                    'role_name': row[0],
+                    'category': row[1],
+                    'is_deliverable': bool(row[2]),
+                    'updated_at': row[3]
+                } for row in cursor.fetchall()]
+
+                # Baselined count
+                cursor.execute(
+                    'SELECT COUNT(*) FROM role_dictionary WHERE baselined = 1'
+                )
+                baselined = cursor.fetchone()[0]
+
+                return {
+                    'total_roles': total,
+                    'active_roles': active,
+                    'inactive_roles': inactive,
+                    'deliverables': deliverables,
+                    'adjudicated': adjudicated,
+                    'baselined': baselined,
+                    'pending': total - adjudicated,
+                    'by_category': by_category,
+                    'by_source': by_source,
+                    'by_disposition': by_disposition,
+                    'recent_activity': recent
+                }
+        except Exception as e:
+            _log(f'Error getting adjudication summary: {e}', 'error')
+            return {
+                'total_roles': 0, 'active_roles': 0, 'inactive_roles': 0,
+                'deliverables': 0, 'adjudicated': 0, 'baselined': 0,
+                'pending': 0, 'by_category': {}, 'by_source': {},
+                'by_disposition': {}, 'recent_activity': []
+            }
+
+    def import_roles_to_dictionary(self, roles: List[Dict], source: str,
                                    source_document: str = None,
                                    created_by: str = 'import') -> Dict:
         """
@@ -2921,7 +3169,7 @@ class ScanHistoryDB:
                         aliases = json.loads(row[1])
                         role_names.extend(aliases)
                     except Exception as e:
-                        logger.debug(f'Could not parse aliases JSON for role {row[0]}: {e}')
+                        _log(f'Could not parse aliases JSON for role {row[0]}: {e}')
 
         return role_names
     
@@ -4346,7 +4594,7 @@ class ScanHistoryDB:
             roles = self.get_role_dictionary(include_inactive=True)
             status['database']['role_count'] = len(roles)
         except Exception as e:
-            logger.warning(f'Could not count dictionary roles for status: {e}')
+            _log(f'Could not count dictionary roles for status: {e}', 'warning')
         
         # Check master file
         if paths['master'].exists():

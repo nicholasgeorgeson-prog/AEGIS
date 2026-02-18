@@ -685,7 +685,9 @@ def categorize_domain(url: str) -> str:
         'educational': ['.edu'],
         'commercial': ['.com', '.co', '.biz', '.io', '.tech', '.net'],
         'organization': ['.org'],
-        'internal': ['sharepoint.com', 'sharepoint', 'intranet', 'internal', 'localhost'],
+        'internal': ['sharepoint.com', 'sharepoint.us', 'sharepoint',
+                     'intranet', 'internal', 'localhost',
+                     'myngc.com', 'northgrum.com', 'northropgrumman.com'],
     }
 
     try:

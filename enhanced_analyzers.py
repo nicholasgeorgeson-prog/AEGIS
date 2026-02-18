@@ -118,31 +118,40 @@ class SemanticAnalyzerChecker(BaseChecker):
             texts = [text for _, text in substantial]
             indices = [idx for idx, _ in substantial]
 
-            # Find duplicates
-            duplicates = self._analyzer.find_duplicates(
+            # Find duplicates — returns List[DuplicateGroup] dataclasses
+            # v5.9.0: Fixed wrapper to iterate DuplicateGroup objects directly
+            # (was calling .get() dict method on list, silently failing)
+            dup_groups = self._analyzer.find_duplicates(
                 texts,
                 threshold=self.similarity_threshold
             )
 
-            for dup in duplicates.get('duplicates', []):
-                idx1 = dup.get('index1', 0)
-                idx2 = dup.get('index2', 0)
-                similarity = dup.get('similarity', 0)
+            for group in dup_groups:
+                # DuplicateGroup has: .indices (list of original indices),
+                # .sentences (list of texts), .similarity_score (float)
+                group_indices = group.indices
+                similarity = group.similarity_score
 
-                if idx1 < len(indices) and idx2 < len(indices):
-                    para_idx1 = indices[idx1]
-                    para_idx2 = indices[idx2]
-                    text1 = texts[idx1][:100] + '...' if len(texts[idx1]) > 100 else texts[idx1]
+                # Report each pair in the group (first vs others)
+                if len(group_indices) >= 2:
+                    for k in range(1, len(group_indices)):
+                        idx1 = group_indices[0]
+                        idx2 = group_indices[k]
 
-                    issues.append(self.create_issue(
-                        severity='Medium',
-                        message=f'Potentially duplicate content detected ({similarity:.0%} similar to paragraph {para_idx2})',
-                        context=text1,
-                        paragraph_index=para_idx1,
-                        suggestion='Review for redundancy and consider consolidating',
-                        rule_id='SEMANTIC_DUP_001',
-                        flagged_text=text1
-                    ))
+                        if idx1 < len(indices) and idx2 < len(indices):
+                            para_idx1 = indices[idx1]
+                            para_idx2 = indices[idx2]
+                            text1 = texts[idx1][:100] + '...' if len(texts[idx1]) > 100 else texts[idx1]
+
+                            issues.append(self.create_issue(
+                                severity='Medium',
+                                message=f'Potentially duplicate content detected ({similarity:.0%} similar to paragraph {para_idx2})',
+                                context=text1,
+                                paragraph_index=para_idx1,
+                                suggestion='Review for redundancy and consider consolidating',
+                                rule_id='SEMANTIC_DUP_001',
+                                flagged_text=text1
+                            ))
 
         except Exception as e:
             self._errors.append(f"Semantic analysis error: {e}")

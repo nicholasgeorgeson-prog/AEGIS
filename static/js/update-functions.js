@@ -10,30 +10,38 @@
 // Override the broken checkForUpdates function
 window.checkForUpdates = async function() {
     console.log('[TWR] checkForUpdates called');
-    
+
     // Get the UI elements from index.html
     const checkingDiv = document.getElementById('update-checking');
     const noUpdatesDiv = document.getElementById('no-updates');
     const updatesAvailableDiv = document.getElementById('updates-available');
     const updateCountSpan = document.getElementById('update-count');
     const updateListDiv = document.getElementById('update-list');
-    
+
     // Also support the legacy update-status div if it exists
     const legacyStatusDiv = document.getElementById('update-status');
-    
+
     // Show checking state
     if (checkingDiv) checkingDiv.style.display = 'flex';
     if (noUpdatesDiv) noUpdatesDiv.style.display = 'none';
     if (updatesAvailableDiv) updatesAvailableDiv.style.display = 'none';
-    
+
     if (legacyStatusDiv) {
         legacyStatusDiv.innerHTML = '<p><i data-lucide="loader" class="spin"></i> Checking for updates...</p>';
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
-    
+
     try {
         console.log('[TWR] Calling /api/updates/check...');
-        const result = await api('/updates/check', 'GET');
+        // v4.9.9: Add 10-second timeout to prevent infinite spinner
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        let result;
+        try {
+            result = await api('/updates/check', 'GET', null, { signal: controller.signal });
+        } finally {
+            clearTimeout(timeoutId);
+        }
         console.log('[TWR] Update check result:', result);
         
         // Hide checking state
@@ -121,20 +129,26 @@ window.checkForUpdates = async function() {
         }
     } catch (e) {
         console.error('[TWR] Update check error:', e);
-        
+
         if (checkingDiv) checkingDiv.style.display = 'none';
+
+        const isTimeout = e.name === 'AbortError';
+        const msg = isTimeout
+            ? 'Update check timed out. The updates folder may be large or unreachable.'
+            : 'Could not check for updates.';
+
         if (noUpdatesDiv) {
             noUpdatesDiv.style.display = 'flex';
             const pEl = noUpdatesDiv.querySelector('p:first-of-type');
-            if (pEl) pEl.textContent = 'Error checking for updates';
+            if (pEl) pEl.textContent = msg;
         }
-        
+
         if (legacyStatusDiv) {
-            legacyStatusDiv.innerHTML = '<p style="color: var(--warning);">Could not check for updates.</p>';
+            legacyStatusDiv.innerHTML = `<p style="color: var(--warning);">${msg}</p>`;
         }
-        
+
         if (typeof toast === 'function') {
-            toast('error', 'Error checking for updates: ' + e.message);
+            toast('warning', msg);
         }
     }
 };

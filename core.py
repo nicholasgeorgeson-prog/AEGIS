@@ -2586,11 +2586,11 @@ class AEGISEngine:
     def _calculate_score(self) -> int:
         """
         Calculate document quality score.
-        
+
         v2.9.4: Rebalanced scoring algorithm to be more realistic and useful.
-        Previous algorithm was too harsh, giving nearly 0 scores to most documents.
-        
-        New scoring philosophy:
+        v5.9.0: Added category concentration discount and early-document position weight.
+
+        Scoring philosophy:
         - 90-100: Excellent (very few minor issues)
         - 70-89:  Good (some issues, nothing critical)
         - 50-69:  Needs Work (multiple issues, some high severity)
@@ -2599,7 +2599,7 @@ class AEGISEngine:
         """
         if not self.issues:
             return 100
-        
+
         # Reduced severity weights for more forgiving scores
         weights = {
             'Critical': 15,  # Was 25
@@ -2608,47 +2608,90 @@ class AEGISEngine:
             'Low': 0.5,      # Was 2
             'Info': 0.1      # Was 0.5
         }
-        
-        total_deduction = sum(weights.get(issue.get('severity', 'Low'), 0.5) for issue in self.issues)
-        
-        # Logarithmic scale for gradual decrease
-        # This prevents scores from immediately dropping to 0
+
         import math
-        
+        from collections import Counter
+
+        # v5.9.0: Category concentration discount — 10 issues of the same type
+        # should count less than 10 issues across diverse categories.
+        # Group issues by normalized category, apply diminishing returns per group.
+        cat_groups = Counter()
+        for issue in self.issues:
+            raw_cat = issue.get('category', 'unknown').lower()
+            norm_cat = self._CATEGORY_NORM.get(raw_cat, raw_cat)
+            cat_groups[norm_cat] += 1
+
+        # Calculate effective deduction with concentration discount
+        total_deduction = 0
+        cat_issue_map = {}  # norm_cat -> list of issues
+        for issue in self.issues:
+            raw_cat = issue.get('category', 'unknown').lower()
+            norm_cat = self._CATEGORY_NORM.get(raw_cat, raw_cat)
+            cat_issue_map.setdefault(norm_cat, []).append(issue)
+
+        for norm_cat, cat_issues in cat_issue_map.items():
+            for i, issue in enumerate(cat_issues):
+                base_weight = weights.get(issue.get('severity', 'Low'), 0.5)
+                # Diminishing returns: 1st issue of a category = full weight,
+                # 2nd = 80%, 3rd = 65%, etc. via 1/ln(i+2)
+                concentration_factor = 1.0 / math.log(i + 2) if i > 0 else 1.0
+                total_deduction += base_weight * concentration_factor
+
         # Normalize by issue count to prevent large documents from being unfairly penalized
-        # More issues = larger denominator = less impact per issue
         issue_count = len(self.issues)
         if issue_count > 20:
-            # Large docs: use diminishing returns
             normalized_deduction = total_deduction / math.log10(issue_count + 1)
         else:
             normalized_deduction = total_deduction
-        
+
         # Cap maximum deduction and apply gradual scaling
-        # Every 20 points of normalized deduction = -10 score
-        # Max deduction capped at 80 (minimum score of 20 unless truly terrible)
         deduction = min(80, normalized_deduction / 2)
-        
+
         score = max(0, min(100, int(100 - deduction)))
-        
+
         return score
     
     # v5.8.0: Category normalization map for cross-checker deduplication.
     # Multiple checkers flag the same underlying issue under different category names.
     # This map groups semantically equivalent categories so dedup catches them.
     _CATEGORY_NORM = {
-        # Requirement ID / traceability — flagged by Requirement Traceability AND INCOSE
+        # v5.9.0: Expanded from 8 to 22 entries. Groups semantically equivalent
+        # categories so cross-checker duplicates are caught by dedup.
+
+        # Requirement ID / traceability — Requirement Traceability, INCOSE, Requirements Analysis
         'requirement traceability': 'req_traceability',
         'incose compliance': 'req_traceability',
-        # Acronym issues — flagged by Acronyms checker AND Keyword Extraction
+        'requirements analysis': 'req_traceability',
+        # Acronym issues — Acronyms, Enhanced Acronyms, Acronym First-Use, Keyword Extraction
         'acronyms': 'acronyms',
+        'enhanced acronyms': 'acronyms',
+        'acronym first-use enforcement': 'acronyms',
+        'acronym multiple definition': 'acronyms',
         'keyword extraction': 'acronyms',
-        # Vague/ambiguous scope — flagged by Vague Quantifier AND Ambiguous Scope
+        # Vague/ambiguous scope — Vague Quantifier, Ambiguous Scope, Quantifier Precision
         'vague quantifier': 'vague_scope',
         'ambiguous scope': 'vague_scope',
-        # Testability — flagged by requirements checker AND Verification Method
+        'quantifier precision': 'vague_scope',
+        # Testability — requirements checker, Verification Method
         'requirements': 'testability',
         'verification method': 'testability',
+        # Passive voice — Passive Voice, Enhanced Passive Voice
+        'passive voice': 'passive_voice',
+        'enhanced passive voice': 'passive_voice',
+        # Grammar — Grammar, Grammar (Comprehensive)
+        'grammar': 'grammar',
+        'grammar (comprehensive)': 'grammar',
+        # Spelling — Spelling, Spelling (Enhanced)
+        'spelling': 'spelling',
+        'spelling (enhanced)': 'spelling',
+        # References — Cross-Reference Validation, Unresolved Cross-Reference
+        'cross-reference validation': 'cross_references',
+        'cross-reference target validator': 'cross_references',
+        'unresolved cross-reference': 'cross_references',
+        # Style/Prose — Style (Professional), Prose Quality, Advanced Prose Lint
+        'style (professional)': 'prose_style',
+        'prose quality': 'prose_style',
+        'advanced prose lint': 'prose_style',
     }
 
     def _deduplicate_issues(self, issues: List[Dict]) -> List[Dict]:
@@ -3044,9 +3087,46 @@ class AEGISEngine:
         return checkers
 
 
+def get_checker_count():
+    """
+    v5.9.5: Get the total number of quality checkers available for review.
+
+    Counts checkers from three sources:
+    1. option_mapping in review_document() — UI-controlled checkers (non-None values)
+    2. additional_checkers — always-on checkers without UI toggles
+    3. NLP package checkers — loaded separately via nlp.get_available_checkers()
+
+    This function counts without instantiating AEGISEngine (which is expensive).
+    It returns the MAXIMUM possible count — actual runtime count depends on
+    which optional dependencies are installed.
+
+    Returns:
+        int: Total number of quality checkers
+    """
+    # Count from option_mapping (non-None values)
+    # This must stay in sync with review_document()'s option_mapping dict
+    option_mapping_checkers = 96  # 96 non-None entries as of v5.9.4
+
+    # Count from additional_checkers list
+    # These are always-on checkers without UI toggle controls
+    additional_count = 9  # redundancy, hedging, weasel_words, cliches, mil_std, do178,
+                          # accessibility, directive_verb_consistency, unresolved_cross_reference
+
+    # Count NLP package checkers (loaded separately, run in NLP phase)
+    nlp_count = 0
+    try:
+        import nlp
+        nlp_checker_classes = nlp.get_available_checkers()
+        nlp_count = len(nlp_checker_classes)
+    except (ImportError, Exception):
+        pass
+
+    return option_mapping_checkers + additional_count + nlp_count
+
+
 class DocumentMarker:
     """Wrapper for markup_engine.MarkupEngine for backwards compatibility."""
-    
+
     def __init__(self, input_path: str, output_path: str, reviewer_name: str = "TechWriter Review"):
         from markup_engine import MarkupEngine
         self.engine = MarkupEngine(author=reviewer_name)

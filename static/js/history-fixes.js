@@ -67,7 +67,24 @@
                 }
             });
         }
-        
+
+        // v5.9.1: Scan History filename filter
+        const historySearch = document.getElementById('history-search');
+        if (historySearch) {
+            historySearch.addEventListener('input', function() {
+                const filterText = this.value.toLowerCase().trim();
+                const rows = document.querySelectorAll('#scan-history-body tr');
+                let visibleCount = 0;
+                rows.forEach(row => {
+                    const filename = row.querySelector('td')?.textContent?.toLowerCase() || '';
+                    const match = !filterText || filename.includes(filterText);
+                    row.style.display = match ? '' : 'none';
+                    if (match) visibleCount++;
+                });
+                console.log(`[TWR] History filter: "${filterText}" → ${visibleCount}/${rows.length} rows`);
+            });
+        }
+
         // Fix the top nav Roles button (events.js uses wrong modal ID 'modal-roles-report')
         const navRoles = document.getElementById('nav-roles');
         if (navRoles) {
@@ -628,7 +645,11 @@
                 }
                 
             } else {
-                const errorMsg = response?.error || 'Failed to recall scan';
+                // v5.9.2: Extract message from structured error objects (Lesson 13)
+                const rawError = response?.error;
+                const errorMsg = (typeof rawError === 'object' && rawError !== null)
+                    ? (rawError.message || JSON.stringify(rawError))
+                    : (rawError || 'Failed to recall scan');
                 console.error('[TWR] Recall failed:', errorMsg);
                 if (typeof window.toast === 'function') {
                     window.toast('error', errorMsg);
@@ -999,6 +1020,9 @@
                     </div>
                 </div>
             `;
+
+            // Remove any existing picker before adding a new one (prevents duplicate overlay bug)
+            document.querySelectorAll('.compare-picker-overlay').forEach(el => el.remove());
 
             // Add picker to DOM
             document.body.insertAdjacentHTML('beforeend', pickerHtml);

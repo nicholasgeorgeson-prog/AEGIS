@@ -319,3 +319,11 @@
 .spd-step.spd-active .spd-step-name {
     animation: spd-pulse 2s ease infinite;
 }
+
+/* ===== ACCESSIBILITY ===== */
+@media (prefers-reduced-motion: reduce) {
+    [class*="spd-"] {
+        animation: none !important;
+        transition-duration: 0.01ms !important;
+    }
+}

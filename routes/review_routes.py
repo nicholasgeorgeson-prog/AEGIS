@@ -1409,7 +1409,7 @@ def review():
             logger.debug('Scan history not available - skipping record')
         SessionManager.update(g.session_id, review_results=results, filtered_issues=results.get('issues', []), selected_issues=set())
         doc_info = results.get('document_info', {})
-        response_data = {'issues': results.get('issues', []), 'issue_count': results.get('issue_count', 0), 'score': results.get('score', 100), 'readability': results.get('readability', {}), 'document_info': doc_info, 'roles': results.get('roles', {}), 'full_text': results.get('full_text', ''), 'html_preview': results.get('html_preview', 0), 'hyperlink_results': results.get('hyperlink_results', 0), 'word_count': results.get('word_count', 0), 'paragraph_count': results.get('paragraph_count', 0), 'table_count': results.get('table_count', 0), 'heading_count': doc_info.get('heading_count', 0), 'by_severity': results.get('by_severity', {}), 'by_category': results.get('by_category', {})}
+        response_data = {'issues': results.get('issues', []), 'issue_count': results.get('issue_count', 0), 'score': results.get('score', 100), 'grade': results.get('grade', 'N/A'), 'readability': results.get('readability', {}), 'document_info': doc_info, 'roles': results.get('roles', {}), 'full_text': results.get('full_text', ''), 'html_preview': results.get('html_preview', 0), 'hyperlink_results': results.get('hyperlink_results', 0), 'word_count': results.get('word_count', 0), 'paragraph_count': results.get('paragraph_count', 0), 'table_count': results.get('table_count', 0), 'heading_count': doc_info.get('heading_count', 0), 'by_severity': results.get('by_severity', {}), 'by_category': results.get('by_category', {})}
         try:
             issues = results.get('issues', [])
             response_data['document_content'] = build_document_content(results)
@@ -1887,7 +1887,7 @@ def review_result(job_id):
                 else:
                     results = job.result
                     doc_info = results.get('document_info', {})
-                    response_data = {'issues': results.get('issues', []), 'issue_count': results.get('issue_count', 0), 'score': results.get('score', 100), 'readability': results.get('readability', {}), 'document_info': doc_info, 'roles': results.get('roles', {}), 'full_text': results.get('full_text', ''), 'html_preview': results.get('html_preview', 0), 'hyperlink_results': results.get('hyperlink_results', 0), 'word_count': results.get('word_count', 0), 'paragraph_count': results.get('paragraph_count', 0), 'table_count': results.get('table_count', 0), 'heading_count': doc_info.get('heading_count', 0), 'by_severity': results.get('by_severity', {}), 'by_category': results.get('by_category', {})}
+                    response_data = {'issues': results.get('issues', []), 'issue_count': results.get('issue_count', 0), 'score': results.get('score', 100), 'grade': results.get('grade', 'N/A'), 'readability': results.get('readability', {}), 'document_info': doc_info, 'roles': results.get('roles', {}), 'full_text': results.get('full_text', ''), 'html_preview': results.get('html_preview', 0), 'hyperlink_results': results.get('hyperlink_results', 0), 'word_count': results.get('word_count', 0), 'paragraph_count': results.get('paragraph_count', 0), 'table_count': results.get('table_count', 0), 'heading_count': doc_info.get('heading_count', 0), 'by_severity': results.get('by_severity', {}), 'by_category': results.get('by_category', {})}
                     try:
                         issues = results.get('issues', [])
                         response_data['document_content'] = build_document_content(results)
@@ -2060,7 +2060,14 @@ def export_document():
                                 engine = MarkupEngine(reviewer_name)
                                 def do_export():
                                     if apply_fixes and fix_issues:
-                                        return engine.apply_fixes_with_track_changes(str(filepath), str(output_path), fix_issues, reviewer_name=reviewer_name, also_add_comments=True, additional_comments=issues_to_comment)
+                                        # Combine fix issues + review issues + rejected fix comments
+                                        # MarkupEngine separates fixable (have original_text/replacement_text)
+                                        # from comment-only issues internally.
+                                        # fix_issues = accepted fixes (may have original/replacement text)
+                                        # issues = all review findings (added as comments)
+                                        # issues_to_comment = rejected fixes (added as comments with note)
+                                        all_issues = fix_issues + issues + issues_to_comment
+                                        return engine.apply_fixes_with_track_changes(str(filepath), str(output_path), all_issues, reviewer_name=reviewer_name, also_add_comments=True)
                                     else:
                                         all_comments = issues + issues_to_comment
                                         return engine.add_review_comments(str(filepath), str(output_path), all_comments)
@@ -2069,48 +2076,68 @@ def export_document():
                                 except TimeoutError:
                                     logger.error(f'Export timed out after {timeout_secs}s for {total_items} issues')
                                     raise ProcessingError(f'Export operation timed out after {int(timeout_secs)} seconds. Try exporting fewer issues at a time.', stage='export')
-                        if not result.get('success'):
-                            raise ProcessingError(result.get('error', 'Failed to create marked document'), stage='export')
+                        # v5.9.2: Better error reporting with engine errors included
+                        if not result or not result.get('success'):
+                            errors = result.get('errors', []) if result else []
+                            error_detail = result.get('error', '') if result else ''
+                            if errors:
+                                error_msg = f"Export failed: {'; '.join(str(e) for e in errors[:3])}"
+                            elif error_detail:
+                                error_msg = f"Export failed: {error_detail}"
+                            else:
+                                error_msg = 'Failed to create marked document. Check that lxml is installed (pip install lxml).'
+                            logger.error(f'Export failed for {original_filename}: {error_msg}')
+                            raise ProcessingError(error_msg, stage='export')
                         else:
+                            # Verify output file exists and has content
+                            if not output_path.exists() or output_path.stat().st_size == 0:
+                                raise ProcessingError('Export produced empty file. The markup engine may not be functioning correctly.', stage='export')
                             return send_file(str(output_path), as_attachment=True, download_name=output_name, mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
 @review_bp.route('/api/export/csv', methods=['POST'])
 @require_csrf
 @handle_api_errors
 def export_csv():
     """Export issues as CSV."""
+    data = request.get_json() or {}
+    mode = data.get('mode', 'all')
     session_data = SessionManager.get(g.session_id)
-    if not session_data or not session_data.get('review_results'):
-        raise ValidationError('No review results available')
-    else:
-        data = request.get_json() or {}
-        mode = data.get('mode', 'all')
+
+    # v5.9.4: Try issues from request body first
+    issues = data.get('issues')
+
+    if not issues:
+        if not session_data or not session_data.get('review_results'):
+            raise ValidationError('No review results available')
         if mode == 'selected':
             selected = session_data.get('selected_issues', set())
             if isinstance(selected, list):
                 selected = set(selected)
             filtered = session_data.get('filtered_issues', [])
             issues = [filtered[i] for i in sorted(selected) if i < len(filtered)]
+        elif mode == 'filtered':
+            issues = session_data.get('filtered_issues', [])
         else:
-            if mode == 'filtered':
-                issues = session_data.get('filtered_issues', [])
-            else:
-                issues = session_data['review_results'].get('issues', [])
-        import csv
-        import io
-        output = io.StringIO()
-        writer = csv.writer(output)
-        writer.writerow(['Severity', 'Category', 'Message', 'Flagged Text', 'Suggestion', 'Paragraph'])
-        for issue in issues:
-            writer.writerow([issue.get('severity', ''), issue.get('category', ''), issue.get('message', ''), issue.get('flagged_text', issue.get('context', '')), issue.get('suggestion', ''), issue.get('paragraph_index', 0) + 1])
-        output.seek(0)
-        original_name = session_data.get('original_filename') or 'document'
-        csv_name = f'issues_{Path(original_name).stem}.csv'
-        csv_bytes = output.getvalue().encode('utf-8-sig')
-        response = make_response(csv_bytes)
-        response.headers['Content-Type'] = 'text/csv; charset=utf-8'
-        response.headers['Content-Disposition'] = f'attachment; filename="{csv_name}"'
-        response.headers['Content-Length'] = len(csv_bytes)
-        return response
+            issues = session_data['review_results'].get('issues', [])
+
+    if not issues:
+        raise ValidationError('No issues to export')
+
+    import csv
+    import io
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Severity', 'Category', 'Message', 'Flagged Text', 'Suggestion', 'Paragraph'])
+    for issue in issues:
+        writer.writerow([issue.get('severity', ''), issue.get('category', ''), issue.get('message', ''), issue.get('flagged_text', issue.get('context', '')), issue.get('suggestion', ''), issue.get('paragraph_index', 0) + 1])
+    output.seek(0)
+    original_name = (session_data or {}).get('original_filename') or data.get('filename', 'document')
+    csv_name = f'issues_{Path(original_name).stem}.csv'
+    csv_bytes = output.getvalue().encode('utf-8-sig')
+    response = make_response(csv_bytes)
+    response.headers['Content-Type'] = 'text/csv; charset=utf-8'
+    response.headers['Content-Disposition'] = f'attachment; filename="{csv_name}"'
+    response.headers['Content-Length'] = len(csv_bytes)
+    return response
 @review_bp.route('/api/export/xlsx', methods=['POST'])
 @require_csrf
 @handle_api_errors
@@ -2130,64 +2157,187 @@ def export_xlsx():
     Returns:
         XLSX file download with timestamp in filename
     """
+    data = request.get_json() or {}
+    mode = data.get('mode', 'all')
+    severities = data.get('severities', None)
     session_data = SessionManager.get(g.session_id)
-    if not session_data or not session_data.get('review_results'):
-        raise ValidationError('No review results available')
-    else:
-        data = request.get_json() or {}
-        mode = data.get('mode', 'all')
-        severities = data.get('severities', None)
-        if severities:
-            VALID_SEVERITIES = {'Critical', 'Info', 'Low', 'High', 'Medium'}
-            normalized = []
-            invalid = []
-            for sev in severities:
-                matched = next((v for v in VALID_SEVERITIES if v.lower() == sev.lower()), None)
-                if matched:
-                    normalized.append(matched)
-                else:
-                    invalid.append(sev)
-            if invalid:
-                raise ValidationError(f"Invalid severity filter(s): {', '.join(invalid)}. Valid values: {', '.join(sorted(VALID_SEVERITIES))}")
+
+    if severities:
+        VALID_SEVERITIES = {'Critical', 'Info', 'Low', 'High', 'Medium'}
+        normalized = []
+        invalid = []
+        for sev in severities:
+            matched = next((v for v in VALID_SEVERITIES if v.lower() == sev.lower()), None)
+            if matched:
+                normalized.append(matched)
             else:
-                severities = normalized if normalized else None
-        issues = None
-        if data.get('issues'):
-            issues = data['issues']
+                invalid.append(sev)
+        if invalid:
+            raise ValidationError(f"Invalid severity filter(s): {', '.join(invalid)}. Valid values: {', '.join(sorted(VALID_SEVERITIES))}")
         else:
-            if data.get('results', {}).get('issues'):
-                issues = data['results']['issues']
-        if not issues:
-            if mode == 'selected':
-                selected = session_data.get('selected_issues', set())
-                if isinstance(selected, list):
-                    selected = set(selected)
-                base_issues = session_data.get('filtered_issues', []) or session_data['review_results'].get('issues', [])
-                issues = []
-                for idx, iss in enumerate(base_issues):
-                    issue_id = iss.get('issue_id')
-                    if issue_id and issue_id in selected or str(idx) in selected or idx in selected:
-                        issues.append(iss)
-            else:
-                if mode == 'filtered':
-                    issues = session_data.get('filtered_issues', []) or session_data['review_results'].get('issues', [])
-                else:
-                    issues = session_data['review_results'].get('issues', [])
-        if not issues:
-            raise ValidationError('No issues to export')
+            severities = normalized if normalized else None
+
+    # v5.9.4: Try issues from request body first (frontend always sends them)
+    issues = None
+    if data.get('issues'):
+        issues = data['issues']
+    elif data.get('results', {}).get('issues'):
+        issues = data['results']['issues']
+
+    # Fall back to session only if not provided in body
+    if not issues:
+        if not session_data or not session_data.get('review_results'):
+            raise ValidationError('No review results available')
+        if mode == 'selected':
+            selected = session_data.get('selected_issues', set())
+            if isinstance(selected, list):
+                selected = set(selected)
+            base_issues = session_data.get('filtered_issues', []) or session_data['review_results'].get('issues', [])
+            issues = []
+            for idx, iss in enumerate(base_issues):
+                issue_id = iss.get('issue_id')
+                if issue_id and issue_id in selected or str(idx) in selected or idx in selected:
+                    issues.append(iss)
+        elif mode == 'filtered':
+            issues = session_data.get('filtered_issues', []) or session_data['review_results'].get('issues', [])
         else:
-            review_results = data.get('results') or session_data['review_results']
-            review_results = {**review_results, 'issues': issues}
-            original_name = session_data.get('original_filename') or 'document'
-            document_metadata = {'filename': original_name, 'scan_date': session_data.get('scan_timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S')), 'score': review_results.get('score', 100)}
-            try:
-                from export_module import export_xlsx_enhanced
-            except ImportError as e:
-                current_app.logger.error(f'export_module not available: {e}')
-                raise ValidationError('Excel export module not available. Please ensure export_module.py is installed.')
-            filename, content = export_xlsx_enhanced(results=review_results, base_filename=f'review_{Path(original_name).stem}', severities=severities, document_metadata=document_metadata)
-            response = make_response(content)
-            response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
-            response.headers['Content-Length'] = len(content)
-            return response
+            issues = session_data['review_results'].get('issues', [])
+
+    if not issues:
+        raise ValidationError('No issues to export')
+
+    review_results = data.get('results') or (session_data or {}).get('review_results') or {}
+    review_results = {**review_results, 'issues': issues}
+    original_name = (session_data or {}).get('original_filename') or data.get('filename', 'document')
+    document_metadata = {'filename': original_name, 'scan_date': (session_data or {}).get('scan_timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S')), 'score': review_results.get('score', 100)}
+
+    try:
+        from export_module import export_xlsx_enhanced
+    except ImportError as e:
+        current_app.logger.error(f'export_module not available: {e}')
+        raise ValidationError('Excel export module not available. Please ensure export_module.py is installed.')
+
+    filename, content = export_xlsx_enhanced(results=review_results, base_filename=f'review_{Path(original_name).stem}', severities=severities, document_metadata=document_metadata)
+    response = make_response(content)
+    response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response.headers['Content-Length'] = len(content)
+    return response
+
+@review_bp.route('/api/export/pdf', methods=['POST'])
+@require_csrf
+@handle_api_errors
+def export_pdf_report():
+    """Export issues as branded AEGIS PDF report.
+
+    v5.9.4: New server-side PDF generation using reportlab with:
+    - Cover page with document info, score, grade
+    - Executive summary with severity breakdown
+    - Category breakdown table
+    - Full issue detail pages grouped by category
+    - AEGIS gold/bronze branding
+    - Pre-export filter support (severities, categories)
+
+    Request body (JSON):
+        issues: list of issue dicts (optional, falls back to session)
+        mode: 'all' | 'selected' | 'filtered' (default: 'all')
+        reviewer_name: str (default: 'AEGIS')
+        filters: dict with 'severities' and/or 'categories' lists
+
+    Returns:
+        PDF file download
+    """
+    data = request.get_json() or {}
+    mode = data.get('mode', 'all')
+    reviewer_name = data.get('reviewer_name', 'AEGIS')
+    filters = data.get('filters', {})
+
+    # v5.9.4: Try issues from request body first (frontend always sends them)
+    # Fall back to session only if not provided in body
+    issues = data.get('issues')
+    session_data = SessionManager.get(g.session_id)
+
+    if not issues:
+        if not session_data or not session_data.get('review_results'):
+            raise ValidationError('No review results available')
+        if mode == 'selected':
+            selected = session_data.get('selected_issues', set())
+            if isinstance(selected, list):
+                selected = set(selected)
+            base_issues = session_data.get('filtered_issues', []) or session_data['review_results'].get('issues', [])
+            issues = []
+            for idx, iss in enumerate(base_issues):
+                issue_id = iss.get('issue_id')
+                if issue_id and issue_id in selected or str(idx) in selected or idx in selected:
+                    issues.append(iss)
+        elif mode == 'filtered':
+            issues = session_data.get('filtered_issues', []) or session_data['review_results'].get('issues', [])
+        else:
+            issues = session_data['review_results'].get('issues', [])
+
+    if not issues:
+        raise ValidationError('No issues to export')
+
+    # Apply additional filters if provided
+    filters_applied = {}
+    if filters.get('severities'):
+        sev_filter = [s.strip() for s in filters['severities'] if s.strip()]
+        if sev_filter:
+            issues = [i for i in issues if i.get('severity', 'Info') in sev_filter]
+            filters_applied['severities'] = sev_filter
+
+    if filters.get('categories'):
+        cat_filter = [c.strip() for c in filters['categories'] if c.strip()]
+        if cat_filter:
+            issues = [i for i in issues if i.get('category', '') in cat_filter]
+            filters_applied['categories'] = cat_filter
+
+    if not issues:
+        raise ValidationError('No issues match the selected filters')
+
+    # Get document info (session may be unavailable if issues were sent in body)
+    review_results = (session_data or {}).get('review_results') or {}
+    score = review_results.get('score') if review_results else data.get('score')
+    grade = review_results.get('grade') if review_results else data.get('grade')
+    doc_info = review_results.get('document_info', {}) or {}
+    original_name = (session_data or {}).get('original_filename') or data.get('filename', 'document')
+    doc_info['filename'] = original_name
+
+    # Get version for metadata
+    try:
+        from config_logging import get_version
+        version_info = get_version()
+        version_str = f"AEGIS v{version_info.get('version', '5.9.4')}" if isinstance(version_info, dict) else f"AEGIS v{version_info}"
+    except Exception:
+        version_str = 'AEGIS'
+
+    metadata = {
+        'version': version_str,
+        'export_date': datetime.now().strftime('%B %d, %Y')
+    }
+
+    try:
+        from review_report import generate_review_report
+        pdf_bytes = generate_review_report(
+            issues=issues,
+            document_info=doc_info,
+            score=score,
+            grade=grade,
+            reviewer_name=reviewer_name,
+            filters_applied=filters_applied if filters_applied else None,
+            metadata=metadata
+        )
+    except ImportError as e:
+        current_app.logger.error(f'review_report module not available: {e}')
+        raise ValidationError('PDF report module not available. Please ensure review_report.py and reportlab are installed.')
+    except Exception as e:
+        current_app.logger.error(f'PDF report generation failed: {e}')
+        raise ProcessingError(f'PDF report generation failed: {str(e)}', stage='export')
+
+    pdf_name = f'AEGIS_Review_{Path(original_name).stem}_{datetime.now().strftime("%Y%m%d")}.pdf'
+
+    response = make_response(pdf_bytes)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'attachment; filename="{pdf_name}"'
+    response.headers['Content-Length'] = len(pdf_bytes)
+    return response

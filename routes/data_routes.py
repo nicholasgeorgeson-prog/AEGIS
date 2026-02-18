@@ -55,54 +55,141 @@ def db_connection(db_path):
 @handle_api_errors
 def generate_sow():
     """
-    Generate a Statement of Work HTML document.
-    Accepts configuration JSON and returns a standalone HTML file.
+    Generate a Statement of Work document.
+    Accepts JSON config (returns HTML) or multipart form with DOCX template
+    (returns populated DOCX).
     """
     if not _shared.SCAN_HISTORY_AVAILABLE:
         return jsonify({'success': False, 'error': 'Scan history not available'})
+
+    # v5.9.16: Support both JSON and multipart (template upload) requests
+    template_file = None
+    if request.content_type and 'multipart/form-data' in request.content_type:
+        config_str = request.form.get('config', '{}')
+        try:
+            config = json.loads(config_str)
+        except json.JSONDecodeError:
+            return (jsonify({'success': False, 'error': 'Invalid config JSON'}), 400)
+        template_file = request.files.get('template')
+        if template_file and not template_file.filename.lower().endswith('.docx'):
+            return (jsonify({'success': False, 'error': 'Template must be a .docx file'}), 400)
     else:
         data = request.get_json()
         if not data:
             return (jsonify({'success': False, 'error': 'No configuration provided'}), 400)
-        else:
-            config = data.get('config', {})
-            db = get_scan_history_db()
-            dictionary = db.get_role_dictionary(include_inactive=False)
-            with db.connection() as (conn, cursor):
-                cursor.execute('\n        SELECT rft.role_name, rft.function_code,\n               fc.name as function_name, fc.color as function_color\n        FROM role_function_tags rft\n        LEFT JOIN function_categories fc ON fc.code = rft.function_code\n    ')
-                tag_rows = cursor.fetchall()
-                tag_lookup = {}
-                for tr in tag_rows:
-                    rn = tr['role_name'].lower().strip()
-                    if rn not in tag_lookup:
-                        tag_lookup[rn] = []
-                    tag_lookup[rn].append({'code': tr['function_code'], 'name': tr['function_name'] or tr['function_code'], 'color': tr['function_color'] or '#3b82f6'})
-                for role in dictionary:
-                    rn = role.get('role_name', '').lower().strip()
-                    role['function_tags'] = tag_lookup.get(rn, [])
-                cursor.execute('SELECT * FROM function_categories WHERE is_active = 1 ORDER BY sort_order, code')
-                function_cats = [dict(row) for row in cursor.fetchall()]
-                cursor.execute('SELECT * FROM role_relationships')
-                relationships = [dict(row) for row in cursor.fetchall()]
-                cursor.execute('\n        SELECT d.id, d.filename, d.filepath, d.word_count, d.paragraph_count,\n               COUNT(s.id) as scan_count,\n               MAX(s.score) as latest_score,\n               MAX(s.grade) as latest_grade\n        FROM documents d\n        LEFT JOIN scans s ON s.document_id = d.id\n        GROUP BY d.id ORDER BY d.filename\n    ')
-                documents = [dict(row) for row in cursor.fetchall()]
-                cursor.execute('\n        SELECT ss.*, d.filename as source_document\n        FROM scan_statements ss\n        JOIN scans s ON s.id = ss.scan_id\n        JOIN documents d ON d.id = s.document_id\n        WHERE s.id IN (SELECT MAX(id) FROM scans GROUP BY document_id)\n        ORDER BY ss.document_id, ss.position_index\n    ')
-                statements = [dict(row) for row in cursor.fetchall()]
-            selected_doc_ids = config.get('document_ids')
-            if selected_doc_ids:
-                selected_set = set(selected_doc_ids)
-                documents = [d for d in documents if d.get('id') in selected_set]
-                statements = [s for s in statements if s.get('document_id') in selected_set]
-            import socket as _socket
-            from sow_generator import generate_sow_html
-            metadata = {'version': get_version(), 'export_date': datetime.now(timezone.utc).isoformat(), 'hostname': _socket.gethostname()}
-            html_content = generate_sow_html(config=config, roles=dictionary, statements=statements, documents=documents, function_categories=function_cats, relationships=relationships, metadata=metadata)
-            response = make_response(html_content)
-            response.headers['Content-Type'] = 'text/html; charset=utf-8'
-            title_slug = config.get('title', 'SOW').replace(' ', '_')[:30]
-            date_str = datetime.now().strftime('%Y-%m-%d')
-            response.headers['Content-Disposition'] = f'attachment; filename=AEGIS_SOW_{title_slug}_{date_str}.html'
+        config = data.get('config', {})
+
+    # Fetch all data from database
+    db = get_scan_history_db()
+    dictionary = db.get_role_dictionary(include_inactive=False)
+    with db.connection() as (conn, cursor):
+        cursor.execute('''
+            SELECT rft.role_name, rft.function_code,
+                   fc.name as function_name, fc.color as function_color
+            FROM role_function_tags rft
+            LEFT JOIN function_categories fc ON fc.code = rft.function_code
+        ''')
+        tag_rows = cursor.fetchall()
+        tag_lookup = {}
+        for tr in tag_rows:
+            rn = tr['role_name'].lower().strip()
+            if rn not in tag_lookup:
+                tag_lookup[rn] = []
+            tag_lookup[rn].append({
+                'code': tr['function_code'],
+                'name': tr['function_name'] or tr['function_code'],
+                'color': tr['function_color'] or '#3b82f6'
+            })
+        for role in dictionary:
+            rn = role.get('role_name', '').lower().strip()
+            role['function_tags'] = tag_lookup.get(rn, [])
+        cursor.execute('SELECT * FROM function_categories WHERE is_active = 1 ORDER BY sort_order, code')
+        function_cats = [dict(row) for row in cursor.fetchall()]
+        cursor.execute('SELECT * FROM role_relationships')
+        relationships = [dict(row) for row in cursor.fetchall()]
+        cursor.execute('''
+            SELECT d.id, d.filename, d.filepath, d.word_count, d.paragraph_count,
+                   COUNT(s.id) as scan_count,
+                   MAX(s.score) as latest_score,
+                   MAX(s.grade) as latest_grade
+            FROM documents d
+            LEFT JOIN scans s ON s.document_id = d.id
+            GROUP BY d.id ORDER BY d.filename
+        ''')
+        documents = [dict(row) for row in cursor.fetchall()]
+        cursor.execute('''
+            SELECT ss.*, d.filename as source_document
+            FROM scan_statements ss
+            JOIN scans s ON s.id = ss.scan_id
+            JOIN documents d ON d.id = s.document_id
+            WHERE s.id IN (SELECT MAX(id) FROM scans GROUP BY document_id)
+            ORDER BY ss.document_id, ss.position_index
+        ''')
+        statements = [dict(row) for row in cursor.fetchall()]
+
+    # Filter to selected documents
+    selected_doc_ids = config.get('document_ids')
+    if selected_doc_ids:
+        selected_set = set(selected_doc_ids)
+        documents = [d for d in documents if d.get('id') in selected_set]
+        statements = [s for s in statements if s.get('document_id') in selected_set]
+
+    import socket as _socket
+    metadata = {
+        'version': get_version(),
+        'export_date': datetime.now(timezone.utc).isoformat(),
+        'hostname': _socket.gethostname()
+    }
+
+    title_slug = config.get('title', 'SOW').replace(' ', '_')[:30]
+    date_str = datetime.now().strftime('%Y-%m-%d')
+
+    # v5.9.16: Template mode — populate DOCX template with placeholders
+    if template_file:
+        from sow_generator import populate_sow_template
+        import tempfile, os
+        # Save uploaded template to temp file
+        tmp_dir = tempfile.mkdtemp()
+        tmp_path = os.path.join(tmp_dir, template_file.filename)
+        template_file.save(tmp_path)
+        try:
+            output_bytes = populate_sow_template(
+                template_path=tmp_path,
+                config=config,
+                roles=dictionary,
+                statements=statements,
+                documents=documents,
+                function_categories=function_cats,
+                relationships=relationships,
+                metadata=metadata
+            )
+            response = make_response(output_bytes)
+            response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            response.headers['Content-Disposition'] = f'attachment; filename=AEGIS_SOW_{title_slug}_{date_str}.docx'
             return response
+        finally:
+            # Cleanup temp files
+            try:
+                os.remove(tmp_path)
+                os.rmdir(tmp_dir)
+            except OSError:
+                pass
+    else:
+        # Standard HTML generation
+        from sow_generator import generate_sow_html
+        html_content = generate_sow_html(
+            config=config,
+            roles=dictionary,
+            statements=statements,
+            documents=documents,
+            function_categories=function_cats,
+            relationships=relationships,
+            metadata=metadata
+        )
+        response = make_response(html_content)
+        response.headers['Content-Type'] = 'text/html; charset=utf-8'
+        response.headers['Content-Disposition'] = f'attachment; filename=AEGIS_SOW_{title_slug}_{date_str}.html'
+        return response
 @data_bp.route('/api/metrics/landing', methods=['GET'])
 @handle_api_errors
 def get_metrics_landing():
@@ -176,16 +263,14 @@ def get_metrics_landing():
         ''')
         recent_scans = [dict(r) for r in cursor.fetchall()]
 
-    # Checker count from version.json (file read, not DB)
-    checker_count = 84  # default
+    # v5.9.5: Dynamic checker count from core.get_checker_count()
+    # Counts option_mapping + additional_checkers + NLP checkers without loading engine
+    checker_count = 105  # safe default (96 option_mapping + 9 additional)
     try:
-        version_path = Path(__file__).resolve().parent.parent / 'version.json'
-        if version_path.exists():
-            with open(version_path, encoding='utf-8') as f:
-                vdata = json.load(f)
-                checker_count = vdata.get('checker_count', 84)
+        from core import get_checker_count
+        checker_count = get_checker_count()
     except Exception as e:
-        current_app.logger.warning(f'Could not read checker_count from version.json: {e}')
+        current_app.logger.warning(f'Could not get dynamic checker count: {e}')
 
     return jsonify({'success': True, 'data': {
         'total_scans': total_scans,
@@ -1277,7 +1362,28 @@ def roles_report_by_owner():
         check_only = request.args.get('check_only', 'false').lower() == 'true'
         db = get_scan_history_db()
         with db.connection() as (conn, cursor):
-            cursor.execute('\n        SELECT dc.document_owner, dc.document_name, dc.document_id,\n               dc.category_type, dc.function_code,\n               fc.name as function_name\n        FROM document_categories dc\n        LEFT JOIN function_categories fc ON dc.function_code = fc.code\n        WHERE dc.document_owner IS NOT NULL AND dc.document_owner != \'\'\n        ORDER BY dc.document_owner, dc.document_name\n    ')
+            # v5.9.1: Query actual document-role relationships instead of empty document_categories
+            # "Owner" = the role with the highest mention_count per document
+            cursor.execute('''
+                SELECT r.role_name AS document_owner,
+                       d.filename AS document_name,
+                       d.id AS document_id,
+                       r.category AS category_type,
+                       rft.function_code,
+                       fc.name AS function_name
+                FROM document_roles dr
+                JOIN documents d ON dr.document_id = d.id
+                JOIN roles r ON dr.role_id = r.id
+                LEFT JOIN role_function_tags rft ON r.id = rft.role_id
+                LEFT JOIN function_categories fc ON rft.function_code = fc.code
+                WHERE dr.mention_count = (
+                    SELECT MAX(dr2.mention_count)
+                    FROM document_roles dr2
+                    WHERE dr2.document_id = d.id
+                )
+                GROUP BY d.id, r.id
+                ORDER BY r.role_name, d.filename
+            ''')
             owners = {}
             for row in cursor.fetchall():
                 owner = row['document_owner']

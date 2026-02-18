@@ -24,6 +24,7 @@ window.SowGenerator = (function() {
     let sowData = null; // Cached data from /api/sow/data
     let isLoading = false;
     let selectedDocIds = new Set(); // v4.6.1: Track selected document IDs
+    let templateFile = null; // v5.9.16: User-uploaded DOCX template
 
     // =========================================================================
     // INITIALIZATION
@@ -70,6 +71,9 @@ window.SowGenerator = (function() {
         const selectNoneBtn = document.getElementById('sow-select-none');
         if (selectAllBtn) selectAllBtn.addEventListener('click', selectAllDocs);
         if (selectNoneBtn) selectNoneBtn.addEventListener('click', selectNoDocs);
+
+        // v5.9.16: Template upload handlers
+        initTemplateUpload();
 
         console.log('[SowGenerator] Initialized');
     }
@@ -349,6 +353,116 @@ window.SowGenerator = (function() {
     }
 
     // =========================================================================
+    // TEMPLATE UPLOAD (v5.9.16)
+    // =========================================================================
+
+    function initTemplateUpload() {
+        const fileInput = document.getElementById('sow-template-file');
+        const dropzone = document.getElementById('sow-template-dropzone');
+        const browseLink = document.getElementById('sow-template-browse');
+        const removeBtn = document.getElementById('sow-template-remove');
+
+        if (browseLink) {
+            browseLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                fileInput?.click();
+            });
+        }
+
+        if (fileInput) {
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files?.[0];
+                if (file) setTemplateFile(file);
+            });
+        }
+
+        if (dropzone) {
+            dropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.add('sow-template-dragover');
+            });
+            dropzone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.remove('sow-template-dragover');
+            });
+            dropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.remove('sow-template-dragover');
+                const file = e.dataTransfer?.files?.[0];
+                if (file) {
+                    if (!file.name.toLowerCase().endsWith('.docx')) {
+                        if (typeof showToast === 'function') showToast('error', 'Template must be a .docx file');
+                        return;
+                    }
+                    setTemplateFile(file);
+                }
+            });
+        }
+
+        if (removeBtn) {
+            removeBtn.addEventListener('click', clearTemplateFile);
+        }
+    }
+
+    function setTemplateFile(file) {
+        if (!file.name.toLowerCase().endsWith('.docx')) {
+            if (typeof showToast === 'function') showToast('error', 'Template must be a .docx file');
+            return;
+        }
+
+        templateFile = file;
+
+        // Update UI — hide dropzone, show loaded state
+        const dropzone = document.getElementById('sow-template-dropzone');
+        const loaded = document.getElementById('sow-template-loaded');
+        const nameEl = document.getElementById('sow-template-name');
+
+        if (dropzone) dropzone.style.display = 'none';
+        if (loaded) loaded.style.display = 'flex';
+        if (nameEl) nameEl.textContent = file.name;
+
+        // Update generate button label
+        const genBtn = document.getElementById('sow-btn-generate');
+        if (genBtn && !isLoading) {
+            genBtn.innerHTML = '<i data-lucide="file-output"></i> Generate from Template';
+            if (typeof lucide !== 'undefined') {
+                try { lucide.createIcons(); } catch (_) {}
+            }
+        }
+
+        console.log('[SowGenerator] Template set:', file.name, `(${(file.size / 1024).toFixed(1)} KB)`);
+    }
+
+    function clearTemplateFile() {
+        templateFile = null;
+
+        // Reset file input
+        const fileInput = document.getElementById('sow-template-file');
+        if (fileInput) fileInput.value = '';
+
+        // Update UI — show dropzone, hide loaded state
+        const dropzone = document.getElementById('sow-template-dropzone');
+        const loaded = document.getElementById('sow-template-loaded');
+
+        if (dropzone) dropzone.style.display = '';
+        if (loaded) loaded.style.display = 'none';
+
+        // Restore generate button label
+        const genBtn = document.getElementById('sow-btn-generate');
+        if (genBtn && !isLoading) {
+            genBtn.innerHTML = '<i data-lucide="file-output"></i> Generate SOW';
+            if (typeof lucide !== 'undefined') {
+                try { lucide.createIcons(); } catch (_) {}
+            }
+        }
+
+        console.log('[SowGenerator] Template cleared');
+    }
+
+    // =========================================================================
     // GENERATE SOW
     // =========================================================================
 
@@ -376,14 +490,30 @@ window.SowGenerator = (function() {
                 || document.querySelector('meta[name="csrf-token"]')?.content
                 || '';
 
-            const resp = await fetch('/api/sow/generate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken
-                },
-                body: JSON.stringify({ config })
-            });
+            let resp;
+
+            if (templateFile) {
+                // v5.9.16: Use FormData when a template is uploaded
+                const formData = new FormData();
+                formData.append('config', JSON.stringify(config));
+                formData.append('template', templateFile);
+
+                resp = await fetch('/api/sow/generate', {
+                    method: 'POST',
+                    headers: { 'X-CSRF-Token': csrfToken },
+                    body: formData
+                });
+            } else {
+                // Standard JSON request (no template)
+                resp = await fetch('/api/sow/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken
+                    },
+                    body: JSON.stringify({ config })
+                });
+            }
 
             if (!resp.ok) {
                 const err = await resp.json().catch(() => ({}));
@@ -394,11 +524,14 @@ window.SowGenerator = (function() {
                 throw new Error(errMsg);
             }
 
-            // Download the HTML file
+            // Download the file (HTML or DOCX depending on template mode)
             const blob = await resp.blob();
             const disposition = resp.headers.get('Content-Disposition') || '';
             const match = disposition.match(/filename=([^;]+)/);
-            const filename = match ? match[1].trim() : `AEGIS_SOW_${new Date().toISOString().split('T')[0]}.html`;
+            const defaultExt = templateFile ? 'docx' : 'html';
+            const filename = match
+                ? match[1].trim()
+                : `AEGIS_SOW_${new Date().toISOString().split('T')[0]}.${defaultExt}`;
 
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');

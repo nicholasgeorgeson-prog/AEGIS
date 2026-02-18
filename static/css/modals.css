@@ -5,13 +5,25 @@
  * All modal dialogs and overlays including exports, settings, and help.
  */
 
-.modal { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: opacity var(--duration-normal), visibility var(--duration-normal); }
+/* v5.9.19: Reduced backdrop opacity and removed blur so particle canvas is subtly visible around modal edges */
+.modal { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: opacity var(--duration-normal), visibility var(--duration-normal); }
 .modal.active, .modal.show { opacity: 1; visibility: visible; }
 .modal > div:first-child:not(.modal-overlay), .modal > .modal-content { background: var(--bg-primary); border: 1px solid var(--border-default); border-radius: var(--radius-xl); width: 90%; max-width: 500px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: var(--shadow-xl); transform: scale(0.95); transition: transform var(--duration-normal); }
 .modal.active > div:first-child:not(.modal-overlay), .modal.active > .modal-content, .modal.show > div:first-child:not(.modal-overlay), .modal.show > .modal-content { transform: scale(1); }
 .modal.modal-sm > div:first-child, .modal.modal-sm > .modal-content { max-width: 450px; }
 .modal.modal-md > div:first-child, .modal.modal-md > .modal-content { max-width: 550px; }
-.modal.modal-lg > div:first-child, .modal.modal-lg > .modal-content { max-width: 700px; }
+.modal.modal-lg > div:first-child, .modal.modal-lg > .modal-content { max-width: 800px; }
+
+/* v5.9.5: Settings modal gets extra width to show all content without hidden scrolling */
+#modal-settings > .modal-content { max-width: 860px; }
+#modal-settings .modal-body {
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent) transparent;
+}
+#modal-settings .modal-body::-webkit-scrollbar { width: 6px; }
+#modal-settings .modal-body::-webkit-scrollbar-track { background: transparent; margin: 8px 0; }
+#modal-settings .modal-body::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
+#modal-settings .modal-body::-webkit-scrollbar-thumb:hover { background: var(--accent-hover, #e0b84a); }
 .modal.modal-xl > div:first-child, .modal.modal-xl > .modal-content { max-width: 1100px; min-width: 800px; }
 
 /* v3.0.111: Fullscreen modal for Statement Forge */
@@ -47,45 +59,46 @@
     flex-direction: column;
     align-items: center;
     padding: 15px;
-    border: 2px solid #dee2e6;
+    border: 2px solid var(--border-default);
     border-radius: 8px;
     cursor: pointer;
     transition: color 0.2s, opacity 0.2s, transform 0.2s, border-color 0.2s, box-shadow 0.2s;
     text-align: center;
+    background: var(--bg-primary);
 }
 
 .radio-card input[type="radio"]:checked + .radio-card-content {
-    border-color: #1976d2;
-    background: #e3f2fd;
+    border-color: var(--accent);
+    background: rgba(155, 123, 28, 0.08);
 }
 
 .radio-card-content i {
     width: 24px;
     height: 24px;
     margin-bottom: 8px;
-    color: #666;
+    color: var(--text-muted);
 }
 
 .radio-card input[type="radio"]:checked + .radio-card-content i {
-    color: #1976d2;
+    color: var(--accent);
 }
 
 .radio-card-title {
     font-weight: 500;
     font-size: 13px;
-    color: #333;
+    color: var(--text-primary);
 }
 
 .radio-card-count {
     font-size: 18px;
     font-weight: 600;
-    color: #1976d2;
+    color: var(--accent);
     margin-top: 4px;
 }
 
 .radio-card-desc {
     font-size: 11px;
-    color: #666;
+    color: var(--text-muted);
     margin-top: 2px;
 }
 
@@ -874,9 +887,9 @@
    v3.0.119: Help Modal - 3/4 screen with opaque backdrop (like Roles modal)
    ============================================================================= */
 
-/* Semi-transparent backdrop for help modal */
+/* v5.9.19: Semi-transparent backdrop — particles visible around edges */
 #modal-help.active {
-    background: rgba(0, 0, 0, 0.7) !important;
+    background: rgba(0, 0, 0, 0.45) !important;
 }
 
 /* Help modal content - 3/4 screen */
@@ -925,17 +938,17 @@
    Used by RACI drilldown, RACI cell edit, and other dynamic content modals.
    ============================================================================= */
 
+/* v5.9.19: Reduced opacity, removed blur so particles visible */
 .twr-content-modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.4);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 15000; /* Must be above modal-roles (10000) */
     opacity: 0;
     transition: opacity 0.2s ease;
-    backdrop-filter: blur(2px);
 }
 
 .twr-content-modal-overlay.twr-cm-active {

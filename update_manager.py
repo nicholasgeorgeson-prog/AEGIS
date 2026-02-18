@@ -604,6 +604,35 @@ class FileRouter:
             category = "portfolio"
             original_name = real_name
 
+        # v5.9.3: routes_ routing for Routes module files
+        elif base_name.startswith('routes_'):
+            # routes_review_routes.py -> routes/review_routes.py
+            real_name = base_name[7:]  # Remove 'routes_'
+            dest_path = self.app_dir / "routes" / real_name
+            category = "routes"
+            original_name = real_name
+
+        # v5.9.3: hyperlink_validator_ routing for HV module files
+        elif base_name.startswith('hyperlink_validator_'):
+            # hyperlink_validator_routes.py -> hyperlink_validator/routes.py
+            real_name = base_name[20:]  # Remove 'hyperlink_validator_'
+            dest_path = self.app_dir / "hyperlink_validator" / real_name
+            category = "hyperlink_validator"
+            original_name = real_name
+
+        # v5.9.3: nlp_ routing for NLP submodule files
+        elif base_name.startswith('nlp_'):
+            # nlp_languagetool_checker.py -> nlp/languagetool/checker.py (with nested _)
+            real_name = base_name[4:]  # Remove 'nlp_'
+            # NLP submodules have nested structure — split on first _ for subdirectory
+            parts = real_name.split('_', 1)
+            if len(parts) == 2:
+                dest_path = self.app_dir / "nlp" / parts[0] / parts[1]
+            else:
+                dest_path = self.app_dir / "nlp" / real_name
+            category = "nlp"
+            original_name = real_name
+
         # v3.0.73: data_ routing for data files
         elif base_name.startswith('data_'):
             # data_config.json -> data/config.json

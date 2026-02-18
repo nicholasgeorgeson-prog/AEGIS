@@ -482,3 +482,11 @@
 .bpd-dashboard.bpd-complete .bpd-stat-value {
     color: #22c55e;
 }
+
+/* ===== ACCESSIBILITY ===== */
+@media (prefers-reduced-motion: reduce) {
+    .bpd-dashboard *, .bpd-dashboard *::before, .bpd-dashboard *::after {
+        animation: none !important;
+        transition-duration: 0.01ms !important;
+    }
+}

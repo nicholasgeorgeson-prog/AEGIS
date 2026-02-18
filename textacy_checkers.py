@@ -418,11 +418,17 @@ class InformationExtractionChecker(BaseChecker):
 
     def _extract_svo(self, text: str) -> Optional[Tuple[str, str, str]]:
         """
-        Simple SVO extraction using patterns.
+        Extract SVO triple using spaCy dependency parsing when available,
+        falling back to regex patterns.
 
         Returns: (subject, verb, object) tuple or None
         """
-        # Match "X shall/must/will Y Z" pattern
+        if self.spacy_available:
+            result = self._extract_svo_spacy(text)
+            if result:
+                return result
+
+        # Regex fallback: "X shall/must/will Y Z" pattern
         svo_pattern = r'(.*?)\s+(?:shall|must|will|should)\s+(\w+)\s+(.*?)(?:\.|$)'
         match = re.search(svo_pattern, text, re.IGNORECASE)
 
@@ -437,6 +443,46 @@ class InformationExtractionChecker(BaseChecker):
 
             return (subject, verb, obj)
 
+        return None
+
+    def _extract_svo_spacy(self, text: str) -> Optional[Tuple[str, str, str]]:
+        """Use spaCy dependency parsing for more accurate SVO extraction."""
+        try:
+            from nlp_utils import get_spacy_model
+            nlp = get_spacy_model()
+            if not nlp:
+                return None
+
+            doc = nlp(text[:500])  # Limit to avoid slow processing
+
+            for sent in doc.sents:
+                subject = ''
+                verb = ''
+                obj = ''
+
+                for token in sent:
+                    # Find the main verb (ROOT)
+                    if token.dep_ == 'ROOT' and token.pos_ == 'VERB':
+                        verb = token.text
+
+                        # Find subject (nsubj, nsubjpass)
+                        for child in token.children:
+                            if child.dep_ in ('nsubj', 'nsubjpass'):
+                                subject = ' '.join(t.text for t in child.subtree)
+                            elif child.dep_ in ('dobj', 'attr', 'oprd'):
+                                obj = ' '.join(t.text for t in child.subtree)
+
+                        # Also check for modal auxiliaries (shall, must)
+                        for child in token.children:
+                            if child.dep_ == 'aux' and child.text.lower() in {'shall', 'must', 'will', 'should'}:
+                                if subject and verb:
+                                    return (subject.strip(), verb.strip(), obj.strip())
+
+                if subject and verb:
+                    return (subject.strip(), verb.strip(), obj.strip())
+
+        except Exception:
+            pass
         return None
 
 

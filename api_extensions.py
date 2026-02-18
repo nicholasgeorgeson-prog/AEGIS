@@ -308,90 +308,13 @@ def export_excel():
     )
 
 
-@api_ext.route('/export/csv', methods=['POST'])
-@handle_errors
-def export_csv():
-    """Export issues or roles to CSV."""
-    if not EXPORT_AVAILABLE:
-        return jsonify({
-            'success': False,
-            'error': 'Export module not available'
-        }), 501
-    
-    data = request.get_json() or {}
-    export_type = data.get('type', 'issues')
-    
-    if export_type == 'issues':
-        issues = data.get('issues', [])
-        if not issues:
-            raise ValidationError("No issues provided for export")
-        csv_content = CSVExporter.export_issues(issues)
-        filename = f'issues_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
-    elif export_type == 'roles':
-        roles = data.get('roles', {})
-        if not roles:
-            raise ValidationError("No roles provided for export")
-        csv_content = CSVExporter.export_roles(roles)
-        filename = f'roles_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
-    else:
-        raise ValidationError(f"Unknown export type: {export_type}")
-    
-    return send_file(
-        io.BytesIO(csv_content.encode('utf-8')),
-        mimetype='text/csv',
-        as_attachment=True,
-        download_name=filename
-    )
-
-
-@api_ext.route('/export/pdf', methods=['POST'])
-@handle_errors
-def export_pdf():
-    """Export analysis results to PDF."""
-    if not EXPORT_AVAILABLE or not PDF_AVAILABLE:
-        return jsonify({
-            'success': False,
-            'error': 'PDF export not available. Install reportlab: pip install reportlab'
-        }), 501
-    
-    data = request.get_json() or {}
-    results = data.get('results', {})
-    
-    if not results:
-        raise ValidationError("No results provided for export")
-    
-    exporter = PDFExporter()
-    pdf_bytes = exporter.export(results, None)
-    
-    filename = data.get('filename', f'techwriter_report_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf')
-    
-    return send_file(
-        io.BytesIO(pdf_bytes),
-        mimetype='application/pdf',
-        as_attachment=True,
-        download_name=filename
-    )
-
-
-@api_ext.route('/export/json', methods=['POST'])
-@handle_errors
-def export_json():
-    """Export analysis results to JSON."""
-    data = request.get_json() or {}
-    results = data.get('results', {})
-    
-    if not results:
-        raise ValidationError("No results provided for export")
-    
-    # Clean results for JSON
-    json_content = json.dumps(results, indent=2, default=str)
-    
-    return send_file(
-        io.BytesIO(json_content.encode('utf-8')),
-        mimetype='application/json',
-        as_attachment=True,
-        download_name=f'analysis_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
-    )
+# v5.9.4: CSV, PDF, and JSON export routes moved to routes/review_routes.py
+# with enhanced filtering, Fix Assistant integration, and AEGIS-branded reports.
+# The old generic routes below are disabled to avoid conflicts.
+#
+# @api_ext.route('/export/csv', methods=['POST']) -> review_bp /api/export/csv
+# @api_ext.route('/export/pdf', methods=['POST']) -> review_bp /api/export/pdf
+# @api_ext.route('/export/json', methods=['POST']) -> review_bp /api/export/json
 
 
 @api_ext.route('/export/compliance-matrix', methods=['POST'])

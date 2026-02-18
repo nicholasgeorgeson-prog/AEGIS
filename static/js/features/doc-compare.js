@@ -1419,15 +1419,7 @@ window.DocCompare = (function() {
         const csvContent = header + csvRows.join('\n');
 
         // Download as CSV
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `comparison_${filename}_${timestamp}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        downloadCSV(csvContent, `comparison_${filename}_${timestamp}.csv`);
 
         showToast(`Exported ${csvRows.length - 1} changes to CSV`, 'success');
     }

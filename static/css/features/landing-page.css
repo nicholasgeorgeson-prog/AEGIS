@@ -24,7 +24,8 @@ body:not(.landing-active) #aegis-landing-page {
     position: fixed;
     inset: 0;
     z-index: 9999;
-    background: #0d1117;
+    /* v5.9.19: Transparent so particle canvas on body shows through */
+    background: transparent;
     color: #e6edf3;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
@@ -38,17 +39,27 @@ body.landing-active #modal-hyperlink-validator.active {
     z-index: 10001;
 }
 
-/* v4.9.8: Global particle canvas — fixed to viewport, floats over ALL content including modals.
-   pointer-events:none ensures clicks pass through. Particles are semi-transparent so they
-   provide ambient effect without obscuring UI. Above ALL modals (SSV=55000, MSR=50000, RSV=10000)
-   but below toast (200000). */
+/* v5.9.18: Particle canvas — on <body>, always visible as global background.
+   position:fixed covers entire viewport. z-index:0 puts it behind all app UI.
+   pointer-events:none allows click-through. App containers (.app-container,
+   #top-nav-bar, .sidebar, .main-content, modals) have opaque backgrounds
+   so particles show only through gaps, margins, and alongside modules. */
+/* v5.9.19: Canvas z-index is 0 by default (behind landing page content at z:9999).
+   When a modal opens, :has() bumps canvas to 10000 — above landing page but below
+   modals (10001+) — so particles show through semi-transparent modal backdrops.
+   When not on landing page, canvas stays at 10000 (above app container at z:1). */
 .lp-bg-canvas {
     position: fixed;
     inset: 0;
-    z-index: 100000;
+    z-index: 0;
     width: 100vw;
     height: 100vh;
     pointer-events: none;
+}
+body:has(.modal.active) .lp-bg-canvas,
+body:has(.modal.show) .lp-bg-canvas,
+body:not(.landing-active) .lp-bg-canvas {
+    z-index: 10000;
 }
 
 .lp-content {
@@ -850,78 +861,176 @@ body.landing-active #modal-hyperlink-validator.active {
     }
 }
 
-/* ===== LIGHT MODE OVERRIDES (v4.6.2-fix) ===== */
+/* ===== LIGHT MODE OVERRIDES (v5.9.5 — warm professional palette) ===== */
+/* Replaced harsh white (#f5f6f8) with warm cream/stone tones that complement the AEGIS gold branding */
 body:not(.dark-mode) .lp-page {
-    background: #f5f6f8;
-    color: #1a1a2e;
+    /* v5.9.19: Transparent so particle canvas shows through — html gets the background */
+    background: transparent;
+    color: #2c2416;
 }
 body:not(.dark-mode) .lp-bg-canvas {
-    opacity: 1;
+    opacity: 0.9;
 }
 body:not(.dark-mode) .lp-title {
-    color: #b8860b;
+    color: #8b6914;
+    text-shadow: 0 1px 2px rgba(139, 105, 20, 0.15);
 }
 body:not(.dark-mode) .lp-subtitle {
-    color: #555;
+    color: #5a4e3a;
 }
 body:not(.dark-mode) .lp-hero {
-    background: rgba(255, 255, 255, 0.8);
-    border-color: #ddd;
+    background: rgba(255, 252, 245, 0.75);
+    border-color: rgba(184, 134, 11, 0.2);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 2px 12px rgba(139, 105, 20, 0.08);
 }
 body:not(.dark-mode) .lp-hero h2 {
-    color: #333;
+    color: #2c2416;
 }
 body:not(.dark-mode) .lp-hero p {
-    color: #666;
+    color: #5a4e3a;
 }
 body:not(.dark-mode) .lp-metric-card {
-    background: rgba(255, 255, 255, 0.9);
-    border-color: #ddd;
+    background: rgba(255, 252, 245, 0.8);
+    border-color: rgba(184, 134, 11, 0.15);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 1px 8px rgba(139, 105, 20, 0.06);
+}
+body:not(.dark-mode) .lp-metric-card:hover {
+    border-color: rgba(184, 134, 11, 0.35);
+    box-shadow: 0 4px 16px rgba(139, 105, 20, 0.12);
 }
 body:not(.dark-mode) .lp-metric-value {
-    color: #1a1a2e;
+    color: #2c2416;
 }
 body:not(.dark-mode) .lp-metric-label {
-    color: #666;
+    color: #6b5d47;
 }
 body:not(.dark-mode) .lp-tile {
-    background: rgba(255, 255, 255, 0.9);
-    border-color: #ddd;
+    background: rgba(255, 252, 245, 0.8);
+    border-color: rgba(184, 134, 11, 0.12);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 1px 6px rgba(139, 105, 20, 0.05);
 }
 body:not(.dark-mode) .lp-tile:hover {
-    border-color: #b8860b;
-    background: rgba(255, 255, 255, 1);
+    border-color: rgba(184, 134, 11, 0.4);
+    background: rgba(255, 252, 245, 0.95);
+    box-shadow: 0 4px 20px rgba(139, 105, 20, 0.15);
+    transform: translateY(-2px);
 }
 body:not(.dark-mode) .lp-tile-name {
-    color: #1a1a2e;
+    color: #2c2416;
 }
 body:not(.dark-mode) .lp-tile-desc {
-    color: #555;
+    color: #5a4e3a;
 }
 body:not(.dark-mode) .lp-section-title {
-    color: #666;
+    color: #6b5d47;
 }
 body:not(.dark-mode) .lp-section-label {
-    color: #888;
+    color: #8a7c66;
 }
 body:not(.dark-mode) .lp-recent-item {
-    background: rgba(255, 255, 255, 0.8);
-    border-color: #e0e0e0;
+    background: rgba(255, 252, 245, 0.7);
+    border-color: rgba(184, 134, 11, 0.1);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+body:not(.dark-mode) .lp-recent-item:hover {
+    border-color: rgba(184, 134, 11, 0.25);
+    background: rgba(255, 252, 245, 0.9);
 }
 body:not(.dark-mode) .lp-recent-name {
-    color: #333;
+    color: #2c2416;
 }
 body:not(.dark-mode) .lp-recent-meta {
-    color: #777;
+    color: #6b5d47;
 }
 body:not(.dark-mode) .lp-header-btn {
-    color: #555;
+    color: #5a4e3a;
 }
 body:not(.dark-mode) .lp-header-btn:hover {
-    color: #b8860b;
-    background: rgba(0, 0, 0, 0.05);
+    color: #8b6914;
+    background: rgba(184, 134, 11, 0.1);
 }
 body:not(.dark-mode) .lp-version {
-    color: #b8860b;
-    border-color: #b8860b;
+    color: #8b6914;
+    border-color: #8b6914;
+}
+/* v5.9.5: Light mode footer bar — warm stone tones */
+body:not(.dark-mode) .lp-footer-bar,
+body:not(.dark-mode) .lp-status-bar {
+    background: rgba(44, 36, 22, 0.06);
+    border-top-color: rgba(184, 134, 11, 0.15);
+    color: #6b5d47;
+}
+
+/* v5.9.19: Light mode overrides for metric card expanded content */
+body:not(.dark-mode) .lp-metric-card.lp-metric-expanded {
+    background: rgba(255, 252, 245, 0.95);
+    border-color: rgba(184, 134, 11, 0.3);
+}
+body:not(.dark-mode) .lp-metric-expand.lp-mexp-open {
+    border-top-color: rgba(184, 134, 11, 0.15);
+}
+body:not(.dark-mode) .lp-mexp-title {
+    color: #6b5d47;
+}
+body:not(.dark-mode) .lp-mexp-bar-label {
+    color: #5a4e3a;
+}
+body:not(.dark-mode) .lp-mexp-bar-track {
+    background: rgba(44, 36, 22, 0.08);
+}
+body:not(.dark-mode) .lp-mexp-bar-count {
+    color: #5a4e3a;
+}
+body:not(.dark-mode) .lp-mexp-ring-stat {
+    color: #5a4e3a;
+}
+body:not(.dark-mode) .lp-mexp-chip {
+    background: rgba(44, 36, 22, 0.06);
+    color: #5a4e3a;
+}
+body:not(.dark-mode) .lp-mexp-chip b {
+    color: #2c2416;
+}
+body:not(.dark-mode) .lp-mexp-doc-row,
+body:not(.dark-mode) .lp-mexp-doc-name {
+    color: #5a4e3a;
+}
+body:not(.dark-mode) .lp-mexp-stat-cell {
+    background: rgba(44, 36, 22, 0.04);
+}
+body:not(.dark-mode) .lp-mexp-stat-val {
+    color: #2c2416;
+}
+body:not(.dark-mode) .lp-mexp-stat-lbl {
+    color: #6b5d47;
+}
+body:not(.dark-mode) .lp-mexp-bw-name {
+    color: #5a4e3a;
+}
+body:not(.dark-mode) .lp-mexp-bw-val {
+    color: #2c2416;
+}
+body:not(.dark-mode) .lp-mexp-none {
+    color: #8a7c66;
+}
+
+/* Accessibility: respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+    .lp-tile,
+    .lp-metric-card,
+    .lp-stat-number,
+    .lp-tile-badge,
+    .lp-header-btn,
+    .lp-content,
+    [class*="lp-"] {
+        animation: none !important;
+        transition-duration: 0.01ms !important;
+    }
 }
