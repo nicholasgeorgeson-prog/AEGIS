@@ -186,7 +186,7 @@ echo  ---------------------------------------------------
 echo.
 
 :: Download Python embedded (8 MB)
-echo  [1/3] Python 3.10.11 embedded (8 MB)...
+echo  [1/4] Python 3.10.11 embedded (8 MB)...
 powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_BINARY%/python-3.10.11-embed-amd64.zip' -OutFile '%INSTALL_DIR%\packaging\python-3.10.11-embed-amd64.zip' -UseBasicParsing" 2>nul
 if not exist "%INSTALL_DIR%\packaging\python-3.10.11-embed-amd64.zip" (
     echo  [WARN] PowerShell download failed, trying curl...
@@ -201,7 +201,7 @@ if exist "%INSTALL_DIR%\packaging\python-3.10.11-embed-amd64.zip" (
 )
 
 :: Download pip (2 MB)
-echo  [2/3] pip bootstrapper (2 MB)...
+echo  [2/4] pip bootstrapper (2 MB)...
 powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_BINARY%/get-pip.py' -OutFile '%INSTALL_DIR%\packaging\get-pip.py' -UseBasicParsing" 2>nul
 if not exist "%INSTALL_DIR%\packaging\get-pip.py" (
     curl.exe -L -o "%INSTALL_DIR%\packaging\get-pip.py" "%DL_BINARY%/get-pip.py" 2>nul
@@ -215,7 +215,7 @@ if exist "%INSTALL_DIR%\packaging\get-pip.py" (
 )
 
 :: Download PyTorch Windows x64 wheel from v5.1.0-wheels release (139 MB)
-echo  [3/3] PyTorch for Windows x64 (139 MB)...
+echo  [3/4] PyTorch for Windows x64 (139 MB)...
 echo        (This may take 2-5 minutes)
 powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_TORCH%/torch-2.10.0-cp310-cp310-win_amd64.whl' -OutFile '%INSTALL_DIR%\packaging\wheels\torch-2.10.0-cp310-cp310-win_amd64.whl' -UseBasicParsing" 2>nul
 if not exist "%INSTALL_DIR%\packaging\wheels\torch-2.10.0-cp310-cp310-win_amd64.whl" (
@@ -227,6 +227,19 @@ if exist "%INSTALL_DIR%\packaging\wheels\torch-2.10.0-cp310-cp310-win_amd64.whl"
 ) else (
     echo  [WARN] PyTorch download failed - AI features will be limited
     echo         You can install it later with: pip install torch
+)
+
+:: Download spaCy lookups data from v5.1.0-wheels release (94 MB)
+echo  [4/4] spaCy lookups data (94 MB)...
+powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_TORCH%/spacy_lookups_data-1.0.5-py2.py3-none-any.whl' -OutFile '%INSTALL_DIR%\packaging\wheels\spacy_lookups_data-1.0.5-py2.py3-none-any.whl' -UseBasicParsing" 2>nul
+if not exist "%INSTALL_DIR%\packaging\wheels\spacy_lookups_data-1.0.5-py2.py3-none-any.whl" (
+    echo  [WARN] PowerShell failed, trying curl...
+    curl.exe -L -o "%INSTALL_DIR%\packaging\wheels\spacy_lookups_data-1.0.5-py2.py3-none-any.whl" "%DL_TORCH%/spacy_lookups_data-1.0.5-py2.py3-none-any.whl" 2>nul
+)
+if exist "%INSTALL_DIR%\packaging\wheels\spacy_lookups_data-1.0.5-py2.py3-none-any.whl" (
+    echo  [OK] spaCy lookups data downloaded
+) else (
+    echo  [WARN] spaCy lookups download failed - some NLP features may be limited
 )
 
 :: Download NLP/ML models (240 MB) - hosted on v5.0.5 release (unchanged between versions)
