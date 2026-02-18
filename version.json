@@ -13,7 +13,9 @@
       "date": "2026-02-19",
       "changes": [
         "REBUILD: Documents by Owner HTML report — added generate_comprehensive_owners_report() to report_html_generator.py with executive summary, Chart.js charts, search/sort/filter, expandable owner cards, dark mode, print support",
-        "FIX: Documents by Owner report no longer falls back to basic static HTML — the missing advanced generator function has been implemented"
+        "FIX: Documents by Owner report no longer falls back to basic static HTML — the missing advanced generator function has been implemented",
+        "REBUILD: Relationship diagram HTML export — enhanced with directional relationship arrows (inherits-from, uses-tool, co-performs, supplies-to, receives-from), node sizing by connection count, info panel on click, dark/light theme toggle, link type color coding and dash patterns, relationship data from role_relationships table now included",
+        "FIX: Graph export endpoint now queries role_relationships table and includes directional relationship links alongside co-occurrence links"
       ]
     },
     {

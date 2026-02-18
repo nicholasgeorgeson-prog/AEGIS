@@ -465,9 +465,11 @@ def export_graph_html():
             })
 
     # Enrich nodes with role metadata
+    node_name_to_id = {}
     for node in graph_data.get('nodes', []):
         if node.get('type') == 'role':
             rn = node.get('name', '').lower().strip()
+            node_name_to_id[rn] = node.get('id')
             meta = role_lookup.get(rn, {})
             node['role_type'] = meta.get('role_type', '')
             node['category'] = meta.get('category', '')
@@ -475,6 +477,27 @@ def export_graph_html():
             node['org_group'] = meta.get('org_group', '')
             node['description'] = meta.get('description', '')
             node['function_tags'] = tag_lookup.get(rn, [])
+
+    # v5.9.23: Add directional role_relationships to links
+    try:
+        relationships = db.get_role_relationships()
+        existing_links = graph_data.get('links', [])
+        for rel in relationships:
+            src_name = (rel.get('source_role_name', '') or '').lower().strip()
+            tgt_name = (rel.get('target_role_name', '') or '').lower().strip()
+            src_id = node_name_to_id.get(src_name)
+            tgt_id = node_name_to_id.get(tgt_name)
+            if src_id and tgt_id:
+                existing_links.append({
+                    'source': src_id,
+                    'target': tgt_id,
+                    'link_type': 'relationship',
+                    'relationship_type': rel.get('relationship_type', 'related'),
+                    'weight': 2
+                })
+        graph_data['links'] = existing_links
+    except Exception as rel_err:
+        current_app.logger.warning(f'Could not load role_relationships for graph export: {rel_err}')
 
     from graph_export_html import generate_graph_html
     from config_logging import get_version
