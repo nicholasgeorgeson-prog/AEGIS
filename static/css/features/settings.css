@@ -1,0 +1,818 @@
+/* =================================================================
+   AEGIS Settings Redesign — v5.9.3
+   Card-based sections, toggle switches, glassmorphism cards,
+   section headers with icons, animated tab transitions.
+   ================================================================= */
+
+/* ── Tabs ──────────────────────────────────────────────── */
+/* v5.9.19: Tabs wrapper with scroll fade indicators */
+.settings-tabs-wrapper {
+    position: relative;
+    margin-bottom: var(--space-4);
+}
+.settings-tabs-wrapper::before,
+.settings-tabs-wrapper::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 32px;
+    z-index: 2;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    border-radius: var(--radius-lg);
+}
+.settings-tabs-wrapper::before {
+    left: 0;
+    background: linear-gradient(to right, var(--bg-tertiary) 30%, transparent);
+}
+.settings-tabs-wrapper::after {
+    right: 0;
+    background: linear-gradient(to left, var(--bg-tertiary) 30%, transparent);
+}
+.settings-tabs-wrapper.scroll-left::before {
+    opacity: 1;
+}
+.settings-tabs-wrapper.scroll-right::after {
+    opacity: 1;
+}
+/* Arrow buttons for tab scrolling */
+.settings-tabs-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 3;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid var(--border-default);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    line-height: 1;
+    padding: 0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    transition: all 0.15s ease;
+}
+.settings-tabs-arrow:hover {
+    color: var(--text-primary);
+    border-color: var(--accent);
+    background: var(--bg-primary);
+}
+.settings-tabs-arrow.arrow-left {
+    left: 4px;
+}
+.settings-tabs-arrow.arrow-right {
+    right: 4px;
+}
+.settings-tabs-wrapper.scroll-left .arrow-left,
+.settings-tabs-wrapper.scroll-right .arrow-right {
+    display: flex;
+}
+
+.settings-tabs {
+    display: flex;
+    gap: 2px;
+    padding: 4px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-lg);
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+    scroll-behavior: smooth;
+}
+.settings-tabs::-webkit-scrollbar { display: none; }
+
+.settings-tab {
+    padding: 8px 14px;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: var(--radius-md);
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    position: relative;
+}
+.settings-tab:hover {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+}
+.settings-tab.active {
+    background: var(--bg-surface);
+    color: var(--accent);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.settings-tab svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+/* Update badge on Updates tab */
+.settings-tab .update-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ef4444;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    margin-left: 2px;
+}
+
+/* ── Tab Content ──────────────────────────────────────── */
+.settings-content {
+    display: none;
+    animation: settingsFadeIn 0.25s ease;
+}
+.settings-content.active-tab {
+    display: block;
+}
+
+@keyframes settingsFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Section Cards ────────────────────────────────────── */
+.settings-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin-bottom: 16px;
+    transition: border-color 0.2s ease;
+}
+.settings-card:hover {
+    border-color: var(--border-default);
+}
+.settings-card:last-child {
+    margin-bottom: 0;
+}
+
+.settings-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-light);
+}
+.settings-card-header svg {
+    width: 18px;
+    height: 18px;
+    color: var(--accent);
+    flex-shrink: 0;
+}
+.settings-card-header h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.settings-card-header .card-description {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-left: auto;
+}
+
+/* ── Form Controls ────────────────────────────────────── */
+.settings-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+.settings-form-group:last-child {
+    margin-bottom: 0;
+}
+
+.settings-form-group > label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.settings-form-group .help-text {
+    font-size: 11.5px;
+    color: var(--text-muted);
+    margin: 0;
+    line-height: 1.4;
+}
+
+.settings-form-group .form-input,
+.settings-form-group input[type="text"],
+.settings-form-group input[type="email"],
+.settings-form-group input[type="number"],
+.settings-form-group select {
+    padding: 8px 12px;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 13px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    width: 100%;
+    max-width: 400px;
+}
+.settings-form-group .form-input:focus,
+.settings-form-group input:focus,
+.settings-form-group select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(214, 168, 74, 0.15);
+    outline: none;
+}
+
+/* ── Toggle Switches ──────────────────────────────────── */
+.settings-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-light);
+    gap: 16px;
+}
+.settings-toggle:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.settings-toggle-info {
+    flex: 1;
+    min-width: 0;
+}
+.settings-toggle-info .toggle-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    display: block;
+    margin-bottom: 2px;
+}
+.settings-toggle-info .toggle-description {
+    font-size: 11.5px;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+/* The switch container */
+.switch {
+    position: relative;
+    width: 40px;
+    height: 22px;
+    flex-shrink: 0;
+}
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.switch .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-default);
+    border-radius: 11px;
+    transition: all 0.25s ease;
+}
+.switch .slider::before {
+    content: '';
+    position: absolute;
+    height: 16px;
+    width: 16px;
+    left: 2px;
+    bottom: 2px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.25s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+.switch input:checked + .slider {
+    background: var(--accent, #D6A84A);
+    border-color: var(--accent, #D6A84A);
+}
+.switch input:checked + .slider::before {
+    transform: translateX(18px);
+}
+.switch input:focus + .slider {
+    box-shadow: 0 0 0 3px rgba(214, 168, 74, 0.2);
+}
+
+/* ── Preset Buttons ───────────────────────────────────── */
+.settings-preset-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.settings-preset-btn {
+    padding: 10px 12px;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+.settings-preset-btn svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+.settings-preset-btn:hover {
+    border-color: var(--accent);
+    background: rgba(214, 168, 74, 0.05);
+}
+.settings-preset-btn.active {
+    border-color: var(--accent);
+    background: rgba(214, 168, 74, 0.1);
+    color: var(--accent);
+    font-weight: 600;
+    box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* Preset description */
+.settings-preset-info {
+    padding: 10px 14px;
+    background: rgba(214, 168, 74, 0.05);
+    border: 1px solid rgba(214, 168, 74, 0.15);
+    border-radius: var(--radius-md);
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: 16px;
+}
+.settings-preset-info .preset-name {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* ── Checker Grid ─────────────────────────────────────── */
+.settings-checker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.settings-checker-category {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: 12px;
+}
+
+.settings-checker-category h5 {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 10px 0;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.settings-checker-category .checkbox-label,
+.settings-checker-category .checker-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 12.5px;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+.settings-checker-category .checkbox-label input[type="checkbox"],
+.settings-checker-category .checker-option input[type="checkbox"] {
+    accent-color: var(--accent);
+}
+
+/* Profile selector buttons */
+.settings-profile-pills {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+.settings-profile-pill {
+    padding: 6px 16px;
+    border: 1px solid var(--border-default);
+    border-radius: 20px;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.settings-profile-pill:hover {
+    border-color: var(--accent);
+    color: var(--text-primary);
+}
+.settings-profile-pill.active {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #fff;
+}
+
+/* ── Grid Actions ─────────────────────────────────────── */
+.settings-grid-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.settings-grid-actions .btn {
+    font-size: 12px;
+    padding: 5px 12px;
+}
+
+/* ── Diagnostics Stat Cards ───────────────────────────── */
+.settings-diag-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.settings-diag-stat {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    text-align: center;
+}
+.settings-diag-stat .stat-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+    margin-bottom: 4px;
+}
+.settings-diag-stat .stat-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.settings-diag-stat.errors .stat-value { color: #ef4444; }
+.settings-diag-stat.warnings .stat-value { color: #f97316; }
+
+/* ── Action Buttons Row ───────────────────────────────── */
+.settings-actions-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+.settings-actions-row .btn {
+    font-size: 12.5px;
+    padding: 7px 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.settings-actions-row .btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* ── Health Check Results ─────────────────────────────── */
+.settings-health-results {
+    display: none;
+    margin-top: 16px;
+    padding: 16px;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--bg-primary);
+    max-height: 400px;
+    overflow-y: auto;
+}
+.settings-health-results.visible {
+    display: block;
+}
+
+/* ── Data Management Danger Zone ──────────────────────── */
+.settings-danger-zone {
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    background: rgba(239, 68, 68, 0.03);
+}
+.settings-danger-zone .settings-card-header {
+    border-bottom-color: rgba(239, 68, 68, 0.15);
+}
+.settings-danger-zone .settings-card-header svg {
+    color: #ef4444;
+}
+.settings-danger-zone .settings-card-header h4 {
+    color: #ef4444;
+}
+
+.settings-data-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-light);
+    gap: 16px;
+}
+.settings-data-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.settings-data-item-info {
+    flex: 1;
+    min-width: 0;
+}
+.settings-data-item-info .item-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+.settings-data-item-info .item-count {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.settings-data-item .btn-danger {
+    flex-shrink: 0;
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.settings-data-item .btn-danger:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.5);
+}
+.settings-data-item .btn-danger svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Factory Reset — extra emphasis */
+.settings-factory-reset {
+    margin-top: 16px;
+    padding: 16px;
+    background: rgba(239, 68, 68, 0.05);
+    border: 1px dashed rgba(239, 68, 68, 0.4);
+    border-radius: var(--radius-md);
+    text-align: center;
+}
+.settings-factory-reset p {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0 0 10px 0;
+}
+.settings-factory-reset .btn-factory-reset {
+    background: #ef4444;
+    color: #fff;
+    border: none;
+    padding: 8px 20px;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.settings-factory-reset .btn-factory-reset:hover {
+    background: #dc2626;
+    transform: translateY(-1px);
+}
+
+/* ── Update Status Cards ──────────────────────────────── */
+.settings-update-status {
+    padding: 16px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    margin-bottom: 16px;
+}
+.settings-update-status .update-message {
+    font-size: 13px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.settings-update-status .update-message svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Backup list */
+.settings-backup-list {
+    max-height: 200px;
+    overflow-y: auto;
+    margin-bottom: 12px;
+}
+.settings-backup-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    margin-bottom: 4px;
+    font-size: 12px;
+}
+
+/* ── Sharing Status ───────────────────────────────────── */
+.settings-sharing-status {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.settings-sharing-status-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+}
+.settings-sharing-status-item .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.settings-sharing-status-item .status-dot.ok { background: #22c55e; }
+.settings-sharing-status-item .status-dot.error { background: #ef4444; }
+.settings-sharing-status-item .status-dot.warn { background: #f97316; }
+
+/* ── Network & Auth Collapsible ───────────────────────── */
+.settings-auth-section {
+    margin-top: 12px;
+    padding: 14px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+}
+.settings-auth-section summary {
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.settings-auth-section summary svg {
+    width: 14px;
+    height: 14px;
+    color: var(--text-muted);
+}
+.settings-auth-section[open] {
+    border-color: var(--accent);
+}
+
+/* ── Privacy Notice ───────────────────────────────────── */
+.settings-privacy-notice {
+    padding: 12px 14px;
+    background: rgba(155, 123, 28, 0.05);
+    border: 1px solid rgba(155, 123, 28, 0.15);
+    border-radius: var(--radius-md);
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+}
+.settings-privacy-notice svg {
+    width: 16px;
+    height: 16px;
+    color: var(--accent);
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+/* ── Info Grid (What's Included) ──────────────────────── */
+.settings-info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+.settings-info-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+}
+.settings-info-item svg {
+    width: 14px;
+    height: 14px;
+    color: var(--accent);
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.settings-info-item strong {
+    display: block;
+    font-size: 12px;
+    margin-bottom: 2px;
+}
+
+/* ── Modal Footer Override ────────────────────────────── */
+.modal-settings .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 20px;
+    border-top: 1px solid var(--border-default);
+}
+
+/* ── Dark Mode Overrides ──────────────────────────────── */
+[data-theme="dark"] .settings-card,
+.dark-mode .settings-card {
+    background: var(--bg-tertiary);
+    border-color: var(--border-default);
+}
+
+[data-theme="dark"] .settings-danger-zone,
+.dark-mode .settings-danger-zone {
+    background: rgba(239, 68, 68, 0.06);
+}
+
+[data-theme="dark"] .settings-diag-stat,
+[data-theme="dark"] .settings-health-results,
+[data-theme="dark"] .settings-update-status,
+[data-theme="dark"] .settings-auth-section,
+.dark-mode .settings-diag-stat,
+.dark-mode .settings-health-results,
+.dark-mode .settings-update-status,
+.dark-mode .settings-auth-section {
+    background: var(--bg-surface);
+}
+
+[data-theme="dark"] .switch .slider,
+.dark-mode .switch .slider {
+    background: var(--bg-surface);
+    border-color: var(--border-default);
+}
+[data-theme="dark"] .switch .slider::before,
+.dark-mode .switch .slider::before {
+    background: var(--text-muted);
+}
+[data-theme="dark"] .switch input:checked + .slider::before,
+.dark-mode .switch input:checked + .slider::before {
+    background: #fff;
+}
+
+/* ── Responsive ───────────────────────────────────────── */
+@media (max-width: 700px) {
+    .settings-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+    }
+    .settings-checker-grid {
+        grid-template-columns: 1fr;
+    }
+    .settings-diag-stats {
+        grid-template-columns: 1fr;
+    }
+    .settings-info-grid {
+        grid-template-columns: 1fr;
+    }
+}

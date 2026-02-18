@@ -1,0 +1,350 @@
+/**
+ * AEGIS Export Suite Styles
+ * v5.9.4: Enhanced export modal with filter panel, progress indicator, new format cards
+ */
+
+/* ============================================================
+   Export Format Grid — 5 cards in a row
+   ============================================================ */
+.export-format-group {
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    flex-direction: row !important;
+}
+
+.export-format-group .radio-card {
+    min-width: 0;
+}
+
+.export-format-group .radio-card-content {
+    padding: 12px 8px;
+    gap: 2px;
+}
+
+.export-format-group .radio-card-content i,
+.export-format-group .radio-card-content svg {
+    width: 20px;
+    height: 20px;
+    margin-bottom: 4px;
+}
+
+.export-format-group .radio-card-title {
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.export-format-group .radio-card-desc {
+    font-size: 10px;
+}
+
+/* Format card special accent colors */
+.format-card-pdf input:checked + .radio-card-content {
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.08);
+}
+.format-card-pdf input:checked + .radio-card-content svg,
+.format-card-pdf input:checked + .radio-card-content i {
+    color: #ef4444 !important;
+}
+
+.format-card-xlsx input:checked + .radio-card-content {
+    border-color: #16a34a;
+    background: rgba(22, 163, 74, 0.08);
+}
+.format-card-xlsx input:checked + .radio-card-content svg,
+.format-card-xlsx input:checked + .radio-card-content i {
+    color: #16a34a !important;
+}
+
+/* ============================================================
+   Export Filter Panel
+   ============================================================ */
+.export-filter-panel {
+    background: var(--bg-surface, #ddd6ca);
+    border: 1px solid var(--border-default, #cfc7b8);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 8px;
+}
+
+.export-filter-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.export-filter-header h4 {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary, #1a1a2e);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.export-filter-header h4 svg,
+.export-filter-header h4 i {
+    width: 14px;
+    height: 14px;
+    color: var(--accent, #D6A84A);
+}
+
+.export-filter-toggle {
+    font-size: 10px;
+    color: var(--text-muted, #6b7280);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.export-filter-toggle svg,
+.export-filter-toggle i {
+    width: 12px;
+    height: 12px;
+    transition: transform 0.2s;
+}
+
+.export-filter-panel.expanded .export-filter-toggle svg,
+.export-filter-panel.expanded .export-filter-toggle i {
+    transform: rotate(180deg);
+}
+
+.export-filter-body {
+    display: none;
+    gap: 12px;
+    flex-direction: column;
+}
+
+.export-filter-panel.expanded .export-filter-body {
+    display: flex;
+}
+
+.export-filter-row {
+    display: flex;
+    gap: 12px;
+}
+
+.export-filter-group {
+    flex: 1;
+}
+
+.export-filter-group label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary, #64748b);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+/* Chip-based multi-select */
+.export-filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.export-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    font-size: 11px;
+    border-radius: 20px;
+    border: 1px solid var(--border-default, #cfc7b8);
+    background: var(--bg-primary, #f5f1ea);
+    color: var(--text-secondary, #64748b);
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+}
+
+.export-filter-chip:hover {
+    border-color: var(--accent, #D6A84A);
+    background: var(--accent-subtle, rgba(214, 168, 74, 0.08));
+}
+
+.export-filter-chip.active {
+    border-color: var(--accent, #D6A84A);
+    background: var(--accent, #D6A84A);
+    color: #fff;
+}
+
+.export-filter-chip .chip-count {
+    font-weight: 700;
+    font-size: 10px;
+    opacity: 0.8;
+}
+
+/* Severity chip colors when active */
+.export-filter-chip[data-severity="Critical"].active { background: #ef4444; border-color: #ef4444; }
+.export-filter-chip[data-severity="High"].active { background: #ea580c; border-color: #ea580c; }
+.export-filter-chip[data-severity="Medium"].active { background: #ca8a04; border-color: #ca8a04; }
+.export-filter-chip[data-severity="Low"].active { background: #16a34a; border-color: #16a34a; }
+.export-filter-chip[data-severity="Info"].active { background: #3b82f6; border-color: #3b82f6; }
+
+/* Filter preview count */
+.export-filter-preview {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    margin-top: 8px;
+    background: var(--accent-subtle, rgba(214, 168, 74, 0.08));
+    border: 1px solid var(--accent, #D6A84A);
+    border-radius: 6px;
+    font-size: 12px;
+}
+
+.export-filter-preview-count {
+    font-weight: 700;
+    color: var(--accent, #D6A84A);
+}
+
+.export-filter-preview-label {
+    color: var(--text-secondary, #64748b);
+}
+
+.export-filter-clear {
+    font-size: 11px;
+    color: var(--text-muted, #6b7280);
+    cursor: pointer;
+    text-decoration: underline;
+    border: none;
+    background: none;
+    padding: 0;
+}
+
+.export-filter-clear:hover {
+    color: var(--error, #ef4444);
+}
+
+/* ============================================================
+   Export Progress Indicator
+   ============================================================ */
+.export-progress-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100000;
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+
+.export-progress-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.export-progress-card {
+    background: var(--bg-primary, #f5f1ea);
+    border-radius: 12px;
+    padding: 32px 40px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    min-width: 320px;
+}
+
+.export-progress-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 16px;
+    color: var(--accent, #D6A84A);
+    animation: exportSpin 1.5s linear infinite;
+}
+
+@keyframes exportSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.export-progress-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary, #1a1a2e);
+    margin-bottom: 8px;
+}
+
+.export-progress-detail {
+    font-size: 13px;
+    color: var(--text-muted, #6b7280);
+    margin-bottom: 16px;
+}
+
+.export-progress-bar {
+    width: 100%;
+    height: 4px;
+    background: var(--border-default, #cfc7b8);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.export-progress-bar-fill {
+    height: 100%;
+    background: var(--accent, #D6A84A);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    animation: exportProgress 2s ease-in-out infinite;
+}
+
+@keyframes exportProgress {
+    0% { width: 0%; }
+    50% { width: 70%; }
+    100% { width: 100%; }
+}
+
+.export-progress-bar-fill.determinate {
+    animation: none;
+}
+
+/* ============================================================
+   Dark Mode Overrides
+   ============================================================ */
+[data-theme="dark"] .export-filter-panel {
+    background: var(--bg-surface, #1e293b);
+    border-color: var(--border-default, #334155);
+}
+
+[data-theme="dark"] .export-filter-chip {
+    background: var(--bg-surface, #1e293b);
+    border-color: var(--border-default, #475569);
+    color: var(--text-secondary, #94a3b8);
+}
+
+[data-theme="dark"] .export-filter-chip:hover {
+    background: rgba(214, 168, 74, 0.15);
+}
+
+[data-theme="dark"] .export-filter-preview {
+    background: rgba(214, 168, 74, 0.12);
+}
+
+[data-theme="dark"] .export-progress-card {
+    background: var(--bg-primary, #0f172a);
+}
+
+/* ============================================================
+   Responsive: stack format cards on narrow modals
+   ============================================================ */
+@media (max-width: 640px) {
+    .export-format-group {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    .export-filter-row {
+        flex-direction: column;
+    }
+}
