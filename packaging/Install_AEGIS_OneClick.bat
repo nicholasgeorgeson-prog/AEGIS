@@ -117,10 +117,9 @@ echo.
 
 set "REPO=nicholasgeorgeson-prog/AEGIS"
 set "SRC_ZIP=%INSTALL_DIR%\aegis_source.zip"
-:: Binary assets (Python, pip, models) hosted on v5.1.0 release
-set "DL_BINARY=https://github.com/%REPO%/releases/download/v5.1.0"
-:: Torch wheel hosted on v5.1.0-wheels release
-set "DL_TORCH=https://github.com/%REPO%/releases/download/v5.1.0-wheels"
+:: All binary assets hosted on v5.9.21 release
+set "DL_BINARY=https://github.com/%REPO%/releases/download/v5.9.21"
+set "DL_TORCH=https://github.com/%REPO%/releases/download/v5.9.21"
 
 echo  Downloading latest source code from GitHub (main branch)...
 echo  (This includes all dependency wheels - ~600 MB total)
@@ -214,7 +213,7 @@ if exist "%INSTALL_DIR%\packaging\get-pip.py" (
     exit /b 1
 )
 
-:: Download PyTorch Windows x64 wheel from v5.1.0-wheels release (139 MB)
+:: Download PyTorch Windows x64 wheel (139 MB)
 echo  [3/4] PyTorch for Windows x64 (139 MB)...
 echo        (This may take 2-5 minutes)
 powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_TORCH%/torch-2.10.0-cp310-cp310-win_amd64.whl' -OutFile '%INSTALL_DIR%\packaging\wheels\torch-2.10.0-cp310-cp310-win_amd64.whl' -UseBasicParsing" 2>nul
@@ -229,7 +228,7 @@ if exist "%INSTALL_DIR%\packaging\wheels\torch-2.10.0-cp310-cp310-win_amd64.whl"
     echo         You can install it later with: pip install torch
 )
 
-:: Download spaCy lookups data from v5.1.0-wheels release (94 MB)
+:: Download spaCy lookups data (94 MB)
 echo  [4/4] spaCy lookups data (94 MB)...
 powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%DL_TORCH%/spacy_lookups_data-1.0.5-py2.py3-none-any.whl' -OutFile '%INSTALL_DIR%\packaging\wheels\spacy_lookups_data-1.0.5-py2.py3-none-any.whl' -UseBasicParsing" 2>nul
 if not exist "%INSTALL_DIR%\packaging\wheels\spacy_lookups_data-1.0.5-py2.py3-none-any.whl" (
@@ -242,8 +241,8 @@ if exist "%INSTALL_DIR%\packaging\wheels\spacy_lookups_data-1.0.5-py2.py3-none-a
     echo  [WARN] spaCy lookups download failed - some NLP features may be limited
 )
 
-:: Download NLP/ML models (240 MB) - hosted on v5.0.5 release (unchanged between versions)
-set "DL_MODELS=https://github.com/%REPO%/releases/download/v5.0.5"
+:: Download NLP/ML models (240 MB)
+set "DL_MODELS=https://github.com/%REPO%/releases/download/v5.9.21"
 echo.
 echo  Downloading NLP/ML models (240 MB)...
 echo  (sentence-transformers, NLTK data)
