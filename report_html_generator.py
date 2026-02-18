@@ -2725,6 +2725,502 @@ def generate_comprehensive_documents_report(
     return html
 
 
+def generate_comprehensive_owners_report(
+    owners: List[Dict],
+    document_stats: Dict,
+    report_title: str = "Documents by Owner Report"
+) -> str:
+    """
+    Generate a comprehensive, data-rich HTML report for documents grouped by owner.
+
+    Args:
+        owners: List of owner groups, each with 'owner', 'documents', 'document_count'
+        document_stats: Aggregate statistics about documents
+        report_title: Title for the report
+
+    Returns:
+        Complete HTML document as string
+    """
+    total_owners = len(owners)
+    total_documents = document_stats.get('total_documents', 0) or sum(o.get('document_count', 0) for o in owners)
+
+    # Sort owners by document count descending
+    owners_sorted = sorted(owners, key=lambda o: o.get('document_count', 0), reverse=True)
+
+    # Collect function distribution across all owners
+    function_dist = {}
+    category_dist = {}
+    for owner_data in owners:
+        for doc in owner_data.get('documents', []):
+            fn = doc.get('function_name') or 'Unassigned'
+            fc = doc.get('function_code') or ''
+            function_dist[fn] = function_dist.get(fn, 0) + 1
+            ct = doc.get('category_type') or 'Uncategorized'
+            category_dist[ct] = category_dist.get(ct, 0) + 1
+
+    # Top owners for chart
+    top_owners = owners_sorted[:20]
+    owner_chart_labels = json.dumps([escape(o.get('owner', '?')[:30]) for o in top_owners])
+    owner_chart_data = json.dumps([o.get('document_count', 0) for o in top_owners])
+
+    # Function distribution for doughnut
+    func_labels = json.dumps(list(function_dist.keys())[:15])
+    func_data = json.dumps(list(function_dist.values())[:15])
+
+    # Category distribution for bar
+    cat_labels = json.dumps(list(category_dist.keys())[:12])
+    cat_data = json.dumps(list(category_dist.values())[:12])
+
+    # Average docs per owner
+    avg_docs = round(total_documents / max(total_owners, 1), 1)
+
+    # Owner cards HTML
+    owner_cards_html = ''
+    for i, owner_data in enumerate(owners_sorted):
+        owner_name = escape(owner_data.get('owner', 'Unknown'))
+        doc_count = owner_data.get('document_count', 0)
+        initials = ''.join([n[0].upper() for n in owner_name.split()[:2]]) if owner_name else '?'
+
+        # Color based on index
+        colors = ['#8b5cf6', '#6366f1', '#3b82f6', '#0ea5e9', '#14b8a6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#a855f7']
+        color = colors[i % len(colors)]
+
+        # Build document rows
+        doc_rows = ''
+        for doc in owner_data.get('documents', []):
+            doc_name = escape(doc.get('name', 'Unknown'))
+            cat_type = escape(doc.get('category_type', '') or '')
+            func_name = escape(doc.get('function_name', '') or 'Unassigned')
+            func_code = escape(doc.get('function_code', '') or '')
+            func_badge = f'<span class="func-chip" title="{func_code}">{func_name}</span>' if func_name != 'Unassigned' else '<span class="func-chip unassigned">Unassigned</span>'
+            cat_badge = f'<span class="cat-chip">{cat_type}</span>' if cat_type else ''
+            doc_rows += f'''
+                <div class="doc-row">
+                    <div class="doc-name-cell">{doc_name}</div>
+                    <div class="doc-meta-cell">{cat_badge}{func_badge}</div>
+                </div>'''
+
+        owner_cards_html += f'''
+        <div class="owner-card" data-owner="{owner_name.lower()}" data-count="{doc_count}">
+            <div class="owner-header" style="border-left: 4px solid {color};">
+                <div class="owner-avatar" style="background: {color};">{initials}</div>
+                <div class="owner-info">
+                    <div class="owner-name">{owner_name}</div>
+                    <div class="owner-subtitle">{doc_count} document{"s" if doc_count != 1 else ""}</div>
+                </div>
+                <div class="owner-count-badge">{doc_count}</div>
+                <button class="expand-btn" onclick="this.closest('.owner-card').classList.toggle('expanded')">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+            </div>
+            <div class="owner-docs">{doc_rows}</div>
+        </div>'''
+
+    html = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AEGIS - {escape(report_title)}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        :root {{
+            --bg-deep: #f8fafc;
+            --bg-surface: #ffffff;
+            --bg-elevated: #f1f5f9;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --border: #e2e8f0;
+            --accent: #7c3aed;
+            --accent-light: #ede9fe;
+            --accent-dark: #5b21b6;
+            --gold: #D6A84A;
+            --success: #10b981;
+            --info: #3b82f6;
+            --warning: #f59e0b;
+            --radius: 12px;
+            --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+        }}
+        @media (prefers-color-scheme: dark) {{
+            :root {{
+                --bg-deep: #0d1117;
+                --bg-surface: #161b22;
+                --bg-elevated: #21262d;
+                --text-primary: #e6edf3;
+                --text-secondary: #8b949e;
+                --text-muted: #6e7681;
+                --border: #30363d;
+                --accent-light: #2d1b69;
+                --shadow: 0 1px 3px rgba(0,0,0,0.3);
+                --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
+            }}
+        }}
+        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-deep); color: var(--text-primary);
+            line-height: 1.6; min-height: 100vh;
+        }}
+        .report-container {{ max-width: 1280px; margin: 0 auto; padding: 24px; }}
+
+        /* --- Cover Header --- */
+        .report-header {{
+            background: linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #c084fc 100%);
+            border-radius: var(--radius); padding: 40px; margin-bottom: 24px;
+            color: white; position: relative; overflow: hidden;
+        }}
+        .report-header::before {{
+            content: ''; position: absolute; top: -50%; right: -20%;
+            width: 400px; height: 400px; border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+        }}
+        .report-header h1 {{ font-size: 28px; font-weight: 700; margin-bottom: 6px; position: relative; }}
+        .report-header p {{ opacity: 0.9; font-size: 15px; position: relative; }}
+        .aegis-badge {{
+            position: absolute; top: 24px; right: 32px;
+            background: rgba(255,255,255,0.15); border-radius: 8px; padding: 6px 14px;
+            font-size: 12px; font-weight: 600; letter-spacing: 0.5px; backdrop-filter: blur(8px);
+        }}
+        .report-meta {{
+            display: flex; gap: 24px; margin-top: 16px; font-size: 13px; opacity: 0.85; position: relative;
+        }}
+
+        /* --- Summary Cards --- */
+        .summary-grid {{
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;
+        }}
+        .summary-card {{
+            background: var(--bg-surface); border-radius: var(--radius); padding: 20px;
+            box-shadow: var(--shadow); border: 1px solid var(--border); text-align: center;
+        }}
+        .summary-card .value {{
+            font-size: 32px; font-weight: 700; color: var(--accent);
+            line-height: 1.2; margin-bottom: 4px;
+        }}
+        .summary-card .label {{ font-size: 13px; color: var(--text-secondary); font-weight: 500; }}
+
+        /* --- Charts Section --- */
+        .charts-grid {{
+            display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;
+        }}
+        .chart-panel {{
+            background: var(--bg-surface); border-radius: var(--radius);
+            box-shadow: var(--shadow); border: 1px solid var(--border); padding: 20px;
+        }}
+        .chart-panel h3 {{
+            font-size: 15px; font-weight: 600; margin-bottom: 12px;
+            color: var(--text-primary); display: flex; align-items: center; gap: 8px;
+        }}
+        .chart-panel h3 .icon {{ font-size: 18px; }}
+        .chart-wrap {{ position: relative; height: 280px; }}
+        .chart-wrap.tall {{ height: 360px; }}
+
+        /* --- Search / Filter Bar --- */
+        .toolbar {{
+            display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;
+        }}
+        .search-box {{
+            flex: 1; min-width: 240px; padding: 10px 14px 10px 36px;
+            border: 1px solid var(--border); border-radius: 8px; font-size: 14px;
+            background: var(--bg-surface); color: var(--text-primary); outline: none;
+        }}
+        .search-box:focus {{ border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124,58,237,0.15); }}
+        .search-icon {{
+            position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+            color: var(--text-muted); pointer-events: none;
+        }}
+        .search-wrap {{ position: relative; flex: 1; min-width: 240px; }}
+        .sort-select {{
+            padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px;
+            font-size: 14px; background: var(--bg-surface); color: var(--text-primary); cursor: pointer;
+        }}
+        .expand-all-btn {{
+            padding: 10px 16px; border: 1px solid var(--border); border-radius: 8px;
+            font-size: 13px; background: var(--bg-surface); color: var(--text-secondary);
+            cursor: pointer; font-weight: 500;
+        }}
+        .expand-all-btn:hover {{ background: var(--bg-elevated); }}
+        .result-count {{ font-size: 13px; color: var(--text-muted); white-space: nowrap; }}
+        .print-btn {{
+            padding: 10px 16px; border: 1px solid var(--accent); border-radius: 8px;
+            background: var(--accent); color: white; cursor: pointer; font-weight: 500; font-size: 13px;
+        }}
+        .print-btn:hover {{ opacity: 0.9; }}
+
+        /* --- Owner Cards --- */
+        .owner-card {{
+            background: var(--bg-surface); border-radius: var(--radius);
+            box-shadow: var(--shadow); border: 1px solid var(--border);
+            margin-bottom: 12px; overflow: hidden; transition: box-shadow 0.2s;
+        }}
+        .owner-card:hover {{ box-shadow: var(--shadow-md); }}
+        .owner-header {{
+            padding: 14px 20px; display: flex; align-items: center; gap: 14px;
+            cursor: pointer; user-select: none;
+        }}
+        .owner-avatar {{
+            width: 40px; height: 40px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-weight: 700; font-size: 15px; flex-shrink: 0;
+        }}
+        .owner-info {{ flex: 1; }}
+        .owner-name {{ font-size: 16px; font-weight: 600; }}
+        .owner-subtitle {{ font-size: 13px; color: var(--text-secondary); }}
+        .owner-count-badge {{
+            background: var(--accent-light); color: var(--accent);
+            font-weight: 700; font-size: 14px; padding: 4px 14px; border-radius: 20px;
+        }}
+        .expand-btn {{
+            background: none; border: none; cursor: pointer; padding: 6px;
+            color: var(--text-muted); border-radius: 6px; transition: transform 0.2s;
+        }}
+        .owner-card.expanded .expand-btn {{ transform: rotate(180deg); }}
+        .owner-docs {{
+            max-height: 0; overflow: hidden; transition: max-height 0.3s ease;
+            border-top: 1px solid transparent;
+        }}
+        .owner-card.expanded .owner-docs {{
+            max-height: 2000px; border-top-color: var(--border);
+        }}
+        .doc-row {{
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 20px 10px 74px; border-bottom: 1px solid var(--border);
+            font-size: 14px; gap: 12px;
+        }}
+        .doc-row:last-child {{ border-bottom: none; }}
+        .doc-row:hover {{ background: var(--bg-elevated); }}
+        .doc-name-cell {{ flex: 1; font-weight: 500; color: var(--text-primary); word-break: break-word; }}
+        .doc-meta-cell {{ display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }}
+        .func-chip {{
+            background: #ede9fe; color: #6d28d9; padding: 2px 10px; border-radius: 4px;
+            font-size: 11px; font-weight: 500; white-space: nowrap;
+        }}
+        .func-chip.unassigned {{ background: #f1f5f9; color: #94a3b8; }}
+        .cat-chip {{
+            background: #dbeafe; color: #1d4ed8; padding: 2px 10px; border-radius: 4px;
+            font-size: 11px; font-weight: 500; white-space: nowrap;
+        }}
+        @media (prefers-color-scheme: dark) {{
+            .func-chip {{ background: #2d1b69; color: #c4b5fd; }}
+            .func-chip.unassigned {{ background: #21262d; color: #6e7681; }}
+            .cat-chip {{ background: #172554; color: #93c5fd; }}
+        }}
+
+        /* --- Footer --- */
+        .report-footer {{
+            text-align: center; padding: 24px; font-size: 13px; color: var(--text-muted);
+            border-top: 1px solid var(--border); margin-top: 32px;
+        }}
+
+        /* --- Print --- */
+        @media print {{
+            body {{ background: white !important; }}
+            .toolbar, .print-btn, .expand-btn {{ display: none !important; }}
+            .owner-card {{ break-inside: avoid; box-shadow: none; border: 1px solid #ddd; }}
+            .owner-docs {{ max-height: none !important; border-top-color: #ddd !important; }}
+            .chart-panel {{ break-inside: avoid; }}
+            .report-header {{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
+        }}
+
+        /* --- Responsive --- */
+        @media (max-width: 768px) {{
+            .summary-grid {{ grid-template-columns: repeat(2, 1fr); }}
+            .charts-grid {{ grid-template-columns: 1fr; }}
+            .doc-row {{ flex-direction: column; align-items: flex-start; padding-left: 20px; }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="report-container">
+        <!-- Header -->
+        <div class="report-header">
+            <div class="aegis-badge">AEGIS Report</div>
+            <h1>{escape(report_title)}</h1>
+            <p>Documents organized by their primary owner role &mdash; interactive breakdown with function and category analysis</p>
+            <div class="report-meta">
+                <span>Generated: {datetime.now().strftime('%B %d, %Y at %H:%M')}</span>
+                <span>{total_owners} owners &bull; {total_documents} documents</span>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="value">{total_owners}</div>
+                <div class="label">Document Owners</div>
+            </div>
+            <div class="summary-card">
+                <div class="value">{total_documents}</div>
+                <div class="label">Total Documents</div>
+            </div>
+            <div class="summary-card">
+                <div class="value">{avg_docs}</div>
+                <div class="label">Avg Docs / Owner</div>
+            </div>
+            <div class="summary-card">
+                <div class="value">{len(function_dist)}</div>
+                <div class="label">Functions Covered</div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="charts-grid">
+            <div class="chart-panel">
+                <h3><span class="icon">&#128202;</span> Documents per Owner</h3>
+                <div class="chart-wrap tall"><canvas id="ownerChart"></canvas></div>
+            </div>
+            <div class="chart-panel">
+                <h3><span class="icon">&#128200;</span> Function Distribution</h3>
+                <div class="chart-wrap"><canvas id="funcChart"></canvas></div>
+            </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <div class="search-wrap">
+                <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" class="search-box" id="ownerSearch" placeholder="Search owners or documents...">
+            </div>
+            <select class="sort-select" id="sortSelect">
+                <option value="count-desc">Most Documents</option>
+                <option value="count-asc">Fewest Documents</option>
+                <option value="name-asc">Name A&ndash;Z</option>
+                <option value="name-desc">Name Z&ndash;A</option>
+            </select>
+            <button class="expand-all-btn" id="expandAllBtn">Expand All</button>
+            <span class="result-count" id="resultCount">{total_owners} owners</span>
+            <button class="print-btn" onclick="window.print()">&#128424; Print</button>
+        </div>
+
+        <!-- Owner Cards -->
+        <div id="ownerList">
+            {owner_cards_html}
+        </div>
+
+        <!-- Footer -->
+        <div class="report-footer">
+            Generated by AEGIS v{datetime.now().strftime('%Y')}.x &bull; {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {{
+            // --- Charts ---
+            try {{
+                const ownerLabels = {owner_chart_labels};
+                const ownerData = {owner_chart_data};
+                const funcLabels = {func_labels};
+                const funcData = {func_data};
+
+                const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+                const textColor = isDark ? '#8b949e' : '#64748b';
+
+                // Owners bar chart
+                const ownerCtx = document.getElementById('ownerChart');
+                if (ownerCtx && ownerLabels.length > 0) {{
+                    new Chart(ownerCtx, {{
+                        type: 'bar',
+                        data: {{
+                            labels: ownerLabels,
+                            datasets: [{{ label: 'Documents', data: ownerData, backgroundColor: '#8b5cf6', borderRadius: 6 }}]
+                        }},
+                        options: {{
+                            indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                            plugins: {{ legend: {{ display: false }}, tooltip: {{ callbacks: {{ label: ctx => ctx.parsed.x + ' documents' }} }} }},
+                            scales: {{
+                                x: {{ beginAtZero: true, grid: {{ color: gridColor }}, ticks: {{ precision: 0, color: textColor }} }},
+                                y: {{ grid: {{ display: false }}, ticks: {{ color: textColor, font: {{ size: 11 }} }} }}
+                            }}
+                        }}
+                    }});
+                }}
+
+                // Function doughnut
+                const funcCtx = document.getElementById('funcChart');
+                if (funcCtx && funcLabels.length > 0) {{
+                    const palette = ['#8b5cf6','#6366f1','#3b82f6','#0ea5e9','#14b8a6','#10b981','#84cc16','#eab308','#f59e0b','#ef4444','#ec4899','#a855f7','#64748b','#475569','#334155'];
+                    new Chart(funcCtx, {{
+                        type: 'doughnut',
+                        data: {{
+                            labels: funcLabels,
+                            datasets: [{{ data: funcData, backgroundColor: palette.slice(0, funcLabels.length), borderWidth: 0 }}]
+                        }},
+                        options: {{
+                            responsive: true, maintainAspectRatio: false, cutout: '55%',
+                            plugins: {{
+                                legend: {{ position: 'right', labels: {{ color: textColor, font: {{ size: 11 }}, padding: 8, boxWidth: 12 }} }},
+                                tooltip: {{ callbacks: {{ label: ctx => ctx.label + ': ' + ctx.parsed + ' docs' }} }}
+                            }}
+                        }}
+                    }});
+                }}
+            }} catch (err) {{
+                console.error('AEGIS Report: Chart error:', err);
+            }}
+
+            // --- Search ---
+            const searchBox = document.getElementById('ownerSearch');
+            const ownerList = document.getElementById('ownerList');
+            const resultCount = document.getElementById('resultCount');
+            const cards = ownerList.querySelectorAll('.owner-card');
+
+            searchBox.addEventListener('input', function() {{
+                const q = this.value.toLowerCase().trim();
+                let visible = 0;
+                cards.forEach(card => {{
+                    const ownerName = card.getAttribute('data-owner') || '';
+                    const docNames = Array.from(card.querySelectorAll('.doc-name-cell')).map(d => d.textContent.toLowerCase()).join(' ');
+                    const match = !q || ownerName.includes(q) || docNames.includes(q);
+                    card.style.display = match ? '' : 'none';
+                    if (match) visible++;
+                }});
+                resultCount.textContent = visible + ' owner' + (visible !== 1 ? 's' : '');
+            }});
+
+            // --- Sort ---
+            document.getElementById('sortSelect').addEventListener('change', function() {{
+                const method = this.value;
+                const arr = Array.from(cards);
+                arr.sort((a, b) => {{
+                    if (method === 'count-desc') return parseInt(b.dataset.count) - parseInt(a.dataset.count);
+                    if (method === 'count-asc') return parseInt(a.dataset.count) - parseInt(b.dataset.count);
+                    if (method === 'name-asc') return (a.dataset.owner || '').localeCompare(b.dataset.owner || '');
+                    if (method === 'name-desc') return (b.dataset.owner || '').localeCompare(a.dataset.owner || '');
+                    return 0;
+                }});
+                arr.forEach(card => ownerList.appendChild(card));
+            }});
+
+            // --- Expand All ---
+            let allExpanded = false;
+            document.getElementById('expandAllBtn').addEventListener('click', function() {{
+                allExpanded = !allExpanded;
+                cards.forEach(card => {{
+                    if (allExpanded) card.classList.add('expanded');
+                    else card.classList.remove('expanded');
+                }});
+                this.textContent = allExpanded ? 'Collapse All' : 'Expand All';
+            }});
+
+            // Click header to toggle
+            cards.forEach(card => {{
+                card.querySelector('.owner-header').addEventListener('click', function(e) {{
+                    if (e.target.closest('.expand-btn')) return;
+                    card.classList.toggle('expanded');
+                }});
+            }});
+        }});
+    </script>
+</body>
+</html>
+'''
+
+    return html
+
+
 def detect_cross_functional_references(
     functions: List[Dict],
     document_categories: List[Dict],

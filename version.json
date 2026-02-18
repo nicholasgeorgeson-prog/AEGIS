@@ -1,13 +1,21 @@
 {
-  "version": "5.9.22",
-  "release_date": "2026-02-18",
-  "core_version": "5.9.22",
+  "version": "5.9.23",
+  "release_date": "2026-02-19",
+  "core_version": "5.9.23",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.23",
+      "date": "2026-02-19",
+      "changes": [
+        "REBUILD: Documents by Owner HTML report — added generate_comprehensive_owners_report() to report_html_generator.py with executive summary, Chart.js charts, search/sort/filter, expandable owner cards, dark mode, print support",
+        "FIX: Documents by Owner report no longer falls back to basic static HTML — the missing advanced generator function has been implemented"
+      ]
+    },
     {
       "version": "5.9.22",
       "date": "2026-02-18",
