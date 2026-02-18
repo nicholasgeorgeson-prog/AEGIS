@@ -315,6 +315,17 @@ html {
 }
 
 /* =============================================================================
+   v5.9.22: GLOBAL CURSOR FIX — prevent blinking text cursors on non-input elements.
+   Only inputs, textareas, and contenteditable elements should show text cursor.
+   ============================================================================= */
+*:not(input):not(textarea):not(select):not([contenteditable="true"]) {
+    caret-color: transparent;
+}
+input, textarea, select, [contenteditable="true"] {
+    caret-color: auto;
+}
+
+/* =============================================================================
    SCROLLBAR STYLING
    ============================================================================= */
 

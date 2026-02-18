@@ -1960,12 +1960,18 @@ TWR.DataExplorer = (function() {
         }
 
         // --- View in Document button ---
+        // v5.9.22: Fixed — close DE first, then open RSV with delay to avoid race condition
         const viewInDocBtn = content.querySelector('.de-view-in-doc-btn');
         if (viewInDocBtn) {
-            viewInDocBtn.addEventListener('click', () => {
+            viewInDocBtn.addEventListener('click', async () => {
                 if (TWR.RoleSourceViewer?.open) {
-                    TWR.RoleSourceViewer.open(canonicalName);
+                    const roleName = canonicalName;
                     TWR.DataExplorer.close();
+                    // Small delay to let DE close animation complete before opening RSV
+                    await new Promise(r => setTimeout(r, 150));
+                    TWR.RoleSourceViewer.open(roleName);
+                } else {
+                    if (typeof showToast === 'function') showToast('error', 'Role Source Viewer is not available');
                 }
             });
         }

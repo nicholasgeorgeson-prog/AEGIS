@@ -14965,33 +14965,42 @@ const StatementForge = (function() {
     }
     
     // v2.9.4 #3: Handle file upload directly in Statement Forge
+    // v5.9.22: Added .txt/.md support, fresh CSRF token, better error handling
     async function handleFileUpload(inputElement) {
         const file = inputElement?.files?.[0];
         if (!file) {
             toast('error', STRINGS.errors.noFile);
             return;
         }
-        
-        // Check file type
-        const validTypes = ['.docx', '.pdf', '.doc'];
+
+        // Check file type — v5.9.22: Added .txt and .md to match HTML accept attribute
+        const validTypes = ['.docx', '.pdf', '.doc', '.txt', '.md'];
         const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
         if (!validTypes.includes(ext)) {
-            toast('error', 'Please upload a .docx, .doc, or .pdf file');
+            toast('error', 'Please upload a .docx, .doc, .pdf, .txt, or .md file');
             inputElement.value = '';
             return;
         }
-        
+
         showLoading(`${STRINGS.loading.uploading.replace('...', '')} ${file.name}...`);
-        
+
         try {
+            // v5.9.22: Get fresh CSRF token (Lesson 18) to prevent stale token failures
+            let csrfToken = window.State?.csrfToken || document.querySelector('meta[name="csrf-token"]')?.content || '';
+            try {
+                const tokenResp = await fetch('/api/version', { credentials: 'same-origin' });
+                const freshCsrf = tokenResp.headers.get('X-CSRF-Token');
+                if (freshCsrf) csrfToken = freshCsrf;
+            } catch (e) { /* use existing token */ }
+
             // Upload the file
             const formData = new FormData();
             formData.append('file', file);
-            
+
             const uploadResponse = await fetch('/api/upload', {
                 method: 'POST',
                 headers: {
-                    'X-CSRF-Token': window.State?.csrfToken || ''
+                    'X-CSRF-Token': csrfToken
                 },
                 body: formData
             });
@@ -15017,7 +15026,7 @@ const StatementForge = (function() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': window.State?.csrfToken || ''
+                    'X-CSRF-Token': csrfToken
                 },
                 body: JSON.stringify({
                     options: {
@@ -16549,9 +16558,26 @@ document.addEventListener('DOMContentLoaded', function() {
 console.log('[TWR] Diagnostic Export v3.0.114 loaded');
 
 // v4.6.0: Load data counts for settings Data Management tab
+// v5.9.22: Fixed — now populates ALL 4 stored data spans (scan history, statements, roles, learning)
 async function _loadDataManagementCounts() {
+    // 1. Scan History count
     try {
-        // Statement count
+        const scanResp = await fetch('/api/scan-history');
+        if (scanResp.ok) {
+            const scanData = await scanResp.json();
+            const span = document.getElementById('scan-history-count');
+            if (span) {
+                const scans = scanData.data?.scans || scanData.scans || [];
+                const docs = scanData.data?.documents || [];
+                span.textContent = `${scans.length} scans across ${docs.length || 'multiple'} documents`;
+            }
+        }
+    } catch (e) {
+        const span = document.getElementById('scan-history-count');
+        if (span) span.textContent = 'No scan data';
+    }
+    // 2. Statement count
+    try {
         const stmtResp = await fetch('/api/scan-history/statements/review-stats');
         if (stmtResp.ok) {
             const stmtData = await stmtResp.json();
@@ -16563,9 +16589,12 @@ async function _loadDataManagementCounts() {
                 }
             }
         }
-    } catch (e) { /* silent */ }
+    } catch (e) {
+        const span = document.getElementById('statement-data-count');
+        if (span) span.textContent = 'No statement data';
+    }
+    // 3. Role Dictionary count
     try {
-        // Role count
         const roleResp = await fetch('/api/roles/dictionary');
         if (roleResp.ok) {
             const roleData = await roleResp.json();
@@ -16574,7 +16603,25 @@ async function _loadDataManagementCounts() {
                 if (span) span.textContent = `${roleData.data?.total || roleData.data?.roles?.length || 0} roles`;
             }
         }
-    } catch (e) { /* silent */ }
+    } catch (e) {
+        const span = document.getElementById('role-dictionary-count');
+        if (span) span.textContent = 'No role data';
+    }
+    // 4. Learning Data count (function categories + tags)
+    try {
+        const tagResp = await fetch('/api/roles/function-categories');
+        if (tagResp.ok) {
+            const tagData = await tagResp.json();
+            const span = document.getElementById('learning-data-count');
+            if (span) {
+                const cats = tagData.data?.categories || tagData.categories || [];
+                span.textContent = `${cats.length} function categories`;
+            }
+        }
+    } catch (e) {
+        const span = document.getElementById('learning-data-count');
+        if (span) span.textContent = 'No learning data';
+    }
 }
 
 // =============================================================================

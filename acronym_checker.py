@@ -1097,7 +1097,7 @@ class AcronymChecker(BaseChecker):
         hyperlinked = self._get_hyperlinked_text(filepath) if filepath else set()
 
         # Pattern for potential acronyms
-        acronym_pattern = re.compile(r'\b([A-Z][A-Z0-9&/-]{1,11})\b')
+        acronym_pattern = re.compile(r'(?<![a-zA-Z])([A-Z][A-Z0-9&/-]{1,11})(?![a-zA-Z])')
 
         # Pattern for template/instruction text in brackets - skip these entirely
         # Matches: [GREEN TEXT], [INSERT NAME], [ENTER DATE], etc.

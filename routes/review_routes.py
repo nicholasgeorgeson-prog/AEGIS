@@ -266,6 +266,52 @@ def review_batch():
             actual_roles = {k: v for k, v in doc_roles.items() if not isinstance(v, dict) or k not in ['success', 'error']}
             doc_info = doc_results.get('document_info', {})
             word_count = doc_info.get('word_count', 0) if isinstance(doc_info, dict) else 0
+
+            # v5.9.22: Statement Forge extraction during batch scan
+            sf_summary = None
+            if _shared.STATEMENT_FORGE_AVAILABLE and doc_results.get('full_text'):
+                try:
+                    try:
+                        from statement_forge.extractor import extract_statements as sf_extract
+                        from statement_forge.export import get_export_stats as sf_stats
+                        from statement_forge.routes import _store_statements
+                    except ImportError:
+                        from statement_forge__extractor import extract_statements as sf_extract
+                        from statement_forge__export import get_export_stats as sf_stats
+                        from statement_forge__routes import _store_statements
+                    sf_text = doc_results.get('clean_full_text') or doc_results.get('full_text', '')
+                    sf_stmts = sf_extract(sf_text, filepath.name)
+                    if sf_stmts:
+                        stats = sf_stats(sf_stmts)
+                        sf_statements_list = [s.to_dict() for s in sf_stmts]
+                        _store_statements(sf_stmts)
+                        sf_summary = {
+                            'available': True, 'statements_ready': True,
+                            'total_statements': len(sf_stmts),
+                            'directive_counts': stats.get('directive_counts', {}),
+                            'top_roles': stats.get('roles', [])[:5],
+                        }
+                        doc_results['statement_forge_summary'] = sf_summary
+                        # Persist statements to scan history if available
+                        if _shared.SCAN_HISTORY_AVAILABLE:
+                            try:
+                                from routes._shared import get_scan_history_db
+                                db = get_scan_history_db()
+                                scan_info = db.record_scan(
+                                    filename=filepath.name, filepath=str(filepath),
+                                    results=doc_results, options=options
+                                )
+                                if scan_info and sf_statements_list:
+                                    db.save_scan_statements(
+                                        scan_info['scan_id'], scan_info['document_id'],
+                                        sf_statements_list
+                                    )
+                            except Exception as db_err:
+                                logger.warning(f'Batch SF db persist failed: {db_err}')
+                        logger.debug(f'Batch SF: {filepath.name} → {len(sf_stmts)} statements')
+                except Exception as sf_err:
+                    logger.warning(f'Batch SF extraction failed for {filepath.name}: {sf_err}')
+
             return {
                 'filename': filepath.name,
                 'filepath': str(filepath),
@@ -275,6 +321,7 @@ def review_batch():
                 'score': doc_results.get('score', 0),
                 'grade': doc_results.get('grade', 'N/A'),
                 'doc_results': doc_results,
+                'sf_summary': sf_summary,
             }
         except Exception as e:
             tb_str = traceback.format_exc()

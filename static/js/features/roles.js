@@ -3351,6 +3351,16 @@ TWR.Roles = (function() {
     }
 
     function detectDeliverable(roleName, data) {
+        const name = roleName.toLowerCase();
+        // v5.9.22: Exclude organizational groups from deliverable detection
+        // These are roles/teams that PRODUCE deliverables, not deliverables themselves
+        const orgGroupPatterns = [
+            /\b(team|group|committee|board|panel|council|office|division|department|branch|section)\b/i,
+            /\b(engineer|manager|lead|director|officer|specialist|analyst|coordinator|administrator)\b/i,
+            /\b(supervisor|inspector|reviewer|authority|command|organization|agency|stakeholder)\b/i
+        ];
+        if (orgGroupPatterns.some(p => p.test(name))) return false;
+
         const deliverablePatterns = [
             /\b(document|report|plan|specification|analysis|review|audit|assessment)\b/i,
             /\b(drawing|schematic|diagram|model|prototype)\b/i,
@@ -3361,7 +3371,6 @@ TWR.Roles = (function() {
             /\b(requirements|interface|design)\s+(document|spec)/i,
             /\bICD\b|\bSRS\b|\bSDD\b|\bCDRL\b|\bDID\b/i
         ];
-        const name = roleName.toLowerCase();
         return deliverablePatterns.some(p => p.test(name));
     }
 
@@ -4417,6 +4426,8 @@ TWR.Roles = (function() {
                 // Use existing selectNode for details panel
                 selectNode(nd, links);
                 hebHighlightNode(nd.id, links, leafMap, true);
+                // v5.9.22: Enable drill-down filter on node click
+                applyDrillDownFilter(nd.id, nd.type || 'role', nd.label);
             });
         });
 
@@ -9798,6 +9809,11 @@ TWR.Roles = (function() {
             },
             onSelect: (item, input) => {
                 highlightSearchMatches(item.label);
+                // v5.9.22: Also select the node to show details panel + drill-down
+                const matchingNode = GraphState.data?.nodes?.find(n => n.id === item.id || n.label === item.label);
+                if (matchingNode) {
+                    selectNode(matchingNode, GraphState.data?.links || []);
+                }
             }
         });
 

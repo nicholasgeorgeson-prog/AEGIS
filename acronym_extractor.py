@@ -293,7 +293,7 @@ class AcronymExtractor:
 
         # Pattern: Standalone acronym (2-12 uppercase letters/numbers)
         self.pattern_acronym = re.compile(
-            r'\b([A-Z][A-Z0-9]{1,11})\b',
+            r'(?<![a-zA-Z])([A-Z][A-Z0-9]{1,11})(?![a-zA-Z])',
             re.UNICODE
         )
 

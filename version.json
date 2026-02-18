@@ -1,13 +1,35 @@
 {
-  "version": "5.9.21",
+  "version": "5.9.22",
   "release_date": "2026-02-18",
-  "core_version": "5.9.21",
+  "core_version": "5.9.22",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.22",
+      "date": "2026-02-18",
+      "changes": [
+        "FIX: Statement editor Save button now works — fixed boolean vs dict return type mismatch in routes.py",
+        "FIX: Acronym checker no longer flags 'NG' from inside words like 'engineering' — replaced \\b word boundary with negative lookahead/lookbehind in all 3 acronym checker files",
+        "FIX: Z-index audit — Role Source Viewer (50000), Auto Classify overlay (50000) now open ABOVE parent Roles Studio modal (10000)",
+        "FIX: Blinking text cursors eliminated globally — added caret-color: transparent on non-input elements, removed cursor:text from statement-history.css",
+        "FIX: Issues by Category legend now sticky at bottom of scrollable panel, removed fixed max-height so panels match Fix Analyzer height",
+        "FIX: Missing get_statement_review_stats() method added to scan_history.py — was declared in v4.6.0 changelog but never implemented",
+        "FIX: Settings Stored Data now populates all 4 spans (scan history, statements, roles, learning data) instead of showing 'Loading'",
+        "FIX: HV User-Agent updated to Chrome 131 with Sec-Fetch headers — fixes false-positive broken links for YouTube, wikis, .mil/.gov sites",
+        "FIX: Auto Classify modal widened from 520px to 720px, results area expanded from 300px to 50vh for long role names/descriptions",
+        "FIX: Auto Classify deliverable detection now excludes organizational groups (teams, boards, committees, panels) from being flagged as deliverables",
+        "FIX: Batch scan now includes Statement Forge extraction — statements extracted and persisted during batch/folder scan alongside regular review",
+        "FIX: Data Explorer 'View in Document' — fixed race condition by closing DE first, then opening Role Source Viewer after delay",
+        "FIX: Statement Forge file picker — added .txt/.md to valid types, added fresh CSRF token refresh before upload to prevent stale token failures",
+        "FIX: Edge bundling node click now triggers drill-down filter (applyDrillDownFilter) in addition to select/highlight",
+        "FIX: Graph smart search onSelect now also calls selectNode to show details panel with drill-down",
+        "UX: SIPOC Step 5 'Done' label in step indicator now clickable to close the wizard modal"
+      ]
+    },
     {
       "version": "5.9.21",
       "date": "2026-02-18",

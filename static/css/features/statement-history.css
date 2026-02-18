@@ -779,7 +779,7 @@
     white-space: pre-wrap;
     word-wrap: break-word;
     user-select: text;
-    cursor: text;
+    cursor: default;
 }
 
 /* v4.3.0: HTML content rendering (mammoth/pymupdf4llm output) */

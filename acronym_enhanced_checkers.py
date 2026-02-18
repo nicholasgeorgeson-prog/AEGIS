@@ -102,7 +102,7 @@ class AcronymFirstUseChecker(BaseChecker):
     )
 
     # Pattern: Standalone acronym (2-10 uppercase letters/numbers)
-    USAGE_PATTERN = re.compile(r'\b([A-Z][A-Z0-9&/-]{1,9})\b')
+    USAGE_PATTERN = re.compile(r'(?<![a-zA-Z])([A-Z][A-Z0-9&/-]{1,9})(?![a-zA-Z])')
 
     # Skip patterns (not acronyms)
     SKIP_PATTERNS = {

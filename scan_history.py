@@ -4896,6 +4896,43 @@ class ScanHistoryDB:
             )
             return cursor.rowcount > 0
 
+    def get_statement_review_stats(self, document_id=None):
+        """Get statement review statistics.
+
+        v5.9.22: Implements the missing method that was promised in v4.6.0
+        but never actually created. Called by /api/scan-history/statements/review-stats.
+
+        Args:
+            document_id: Optional document ID to filter by
+
+        Returns:
+            dict with total, reviewed, pending, confirmed, rejected counts
+        """
+        with self.connection() as (conn, cursor):
+            base_query = 'SELECT COUNT(*) as total'
+            base_query += ', SUM(CASE WHEN review_status = "reviewed" THEN 1 ELSE 0 END) as reviewed'
+            base_query += ', SUM(CASE WHEN review_status IS NULL OR review_status = "" OR review_status = "pending" THEN 1 ELSE 0 END) as pending'
+            base_query += ', SUM(CASE WHEN confirmed = 1 THEN 1 ELSE 0 END) as confirmed'
+            base_query += ', SUM(CASE WHEN review_status = "rejected" THEN 1 ELSE 0 END) as rejected'
+            base_query += ' FROM scan_statements'
+
+            if document_id:
+                base_query += ' WHERE scan_id IN (SELECT id FROM scan_history WHERE document_id = ?)'
+                cursor.execute(base_query, (document_id,))
+            else:
+                cursor.execute(base_query)
+
+            row = cursor.fetchone()
+            if row:
+                return {
+                    'total': row[0] or 0,
+                    'reviewed': row[1] or 0,
+                    'pending': row[2] or 0,
+                    'confirmed': row[3] or 0,
+                    'rejected': row[4] or 0
+                }
+            return {'total': 0, 'reviewed': 0, 'pending': 0, 'confirmed': 0, 'rejected': 0}
+
 
 # Graph cache for performance
 _graph_cache = {}

@@ -1238,12 +1238,12 @@ def update_historical_statement(statement_id):
         if field in data:
             updates[field] = data[field]
 
-    result = db.update_scan_statement(statement_id, updates)
+    success = db.update_scan_statement(statement_id, updates)
 
-    if result['success']:
-        return jsonify(result)
+    if success:
+        return jsonify({'success': True, 'message': 'Statement updated'})
     else:
-        return jsonify(result), 400
+        return jsonify({'success': False, 'error': 'Statement not found or no changes made'}), 400
 
 
 # =========================================================================

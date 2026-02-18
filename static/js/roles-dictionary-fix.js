@@ -2050,6 +2050,26 @@
                 cancelBtn.textContent = 'Cancel';
             }
         }
+        // v5.9.22: Make step 5 "Done" label in the step indicator also clickable
+        const stepLabels = document.querySelectorAll('.sipoc-steps-indicator .progress-step');
+        stepLabels.forEach(label => {
+            const labelStep = parseInt(label.dataset.step);
+            if (labelStep === 5 && step === 5) {
+                label.style.cursor = 'pointer';
+                label.style.textDecoration = 'underline';
+                label.onclick = () => {
+                    const modal = document.getElementById('sipoc-import-modal');
+                    if (modal) {
+                        modal.classList.remove('active');
+                        modal.style.display = 'none';
+                    }
+                };
+            } else {
+                label.style.cursor = '';
+                label.style.textDecoration = '';
+                label.onclick = null;
+            }
+        });
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
