@@ -620,6 +620,23 @@ Additionally, version branding updates should be applied to ALL three files. Use
 **Also exists**: `install_offline.bat` — simpler offline installer for air-gapped environments. Has its own version reference that needs updating.
 **Lesson**: When the project has multiple copies of the same file, document which is the source of truth and always sync after editing. A future improvement would be to have the packaging copy be a symlink or generated from the root copy.
 
+### 68. typer Is Another Windows-Only Transitive Dependency for spaCy
+**Problem**: After fixing the `colorama` missing wheel issue, spaCy still failed with `No module named 'typer'`.
+**Root Cause**: spaCy (v3.8+) depends on `typer` for its CLI. Like colorama, typer is a pure-Python package that pip normally auto-resolves — but with `--no-index --find-links` offline installs, it was never pulled in because it wasn't explicitly listed in the install command or requirements.
+**Fix**: (1) Downloaded `typer-0.24.0-py3-none-any.whl` to `wheels/`. (2) Added `typer>=0.9.0` to `requirements.txt` and `typer==0.24.0` to `packaging/requirements-windows.txt`. (3) Updated OneClick installer to install `colorama typer` together as the first priority install. (4) Updated `repair_aegis.py` to include `typer` in `SPACY_CHAIN`, `CRITICAL_PACKAGES`, the diagnostic groups, and the skip set.
+**typer's dependencies**: click, shellingham, rich, annotated-doc — all already present in `wheels/` directory.
+**Lesson**: When debugging "module not found" errors for a large package like spaCy, there may be MULTIPLE missing transitive dependencies. Fix one, run again, find the next. The repair tool's visible error messages (no `2>nul`) are essential for this iterative process. Always add newly discovered deps to ALL three places: (1) wheels directory, (2) requirements files, (3) installer install commands.
+
+### 69. Python-Based Repair Tool Replaces Crashing Batch Scripts
+**Pattern**: After three failed attempts at writing a batch-only repair tool (Lesson 62: errorlevel unreliable, Lesson 66: OneDrive paths break), the solution is a thin `Repair_AEGIS.bat` wrapper (~75 lines) that:
+1. Finds `python.exe` in the AEGIS directory (checks current dir, common locations, prompts user)
+2. Finds `repair_aegis.py` in the same directory
+3. Calls `"%PYTHON_EXE%" "%REPAIR_PY%"` — proper quoting handles spaces in OneDrive paths
+The actual logic lives in `repair_aegis.py` (500 lines) where Python's error handling, string processing, and subprocess management work reliably regardless of path names.
+**Files**: `Repair_AEGIS.bat` (thin wrapper), `repair_aegis.py` (all logic)
+**Both files** must be in the AEGIS install directory and uploaded as release assets on v5.9.21.
+**Lesson**: For any non-trivial Windows tooling, write the logic in Python and use batch only as a 10-line launcher. Batch scripting is fundamentally broken for: error handling (`errorlevel` sticky), string processing (paths with spaces), and control flow (`call :subroutine` + `&&/||`).
+
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
 1. **Changelog update** in `version.json` (and copy to `static/version.json`)
