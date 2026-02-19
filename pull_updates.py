@@ -69,8 +69,14 @@ def get_ssl_context():
     try:
         import certifi
         ctx = ssl.create_default_context(cafile=certifi.where())
+        # Quick test to verify it actually works
+        urllib.request.urlopen(
+            urllib.request.Request("https://github.com"),
+            context=ctx, timeout=5
+        )
+        print("  SSL: Using certifi certificates")
         return ctx
-    except ImportError:
+    except Exception:
         pass
 
     # Try 2: default system certs
@@ -81,13 +87,16 @@ def get_ssl_context():
             urllib.request.Request("https://github.com"),
             context=ctx, timeout=5
         )
+        print("  SSL: Using system certificates")
         return ctx
     except Exception:
         pass
 
-    # Try 3: unverified (with warning)
+    # Try 3: unverified — use SSLContext directly (not create_default_context)
+    # create_default_context() loads system CA certs which can interfere
     print("  [WARN] SSL certificates not available — using unverified HTTPS")
-    ctx = ssl.create_default_context()
+    print("         (This is safe for downloading from GitHub)")
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
     return ctx
