@@ -199,10 +199,24 @@ def pip_install(packages, wheels_dirs=None, force=False):
 
 
 def check_import(module_name):
-    """Try importing a module. Returns (success, error_message)."""
+    """Try importing a module. Returns (success, error_message).
+
+    Uses subprocess for packages known to have reimport issues
+    (torch, requests_negotiate_sspi) to avoid false failures.
+    """
+    # Packages that break when reimported in-process
+    SUBPROCESS_CHECK = {'torch', 'requests_negotiate_sspi'}
+    if module_name in SUBPROCESS_CHECK:
+        result = subprocess.run(
+            [sys.executable, '-c', f'import {module_name}'],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            return True, None
+        err = result.stderr.strip().split('\n')[-1] if result.stderr else 'import failed'
+        return False, err
+
     try:
-        if module_name in sys.modules:
-            del sys.modules[module_name]
         importlib.import_module(module_name)
         return True, None
     except Exception as e:
@@ -550,6 +564,18 @@ def main():
     # Step 3f: Optional packages
     if optional_failed:
         print('  --- Optional Packages ---')
+        optional_names_set = {name for name, _ in optional_failed}
+
+        # Install sspilib first if Windows auth packages need it
+        if 'requests-ntlm' in optional_names_set or 'requests-negotiate-sspi' in optional_names_set:
+            info('Installing sspilib (required by pyspnego/requests-ntlm on Windows)...')
+            success, method = pip_install('sspilib', wheels_dirs)
+            if success:
+                ok(f'sspilib installed ({method})')
+            else:
+                warn(f'sspilib not available — Windows auth packages may fail')
+            print()
+
         for pip_name, _ in optional_failed:
             info(f'Installing {pip_name}...')
             success, method = pip_install(pip_name, wheels_dirs, force=True)
