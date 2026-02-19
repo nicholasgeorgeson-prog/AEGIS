@@ -1948,16 +1948,29 @@ def export_highlighted_excel_endpoint():
     tmp.close()  # Close handle BEFORE file.save() opens it
 
     logger.info(f"Export highlighted Excel: mode={export_mode}, saving uploaded file ({file.filename}) to {tmp_path}")
-    file.save(tmp_path)
+    try:
+        file.save(tmp_path)
+    except Exception as save_err:
+        logger.exception(f"Export highlighted Excel: FAILED to save uploaded file to {tmp_path}: {save_err}")
+        raise ProcessingError(f"Failed to save uploaded file: {type(save_err).__name__}: {save_err}")
     logger.info(f"Export highlighted Excel: file saved, size={os.path.getsize(tmp_path)} bytes, {len(results)} results")
+
+    # Log result status breakdown for debugging
+    status_counts = {}
+    for r in results:
+        s = r.status.upper() if r.status else 'UNKNOWN'
+        status_counts[s] = status_counts.get(s, 0) + 1
+    logger.info(f"Export highlighted Excel: result status breakdown: {status_counts}")
 
     try:
         # Create highlighted document — choose function by mode
         if export_mode == 'multicolor':
+            logger.info("Export highlighted Excel: using multicolor mode")
             success, message, file_bytes = export_highlighted_excel_multicolor(
                 tmp_path, results, link_column=link_column
             )
         else:
+            logger.info("Export highlighted Excel: using broken_only (legacy) mode")
             success, message, file_bytes = export_highlighted_excel(
                 tmp_path, results, link_column=link_column
             )
