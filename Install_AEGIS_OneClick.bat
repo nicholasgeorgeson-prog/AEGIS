@@ -312,7 +312,10 @@ set "WHEELS=%INSTALL_DIR%\packaging\wheels"
 :: Remove any Linux-only wheels that would cause confusion
 del "%WHEELS%\*manylinux*aarch64*.whl" >nul 2>nul
 
-:: Install core packages first (with dependency resolution so spaCy deps get pulled in)
+:: Install colorama FIRST (required by spaCy/click/wasabi on Windows, but not auto-resolved offline)
+"%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location colorama 2>nul
+
+:: Install core packages (with dependency resolution so spaCy deps get pulled in)
 "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location flask 2>nul
 "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location spacy beautifulsoup4 mammoth python-docx openpyxl pymupdf chardet requests 2>nul
 

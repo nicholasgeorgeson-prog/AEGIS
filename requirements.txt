@@ -156,6 +156,9 @@ numpy>=1.24.0
 # HTTP requests (for API features)
 requests>=2.31.0
 
+# Terminal colors (required by spaCy/click/wasabi on Windows)
+colorama>=0.4.6
+
 # Date/time handling
 python-dateutil>=2.8.0
 
