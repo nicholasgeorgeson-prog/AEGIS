@@ -1360,14 +1360,16 @@ def folder_scan_progress(scan_id):
 # v5.9.29: SharePoint Online Document Library Scan
 # =============================================================================
 
-# Lazy import for SharePoint connector
-try:
-    from sharepoint_connector import SharePointConnector, parse_sharepoint_url
-    SHAREPOINT_AVAILABLE = True
-except ImportError:
-    SHAREPOINT_AVAILABLE = False
-    SharePointConnector = None
-    parse_sharepoint_url = None
+# Lazy import helper for SharePoint connector
+def _get_sharepoint_connector():
+    """Truly lazy import — retries every call so server restart isn't needed after file deploy."""
+    try:
+        from sharepoint_connector import SharePointConnector, parse_sharepoint_url
+        return SharePointConnector, parse_sharepoint_url
+    except Exception as e:
+        import logging
+        logging.getLogger('aegis.review').warning(f'SharePoint connector import failed: {e}')
+        return None, None
 
 
 @review_bp.route('/api/review/sharepoint-test', methods=['POST'])
@@ -1378,10 +1380,11 @@ def sharepoint_test():
     v5.9.29: Test connection to a SharePoint site.
     Returns site title and auth status.
     """
-    if not SHAREPOINT_AVAILABLE:
+    SPConnector, sp_parse_url = _get_sharepoint_connector()
+    if SPConnector is None:
         return jsonify({
             'success': False,
-            'error': {'message': 'SharePoint connector not available', 'code': 'SP_UNAVAILABLE'}
+            'error': {'message': 'SharePoint connector not available — check server logs for import errors', 'code': 'SP_UNAVAILABLE'}
         }), 500
 
     data = request.get_json() or {}
@@ -1394,10 +1397,10 @@ def sharepoint_test():
         }), 400
 
     # Parse the URL to extract site_url component
-    parsed = parse_sharepoint_url(site_url)
+    parsed = sp_parse_url(site_url)
     actual_site_url = parsed['site_url']
 
-    connector = SharePointConnector(actual_site_url)
+    connector = SPConnector(actual_site_url)
     try:
         probe = connector.test_connection()
         return jsonify({
@@ -1428,10 +1431,11 @@ def sharepoint_scan_start():
 
     Reuses the same _folder_scan_state dict and progress endpoint as folder scan.
     """
-    if not SHAREPOINT_AVAILABLE:
+    SPConnector, sp_parse_url = _get_sharepoint_connector()
+    if SPConnector is None:
         return jsonify({
             'success': False,
-            'error': {'message': 'SharePoint connector not available', 'code': 'SP_UNAVAILABLE'}
+            'error': {'message': 'SharePoint connector not available — check server logs for import errors', 'code': 'SP_UNAVAILABLE'}
         }), 500
 
     data = request.get_json() or {}
@@ -1448,7 +1452,7 @@ def sharepoint_scan_start():
         }), 400
 
     # Parse the URL
-    parsed = parse_sharepoint_url(site_url)
+    parsed = sp_parse_url(site_url)
     actual_site_url = parsed['site_url']
 
     # If no library_path provided, try to extract from the URL
@@ -1465,7 +1469,7 @@ def sharepoint_scan_start():
         }), 400
 
     # Phase 1: Connect + discover
-    connector = SharePointConnector(actual_site_url)
+    connector = SPConnector(actual_site_url)
 
     # Test connection first
     probe = connector.test_connection()
