@@ -525,6 +525,43 @@ preAction: async () => {
 **Fix**: Added `this.refs.beacon.style.display = 'none'` in all 3 demo start locations (`startDemo()`, `startFullDemo()`, `startSubDemo()`) right after `this.demo.isPlaying = true`. Added `this.refs.beacon.style.display = ''` in `stopDemo()` to restore it when demo ends.
 **Lesson**: Any persistent floating UI element (beacons, FABs, chat widgets) must be hidden when a full-screen overlay or bottom-bar UI is active. Check all fixed-position elements' z-indices when adding new fixed-position features. The beacon's z-index (150000) was intentionally highest for normal use, but that same priority made it block demo controls.
 
+### 56. Windows-Only Transitive Dependencies Not in Wheels (colorama)
+**Problem**: spaCy, Flask, and click all showed `[SKIP]` / `[WARN]` during OneClick installer verification despite pip confirming they were installed in site-packages. The `2>nul` error suppression hid the actual error.
+**Root Cause**: `colorama>=0.4.6` is a **Windows-only** transitive dependency required by:
+- spaCy → wasabi → colorama (conditional: `sys_platform == "win32"`)
+- Flask → click → colorama (conditional: `platform_system == "Windows"`)
+Since development is on Mac, colorama never appeared as a dependency. The offline install with `--no-index` couldn't download it, so pip failed silently. The packages installed but their import chains broke at runtime because wasabi/click couldn't import colorama.
+**Fix**: (1) Downloaded `colorama-0.4.6-py2.py3-none-any.whl` to `wheels/`. (2) Added `colorama>=0.4.6` to `requirements.txt` and `packaging/requirements-windows.txt`. (3) Install colorama FIRST in OneClick installer (line 315) before Flask/spaCy. (4) Repair script installs colorama as priority before attempting spaCy chain reinstall.
+**Lesson**: Always check platform-conditional dependencies when building offline installers on a different OS than the target. Use `pip install --dry-run --report` or `pipdeptree` on the TARGET platform to find all transitive deps. On Windows, `colorama` is required by: click, wasabi, tqdm, pytest, and many others. It should ALWAYS be in the wheels directory for any Windows offline installer.
+
+### 57. Batch Script `errorlevel` Unreliable Across Subroutines
+**Problem**: Repair_AEGIS.bat showed false failures — packages that imported successfully were reported as `[FAIL]` with "Error details:" messages.
+**Root Cause**: In Windows batch, `errorlevel` is **sticky** — it persists from previous commands and doesn't reset to 0 on success in all contexts. When using `call :subroutine` with `if errorlevel 1` after a Python command, the errorlevel from a PREVIOUS subroutine call could bleed through, causing false positives.
+**Attempted fixes that also failed**:
+1. **Temp file markers**: `open(r'%TEMPMARK%','w').write('ok')` inside Python `-c` strings crashed because `%TEMP%` path expansion produces backslashes that conflict with Python string parsing, and paths with spaces (OneDrive) break the command.
+2. **`&&` / `||` pattern**: `python.exe -c "..." 2>&1 && (success) || (failure)` — also unreliable inside `call :subroutine` blocks on some Windows versions.
+**Lesson**: Batch scripting for reliable error detection is extremely fragile. For complex diagnostic tools, consider writing the logic in Python instead of batch — a Python script called by a simple 5-line `.bat` wrapper would be far more reliable. The `.bat` file just needs to find python.exe and call the Python script. All the import testing, error capturing, and repair logic belongs in Python where error handling actually works.
+
+### 58. Installer `2>nul` Hides Critical Errors — Use Repair Tool for Diagnosis
+**Problem**: The OneClick installer uses `2>nul` on ALL verification commands (lines 589-604), so when `import spacy` fails, the user sees `[SKIP] spaCy (optional)` with zero information about WHY. Multiple sessions were spent guessing at root causes (--no-deps, ._pth file, path spaces) when the actual error was a missing colorama wheel.
+**Root Cause**: The `2>nul` pattern was designed to keep output clean for non-technical users. But it also hides the exact Python traceback that would immediately reveal the root cause.
+**Fix**: Created `Repair_AEGIS.bat` that runs the same import checks with `2>&1` (errors shown) instead of `2>nul` (errors hidden). This immediately revealed `ERROR: Could not find a version that satisfies the requirement colorama>=0.4.6`.
+**Lesson**: NEVER use `2>nul` on diagnostic/verification commands without also providing a way to see the errors. The installer should either: (1) log errors to a file even when suppressing console output, or (2) have a `--verbose` flag, or (3) ship with a separate diagnostic tool. The Repair_AEGIS.bat serves as that diagnostic tool.
+
+### 59. Stragglers Loop Creates Version Churn (Duplicate Wheels)
+**Problem**: The OneClick installer's "stragglers" loop (line 348) installs ALL `.whl` files individually with `--no-deps`. When the wheels directory contains multiple versions of the same package (e.g., `filelock-3.24.0` AND `filelock-3.24.2`), this causes packages to be installed, uninstalled, and reinstalled as each version is processed alphabetically. The installer log showed packages like huggingface_hub flip from 1.4.1 → 0.36.2 → 1.4.1.
+**Root Cause**: The `wheels/` directory accumulated duplicate versions over time. The `for %%f in (*.whl)` loop processes them alphabetically, and `--no-deps` means pip doesn't check version compatibility — it just force-installs whatever wheel it's given.
+**Impact**: Not breaking (final version is usually correct since alphabetically-last wins), but wastes time and produces confusing installer output. Can occasionally leave a WRONG version if the alphabetically-last wheel is an older version.
+**Lesson**: Before releasing, deduplicate the wheels directory — keep only the latest version of each package. Use: `pip download -r requirements.txt --dest wheels/ --only-binary=:all:` which always gets latest compatible versions. The stragglers loop should be a safety net, not the primary install mechanism.
+
+### 60. GitHub Release Assets for Installer Updates
+**Pattern**: When updating installer `.bat` files, THREE places must be updated:
+1. **Main branch** — `Install_AEGIS_OneClick.bat` (root) via GitHub REST API commit
+2. **Packaging copy** — `packaging/Install_AEGIS_OneClick.bat` (keep in sync with root)
+3. **Release asset** — DELETE old asset + POST new asset on v5.9.21 release
+The v5.9.21 release hosts all binary assets (Python, torch, pip, wheels, models). The installer `.bat` files download from this release. When updating the installer, always update the release asset too, or users downloading from the release page get the old version.
+**API workflow**: `GET /releases` → find release by tag → `GET release.assets` → find asset by name → `DELETE /releases/assets/{id}` → `POST` to `upload_url` with `?name=filename`.
+
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
 1. **Changelog update** in `version.json` (and copy to `static/version.json`)
