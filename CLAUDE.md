@@ -644,6 +644,25 @@ The actual logic lives in `repair_aegis.py` (500 lines) where Python's error han
 **Why force-reinstall is required**: pip's default behavior is to skip packages that are already installed. When v82 is installed, `pip install setuptools` returns "already satisfied" even though v82 doesn't have `pkg_resources`. Only `--force-reinstall` combined with `<81` version pin forces pip to actually downgrade.
 **Lesson**: Always check the actual version of critical infrastructure packages in the wheels directory. When a package has a major version change that removes functionality (like setuptools dropping pkg_resources), version pinning is essential. The `--force-reinstall` flag is needed when the installed version must be DOWNGRADED, not just installed.
 
+### 71. sspilib — Another Windows-Only Transitive Dependency (pyspnego/requests-ntlm)
+**Problem**: `requests-ntlm` import failed with `No module named 'sspilib'` on the Windows machine. The repair tool showed `[FAIL]` for Windows Domain Auth.
+**Root Cause**: `requests-ntlm` → `pyspnego>=0.12.0` → `sspilib>=0.3.0` (conditional: `sys_platform == "win32"`). Same pattern as colorama (Lesson 61) and typer (Lesson 68) — a Windows-only transitive dependency that's invisible on Mac development because the platform condition excludes it.
+**Fix**: (1) Downloaded `sspilib-0.4.0-cp310-cp310-win_amd64.whl` to `wheels/`. (2) Added `sspilib>=0.3.0` to `requirements.txt` and `packaging/requirements-windows.txt`. (3) Updated OneClick installer to install `sspilib` alongside `colorama` and `typer` as priority Windows deps. (4) Repair tool Step 3f installs `sspilib` before attempting `requests-ntlm` or `requests-negotiate-sspi`.
+**Lesson**: The complete list of Windows-only transitive dependencies discovered so far: **colorama** (click/wasabi), **typer** (spaCy CLI), **sspilib** (pyspnego/requests-ntlm). When adding any new package that touches authentication or SSPI on Windows, always check for platform-conditional deps with `pip show <pkg>` on the TARGET platform.
+
+### 72. Repair Tool Import Testing — Subprocess for Reimport-Unsafe Packages
+**Problem**: Repair tool's `check_import()` showed false failures for `torch` ("TORCH_LIBRARY can only be registered once") and `requests-negotiate-sspi` ("module 'requests' has no attribute 'adapters'"). Both packages were actually installed and working fine.
+**Root Cause**: `check_import()` was deleting modules from `sys.modules` and reimporting them with `importlib.import_module()`. This breaks packages with C extensions that register global state (torch's TORCH_LIBRARY) and packages that depend on submodules of already-imported packages (requests.adapters gets orphaned when requests is removed from sys.modules).
+**Fix**: Added `SUBPROCESS_CHECK` set in `check_import()`. Packages in this set are tested via `subprocess.run([sys.executable, '-c', f'import {module_name}'])` instead of in-process reimport. Each subprocess gets a clean Python interpreter state, so no reimport conflicts.
+**Packages in SUBPROCESS_CHECK**: `torch`, `requests_negotiate_sspi`
+**Lesson**: Never `del sys.modules[x]` + reimport for packages with C extensions, global state registration, or complex submodule dependencies. Use subprocess-based import testing for a clean slate. The subprocess approach is slightly slower but gives accurate results. Also applicable to any diagnostic tool that tests imports in a loop.
+
+### 73. Repair Tool Must Search ALL Wheel Directories (Not Just First)
+**Problem**: `find_wheels_dir()` returned the FIRST wheel directory found. `torch` lives in `packaging/wheels/` but `wheels/` was found first, so torch's wheel was never discovered by `pip install --find-links`.
+**Root Cause**: The original function returned a single path. When `wheels/` existed, it returned immediately without checking `packaging/wheels/`. pip only searches directories explicitly passed via `--find-links`.
+**Fix**: Renamed to `find_wheels_dirs()` (plural). Returns a LIST of all found directories. `pip_install()` now accepts a list and passes multiple `--find-links` flags: `--find-links wheels/ --find-links packaging/wheels/`. All callers updated: `preflight_setuptools()`, Phase 3 repair steps, en_core_web_sm wheel search.
+**Lesson**: When an offline installer has wheels split across multiple directories (e.g., `wheels/` for pure-Python, `packaging/wheels/` for large platform-specific binaries), the install tool must search ALL of them. Always pass multiple `--find-links` flags to pip rather than consolidating into one directory.
+
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
 1. **Changelog update** in `version.json` (and copy to `static/version.json`)
