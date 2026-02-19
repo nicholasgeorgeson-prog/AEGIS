@@ -301,9 +301,10 @@ class UpdateResult:
 
 class FileRouter:
     """Determines destination paths for update files."""
-    
-    def __init__(self, app_dir: Path):
+
+    def __init__(self, app_dir: Path, updates_dir: Path = None):
         self.app_dir = app_dir
+        self.updates_dir = updates_dir or (app_dir / "updates")
     
     def get_destination(self, filename: str, relative_path: str = None) -> Optional[Dict]:
         """
@@ -696,7 +697,7 @@ class UpdateManager:
     
     def __init__(self, base_dir: Optional[Path] = None, app_dir: Optional[Path] = None):
         self.config = UpdateConfig(base_dir, app_dir)
-        self.router = FileRouter(self.config.app_dir)
+        self.router = FileRouter(self.config.app_dir, self.config.updates_dir)
         self._pending_updates: List[UpdateFile] = []
         
         logger.info(f"UpdateManager initialized: {self.config.to_dict()}")
