@@ -166,7 +166,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.9.21
+- **Current version**: 5.9.29
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -668,6 +668,30 @@ The actual logic lives in `repair_aegis.py` (500 lines) where Python's error han
 **Root Cause**: `coreferee` 1.4.1 (last release June 2023) requires `spaCy <3.6.0`. AEGIS uses spaCy 3.8.x with en_core_web_sm 3.8.0. The library is fundamentally incompatible and hasn't been maintained for 2+ years. The warning is printed by coreferee's internal version check during `nlp.add_pipe('coreferee')` before it raises an exception.
 **Fix**: (1) Added model version guard in both `coreference_checker.py` (`_init_nlp()`) and `nlp_enhanced.py` (`_setup_coreference()`): if model version >= 3.6, skip coreferee import entirely and use fallback. (2) Commented out `coreferee>=1.4.0` in `requirements.txt` with explanation. (3) Deleted `coreferee-1.4.1-py3-none-any.whl` from `wheels/`. (4) The coreference checker's `_fallback_check()` method (pattern-matching for paragraph-initial pronouns) works without coreferee.
 **Lesson**: Before bundling NLP pipeline components (coreferee, negspacy, etc.), always check their spaCy version constraints on PyPI. Libraries that haven't been updated in 1+ years are likely incompatible with the latest spaCy. The safe pattern is: version-guard before import, graceful fallback, never let an incompatible library print warnings to stdout during startup.
+
+### 75. NTLM/Negotiate Fresh Session Pattern (v5.9.29)
+**Problem**: Internal links with 401/403 responses were immediately marked AUTH_REQUIRED without trying Windows SSO authentication. But Chrome authenticates these same links automatically.
+**Root Cause**: NTLM/Negotiate authentication is *connection-specific* — the challenge→response handshake happens on a single TCP connection. The validator's shared `requests.Session` across ThreadPoolExecutor threads corrupted the multi-step NTLM handshake state because different threads' auth challenges interfered with each other.
+**Fix**: Created `_retry_with_fresh_auth()` method that spins up a brand-new `requests.Session()` with `HttpNegotiateAuth()` for each auth retry. Key settings: `GET` (not HEAD — NTLM needs full HTTP exchange), `stream=True` (don't download file bodies), `allow_redirects=True` (follow auth redirect chain). Also added `_probe_windows_auth()` pre-validation probe and `_is_login_page_redirect()` detection.
+**Lesson**: For NTLM/Negotiate auth in multi-threaded code, NEVER share a session across threads. Create a fresh session per auth attempt. The per-URL overhead is negligible compared to the correctness guarantee. This is the same pattern Chrome uses — each tab gets its own connection pool with independent auth state.
+
+### 76. Blanket Domain Downgrades Mask Real Broken Links (v5.9.29)
+**Problem**: The validator had two blanket downgrade rules (v5.0.5 and v5.9.1) that converted BROKEN/TIMEOUT/BLOCKED to AUTH_REQUIRED for: (1) any URL on a corporate domain (`.myngc.com`, `.northgrum.com`, etc.), and (2) any URL pointing to a document file extension (`.pdf`, `.docx`, etc.) on enterprise networks. This masked genuinely broken links — if a corporate intranet page was deleted, it would still show as AUTH_REQUIRED instead of BROKEN.
+**Fix**: Replaced both blanket rules with a single DNS-only downgrade: only `DNSFAILED` on corporate domains gets downgraded to AUTH_REQUIRED (because internal DNS doesn't resolve from outside VPN). HTTP errors (BROKEN/TIMEOUT/BLOCKED) are now genuine — after the Tier 2 fresh auth retry has already tested them.
+**Lesson**: Never auto-convert HTTP errors to AUTH_REQUIRED based solely on domain or file extension. If the server responded with an error (404, 500, timeout after response started), the link is genuinely problematic. Only DNS failures on known-internal domains should be downgraded, because DNS resolution is a network-layer issue (VPN needed), not an application-layer issue.
+
+### 77. SharePoint REST API with Windows SSO (v5.9.29)
+**Pattern**: SharePoint Online can be accessed via REST API (`/_api/web/...`) using the same `HttpNegotiateAuth()` from `requests-negotiate-sspi` that the hyperlink validator uses. Zero new dependencies needed.
+**Key endpoints**:
+- `/_api/web` — Site info (auth probe, returns title/URL)
+- `/_api/web/GetFolderByServerRelativeUrl('{path}')/Files` — List files in folder
+- `/_api/web/GetFolderByServerRelativeUrl('{path}')/Folders` — List subfolders (for recursion)
+- `/_api/web/GetFileByServerRelativeUrl('{path}')/$value` — Download file binary content
+**Headers**: `Accept: application/json;odata=verbose`, `Content-Type: application/json;odata=verbose`
+**Response format**: OData verbose — data is nested under `d` key, lists under `d.results[]`
+**Throttling**: SharePoint returns HTTP 429 with `Retry-After` header. Always respect it.
+**Files**: `sharepoint_connector.py` (connector class), `routes/review_routes.py` (endpoints)
+**Lesson**: When the target Windows machine already has `requests-negotiate-sspi` installed for one feature (HV auth), you can reuse it for any other corporate system that accepts Windows SSO. SharePoint, JIRA, Confluence, ServiceNow on corporate networks all support Negotiate/NTLM auth.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
