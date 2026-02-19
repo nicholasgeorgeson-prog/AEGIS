@@ -166,7 +166,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.9.31
+- **Current version**: 5.9.32
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -723,6 +723,18 @@ The actual logic lives in `repair_aegis.py` (500 lines) where Python's error han
 - **urllib3 warning suppression**: `urllib3.disable_warnings(InsecureRequestWarning)` since `verify=False` is deliberate for corporate CA bypass.
 **Why headless Chromium is the ultimate fallback**: Playwright's Chromium uses the Windows certificate store — same as Chrome. So it trusts the same corporate CA certs that Python's certifi doesn't. Links that fail all `requests`-based strategies will typically succeed with headless because it handles SSL, auth, and JavaScript in one shot.
 **Lesson**: When Python's `requests` fails SSL on corporate networks, the root cause is ALWAYS the CA cert bundle mismatch. The fix has 3 layers: (1) `verify=False` with GET (not HEAD) for servers that respond to GET differently, (2) fresh SSO session + verify=False for internal links needing auth, (3) headless Chromium as nuclear option (uses OS cert store). Chrome works because it uses the OS cert store + SPNEGO auth automatically — replicate both in Python fallbacks.
+
+### 82. .mil/.gov Bot Protection Returns 403 — Mark BLOCKED Not BROKEN (v5.9.32)
+**Problem**: 12 `public.cyber.mil/stigs/stig-viewing-tools/` links were showing as BROKEN despite working in Chrome.
+**Root Cause**: DoD websites use aggressive bot protection (Cloudflare, Akamai, DoD WAF) that returns 403 Forbidden to all non-browser HTTP requests regardless of User-Agent or headers. The TLS fingerprint of Python's `requests` library doesn't match a real browser, so these WAFs block it immediately. The 403 handler at line 1351 tries auth retries and no-auth fallback, but for bot-blocked sites all attempts return 403. The code then falls through to the generic 4xx handler which marks as BROKEN.
+**Fix**: Added `.mil`/`.gov` domain detection in the 4xx catchall handler. When a `.mil`/`.gov` domain returns 403/406/418/451, mark as `BLOCKED` instead of `BROKEN`. BLOCKED status is eligible for headless browser retest, and headless Chromium (Playwright) has a genuine browser TLS fingerprint that passes bot protection.
+**Lesson**: `.mil`/`.gov` 403 responses are almost never "broken links" — they're bot protection. Always mark as BLOCKED so the headless browser fallback can try them. The headless browser succeeds because it has: (1) genuine Chromium TLS fingerprint, (2) JavaScript execution capability, (3) cookie handling, (4) OS certificate store. For validation pipelines targeting government sites, headless Chromium should be considered a primary validation method, not just a fallback.
+
+### 83. Clean SSL Error Messages — Extract Reason from Verbose Exception (v5.9.32)
+**Problem**: SSL_WARNING message showed `"Link works but SSL certificate untrusted by Python: HTTPSConnectionPool(host='x.northgrum.com', port=443): Max retries exceeded..."` — confusing and ugly for users.
+**Root Cause**: The SSL fallback code used `str(e)[:80]` from the SSLError exception, which includes the verbose `requests` wrapper: `HTTPSConnectionPool(...): Max retries exceeded with url: ... (Caused by SSLError(SSLCertVerificationError(...)))`. The actual useful information is buried inside nested parentheses.
+**Fix**: Added SSL error reason extraction at the SSLError handler that checks for common patterns: `CERTIFICATE_VERIFY_FAILED` → "certificate not trusted (corporate/internal CA)", `HANDSHAKE_FAILURE` → "SSL handshake failed", `certificate has expired` → "certificate expired", `self signed` → "self-signed certificate", `unable to get local issuer` → "certificate issuer not trusted". Falls back to regex extraction of the inner reason string, then to a generic "SSL certificate verification failed".
+**Lesson**: Python's `requests` library wraps all SSL errors in verbose `HTTPSConnectionPool` messages. When displaying SSL errors to users, always parse the exception string to extract the meaningful certificate reason. The pattern `re.search(r"Caused by SSLError\([^)]*?'([^']{10,80})'", str(e))` extracts the inner reason from most requests SSLError exceptions.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

@@ -1,7 +1,7 @@
 {
-  "version": "5.9.31",
+  "version": "5.9.32",
   "release_date": "2026-02-19",
-  "core_version": "5.9.31",
+  "core_version": "5.9.32",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
@@ -9,11 +9,13 @@
   "legacy_name": "TechWriterReview",
   "changelog": [
     {
-      "version": "5.9.31",
+      "version": "5.9.32",
       "date": "2026-02-19",
       "changes": [
         "FIX: Corporate SSLERROR false positives — multi-strategy SSL fallback replaces single HEAD-with-verify=False attempt; Strategy 1: GET with verify=False + stream=True (corporate servers reject HEAD); Strategy 2: fresh SSO session + verify=False for internal links needing both SSL bypass and Windows auth; headless browser priority list expanded to include NGC corporate domains",
-        "ARCH: SSL error handler now detects file downloads (Content-Disposition/Content-Type) through SSL-bypassed connections and marks as SSL_WARNING instead of SSLERROR",
+        "FIX: cyber.mil/STIG and .mil/.gov bot-protected links now marked BLOCKED (not BROKEN) — eligible for headless browser retest; DoD WAF/Cloudflare 403s no longer count as broken links",
+        "FIX: SSL_WARNING messages cleaned up — removed verbose HTTPSConnectionPool error text; now shows human-readable reasons (certificate not trusted, expired, self-signed, etc.)",
+        "FIX: Export Highlighted error handler now catches RequestEntityTooLarge specifically with helpful message instead of generic 'internal error'; error messages now include exception type for easier debugging",
         "ARCH: Retest phase gains Strategy 2b (get_no_ssl_fresh_auth) combining verify=False with fresh Windows SSO for corporate SSLERROR links",
         "ARCH: urllib3 InsecureRequestWarning suppressed for deliberate verify=False corporate CA bypass"
       ]

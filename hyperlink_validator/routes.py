@@ -160,12 +160,24 @@ def handle_hv_errors(f):
                 }
             }), 400
         except Exception as e:
+            # v5.9.31: Catch RequestEntityTooLarge specifically for better error message
+            error_name = type(e).__name__
+            if error_name == 'RequestEntityTooLarge' or '413' in str(e):
+                logger.warning(f"Request too large in {f.__name__}: {e}")
+                return jsonify({
+                    'success': False,
+                    'error': {
+                        'code': 'REQUEST_TOO_LARGE',
+                        'message': 'File upload too large. This is a known issue — please update to the latest version which removes the upload limit for export operations.',
+                        'correlation_id': getattr(g, 'correlation_id', 'unknown')
+                    }
+                }), 413
             logger.exception(f"Unexpected error in {f.__name__}: {e}")
             return jsonify({
                 'success': False,
                 'error': {
                     'code': 'INTERNAL_ERROR',
-                    'message': 'An unexpected error occurred',
+                    'message': f'Export failed due to an internal error. Please check the server log for details. ({error_name})',
                     'correlation_id': getattr(g, 'correlation_id', 'unknown')
                 }
             }), 500

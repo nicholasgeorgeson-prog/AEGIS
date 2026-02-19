@@ -1460,8 +1460,20 @@ class StandaloneHyperlinkValidator:
                         except Exception:
                             pass  # GET retry failed, fall through to original status
 
-                    result.status = 'BROKEN'
-                    result.message = f'Client error: HTTP {response.status_code}'
+                    # v5.9.31: .mil/.gov sites use aggressive bot protection (Cloudflare,
+                    # Akamai, DoD WAF) that blocks all non-browser requests with 403/406/etc.
+                    # Mark as BLOCKED (not BROKEN) so they're eligible for headless browser retest.
+                    parsed_4xx = urlparse(url)
+                    _bot_protect_domains = ('.mil', '.gov', '.mil/', '.gov/',
+                                            'cyber.mil', 'dcma.mil', 'disa.mil',
+                                            'dla.mil', 'dod.gov', 'defense.gov')
+                    is_mil_gov = any(d in parsed_4xx.netloc.lower() for d in _bot_protect_domains)
+                    if is_mil_gov and response.status_code in (403, 406, 418, 451):
+                        result.status = 'BLOCKED'
+                        result.message = f'Bot protection (HTTP {response.status_code}) — eligible for headless browser retest'
+                    else:
+                        result.status = 'BROKEN'
+                        result.message = f'Client error: HTTP {response.status_code}'
 
                 elif response.status_code >= 500:
                     # Server errors might be temporary - retry
@@ -1508,7 +1520,32 @@ class StandaloneHyperlinkValidator:
                 # for internal links that need both SSL bypass AND Windows auth.
                 result.ssl_valid = False
                 last_error = e
-                ssl_error_str = str(e)[:80]
+                # v5.9.31: Extract clean SSL error reason from verbose exception
+                # Raw: "HTTPSConnectionPool(host='x', port=443): Max retries...SSLError(...reason...)"
+                # Clean: just the reason part, or a generic message
+                _raw_ssl = str(e)
+                _ssl_reason = ''
+                if 'CERTIFICATE_VERIFY_FAILED' in _raw_ssl:
+                    _ssl_reason = 'certificate not trusted (corporate/internal CA)'
+                elif 'WRONG_VERSION_NUMBER' in _raw_ssl:
+                    _ssl_reason = 'SSL version mismatch'
+                elif 'HANDSHAKE_FAILURE' in _raw_ssl:
+                    _ssl_reason = 'SSL handshake failed'
+                elif 'certificate has expired' in _raw_ssl.lower():
+                    _ssl_reason = 'certificate expired'
+                elif 'self signed' in _raw_ssl.lower() or 'self-signed' in _raw_ssl.lower():
+                    _ssl_reason = 'self-signed certificate'
+                elif 'unable to get local issuer' in _raw_ssl.lower():
+                    _ssl_reason = 'certificate issuer not trusted (corporate/internal CA)'
+                else:
+                    # Fallback: try to extract from inside parentheses
+                    import re
+                    _m = re.search(r"Caused by SSLError\([^)]*?'([^']{10,80})'", _raw_ssl)
+                    if _m:
+                        _ssl_reason = _m.group(1)[:80]
+                    else:
+                        _ssl_reason = 'SSL certificate verification failed'
+                ssl_error_str = _ssl_reason
                 ssl_recovered = False
 
                 # --- SSL Strategy 1: GET with verify=False (no auth) ---
@@ -1537,11 +1574,11 @@ class StandaloneHyperlinkValidator:
                                 fname = fb_cd.split('filename=')[-1].strip('"\'').strip()
                             result.status = 'SSL_WARNING'
                             result.status_code = fb_status
-                            result.message = f'File download link (valid, SSL cert untrusted) — {fname or fb_ct}'
+                            result.message = f'File download (valid) — SSL: {ssl_error_str} — {fname or fb_ct}'
                         else:
                             result.status = 'SSL_WARNING'
                             result.status_code = fb_status
-                            result.message = f'Link works but SSL certificate untrusted by Python: {ssl_error_str}'
+                            result.message = f'Link works — SSL: {ssl_error_str}'
                         ssl_recovered = True
                     elif fb_status in (401, 403):
                         # Server responded but needs auth — link exists, SSL is the secondary issue
@@ -1594,17 +1631,17 @@ class StandaloneHyperlinkValidator:
                                                 fname2 = auth_cd.split('filename=')[-1].strip('"\'').strip()
                                             result.status = 'SSL_WARNING'
                                             result.status_code = auth_status
-                                            result.message = f'File download (valid, SSL untrusted, authenticated via SSO) — {fname2 or auth_ct}'
+                                            result.message = f'File download (valid, SSO authenticated) — SSL: {ssl_error_str} — {fname2 or auth_ct}'
                                         else:
                                             result.status = 'SSL_WARNING'
                                             result.status_code = auth_status
-                                            result.message = f'Link works (authenticated via SSO, SSL cert untrusted): {ssl_error_str}'
+                                            result.message = f'Link works (SSO authenticated) — SSL: {ssl_error_str}'
                                         ssl_recovered = True
                                     elif auth_status in (401, 403):
                                         # Server responded — link exists but needs different auth
                                         result.status = 'AUTH_REQUIRED'
                                         result.status_code = auth_status
-                                        result.message = f'Link exists (SSL untrusted, auth required): {ssl_error_str}'
+                                        result.message = f'Link exists, auth required — SSL: {ssl_error_str}'
                                         ssl_recovered = True
                                 except Exception:
                                     pass
@@ -2145,7 +2182,7 @@ class StandaloneHyperlinkValidator:
                         if strategy_name in ('get_no_ssl', 'get_no_ssl_fresh_auth'):
                             result.status = 'SSL_WARNING'
                             result.ssl_valid = False
-                            result.message = f'Link works but SSL certificate invalid (retest strategy: {strategy_name})'
+                            result.message = f'Link works — SSL certificate not trusted by Python (verified on retest)'
                         else:
                             result.status = 'WORKING'
                             result.message = f'HTTP {resp.status_code} OK (confirmed on retest)'
