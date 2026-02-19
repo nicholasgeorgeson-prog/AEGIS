@@ -308,8 +308,12 @@ class StandaloneHyperlinkValidator:
                 'network_path_validation': True,
                 'url_typo_detection': True,
                 'cross_reference_validation': True,
-                'bookmark_validation': True
+                'bookmark_validation': True,
+                'fresh_auth_retry': True,  # v5.9.29 Tier 2
+                'auth_probe': True,        # v5.9.29 Tier 1
+                'login_redirect_detection': True  # v5.9.29 Tier 3
             },
+            'validator_version': '5.9.29',
             'link_types': [lt.value for lt in LinkType]
         }
 
