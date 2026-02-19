@@ -1,13 +1,52 @@
 {
-  "version": "5.9.26",
+  "version": "5.9.28",
   "release_date": "2026-02-19",
-  "core_version": "5.9.26",
+  "core_version": "5.9.28",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.28",
+      "date": "2026-02-19",
+      "changes": [
+        "FIX: Settings presets not enforced — 9 checkers in additional_checkers bypassed UI toggles; moved all to option_mapping so Aerospace/Requirements/General presets properly control checker count",
+        "FIX: Adjudication freeze on save — missing return path in roles_routes.py when function_tags empty caused 500 error; added error handling to frontend fetch call",
+        "FIX: Link History panel blank — API returns data.scans but code expected data.history; added fallback key lookup",
+        "FIX: Metrics Top Ten Roles blank — legacy SQL queried non-existent total_mentions column; rewrote with JOIN through document_roles table",
+        "FIX: Scan History panel blank when opened from landing page tile — added loadHistoryData() call after modal show",
+        "FIX: HV Excel export 413 payload too large — now sends only broken/issue results instead of all results (reduced payload from ~50MB to ~500KB); also raised global upload limit to 200MB",
+        "FIX: Rebranding — replaced all remaining 'TechWriter Review' references with 'AEGIS' in index.html, app.js, config_routes.py, review_routes.py, core.py, report_generator.py",
+        "FIX: Help tabs blank — added 5 missing Settings help sections (Review, Network, Profiles, Display, Data Management) to help-docs.js",
+        "FIX: HV broken link count mismatch — summary tile now groups BROKEN+INVALID+DNSFAILED+SSLERROR consistently with frontend state (backend sent separate counts)",
+        "FIX: Annotation alignment — document viewer now searches adjacent paragraphs (+/-2) when flagged text not found in target paragraph (extraction boundary offset)",
+        "FIX: Particle effects not updating on nav bar theme toggle — exposed updateParticleTheme() from landing page IIFE; alpha, radius, and color all sync on mode switch",
+        "UI: SOW Generator document selection now shows gold highlight + left border on checked documents for visual feedback",
+        "UI: Added 2 missing checker toggles for Directive Verb Consistency and Unresolved Cross-References in Settings panel",
+        "UI: Scan progress dashboard shows default detail text for each phase immediately on activation",
+        "NLP: Added defense contractor abbreviations (NG, NGC, NGIS, BAE, GD, SAIC, etc.) to spelling skip list and defense dictionary",
+        "UI: CSS-only loading indicator (gold spinner + AEGIS text) shows during initial page load, auto-dismissed when JS initializes",
+        "UI: Landing page responsive — added 1200px intermediate breakpoint for smoother grid transitions on tablets/narrow laptops",
+        "UI: Metrics analytics modal — fixed responsive width (was incorrectly widening to 99vw at 1000px), added 1200px breakpoint and border-radius reduction at small sizes",
+        "UI: Scan ETA now uses historical step durations for early estimates (blends stored averages with live rate as progress increases)",
+        "UI: Graph export visual polish — label background rects for readability, smooth CSS transitions for dim/highlight, boundary-aware tooltips, gold glow on highlighted nodes, smart ellipsis truncation",
+        "UI: Adjudication HTML export — added Category and Function Tag filter dropdowns with checkboxes, active filter badges, and combined filtering (search + status + category + tags)",
+        "UI: Role extraction pipeline stats shown in scan progress dashboard — candidates found, duplicates removed, unique roles, deliverables (parsed from backend PIPELINE: progress message)",
+        "BACKEND: core.py sends PIPELINE: progress message with extraction stats (roles_found|dupes|roles|deliverables) during postprocessing phase"
+      ]
+    },
+    {
+      "version": "5.9.27",
+      "date": "2026-02-19",
+      "changes": [
+        "FIX: Roles Studio 403 on save — added missing CSRF token (X-CSRF-Token header) to all 3 bulk-update-statements calls in statement-source-viewer.js (review status, notes, text edit)",
+        "FIX: Hyperlink Validator Excel export 413 — raised upload limit to 200MB for export-highlighted endpoints (large Excel + results JSON exceeded 50MB default)",
+        "FIX: /api/version 34-124s delay — cached checker count after first AEGISEngine init instead of re-creating engine on every version API call",
+        "FIX: get_statement_review_stats AttributeError — method exists in scan_history.py but Windows deployment had stale copy (5 errors in diagnostics cleared by update)"
+      ]
+    },
     {
       "version": "5.9.26",
       "date": "2026-02-19",

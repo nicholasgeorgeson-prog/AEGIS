@@ -218,3 +218,21 @@ frp
 urd
 cdd
 cpd
+
+# v5.9.28: Contractor/Company Abbreviations
+ng
+ngc
+ngis
+ngas
+northrop
+grumman
+raytheon
+lockheed
+boeing
+bae
+thales
+leidos
+saic
+gdit
+lhx
+gd

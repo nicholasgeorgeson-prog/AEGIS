@@ -56,7 +56,7 @@ _APP_START_TIME = time.time()
 def _get_default_user_config() -> Dict:
     """Get default user configuration."""
     return {
-        'reviewer_name': 'TechWriter Review',
+        'reviewer_name': 'AEGIS',
         'default_checks': {
             'check_acronyms': True,
             'check_passive_voice': True,
@@ -622,19 +622,26 @@ def api_prose_lint():
     except Exception as e:
         logger.exception(f'Error in prose linting: {e}')
         return (jsonify({'success': False, 'error': {'code': 'LINT_ERROR', 'message': str(e)}}), 500)
+_cached_checker_count = None
+
 @config_bp.route('/api/version', methods=['GET'])
 @handle_api_errors
 def version():
     """Get version information.
     v4.9.9: Uses get_version() for always-fresh reads from version.json.
+    v5.9.27: Caches checker count to avoid re-creating AEGISEngine on every call
+    (was causing 34-124s delays on startup and subsequent requests).
     """
+    global _cached_checker_count
     _ver = get_version()
-    checker_count = 0
-    try:
-        engine = AEGISEngine()
-        checker_count = len(engine.checkers)
-    except Exception as e:
-        logger.warning(f'Error getting checker count: {e}')
+    checker_count = _cached_checker_count or 0
+    if _cached_checker_count is None:
+        try:
+            engine = AEGISEngine()
+            checker_count = len(engine.checkers)
+            _cached_checker_count = checker_count
+        except Exception as e:
+            logger.warning(f'Error getting checker count: {e}')
     resp = jsonify({'app_name': APP_NAME, 'version': _ver, 'app_version': _ver, 'core_version': _ver, 'api_version': '2.0', 'checker_count': checker_count})
     resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return resp

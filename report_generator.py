@@ -136,7 +136,7 @@ class ReportGenerator:
                       review_date: datetime, duration_seconds: int) -> List:
         """Build report header section."""
         elements = []
-        elements.append(Paragraph("TECHWRITER REVIEW", self.styles['ReportTitle']))
+        elements.append(Paragraph("AEGIS", self.styles['ReportTitle']))
         elements.append(Paragraph("Session Summary Report", self.styles['ReportSubtitle']))
         elements.append(Spacer(1, 8))
         

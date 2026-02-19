@@ -2063,7 +2063,7 @@ def export_document():
                     else:
                         data = request.get_json() or {}
                         mode = data.get('mode', 'all')
-                        reviewer_name = sanitize_filename(data.get('reviewer_name', 'TechWriter Review'))
+                        reviewer_name = sanitize_filename(data.get('reviewer_name', 'AEGIS'))
                         apply_fixes = data.get('apply_fixes', False)
                         selected_fixes = data.get('selected_fixes', [])
                         comment_only_issues = data.get('comment_only_issues', [])

@@ -121,10 +121,18 @@ def generate_adjudication_html(
             </div>
         </header>
 
-        <!-- Toolbar -->
+        <!-- Toolbar — v5.9.28: added category and function tag filter dropdowns -->
         <div class="toolbar">
             <div class="toolbar-left">
                 <input type="text" id="search-input" class="search-input" placeholder="Search roles..." oninput="handleSearch(this.value)">
+                <div class="filter-dropdown" id="dd-category">
+                    <button class="btn btn-filter" onclick="toggleDropdown('dd-category')">Category <span class="filter-badge" id="badge-category" style="display:none">0</span></button>
+                    <div class="dropdown-panel" id="panel-category"></div>
+                </div>
+                <div class="filter-dropdown" id="dd-tags">
+                    <button class="btn btn-filter" onclick="toggleDropdown('dd-tags')">Tags <span class="filter-badge" id="badge-tags" style="display:none">0</span></button>
+                    <div class="dropdown-panel" id="panel-tags"></div>
+                </div>
                 <span class="search-count" id="search-count"></span>
             </div>
             <div class="toolbar-right">
@@ -376,6 +384,17 @@ def _get_css() -> str:
         }
         .search-input:focus { border-color: var(--accent); }
         .search-count { font-size: 12px; color: var(--text-muted); }
+        /* v5.9.28: Filter dropdowns */
+        .filter-dropdown { position: relative; }
+        .btn-filter { padding: 6px 12px; font-size: 12px; border-radius: var(--radius-md); border: 1px solid var(--border-default); background: var(--bg-secondary); color: var(--text-primary); cursor: pointer; display: flex; align-items: center; gap: 6px; }
+        .btn-filter:hover { border-color: var(--accent); }
+        .btn-filter.active { border-color: var(--accent); background: rgba(214,168,74,0.1); color: var(--accent); }
+        .filter-badge { background: var(--accent); color: #000; font-size: 10px; font-weight: 700; border-radius: 8px; padding: 0 5px; min-width: 16px; text-align: center; }
+        .dropdown-panel { display: none; position: absolute; top: 100%; left: 0; margin-top: 4px; background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: 8px; min-width: 200px; max-height: 280px; overflow-y: auto; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .dropdown-panel.open { display: block; }
+        .dropdown-item { display: flex; align-items: center; gap: 8px; padding: 4px 6px; font-size: 12px; color: var(--text-primary); cursor: pointer; border-radius: 4px; }
+        .dropdown-item:hover { background: rgba(255,255,255,0.05); }
+        .dropdown-item input[type="checkbox"] { accent-color: var(--accent); }
         .changes-badge {
             display: inline-flex; align-items: center; gap: 4px;
             padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
@@ -643,6 +662,7 @@ def _get_js(safe_roles: str, safe_categories: str, safe_metadata: str) -> str:
     document.addEventListener('DOMContentLoaded', () => {{
         if (isDark) document.documentElement.setAttribute('data-theme', 'dark');
         updateThemeIcon();
+        initFilterDropdowns();
         renderBoard();
 
         // Keyboard shortcuts
@@ -711,6 +731,9 @@ def _get_js(safe_roles: str, safe_categories: str, safe_metadata: str) -> str:
         `;
     }}
 
+    // v5.9.28: Filter state
+    const activeFilters = {{ categories: new Set(), tags: new Set() }};
+
     function getFilteredRoles() {{
         let result = roles;
         if (searchText) {{
@@ -723,6 +746,12 @@ def _get_js(safe_roles: str, safe_categories: str, safe_metadata: str) -> str:
         }}
         if (statusFilter) {{
             result = result.filter(r => (r.status || 'pending') === statusFilter);
+        }}
+        if (activeFilters.categories.size > 0) {{
+            result = result.filter(r => activeFilters.categories.has(r.category || 'Uncategorized'));
+        }}
+        if (activeFilters.tags.size > 0) {{
+            result = result.filter(r => (r.function_tags || []).some(t => activeFilters.tags.has(t)));
         }}
         return result;
     }}
@@ -760,6 +789,66 @@ def _get_js(safe_roles: str, safe_categories: str, safe_metadata: str) -> str:
         }}
         renderBoard();
     }}
+
+    // ===== v5.9.28: Category & Tag Filter Dropdowns =====
+    function initFilterDropdowns() {{
+        // Build category options
+        const cats = new Set(roles.map(r => r.category || 'Uncategorized'));
+        const catPanel = document.getElementById('panel-category');
+        if (catPanel) {{
+            catPanel.innerHTML = [...cats].sort().map(c =>
+                `<label class="dropdown-item"><input type="checkbox" value="${{escHtml(c)}}" onchange="toggleFilter('categories', this.value, this.checked)"> ${{escHtml(c)}}</label>`
+            ).join('');
+        }}
+        // Build tag options (top-level only for simplicity)
+        const usedTags = new Set();
+        roles.forEach(r => (r.function_tags || []).forEach(t => usedTags.add(t)));
+        const tagPanel = document.getElementById('panel-tags');
+        if (tagPanel && usedTags.size > 0) {{
+            tagPanel.innerHTML = [...usedTags].sort().map(code => {{
+                const cat = FUNCTION_CATEGORIES.find(c => c.code === code);
+                const name = cat ? cat.name : code;
+                const color = cat ? cat.color : '#6b7280';
+                return `<label class="dropdown-item"><input type="checkbox" value="${{code}}" onchange="toggleFilter('tags', this.value, this.checked)"> <span style="color:${{color}}">\u25CF</span> ${{escHtml(name)}}</label>`;
+            }}).join('');
+        }}
+    }}
+
+    function toggleDropdown(id) {{
+        const panel = document.querySelector('#' + id + ' .dropdown-panel');
+        if (!panel) return;
+        const wasOpen = panel.classList.contains('open');
+        document.querySelectorAll('.dropdown-panel.open').forEach(p => p.classList.remove('open'));
+        if (!wasOpen) panel.classList.add('open');
+    }}
+
+    function toggleFilter(type, value, checked) {{
+        if (checked) activeFilters[type].add(value);
+        else activeFilters[type].delete(value);
+        // Update badge
+        const badge = document.getElementById('badge-' + (type === 'categories' ? 'category' : type));
+        const btn = badge?.parentElement;
+        if (badge) {{
+            badge.textContent = activeFilters[type].size;
+            badge.style.display = activeFilters[type].size > 0 ? '' : 'none';
+        }}
+        if (btn) btn.classList.toggle('active', activeFilters[type].size > 0);
+        renderBoard();
+        // Update search count
+        const countEl = document.getElementById('search-count');
+        if (countEl) {{
+            const filtered = getFilteredRoles();
+            const hasFilter = searchText || statusFilter || activeFilters.categories.size || activeFilters.tags.size;
+            countEl.textContent = hasFilter ? `${{filtered.length}} / ${{roles.length}}` : '';
+        }}
+    }}
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', function(e) {{
+        if (!e.target.closest('.filter-dropdown')) {{
+            document.querySelectorAll('.dropdown-panel.open').forEach(p => p.classList.remove('open'));
+        }}
+    }});
 
     // ===== Drag & Drop =====
     let draggedRole = null;

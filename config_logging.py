@@ -24,7 +24,7 @@ import threading
 # =============================================================================
 # CONFIGURATION CONSTANTS (v3.0.116: BUG-L04 - extract magic numbers)
 # =============================================================================
-DEFAULT_MAX_UPLOAD_MB = 50          # Default max upload size in megabytes
+DEFAULT_MAX_UPLOAD_MB = 200         # Default max upload size in megabytes (v5.9.28: raised from 50 for HV export)
 MAX_SAFE_UPLOAD_MB = 500            # Maximum safe upload limit in megabytes
 DEFAULT_RATE_LIMIT_REQUESTS = 100   # Default requests per window
 DEFAULT_RATE_LIMIT_WINDOW = 60      # Default window in seconds

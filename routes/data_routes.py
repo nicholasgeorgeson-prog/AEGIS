@@ -502,11 +502,17 @@ def get_metrics_dashboard():
 
         try:
             cursor.execute('''
-                SELECT role_name, document_count, total_mentions FROM roles
+                SELECT r.role_name,
+                       COUNT(DISTINCT dr.document_id) as document_count,
+                       COALESCE(SUM(dr.mention_count), 0) as total_mentions
+                FROM roles r
+                LEFT JOIN document_roles dr ON dr.role_id = r.id
+                GROUP BY r.id, r.role_name
                 ORDER BY document_count DESC LIMIT 15
             ''')
             top_roles = [{'role': row['role_name'], 'document_count': row['document_count'] or 0, 'mention_count': row['total_mentions'] or 0} for row in cursor.fetchall()]
-        except Exception:
+        except Exception as e:
+            current_app.logger.warning(f'Metrics top_roles query failed: {e}')
             pass
 
         try:

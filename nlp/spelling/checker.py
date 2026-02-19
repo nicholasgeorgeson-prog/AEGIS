@@ -48,6 +48,8 @@ class EnhancedSpellingChecker(NLPCheckerBase):
         'python', 'javascript', 'typescript', 'golang', 'rust',
         'kubernetes', 'docker', 'nginx', 'apache',
         'mongodb', 'postgresql', 'mysql', 'redis', 'elasticsearch',
+        # v5.9.28: Defense contractor abbreviations
+        'ng', 'ngc', 'ngis', 'ngas', 'bae', 'gd', 'saic', 'gdit', 'leidos',
     }
 
     # Patterns to skip (regex)

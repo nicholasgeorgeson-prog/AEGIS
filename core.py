@@ -2245,6 +2245,16 @@ class AEGISEngine:
             'check_coherence': 'cross_sentence_coherence',
             'check_defined_before_used': 'defined_before_used',
             'check_quant_precision': 'quantifier_precision',
+            # v5.9.28: Moved from additional_checkers to option_mapping so presets respect them
+            'check_redundancy': 'redundancy',
+            'check_hedging': 'hedging',
+            'check_weasel_words': 'weasel_words',
+            'check_cliches': 'cliches',
+            'check_mil_std': 'mil_std',
+            'check_do178': 'do178',
+            'check_accessibility': 'accessibility',
+            'check_directive_verb_consistency': 'directive_verb_consistency',
+            'check_unresolved_cross_reference': 'unresolved_cross_reference',
         }
         
         # Build list of enabled checkers first for progress tracking
@@ -2262,11 +2272,10 @@ class AEGISEngine:
         # - units, number_format, terminology, hyphenation, serial_comma, enhanced_references,
         # - dangling_modifiers, run_on_sentences, sentence_fragments, parallel_structure,
         # - requirement_traceability, vague_quantifier, verification_method, ambiguous_scope
-        additional_checkers = [
-            'redundancy', 'hedging', 'weasel_words', 'cliches',
-            'mil_std', 'do178', 'accessibility',
-            'directive_verb_consistency', 'unresolved_cross_reference'
-        ]
+        # v5.9.28: All checkers now in option_mapping — additional_checkers empty
+        # Previously: redundancy, hedging, weasel_words, cliches, mil_std, do178,
+        # accessibility, directive_verb_consistency, unresolved_cross_reference
+        additional_checkers = []
         already_handled = set(option_mapping.values()) - {None}
         for checker_name in additional_checkers:
             if checker_name in already_handled:
@@ -2485,6 +2494,7 @@ class AEGISEngine:
         # =====================================================================
         # ROLE EXTRACTION (Optional - adds role data to results)
         # v4.5.0: Wrapped with 90s timeout to prevent hanging
+        # v5.9.28: Enhanced progress with pipeline stats
         # =====================================================================
         role_data = None
         try:
@@ -2504,6 +2514,15 @@ class AEGISEngine:
                     self.issues = self._deduplicate_issues(self.issues)
                     score = self._calculate_score()
                     grade = self._calculate_grade(score)
+                # v5.9.28: Send detailed pipeline stats
+                if role_data and role_data.get('success'):
+                    roles_found = role_data.get('roles_found', 0)
+                    dupes = role_data.get('duplicates_detected', 0)
+                    entities = role_data.get('entities', {})
+                    n_roles = len(entities.get('roles', []))
+                    n_deliverables = len(entities.get('deliverables', []))
+                    report_progress('postprocessing', 65,
+                        f'PIPELINE:{roles_found}|{dupes}|{n_roles}|{n_deliverables}')
         except ImportError:
             pass  # Role extraction not available
         except Exception as e:
@@ -3127,7 +3146,7 @@ def get_checker_count():
 class DocumentMarker:
     """Wrapper for markup_engine.MarkupEngine for backwards compatibility."""
 
-    def __init__(self, input_path: str, output_path: str, reviewer_name: str = "TechWriter Review"):
+    def __init__(self, input_path: str, output_path: str, reviewer_name: str = "AEGIS"):
         from markup_engine import MarkupEngine
         self.engine = MarkupEngine(author=reviewer_name)
         self.input_path = input_path

@@ -564,6 +564,8 @@ def adjudicate_role():
                                     except Exception as e:
                                         logger.warning(f'Error inserting role function tag: {e}')
                         return jsonify({'success': True, 'message': f'Role \'{role_name}\' updated - {action}', 'role_id': existing['id'], 'action': action, 'is_new': False, 'function_tags': function_tags})
+                    else:
+                        return jsonify({'success': False, 'error': result.get('error', 'Failed to update role')})
                 else:
                     result = db.add_role_to_dictionary(role_name=role_name, source='adjudication', category=data.get('category', 'Role'), source_document=data.get('source_document'), is_deliverable=action == 'deliverable', is_active=action!= 'rejected', created_by='adjudication', notes=data.get('notes', f'Adjudicated as {action}'))
                     if result.get('success'):

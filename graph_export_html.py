@@ -151,16 +151,18 @@ body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans
 #graph-container {{ width: 100%; height: calc(100vh - 88px); position: relative; }}
 svg {{ width: 100%; height: 100%; }}
 
-/* Node styles */
+/* Node styles — v5.9.28: transitions for smooth dim/highlight */
 .node-label {{ font-size: 10px; fill: var(--text-primary); pointer-events: none; text-anchor: middle; dominant-baseline: central; }}
+.node-label-bg {{ fill: var(--bg-deep, #0d1117); fill-opacity: 0.6; rx: 3; ry: 3; pointer-events: none; }}
 html.light .node-label {{ fill: #334155; }}
+html.light .node-label-bg {{ fill: #ffffff; fill-opacity: 0.7; }}
 
 /* Link styles */
-.link-default {{ stroke: var(--border); stroke-opacity: 0.5; }}
-.link-relationship {{ stroke-opacity: 0.7; }}
-.link-rr {{ stroke: #6366f1; stroke-dasharray: 4 2; stroke-opacity: 0.4; }}
+.link-default {{ stroke: var(--border); stroke-opacity: 0.5; transition: stroke-opacity 0.2s ease; }}
+.link-relationship {{ stroke-opacity: 0.7; transition: stroke-opacity 0.2s ease; }}
+.link-rr {{ stroke: #6366f1; stroke-dasharray: 4 2; stroke-opacity: 0.4; transition: stroke-opacity 0.2s ease; }}
 
-/* Tooltip */
+/* Tooltip — v5.9.28: boundary-aware positioning via JS */
 .tooltip {{ position: absolute; padding: 12px 16px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 10px; font-size: 0.8125rem; color: var(--text-primary); pointer-events: none; max-width: 320px; box-shadow: 0 8px 24px rgba(0,0,0,0.35); z-index: 100; display: none; }}
 .tooltip .tt-name {{ font-weight: 700; margin-bottom: 4px; color: var(--gold); font-size: 0.875rem; }}
 .tooltip .tt-type {{ font-size: 0.6875rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; }}
@@ -169,10 +171,11 @@ html.light .node-label {{ fill: #334155; }}
 .tooltip .tt-section {{ margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); }}
 .tooltip .tt-rel {{ font-size: 0.6875rem; color: var(--text-secondary); padding: 1px 0; }}
 
-/* Highlighted node */
-.node-highlight {{ stroke: var(--gold); stroke-width: 3px; }}
-.node-dim {{ opacity: 0.1; }}
-.link-dim {{ stroke-opacity: 0.03 !important; }}
+/* Highlighted node — v5.9.28: smoother transitions, less extreme dimming */
+.node-highlight {{ stroke: var(--gold); stroke-width: 3px; filter: drop-shadow(0 0 6px rgba(214,168,74,0.4)); }}
+.node {{ transition: opacity 0.2s ease; }}
+.node-dim {{ opacity: 0.15; }}
+.link-dim {{ stroke-opacity: 0.06 !important; transition: stroke-opacity 0.2s ease; }}
 
 /* Legend */
 .legend {{ position: absolute; bottom: 16px; left: 16px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; z-index: 5; max-height: calc(100vh - 180px); overflow-y: auto; }}
@@ -388,15 +391,37 @@ html.light .node-label {{ fill: #334155; }}
             .on('drag', dragged)
             .on('end', dragEnded));
 
-    // Labels
-    const label = g.append('g').attr('class', 'labels').selectAll('text')
-        .data(nodes).enter().append('text')
+    // Labels — v5.9.28: background rects for readability + smart truncation
+    const labelG = g.append('g').attr('class', 'labels');
+    const labelGroups = labelG.selectAll('g').data(nodes).enter().append('g');
+    const labelBg = labelGroups.append('rect').attr('class', 'node-label-bg');
+    const label = labelGroups.append('text')
         .attr('class', 'node-label')
         .attr('dy', d => (d.radius || 8) + 12)
-        .text(d => ((d.label || d.name || d.original_name || '')).substring(0, 24));
+        .text(d => {{
+            const name = (d.label || d.name || d.original_name || '');
+            return name.length > 24 ? name.substring(0, 22) + '\u2026' : name;
+        }});
+    // Size bg rects to fit labels after rendering
+    requestAnimationFrame(() => {{
+        label.each(function(d, i) {{
+            const bbox = this.getBBox();
+            const bg = d3.select(labelBg.nodes()[i]);
+            bg.attr('x', bbox.x - 3).attr('y', bbox.y - 1).attr('width', bbox.width + 6).attr('height', bbox.height + 2);
+        }});
+    }});
 
-    // Tooltip
+    // Tooltip — v5.9.28: boundary-aware positioning
     const tooltip = document.getElementById('tooltip');
+    function positionTooltip(e) {{
+        let left = e.pageX + 14, top = e.pageY - 10;
+        const tw = 340, th = tooltip.offsetHeight || 200;
+        if (left + tw > window.innerWidth) left = e.pageX - tw - 10;
+        if (top + th > window.innerHeight + window.scrollY) top = e.pageY - th - 10;
+        if (top < window.scrollY) top = e.pageY + 20;
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = top + 'px';
+    }}
 
     node.on('mouseover', function(e, d) {{
         tooltip.style.display = 'block';
@@ -427,8 +452,7 @@ html.light .node-label {{ fill: #334155; }}
             html += '</div>';
         }}
         tooltip.innerHTML = html;
-        tooltip.style.left = (e.pageX + 14) + 'px';
-        tooltip.style.top = (e.pageY - 10) + 'px';
+        positionTooltip(e);
 
         // Highlight connected
         const connected = new Set();
@@ -442,15 +466,14 @@ html.light .node-label {{ fill: #334155; }}
         node.classed('node-dim', n => !connected.has(n.id));
         node.classed('node-highlight', n => n.id === d.id);
         link.classed('link-dim', l => !connected.has(getId(l.source)) || !connected.has(getId(l.target)));
-        label.style('opacity', n => connected.has(n.id) ? 1 : 0.05);
+        labelGroups.style('opacity', n => connected.has(n.id) ? 1 : 0.05);
     }}).on('mouseout', function() {{
         tooltip.style.display = 'none';
         node.classed('node-dim', false).classed('node-highlight', false);
         link.classed('link-dim', false);
-        label.style('opacity', 1);
+        labelGroups.style('opacity', 1);
     }}).on('mousemove', function(e) {{
-        tooltip.style.left = (e.pageX + 14) + 'px';
-        tooltip.style.top = (e.pageY - 10) + 'px';
+        positionTooltip(e);
     }}).on('click', function(e, d) {{
         showInfoPanel(d);
     }});
@@ -538,7 +561,7 @@ html.light .node-label {{ fill: #334155; }}
         link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
             .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
         node.attr('cx', d => d.x).attr('cy', d => d.y);
-        label.attr('x', d => d.x).attr('y', d => d.y);
+        labelGroups.attr('transform', d => `translate(${{d.x}},${{d.y}})`);
     }});
 
     // Drag
@@ -549,7 +572,7 @@ html.light .node-label {{ fill: #334155; }}
     // Search
     document.getElementById('search').addEventListener('input', function() {{
         const q = this.value.toLowerCase().trim();
-        if (!q) {{ node.classed('node-dim', false); label.style('opacity', 1); link.classed('link-dim', false); return; }}
+        if (!q) {{ node.classed('node-dim', false); labelGroups.style('opacity', 1); link.classed('link-dim', false); return; }}
         const matched = new Set();
         nodes.forEach(n => {{
             const name = (n.label || n.name || n.original_name || '').toLowerCase();
@@ -562,7 +585,7 @@ html.light .node-label {{ fill: #334155; }}
             if (matched.has(tgt)) visible.add(src);
         }});
         node.classed('node-dim', n => !visible.has(n.id));
-        label.style('opacity', n => visible.has(n.id) ? 1 : 0.05);
+        labelGroups.style('opacity', n => visible.has(n.id) ? 1 : 0.05);
         link.classed('link-dim', l => !visible.has(getId(l.source)) || !visible.has(getId(l.target)));
     }});
 
@@ -576,7 +599,7 @@ html.light .node-label {{ fill: #334155; }}
         const typeFilter = document.getElementById('filter-role-type').value;
         const orgFilter = document.getElementById('filter-org-group').value;
         if (!funcFilter && !typeFilter && !orgFilter) {{
-            node.classed('node-dim', false); label.style('opacity', 1); link.classed('link-dim', false); return;
+            node.classed('node-dim', false); labelGroups.style('opacity', 1); link.classed('link-dim', false); return;
         }}
         const matched = new Set();
         nodes.forEach(n => {{
@@ -597,7 +620,7 @@ html.light .node-label {{ fill: #334155; }}
             if (matched.has(tgt)) visible.add(src);
         }});
         node.classed('node-dim', n => !visible.has(n.id));
-        label.style('opacity', n => visible.has(n.id) ? 1 : 0.05);
+        labelGroups.style('opacity', n => visible.has(n.id) ? 1 : 0.05);
         link.classed('link-dim', l => !visible.has(getId(l.source)) || !visible.has(getId(l.target)));
     }}
 
@@ -608,7 +631,7 @@ html.light .node-label {{ fill: #334155; }}
         document.getElementById('filter-role-type').value = '';
         document.getElementById('filter-org-group').value = '';
         node.classed('node-dim', false).classed('node-highlight', false);
-        label.style('opacity', 1);
+        labelGroups.style('opacity', 1);
         link.classed('link-dim', false);
         infoPanel.classList.remove('open');
         svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity);
