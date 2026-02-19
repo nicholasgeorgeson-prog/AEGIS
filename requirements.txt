@@ -156,6 +156,9 @@ numpy>=1.24.0
 # HTTP requests (for API features)
 requests>=2.31.0
 
+# setuptools (pkg_resources needed by spaCy model loading; v82+ removed pkg_resources)
+setuptools>=60.0,<81
+
 # Terminal colors (required by spaCy/click/wasabi on Windows)
 colorama>=0.4.6
 

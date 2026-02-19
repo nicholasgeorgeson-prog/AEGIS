@@ -80,6 +80,7 @@ torch==2.10.0
 accelerate==1.12.0
 
 # --- Windows-Required (transitive deps that only trigger on Windows) ---
+setuptools==80.10.2
 colorama==0.4.6
 typer==0.24.0
 

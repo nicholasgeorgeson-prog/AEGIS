@@ -303,21 +303,34 @@ def main():
 
     repaired = 0
 
-    # Step 3a: Install setuptools + colorama first (needed before anything else)
-    priority_pkgs = []
+    # Step 3a: Fix setuptools FIRST if pkg_resources is missing
+    # setuptools v82+ removed pkg_resources entirely. Must downgrade to <81.
+    # Force-reinstall is required because pip sees v82 as "already satisfied".
     if 'setuptools' in failed_names:
-        priority_pkgs.append('setuptools')
-    if 'colorama' in failed_names:
-        priority_pkgs.append('colorama')
-    if 'typer' in failed_names:
-        priority_pkgs.append('typer')
+        info('setuptools v82+ removed pkg_resources — downgrading to v80...')
+        info('(This is a known breaking change from Feb 2026)')
+        # Force reinstall with version pin to get <81 from wheels
+        success, method = pip_install(['setuptools<81'], wheels_dir, force=True)
+        if success:
+            ok(f'setuptools downgraded ({method})')
+            repaired += 1
+        else:
+            fail(f'setuptools downgrade failed: {method}')
+        print()
 
-    if priority_pkgs:
-        info(f'Installing priority packages first: {", ".join(priority_pkgs)}...')
-        success, method = pip_install(priority_pkgs, wheels_dir)
+    # Step 3a2: Install colorama/typer if needed
+    other_priority = []
+    if 'colorama' in failed_names:
+        other_priority.append('colorama')
+    if 'typer' in failed_names:
+        other_priority.append('typer')
+
+    if other_priority:
+        info(f'Installing priority packages: {", ".join(other_priority)}...')
+        success, method = pip_install(other_priority, wheels_dir)
         if success:
             ok(f'Priority packages installed ({method})')
-            repaired += len(priority_pkgs)
+            repaired += len(other_priority)
         else:
             fail(f'Priority install failed: {method}')
         print()

@@ -312,8 +312,11 @@ set "WHEELS=%INSTALL_DIR%\packaging\wheels"
 :: Remove any Linux-only wheels that would cause confusion
 del "%WHEELS%\*manylinux*aarch64*.whl" >nul 2>nul
 
-:: Install setuptools, colorama and typer FIRST (required by spaCy/pkg_resources on Windows, not auto-resolved offline)
-"%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location setuptools colorama typer 2>nul
+:: Install setuptools FIRST with version pin (v82+ removed pkg_resources which spaCy needs)
+:: Force-reinstall in case v82 was already installed from a previous run
+"%PYTHON_DIR%\python.exe" -m pip install --force-reinstall --no-index --find-links="%WHEELS%" --no-warn-script-location "setuptools<81" 2>nul
+:: Install colorama and typer (required by spaCy/click/wasabi on Windows)
+"%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location colorama typer 2>nul
 
 :: Install core packages (with dependency resolution so spaCy deps get pulled in)
 "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location flask 2>nul

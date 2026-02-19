@@ -88,24 +88,26 @@ if errorlevel 1 goto :need_setuptools
 goto :setuptools_ok
 
 :need_setuptools
-echo  [PRE-FLIGHT] pkg_resources missing - installing setuptools...
+echo  [PRE-FLIGHT] pkg_resources missing (setuptools v82+ removed it^)
+echo  [PRE-FLIGHT] Downgrading setuptools to v80 which still includes pkg_resources...
 echo.
 
-:: Try from wheels directory first (offline)
+:: Force-reinstall with version pin. v82 is installed but broken (no pkg_resources).
+:: Must use --force-reinstall so pip doesn't say "already satisfied".
 if not defined WHEELS_DIR goto :try_online_setuptools
-"!PYTHON_EXE!" -m pip install --no-index --find-links="!WHEELS_DIR!" --no-warn-script-location setuptools 2>&1
+"!PYTHON_EXE!" -m pip install --force-reinstall --no-index --find-links="!WHEELS_DIR!" --no-warn-script-location "setuptools<81" 2>&1
 if not errorlevel 1 goto :verify_setuptools
 
-:: Try direct wheel file path
-for %%f in ("!WHEELS_DIR!\setuptools*.whl") do (
+:: Try direct wheel file path (the v80 wheel file)
+for %%f in ("!WHEELS_DIR!\setuptools-80*.whl") do (
     echo  [PRE-FLIGHT] Trying direct wheel: %%~nxf
-    "!PYTHON_EXE!" -m pip install --no-warn-script-location "%%f" 2>&1
+    "!PYTHON_EXE!" -m pip install --force-reinstall --no-warn-script-location "%%f" 2>&1
     if not errorlevel 1 goto :verify_setuptools
 )
 
 :try_online_setuptools
-echo  [PRE-FLIGHT] Trying online install...
-"!PYTHON_EXE!" -m pip install --no-warn-script-location setuptools 2>&1
+echo  [PRE-FLIGHT] Trying online install (setuptools less than v81^)...
+"!PYTHON_EXE!" -m pip install --force-reinstall --no-warn-script-location "setuptools<81" 2>&1
 
 :verify_setuptools
 echo.
