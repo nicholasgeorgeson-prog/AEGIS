@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-AEGIS v5.9.28 Direct Updater
+AEGIS v5.9.29 Direct Updater
 Downloads all changed files from GitHub and places them
 directly into the correct locations in your AEGIS install.
 
@@ -10,8 +10,8 @@ Usage:
     Place this script in your AEGIS installation directory
     (where app.py, core.py, etc. live) and run:
 
-    python apply_v5.9.28.py
-    python3 apply_v5.9.28.py
+    python apply_v5.9.29.py
+    python3 apply_v5.9.29.py
 
 No dependencies required - uses only Python standard library.
 """
@@ -38,12 +38,17 @@ FILES = [
     "graph_export_html.py",
     "adjudication_export.py",
     "update_manager.py",
+    "sharepoint_connector.py",
 
     # Routes
     "routes/roles_routes.py",
     "routes/data_routes.py",
     "routes/config_routes.py",
     "routes/review_routes.py",
+
+    # Hyperlink Validator
+    "hyperlink_validator/validator.py",
+    "hyperlink_validator/export.py",
 
     # NLP / dictionaries
     "nlp/spelling/checker.py",
@@ -141,7 +146,7 @@ def main():
 
     print()
     print("  =============================================")
-    print("    AEGIS v5.9.28 Direct Updater")
+    print("    AEGIS v5.9.29 Direct Updater")
     print("  =============================================")
     print()
     print(f"  Install dir: {install_dir}")
@@ -155,7 +160,7 @@ def main():
 
     # Create backup folder
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_dir = os.path.join(install_dir, "backups", f"pre_v5.9.28_{timestamp}")
+    backup_dir = os.path.join(install_dir, "backups", f"pre_v5.9.29_{timestamp}")
     os.makedirs(backup_dir, exist_ok=True)
     print(f"  Backup dir: {backup_dir}")
     print()

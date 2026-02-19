@@ -1356,6 +1356,443 @@ def folder_scan_progress(scan_id):
     return jsonify({'success': True, 'data': response})
 
 
+# =============================================================================
+# v5.9.29: SharePoint Online Document Library Scan
+# =============================================================================
+
+# Lazy import for SharePoint connector
+try:
+    from sharepoint_connector import SharePointConnector, parse_sharepoint_url
+    SHAREPOINT_AVAILABLE = True
+except ImportError:
+    SHAREPOINT_AVAILABLE = False
+    SharePointConnector = None
+    parse_sharepoint_url = None
+
+
+@review_bp.route('/api/review/sharepoint-test', methods=['POST'])
+@require_csrf
+@handle_api_errors
+def sharepoint_test():
+    """
+    v5.9.29: Test connection to a SharePoint site.
+    Returns site title and auth status.
+    """
+    if not SHAREPOINT_AVAILABLE:
+        return jsonify({
+            'success': False,
+            'error': {'message': 'SharePoint connector not available', 'code': 'SP_UNAVAILABLE'}
+        }), 500
+
+    data = request.get_json() or {}
+    site_url = data.get('site_url', '').strip()
+
+    if not site_url:
+        return jsonify({
+            'success': False,
+            'error': {'message': 'SharePoint site URL is required', 'code': 'MISSING_URL'}
+        }), 400
+
+    # Parse the URL to extract site_url component
+    parsed = parse_sharepoint_url(site_url)
+    actual_site_url = parsed['site_url']
+
+    connector = SharePointConnector(actual_site_url)
+    try:
+        probe = connector.test_connection()
+        return jsonify({
+            'success': probe['success'],
+            'data': {
+                'title': probe.get('title', ''),
+                'url': probe.get('url', ''),
+                'auth_method': probe.get('auth_method', 'none'),
+                'message': probe.get('message', ''),
+                'status_code': probe.get('status_code', 0),
+                'parsed_site_url': actual_site_url,
+                'parsed_library_path': parsed.get('library_path', ''),
+            }
+        })
+    finally:
+        connector.close()
+
+
+@review_bp.route('/api/review/sharepoint-scan-start', methods=['POST'])
+@require_csrf
+@handle_api_errors
+def sharepoint_scan_start():
+    """
+    v5.9.29: Start a SharePoint document library scan.
+
+    Phase 1 (sync): Connect + discover files → returns scan_id + file list immediately
+    Phase 2 (async): Download + review files in background thread
+
+    Reuses the same _folder_scan_state dict and progress endpoint as folder scan.
+    """
+    if not SHAREPOINT_AVAILABLE:
+        return jsonify({
+            'success': False,
+            'error': {'message': 'SharePoint connector not available', 'code': 'SP_UNAVAILABLE'}
+        }), 500
+
+    data = request.get_json() or {}
+    site_url = data.get('site_url', '').strip()
+    library_path = data.get('library_path', '').strip()
+    recursive = data.get('recursive', True)
+    options = data.get('options', {})
+    max_files = min(data.get('max_files', 500), MAX_FOLDER_SCAN_FILES)
+
+    if not site_url:
+        return jsonify({
+            'success': False,
+            'error': {'message': 'SharePoint site URL is required', 'code': 'MISSING_URL'}
+        }), 400
+
+    # Parse the URL
+    parsed = parse_sharepoint_url(site_url)
+    actual_site_url = parsed['site_url']
+
+    # If no library_path provided, try to extract from the URL
+    if not library_path:
+        library_path = parsed.get('library_path', '')
+
+    if not library_path:
+        return jsonify({
+            'success': False,
+            'error': {
+                'message': 'Document library path is required (e.g., /sites/MyTeam/Shared Documents)',
+                'code': 'MISSING_LIBRARY'
+            }
+        }), 400
+
+    # Phase 1: Connect + discover
+    connector = SharePointConnector(actual_site_url)
+
+    # Test connection first
+    probe = connector.test_connection()
+    if not probe['success']:
+        connector.close()
+        return jsonify({
+            'success': False,
+            'error': {
+                'message': f'Cannot connect to SharePoint: {probe["message"]}',
+                'code': 'SP_AUTH_FAILED'
+            }
+        }), 400
+
+    # Discover files
+    try:
+        files = connector.list_files(library_path, recursive=recursive, max_files=max_files)
+    except Exception as e:
+        connector.close()
+        logger.error(f"SharePoint discovery error: {e}")
+        return jsonify({
+            'success': False,
+            'error': {
+                'message': f'Failed to list files: {str(e)[:200]}',
+                'code': 'SP_DISCOVERY_FAILED'
+            }
+        }), 500
+
+    if not files:
+        connector.close()
+        return jsonify({
+            'success': True,
+            'data': {
+                'scan_id': None,
+                'message': f'No supported documents found in {library_path}. '
+                           f'AEGIS supports: .docx, .pdf, .doc',
+                'site_title': probe.get('title', ''),
+                'discovery': {
+                    'total_discovered': 0,
+                    'supported_files': 0,
+                    'files': [],
+                    'file_type_breakdown': {},
+                }
+            }
+        })
+
+    # Calculate size and type breakdown
+    total_size = sum(f.get('size', 0) for f in files)
+    type_breakdown = {}
+    for f in files:
+        ext = f.get('extension', 'unknown')
+        type_breakdown[ext] = type_breakdown.get(ext, 0) + 1
+
+    def _human_size(b):
+        for unit in ('B', 'KB', 'MB', 'GB'):
+            if b < 1024:
+                return f'{b:.1f} {unit}'
+            b /= 1024
+        return f'{b:.1f} TB'
+
+    # Add size_human and relative path display
+    for f in files:
+        f['size_human'] = _human_size(f.get('size', 0))
+
+    # Generate scan_id
+    scan_id = uuid.uuid4().hex[:12]
+
+    # Initialize scan state (same structure as folder scan)
+    with _folder_scan_state_lock:
+        _cleanup_old_scans()
+        _folder_scan_state[scan_id] = {
+            'phase': 'reviewing',
+            'total_files': len(files),
+            'processed': 0,
+            'errors': 0,
+            'current_file': None,
+            'current_chunk': 0,
+            'total_chunks': (len(files) + FOLDER_SCAN_CHUNK_SIZE - 1) // FOLDER_SCAN_CHUNK_SIZE,
+            'documents': [],
+            'summary': {
+                'total_documents': len(files),
+                'processed': 0,
+                'errors': 0,
+                'total_issues': 0,
+                'total_words': 0,
+                'issues_by_severity': {'Critical': 0, 'High': 0, 'Medium': 0, 'Low': 0, 'Info': 0},
+                'issues_by_category': {},
+                'grade_distribution': {},
+            },
+            'roles_found': {},
+            'started_at': time.time(),
+            'completed_at': None,
+            'elapsed_seconds': 0,
+            'estimated_remaining': None,
+            'folder_path': f'SharePoint: {library_path}',
+            'source': 'sharepoint',
+        }
+
+    # Phase 2: Spawn background thread for download + review
+    flask_app = current_app._get_current_object()
+    thread = threading.Thread(
+        target=_process_sharepoint_scan_async,
+        args=(scan_id, connector, files, options, flask_app),
+        daemon=True,
+        name=f'sp-scan-{scan_id}',
+    )
+    thread.start()
+
+    logger.info(f"SharePoint scan {scan_id} started: {len(files)} files from {library_path}")
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'scan_id': scan_id,
+            'site_title': probe.get('title', ''),
+            'discovery': {
+                'total_discovered': len(files),
+                'supported_files': len(files),
+                'total_size': total_size,
+                'total_size_human': _human_size(total_size),
+                'files': files[:100],  # Preview first 100
+                'file_type_breakdown': type_breakdown,
+            }
+        }
+    })
+
+
+def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app):
+    """
+    Background thread: download files from SharePoint and review with AEGIS engine.
+
+    Follows the same pattern as _process_folder_scan_async:
+    - Chunk processing (5 files/chunk, 3 workers)
+    - Per-file timeout (5 min)
+    - State updates after each file
+    - GC between chunks
+    """
+    import gc
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    PER_FILE_TIMEOUT = 300  # 5 minutes per file (includes download + review)
+
+    def _review_sharepoint_file(file_info):
+        """Download a single file from SharePoint and review it."""
+        filename = file_info['filename']
+        server_rel_url = file_info['server_relative_url']
+
+        try:
+            # Create temp directory for this file
+            temp_dir = tempfile.mkdtemp(prefix='aegis_sp_')
+            dest_path = os.path.join(temp_dir, filename)
+
+            # Download from SharePoint
+            dl_result = connector.download_file(server_rel_url, dest_path)
+            if not dl_result['success']:
+                return {
+                    'filename': filename,
+                    'relative_path': server_rel_url,
+                    'folder': file_info.get('folder', ''),
+                    'extension': file_info.get('extension', ''),
+                    'file_size': 0,
+                    'status': 'error',
+                    'error': f'Download failed: {dl_result["message"]}',
+                }
+
+            # Review with AEGIS engine
+            if AEGISEngine is None:
+                return {
+                    'filename': filename,
+                    'relative_path': server_rel_url,
+                    'folder': file_info.get('folder', ''),
+                    'extension': file_info.get('extension', ''),
+                    'file_size': dl_result.get('size', 0),
+                    'status': 'error',
+                    'error': 'AEGISEngine not available',
+                }
+
+            engine = AEGISEngine()
+            doc_results = engine.review_document(dest_path, options)
+
+            # Convert ReviewIssue objects to dicts (Lesson #36)
+            raw_issues = doc_results.get('issues', [])
+            issues = []
+            for issue in raw_issues:
+                if isinstance(issue, dict):
+                    issues.append(issue)
+                elif hasattr(issue, 'to_dict'):
+                    issues.append(issue.to_dict())
+                else:
+                    issues.append({
+                        'message': getattr(issue, 'message', str(issue)),
+                        'severity': getattr(issue, 'severity', 'Low'),
+                        'category': getattr(issue, 'category', 'Unknown'),
+                    })
+
+            # Extract roles
+            actual_roles = doc_results.get('roles', {})
+            if not isinstance(actual_roles, dict):
+                actual_roles = {}
+            word_count = doc_results.get('word_count', 0)
+            if not isinstance(word_count, (int, float)):
+                word_count = 0
+
+            return {
+                'filename': filename,
+                'relative_path': server_rel_url,
+                'folder': file_info.get('folder', ''),
+                'extension': file_info.get('extension', ''),
+                'file_size': dl_result.get('size', 0),
+                'issues': issues,
+                'issue_count': len(issues),
+                'roles': actual_roles,
+                'role_count': len(actual_roles),
+                'word_count': int(word_count),
+                'score': doc_results.get('score', 0),
+                'grade': doc_results.get('grade', 'N/A'),
+                'doc_results': doc_results,
+                'status': 'success',
+            }
+
+        except Exception as e:
+            logger.error(f"SharePoint review error for {filename}: {e}")
+            return {
+                'filename': filename,
+                'relative_path': server_rel_url,
+                'folder': file_info.get('folder', ''),
+                'extension': file_info.get('extension', ''),
+                'file_size': 0,
+                'status': 'error',
+                'error': str(e)[:200],
+            }
+        finally:
+            # Clean up temp file
+            try:
+                if 'temp_dir' in dir() and os.path.exists(temp_dir):
+                    import shutil
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+            except Exception:
+                pass
+
+    # Process files in chunks (same pattern as folder scan)
+    chunks = []
+    for i in range(0, len(files), FOLDER_SCAN_CHUNK_SIZE):
+        chunks.append(files[i:i + FOLDER_SCAN_CHUNK_SIZE])
+
+    try:
+        for chunk_idx, chunk in enumerate(chunks):
+            # Update state with current chunk
+            with _folder_scan_state_lock:
+                state = _folder_scan_state.get(scan_id)
+                if state:
+                    state['current_chunk'] = chunk_idx + 1
+                    chunk_names = [f['filename'] for f in chunk[:3]]
+                    state['current_file'] = ', '.join(chunk_names)
+
+            # Process chunk with ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=min(FOLDER_SCAN_MAX_WORKERS, len(chunk))) as executor:
+                future_to_file = {
+                    executor.submit(_review_sharepoint_file, f): f
+                    for f in chunk
+                }
+
+                chunk_timeout = PER_FILE_TIMEOUT * len(chunk)
+                try:
+                    for future in as_completed(future_to_file, timeout=chunk_timeout):
+                        file_info = future_to_file[future]
+                        try:
+                            result = future.result(timeout=PER_FILE_TIMEOUT)
+                        except Exception as e:
+                            result = {
+                                'filename': file_info['filename'],
+                                'relative_path': file_info.get('server_relative_url', ''),
+                                'folder': file_info.get('folder', ''),
+                                'extension': file_info.get('extension', ''),
+                                'file_size': 0,
+                                'status': 'error',
+                                'error': f'Processing timeout or error: {str(e)[:100]}',
+                            }
+
+                        # Update scan state (reuse existing helper)
+                        with flask_app.app_context():
+                            _update_scan_state_with_result(scan_id, result, options, flask_app)
+
+                except Exception as e:
+                    logger.error(f"SharePoint scan chunk {chunk_idx + 1} error: {e}")
+                    # Mark remaining files as errors
+                    for future in future_to_file:
+                        if not future.done():
+                            file_info = future_to_file[future]
+                            error_result = {
+                                'filename': file_info['filename'],
+                                'relative_path': file_info.get('server_relative_url', ''),
+                                'folder': file_info.get('folder', ''),
+                                'extension': file_info.get('extension', ''),
+                                'file_size': 0,
+                                'status': 'error',
+                                'error': 'Chunk processing timed out',
+                            }
+                            with flask_app.app_context():
+                                _update_scan_state_with_result(scan_id, error_result, options, flask_app)
+
+            # GC between chunks
+            gc.collect()
+
+        # Mark scan as complete
+        with _folder_scan_state_lock:
+            state = _folder_scan_state.get(scan_id)
+            if state:
+                state['phase'] = 'complete'
+                state['completed_at'] = time.time()
+                state['elapsed_seconds'] = round(time.time() - state['started_at'], 1)
+                state['current_file'] = None
+
+        logger.info(f"SharePoint scan {scan_id} complete: "
+                     f"{state['processed']} processed, {state['errors']} errors")
+
+    except Exception as e:
+        logger.error(f"SharePoint scan {scan_id} fatal error: {e}")
+        with _folder_scan_state_lock:
+            state = _folder_scan_state.get(scan_id)
+            if state:
+                state['phase'] = 'error'
+                state['error_message'] = str(e)[:200]
+                state['completed_at'] = time.time()
+    finally:
+        connector.close()
+
+
 @review_bp.route('/api/review/single', methods=['POST'])
 @require_csrf
 @handle_api_errors

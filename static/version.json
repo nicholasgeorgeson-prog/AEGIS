@@ -1,13 +1,28 @@
 {
-  "version": "5.9.28",
+  "version": "5.9.29",
   "release_date": "2026-02-19",
-  "core_version": "5.9.28",
+  "core_version": "5.9.29",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.29",
+      "date": "2026-02-19",
+      "changes": [
+        "FIX: Export Highlighted button showed 1200+ broken links when only 80 were broken — AUTH_REQUIRED was incorrectly included in broken status count; removed from 4 locations across JS and Python",
+        "FEATURE: Robust Windows SSO auth for internal link validation — 6-tier cascade: pre-validation auth probe, per-URL fresh session retry on 401/403, SharePoint login redirect detection, DNS-only corporate domain downgrade (removed blanket downgrades that masked real broken links), AUTH_REQUIRED now included in retest phase",
+        "FEATURE: SharePoint Online document library scanning — new SharePoint tab in batch upload modal; connects via REST API with Windows SSO (zero new dependencies); discovers documents, downloads to temp, reviews with full AEGIS engine; real-time progress dashboard with per-file status",
+        "ARCH: New _probe_windows_auth() pre-validation probe tests SSO against internal URLs before bulk validation starts",
+        "ARCH: New _retry_with_fresh_auth() creates fresh requests.Session per auth retry — NTLM/Negotiate is connection-specific, shared sessions across threads corrupt handshake state",
+        "ARCH: New _is_login_page_redirect() detects SharePoint/ADFS/Azure AD login page redirects and marks as AUTH_REQUIRED instead of REDIRECT",
+        "ARCH: Replaced blanket corporate/document domain downgrades (v5.0.5-v5.9.1) with DNS-only — only DNSFAILED on corporate domains gets downgraded to AUTH_REQUIRED; HTTP errors (BROKEN/TIMEOUT/BLOCKED) are now genuine after Tier 2 auth retry",
+        "ARCH: New sharepoint_connector.py — SharePointConnector class with REST API discovery, file download, and Windows SSO authentication",
+        "ARCH: SharePoint scan reuses existing folder scan state management and progress polling endpoint — zero frontend infrastructure changes needed for progress tracking"
+      ]
+    },
     {
       "version": "5.9.28",
       "date": "2026-02-19",

@@ -1,11 +1,11 @@
 @echo off
-title AEGIS v5.9.28 Direct Updater
+title AEGIS v5.9.29 Direct Updater
 echo.
 echo  =============================================
-echo    AEGIS v5.9.28 Direct Updater
+echo    AEGIS v5.9.29 Direct Updater
 echo  =============================================
 echo.
-echo  This will download and apply all v5.9.28 files
+echo  This will download and apply all v5.9.29 files
 echo  directly into your AEGIS installation.
 echo  A backup is created automatically.
 echo.
@@ -42,22 +42,22 @@ exit /b 1
 echo.
 
 :: Check for the .py script next to this .bat
-if exist "%~dp0apply_v5.9.28.py" (
-    "%PYTHON_EXE%" "%~dp0apply_v5.9.28.py"
+if exist "%~dp0apply_v5.9.29.py" (
+    "%PYTHON_EXE%" "%~dp0apply_v5.9.29.py"
     exit /b %errorlevel%
 )
 
 :: Try to download it
-echo  Downloading apply_v5.9.28.py...
-"%PYTHON_EXE%" -c "import urllib.request,ssl;c=ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT);c.check_hostname=False;c.verify_mode=ssl.CERT_NONE;r=urllib.request.urlopen('https://raw.githubusercontent.com/nicholasgeorgeson-prog/AEGIS/main/apply_v5.9.28.py',context=c);open('apply_v5.9.28.py','wb').write(r.read())" 2>nul
+echo  Downloading apply_v5.9.29.py...
+"%PYTHON_EXE%" -c "import urllib.request,ssl;c=ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT);c.check_hostname=False;c.verify_mode=ssl.CERT_NONE;r=urllib.request.urlopen('https://raw.githubusercontent.com/nicholasgeorgeson-prog/AEGIS/main/apply_v5.9.29.py',context=c);open('apply_v5.9.29.py','wb').write(r.read())" 2>nul
 
-if exist "apply_v5.9.28.py" (
+if exist "apply_v5.9.29.py" (
     echo  Downloaded - running...
     echo.
-    "%PYTHON_EXE%" "apply_v5.9.28.py"
+    "%PYTHON_EXE%" "apply_v5.9.29.py"
 ) else (
     echo.
-    echo  [ERROR] Could not download apply_v5.9.28.py
+    echo  [ERROR] Could not download apply_v5.9.29.py
     echo.
     echo  Download both files manually from:
     echo  https://github.com/nicholasgeorgeson-prog/AEGIS/releases/tag/v5.9.21

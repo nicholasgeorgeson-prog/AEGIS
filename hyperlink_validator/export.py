@@ -563,10 +563,11 @@ def _get_broken_urls(results: List[ValidationResult]) -> Set[str]:
     """
     Get set of URLs that are broken/failed validation.
 
-    Includes: BROKEN, TIMEOUT, DNSFAILED, SSLERROR, INVALID, BLOCKED, AUTH_REQUIRED statuses.
-    Excludes: WORKING, REDIRECT (these are OK), excluded URLs treated as valid.
+    Includes: BROKEN, TIMEOUT, DNSFAILED, SSLERROR, INVALID, BLOCKED statuses.
+    Excludes: WORKING, REDIRECT, AUTH_REQUIRED (these are not broken), excluded URLs treated as valid.
+    v5.9.29: Removed AUTH_REQUIRED — link exists but needs credentials, not broken.
     """
-    broken_statuses = {'BROKEN', 'TIMEOUT', 'DNSFAILED', 'SSLERROR', 'INVALID', 'BLOCKED', 'AUTH_REQUIRED'}
+    broken_statuses = {'BROKEN', 'TIMEOUT', 'DNSFAILED', 'SSLERROR', 'INVALID', 'BLOCKED'}
     broken_urls = set()
 
     for result in results:

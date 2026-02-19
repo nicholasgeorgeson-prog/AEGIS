@@ -820,6 +820,320 @@ class StandaloneHyperlinkValidator:
 
         return results
 
+    # =========================================================================
+    # v5.9.29: Robust auth methods for internal/corporate link validation
+    # =========================================================================
+
+    @staticmethod
+    def _is_login_page_redirect(response) -> bool:
+        """
+        Detect if a response chain redirected to a login/authentication page.
+
+        SharePoint, ADFS, Okta, and other SSO systems redirect unauthenticated
+        users to login pages. These redirects mean the resource EXISTS but
+        requires auth — they should be AUTH_REQUIRED, not REDIRECT or WORKING.
+        """
+        LOGIN_URL_PATTERNS = (
+            '/_layouts/15/authenticate',    # SharePoint
+            '/_layouts/15/Authenticate',    # SharePoint (case variant)
+            '/adfs/ls/',                     # ADFS (Active Directory Federation Services)
+            '/adfs/oauth2/',                 # ADFS OAuth
+            '/oauth2/authorize',             # Generic OAuth
+            'login.microsoftonline.com',     # Azure AD
+            'login.microsoftonline.us',      # Azure AD Gov
+            'login.windows.net',             # Azure AD legacy
+            'sts.windows.net',               # Azure STS
+            '/federation/',                  # Federation services
+            '/CookieAuth.dll',               # IIS Forms auth
+            '/saml/sso',                     # SAML SSO
+            '/sso/login',                    # Generic SSO
+        )
+
+        # Check redirect chain
+        if hasattr(response, 'history') and response.history:
+            for hist_resp in response.history:
+                location = hist_resp.headers.get('Location', '').lower()
+                if any(pattern.lower() in location for pattern in LOGIN_URL_PATTERNS):
+                    return True
+
+        # Check final URL
+        final_url = ''
+        if hasattr(response, 'url') and response.url:
+            final_url = response.url.lower()
+        if any(pattern.lower() in final_url for pattern in LOGIN_URL_PATTERNS):
+            return True
+
+        return False
+
+    def _probe_windows_auth(self, urls: List[str], headers: Dict[str, str],
+                            verify_ssl=True, ca_bundle=None) -> Dict[str, Any]:
+        """
+        Pre-validation auth probe: test Windows SSO against internal URLs.
+
+        Before bulk validation, test if Windows SSO actually works by hitting
+        a known-good internal URL. This tells us whether the auth environment
+        is functional and informs the per-URL auth retry strategy.
+
+        Returns:
+            {
+                'auth_working': bool or None (None = no internal URLs found),
+                'probe_url': str or None,
+                'auth_scheme': str or None,
+                'message': str,
+                'probe_time_ms': float
+            }
+        """
+        if not WINDOWS_AUTH_AVAILABLE or not HttpNegotiateAuth:
+            return {
+                'auth_working': False,
+                'probe_url': None,
+                'auth_scheme': None,
+                'message': 'Windows SSO library not available (requests-negotiate-sspi not installed)',
+                'probe_time_ms': 0
+            }
+
+        # Internal/corporate domain indicators
+        INTERNAL_INDICATORS = (
+            '.myngc.com', '.northgrum.com', '.northropgrumman.com',
+            'ngc.sharepoint.us', '.ngc.sharepoint.us',
+            'sharepoint', 'intranet', 'internal',
+            '.mil', '.gov', 'teams.microsoft'
+        )
+
+        # Extract candidate internal URLs for probing
+        candidate_urls = []
+        seen_domains = set()
+        for url in urls:
+            try:
+                parsed = urlparse(url)
+                domain = parsed.netloc.lower()
+                if domain in seen_domains:
+                    continue
+                if any(ind in domain for ind in INTERNAL_INDICATORS):
+                    seen_domains.add(domain)
+                    candidate_urls.append(url)
+                    # Also try root of the domain
+                    root_url = f"{parsed.scheme}://{parsed.netloc}/"
+                    if root_url not in candidate_urls:
+                        candidate_urls.append(root_url)
+            except Exception:
+                continue
+
+        if not candidate_urls:
+            return {
+                'auth_working': None,
+                'probe_url': None,
+                'auth_scheme': None,
+                'message': 'No internal/corporate URLs found for auth probe',
+                'probe_time_ms': 0
+            }
+
+        # Try each candidate with a fresh session + SSO
+        for probe_url in candidate_urls[:6]:  # Try max 6 probes
+            start = time.time()
+            probe_session = None
+            try:
+                probe_session = requests.Session()
+                probe_session.auth = HttpNegotiateAuth()
+                if ca_bundle:
+                    probe_session.verify = ca_bundle
+                else:
+                    probe_session.verify = verify_ssl
+
+                # Use GET (not HEAD) — NTLM/Negotiate needs full request
+                resp = probe_session.get(
+                    probe_url,
+                    timeout=(15, 30),
+                    allow_redirects=True,
+                    headers=headers,
+                    stream=True
+                )
+                resp.close()
+
+                probe_time = (time.time() - start) * 1000
+
+                # Check for login page redirect — doesn't count as success
+                if self._is_login_page_redirect(resp):
+                    logger.debug(f"Auth probe: {probe_url} redirected to login page")
+                    continue
+
+                if 200 <= resp.status_code < 400:
+                    # Extract auth scheme from the request that was sent
+                    auth_header = resp.request.headers.get('Authorization', '') if resp.request else ''
+                    scheme = auth_header.split()[0] if auth_header else 'Negotiate'
+                    logger.info(f"Auth probe SUCCESS: {probe_url} -> HTTP {resp.status_code} ({scheme})")
+                    return {
+                        'auth_working': True,
+                        'probe_url': probe_url,
+                        'auth_scheme': scheme,
+                        'message': f'Windows SSO confirmed working (HTTP {resp.status_code} via {scheme})',
+                        'probe_time_ms': probe_time
+                    }
+
+                if resp.status_code == 401:
+                    www_auth = resp.headers.get('WWW-Authenticate', '')
+                    logger.debug(f"Auth probe 401 at {probe_url}: server offers [{www_auth[:80]}]")
+                    continue
+
+                if resp.status_code == 403:
+                    logger.debug(f"Auth probe 403 at {probe_url}: access denied")
+                    continue
+
+            except Exception as e:
+                logger.debug(f"Auth probe failed for {probe_url}: {e}")
+            finally:
+                if probe_session:
+                    try:
+                        probe_session.close()
+                    except Exception:
+                        pass
+
+        return {
+            'auth_working': False,
+            'probe_url': candidate_urls[0] if candidate_urls else None,
+            'auth_scheme': None,
+            'message': 'Windows SSO auth probe failed on all candidates — internal links may show AUTH_REQUIRED',
+            'probe_time_ms': 0
+        }
+
+    def _retry_with_fresh_auth(
+        self,
+        url: str,
+        headers: Dict[str, str],
+        timeout: int,
+        verify_ssl=True,
+        ca_bundle=None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Retry a URL with a completely fresh session and Windows SSO.
+
+        NTLM/Negotiate auth is connection-specific. The multi-step handshake
+        (challenge -> response) requires the same TCP connection throughout.
+        A shared session across threads corrupts this. Fresh session per retry
+        guarantees clean auth state — just like Chrome's per-tab connection pool.
+
+        Uses GET (not HEAD) because NTLM challenge-response requires full HTTP.
+        Uses stream=True to avoid downloading large file bodies.
+
+        Returns:
+            Dict with 'status_code', 'status', 'message', 'redirect_url'
+            or None if retry failed or auth unavailable
+        """
+        if not WINDOWS_AUTH_AVAILABLE or not HttpNegotiateAuth:
+            return None
+
+        connect_timeout = min(timeout, 20)
+        read_timeout = timeout * 3
+        fresh_session = None
+
+        try:
+            # Create completely fresh session — critical for NTLM
+            fresh_session = requests.Session()
+            fresh_session.auth = HttpNegotiateAuth()
+            if ca_bundle:
+                fresh_session.verify = ca_bundle
+            else:
+                fresh_session.verify = verify_ssl
+
+            # Use GET, not HEAD — NTLM handshake needs full request
+            resp = fresh_session.get(
+                url,
+                timeout=(connect_timeout, read_timeout),
+                allow_redirects=True,
+                headers=headers,
+                stream=True
+            )
+
+            status_code = resp.status_code
+            final_url = resp.url if resp.url else url
+            redirect_count = len(resp.history) if resp.history else 0
+
+            # Check for login page redirect (SharePoint/ADFS/Azure AD)
+            is_login_redirect = self._is_login_page_redirect(resp)
+
+            # Check for document download
+            content_disp = resp.headers.get('Content-Disposition', '')
+            content_type = resp.headers.get('Content-Type', '')
+            is_download = (
+                'attachment' in content_disp.lower() or
+                any(ct in content_type.lower() for ct in (
+                    'application/pdf', 'application/msword',
+                    'application/vnd.openxmlformats', 'application/vnd.ms-excel',
+                    'application/vnd.ms-powerpoint', 'application/octet-stream',
+                    'application/zip', 'application/vnd.oasis.opendocument'
+                ))
+            )
+
+            resp.close()
+
+            if is_login_redirect:
+                return {
+                    'status_code': status_code,
+                    'status': 'AUTH_REQUIRED',
+                    'message': f'Redirected to login page — SSO insufficient for this resource',
+                    'redirect_url': final_url
+                }
+
+            if 200 <= status_code < 300:
+                msg = f'HTTP {status_code} OK (authenticated with Windows SSO)'
+                if is_download:
+                    fname = ''
+                    if 'filename=' in content_disp:
+                        fname = content_disp.split('filename=')[-1].strip('"\'').strip()
+                    msg = f'File download link (valid, authenticated) — {fname or content_type}'
+                return {
+                    'status_code': status_code,
+                    'status': 'WORKING',
+                    'message': msg,
+                    'redirect_url': final_url if redirect_count > 0 else None
+                }
+
+            if 300 <= status_code < 400:
+                location = resp.headers.get('Location', final_url) if hasattr(resp, 'headers') else final_url
+                return {
+                    'status_code': status_code,
+                    'status': 'REDIRECT',
+                    'message': f'Redirect to {location} (after auth)',
+                    'redirect_url': final_url
+                }
+
+            if status_code == 401:
+                # Still 401 after fresh SSO → user's credentials genuinely insufficient
+                return {
+                    'status_code': 401,
+                    'status': 'AUTH_REQUIRED',
+                    'message': 'Authentication required — Windows SSO credentials insufficient for this resource',
+                    'redirect_url': None
+                }
+
+            if status_code == 403:
+                # 403 after auth → permission-based, not broken
+                return {
+                    'status_code': 403,
+                    'status': 'AUTH_REQUIRED',
+                    'message': 'Access forbidden (403) — authenticated but insufficient permissions',
+                    'redirect_url': None
+                }
+
+            # Other status codes (404, 500, etc.) — let original flow handle
+            return None
+
+        except requests.exceptions.SSLError:
+            return None  # Let original SSL handling take over
+        except requests.exceptions.Timeout:
+            return None  # Let original timeout handling take over
+        except requests.exceptions.ConnectionError:
+            return None  # Let original connection error handling take over
+        except Exception as e:
+            logger.debug(f"Fresh auth retry failed for {url}: {e}")
+            return None
+        finally:
+            if fresh_session:
+                try:
+                    fresh_session.close()
+                except Exception:
+                    pass
+
     def _validate_single_url(
         self,
         url: str,
@@ -999,18 +1313,54 @@ class StandaloneHyperlinkValidator:
                             pass  # Couldn't check, keep WORKING status
 
                 elif 300 <= response.status_code < 400:
+                    # v5.9.29: Check if redirect leads to a login page (SharePoint/ADFS/Azure AD)
+                    if self._is_login_page_redirect(response):
+                        result.status = 'AUTH_REQUIRED'
+                        result.message = f'Redirected to login page ({response.url[:80] if response.url else "unknown"})'
+                        break
                     result.status = 'REDIRECT'
                     result.message = f'Redirect to {response.headers.get("Location", "unknown")}'
 
                 elif response.status_code == 401:
-                    # 401 Unauthorized - Windows auth may have failed or site requires different auth
-                    # For government sites, this often means the link exists but needs auth
+                    # v5.9.29: Retry with fresh Windows SSO session before giving up
+                    # NTLM/Negotiate auth is connection-specific — shared session across
+                    # threads corrupts the multi-step handshake. Fresh session fixes this.
+                    www_auth = response.headers.get('WWW-Authenticate', '')
+                    auth_retry = self._retry_with_fresh_auth(
+                        url, headers, timeout,
+                        verify_ssl=session.verify if hasattr(session, 'verify') else True
+                    )
+                    if auth_retry:
+                        result.status = auth_retry['status']
+                        result.status_code = auth_retry['status_code']
+                        result.message = auth_retry['message']
+                        if auth_retry.get('redirect_url'):
+                            result.redirect_url = auth_retry['redirect_url']
+                        break
+                    # Fresh auth retry failed or unavailable
                     result.status = 'AUTH_REQUIRED'
-                    result.message = 'Authentication required (401) - link exists but requires credentials'
+                    result.message = f'Authentication required (401) — {("server offers: " + www_auth[:60]) if www_auth else "link exists but requires credentials"}'
 
                 elif response.status_code == 403:
-                    # 403 can mean blocked OR requires specific permissions
-                    # Retry once without auth (some sites reject auth headers they don't understand)
+                    # v5.9.29: 403 Forbidden — distinguish auth-related from bot-block
+                    www_auth = response.headers.get('WWW-Authenticate', '')
+
+                    if www_auth:
+                        # Server sent WWW-Authenticate → this IS an auth challenge
+                        auth_retry = self._retry_with_fresh_auth(
+                            url, headers, timeout,
+                            verify_ssl=session.verify if hasattr(session, 'verify') else True
+                        )
+                        if auth_retry:
+                            result.status = auth_retry['status']
+                            result.status_code = auth_retry['status_code']
+                            result.message = auth_retry['message']
+                            if auth_retry.get('redirect_url'):
+                                result.redirect_url = auth_retry['redirect_url']
+                            break
+
+                    # No WWW-Authenticate header or auth retry failed
+                    # Try without auth to see if it's bot-blocking vs permission
                     if attempt < retries:
                         try:
                             no_auth_resp = requests.get(url, timeout=(connect_timeout, read_timeout),
@@ -1024,8 +1374,24 @@ class StandaloneHyperlinkValidator:
                                 break
                         except Exception:
                             pass
+
+                    # v5.9.29: Also try fresh auth even without WWW-Authenticate
+                    # Some corporate servers return bare 403 without the header
+                    if not www_auth:
+                        auth_retry = self._retry_with_fresh_auth(
+                            url, headers, timeout,
+                            verify_ssl=session.verify if hasattr(session, 'verify') else True
+                        )
+                        if auth_retry and auth_retry['status'] == 'WORKING':
+                            result.status = auth_retry['status']
+                            result.status_code = auth_retry['status_code']
+                            result.message = auth_retry['message']
+                            if auth_retry.get('redirect_url'):
+                                result.redirect_url = auth_retry['redirect_url']
+                            break
+
                     result.status = 'AUTH_REQUIRED'
-                    result.message = 'Access forbidden (403) - may require specific permissions or VPN'
+                    result.message = 'Access forbidden (403) — requires specific permissions or VPN'
 
                 elif response.status_code == 404:
                     result.status = 'BROKEN'
@@ -1154,15 +1520,19 @@ class StandaloneHyperlinkValidator:
         result.response_time_ms = (time.time() - start_time) * 1000
         result.attempts = min(attempt + 1, retries + 1) if 'attempt' in dir() else 1
 
-        # v5.9.1: Corporate network domain false-positive mitigation
-        # URLs on known corporate/internal domains fail validation from outside the VPN.
-        # These are not truly broken — they require corporate network access.
-        CORPORATE_NETWORK_DOMAINS = (
-            '.myngc.com', '.northgrum.com', '.northropgrumman.com',
-            'ngc.sharepoint.us', '.ngc.sharepoint.us',
-        )
-
-        if result.status in ('BROKEN', 'TIMEOUT', 'BLOCKED', 'DNSFAILED'):
+        # v5.9.29: DNS-only corporate domain downgrade
+        # After Tier 2 fresh auth retry, HTTP errors (BROKEN, TIMEOUT, BLOCKED) are genuine.
+        # The ONLY exception: DNSFAILED on corporate domains means internal DNS doesn't resolve
+        # from outside the VPN — that's a network access issue, not a broken link.
+        # Previous blanket downgrades (v5.0.5-v5.9.1) masked real broken links by converting
+        # BROKEN/TIMEOUT/BLOCKED to AUTH_REQUIRED for corporate domains and document URLs.
+        # Those are now removed — Tier 2 auth retry handles auth-related failures properly.
+        if result.status == 'DNSFAILED':
+            CORPORATE_NETWORK_DOMAINS = (
+                '.myngc.com', '.northgrum.com', '.northropgrumman.com',
+                'ngc.sharepoint.us', '.ngc.sharepoint.us',
+                '.mil', '.gov',
+            )
             try:
                 domain = urlparse(url).netloc.lower()
                 is_corporate = any(
@@ -1170,55 +1540,13 @@ class StandaloneHyperlinkValidator:
                     for d in CORPORATE_NETWORK_DOMAINS
                 )
                 if is_corporate:
-                    original_status = result.status
                     result.status = 'AUTH_REQUIRED'
                     result.message = (
-                        f'Corporate network link — requires VPN or internal network access '
-                        f'(original: {original_status}). '
-                        f'This link likely works from within the corporate network.'
+                        f'Corporate/government domain — DNS does not resolve from this network. '
+                        f'This link likely works from within the corporate network or VPN.'
                     )
             except Exception:
                 pass
-
-        # v5.0.5: Document URL false-positive mitigation
-        # URLs pointing to document files (.docx, .pdf, .xlsx, etc.) on enterprise/gov
-        # networks frequently fail validation due to auth requirements, VPN, or firewalls.
-        # These are almost never truly "broken" — they just can't be accessed without credentials.
-        # Downgrade BROKEN/TIMEOUT/BLOCKED/DNSFAILED to AUTH_REQUIRED for document URLs.
-        if result.status in ('BROKEN', 'TIMEOUT', 'BLOCKED', 'DNSFAILED', 'SSLERROR'):
-            doc_extensions = (
-                '.pdf', '.docx', '.doc', '.xlsx', '.xls', '.pptx', '.ppt',
-                '.odt', '.ods', '.odp', '.rtf', '.csv', '.txt',
-                '.zip', '.rar', '.7z', '.tar', '.gz',
-                '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.svg',
-                '.mp4', '.mp3', '.avi', '.mov', '.wav',
-            )
-            try:
-                url_path = urlparse(url).path.lower()
-                # Check if URL path ends with a document extension
-                # Also check for SharePoint-style document URLs (e.g., /sites/.../Documents/...)
-                is_document_url = any(url_path.endswith(ext) for ext in doc_extensions)
-                # Also catch URLs with query params after extension (e.g., file.pdf?version=2)
-                if not is_document_url:
-                    # Strip query params and check
-                    clean_path = url_path.split('?')[0]
-                    is_document_url = any(clean_path.endswith(ext) for ext in doc_extensions)
-                # Also detect SharePoint/OneDrive document library patterns
-                if not is_document_url:
-                    sharepoint_patterns = ('/documents/', '/shared documents/', '/_layouts/',
-                                          '/sites/', '/personal/', '/doclib/')
-                    is_document_url = any(p in url_path for p in sharepoint_patterns)
-
-                if is_document_url:
-                    original_status = result.status
-                    result.status = 'AUTH_REQUIRED'
-                    result.message = (
-                        f'Document link — likely requires authentication or VPN '
-                        f'(original: {original_status}). '
-                        f'This link probably opens a file download when accessed with proper credentials.'
-                    )
-            except Exception:
-                pass  # Don't let URL parsing fail the whole validation
 
         return result
 
@@ -1363,6 +1691,16 @@ class StandaloneHyperlinkValidator:
             'DNT': '1',
         }
 
+        # v5.9.29: Pre-validation auth probe — test Windows SSO before bulk validation
+        auth_probe_result = self._probe_windows_auth(
+            urls, headers,
+            verify_ssl=verify_ssl,
+            ca_bundle=ca_bundle
+        )
+        logger.info(f"Auth probe: {auth_probe_result['message']}")
+        if auth_probe_result.get('auth_working'):
+            auth_methods.append('windows_sso_verified')
+
         # Deduplicate URLs: validate unique URLs only, then map results back
         seen = {}
         unique_urls = []
@@ -1442,7 +1780,9 @@ class StandaloneHyperlinkValidator:
         # RE-TEST PHASE: Retry all broken/timeout/error links with deeper scan
         # This dramatically reduces false positives on slow or flaky sites
         # =================================================================
-        retest_statuses = {'BROKEN', 'TIMEOUT', 'DNSFAILED', 'BLOCKED', 'SSLERROR'}
+        # v5.9.29: Added AUTH_REQUIRED to retest — internal links that got AUTH_REQUIRED
+        # during primary validation should be retried with fresh SSO in the retest phase
+        retest_statuses = {'BROKEN', 'TIMEOUT', 'DNSFAILED', 'BLOCKED', 'SSLERROR', 'AUTH_REQUIRED'}
         broken_urls = [url for url, r in unique_results.items() if r.status in retest_statuses]
 
         if broken_urls:
@@ -1573,9 +1913,12 @@ class StandaloneHyperlinkValidator:
             # Strategy 3b: For internal links, try with explicit NTLM if available
             if original.status in ('BLOCKED', 'AUTH_REQUIRED', 'BROKEN', 'TIMEOUT'):
                 parsed_url = urlparse(url)
+                # v5.9.29: Expanded to include NGC corporate domains
                 is_internal = any(d in parsed_url.netloc.lower()
                                   for d in ('.mil', '.gov', 'intranet', 'internal',
-                                            'sharepoint', 'teams.microsoft'))
+                                            'sharepoint', 'teams.microsoft',
+                                            '.myngc.com', '.northgrum.com',
+                                            '.northropgrumman.com', 'ngc.sharepoint.us'))
                 if is_internal and WINDOWS_AUTH_AVAILABLE and HttpNegotiateAuth:
                     strategies.append(('get_fresh_auth', {'verify': retest_session.verify, 'auth': 'fresh_sso'}))
 
