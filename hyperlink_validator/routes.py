@@ -1820,9 +1820,11 @@ def export_highlighted_docx_endpoint():
     # Save file temporarily
     import tempfile
 
-    with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as tmp:
-        file.save(tmp.name)
-        tmp_path = tmp.name
+    # v5.9.32: Close temp file before saving — Windows can't have two handles on same file
+    tmp = tempfile.NamedTemporaryFile(suffix='.docx', delete=False)
+    tmp_path = tmp.name
+    tmp.close()  # Close handle BEFORE file.save() opens it
+    file.save(tmp_path)
 
     try:
         # v5.9.29: Log result stats for debugging export issues
@@ -1935,11 +1937,15 @@ def export_highlighted_excel_endpoint():
     link_column = int(link_column_str) if link_column_str else None
 
     # Save file temporarily
+    # v5.9.32: Close temp file before saving — Windows can't have two handles on same file
     import tempfile
+    tmp = tempfile.NamedTemporaryFile(suffix=os.path.splitext(file.filename)[1], delete=False)
+    tmp_path = tmp.name
+    tmp.close()  # Close handle BEFORE file.save() opens it
 
-    with tempfile.NamedTemporaryFile(suffix=os.path.splitext(file.filename)[1], delete=False) as tmp:
-        file.save(tmp.name)
-        tmp_path = tmp.name
+    logger.info(f"Export highlighted Excel: saving uploaded file ({file.filename}) to {tmp_path}")
+    file.save(tmp_path)
+    logger.info(f"Export highlighted Excel: file saved, size={os.path.getsize(tmp_path)} bytes, {len(results)} results")
 
     try:
         # Create highlighted document
