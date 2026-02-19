@@ -363,7 +363,11 @@ if errorlevel 1 (
 ) else (
     echo  [OK] symspellpy installed from bundled wheel
 )
-"%PYTHON_DIR%\python.exe" -m pip install --no-warn-script-location proselint textstat 2>nul
+"%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location proselint textstat 2>nul
+if errorlevel 1 (
+    echo  [WARN] proselint/textstat offline install failed, trying online...
+    "%PYTHON_DIR%\python.exe" -m pip install --no-warn-script-location proselint textstat 2>nul
+)
 
 :: Install Playwright browser (for headless .mil/.gov link validation)
 echo  Installing headless browser for link validation...
