@@ -3918,15 +3918,30 @@ const AEGISGuide = {
             if (saved) { this.narration.preferredVoice = saved; return; }
         }
 
-        // Priority order for English voices
+        // v5.9.30: Priority order for natural-sounding FEMALE English voices
+        // Windows neural voices (Online = neural, high quality) > macOS premium > Google > fallback
         const priorities = [
+            // Windows 10/11 Neural voices — natural female, best quality
+            v => v.name.includes('Microsoft') && v.name.includes('Online') && /Aria|Jenny|Sonia|Libby/i.test(v.name),
+            // Windows standard female voices
+            v => v.name.includes('Microsoft Zira'),
+            v => v.name.includes('Microsoft') && /Aria|Jenny|Hazel|Susan/i.test(v.name),
+            // macOS premium female voices
+            v => v.name === 'Samantha',             // macOS high quality female
+            v => v.name === 'Karen',                // macOS Australian female
+            v => v.name === 'Moira',                // macOS Irish female
+            v => v.name === 'Tessa',                // macOS South African female
+            // Google female voices
+            v => v.name.includes('Google US English') && v.name.includes('Female'),
+            v => v.name.includes('Google UK English') && v.name.includes('Female'),
+            // Cloud/remote female voices (higher quality than local)
+            v => v.lang.startsWith('en') && !v.localService && /female|woman/i.test(v.name),
+            // Any cloud English voice (usually better than local)
+            v => v.lang.startsWith('en-US') && !v.localService,
+            // Google voices (decent quality fallback)
             v => v.name.includes('Google US English'),
             v => v.name.includes('Google UK English'),
-            v => v.name === 'Samantha',     // macOS high quality
-            v => v.name === 'Alex',          // macOS
-            v => v.name === 'Daniel',        // macOS British
-            v => v.name.includes('Microsoft') && v.name.includes('English'),
-            v => v.lang.startsWith('en-US') && !v.localService,  // Cloud voices
+            // Any en-US voice
             v => v.lang.startsWith('en-US'),
             v => v.lang.startsWith('en'),
         ];
@@ -4051,7 +4066,7 @@ const AEGISGuide = {
                 }
                 utterance.rate = Math.min(2, Math.max(0.5, this.demo.speed));
                 utterance.volume = this.narration.volume;
-                utterance.pitch = 1;
+                utterance.pitch = 1.05;  // v5.9.30: Slightly higher pitch for more natural female tone
 
                 utterance.onend = () => { index++; speakNext(); };
                 utterance.onerror = () => { index++; speakNext(); };

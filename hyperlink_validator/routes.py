@@ -20,7 +20,7 @@ import time
 import hmac
 import os
 from functools import wraps
-from flask import Blueprint, request, jsonify, session, g, Response
+from flask import Blueprint, request, jsonify, session, g, Response, current_app
 from typing import Optional
 
 # Import logging and exceptions
@@ -73,12 +73,29 @@ hv_blueprint = Blueprint('hyperlink_validator', __name__)
 
 @hv_blueprint.before_request
 def _hv_increase_upload_limit():
-    """Raise upload limit to 200MB for export-highlighted endpoints.
+    """Disable upload limit for export-highlighted endpoints.
     These endpoints receive the original file + full validation results JSON
-    as multipart form data, which can exceed the default 50MB limit for
-    large Excel workbooks with many hyperlinks."""
+    as multipart form data. Large Excel workbooks with thousands of hyperlinks
+    can easily exceed 50-200MB when the results JSON is included.
+    v5.9.30: Set to None (unlimited) — the 200MB limit was still triggering
+    413 errors on Werkzeug's multipart parser for large Excel files."""
     if request.path.endswith(('/export-highlighted/excel', '/export-highlighted/docx')):
-        request.max_content_length = 200 * 1024 * 1024  # 200MB
+        # Must set BOTH request-level AND app-level to bypass Werkzeug's multipart parser.
+        # Werkzeug formparser.py reads max_content_length from the app config during
+        # _load_form_data(), not from request.max_content_length.
+        # Save original value on g so after_request can restore it.
+        g._hv_original_max_content = current_app.config.get('MAX_CONTENT_LENGTH')
+        request.max_content_length = None  # Disable request-level limit
+        current_app.config['MAX_CONTENT_LENGTH'] = None  # Disable app-level limit for this request
+
+
+@hv_blueprint.after_request
+def _hv_restore_upload_limit(response):
+    """Restore the app-level MAX_CONTENT_LENGTH after export-highlighted requests."""
+    original = getattr(g, '_hv_original_max_content', 'NOT_SET')
+    if original != 'NOT_SET':
+        current_app.config['MAX_CONTENT_LENGTH'] = original
+    return response
 
 
 # =============================================================================

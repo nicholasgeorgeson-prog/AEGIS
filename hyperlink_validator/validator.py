@@ -1416,6 +1416,47 @@ class StandaloneHyperlinkValidator:
                     result.message = 'Rate limited (429) - too many requests'
 
                 elif 400 <= response.status_code < 500:
+                    # v5.9.30: For 401/403, try a GET request to see if it serves a file.
+                    # Many corporate file servers reject HEAD but serve files on GET.
+                    # Also, some servers need a full GET to trigger SSO negotiation.
+                    if response.status_code in (401, 403):
+                        try:
+                            get_resp = session.get(
+                                url, timeout=(connect_timeout, read_timeout),
+                                allow_redirects=True, headers=headers,
+                                stream=True  # Don't download body
+                            )
+                            get_ct = get_resp.headers.get('Content-Type', '').lower()
+                            get_cd = get_resp.headers.get('Content-Disposition', '').lower()
+                            get_resp.close()
+
+                            if 200 <= get_resp.status_code < 400:
+                                # GET succeeded where HEAD failed
+                                _doc_types = ('application/pdf', 'application/msword',
+                                              'application/vnd.openxmlformats', 'application/vnd.ms-excel',
+                                              'application/vnd.ms-powerpoint', 'application/octet-stream',
+                                              'application/zip', 'application/vnd.oasis.opendocument')
+                                _is_file_resp = (
+                                    'attachment' in get_cd or
+                                    any(dt in get_ct for dt in _doc_types)
+                                )
+                                if _is_file_resp:
+                                    fname = ''
+                                    if 'filename=' in get_cd:
+                                        fname = get_cd.split('filename=')[-1].strip('"\'').strip()
+                                    result.status = 'WORKING'
+                                    result.status_code = get_resp.status_code
+                                    result.message = f'File download link (valid) — {fname or get_ct}'
+                                    break
+                                else:
+                                    # GET returned a page (not a file) — link works
+                                    result.status = 'WORKING'
+                                    result.status_code = get_resp.status_code
+                                    result.message = f'HTTP {get_resp.status_code} OK (GET fallback)'
+                                    break
+                        except Exception:
+                            pass  # GET retry failed, fall through to original status
+
                     result.status = 'BROKEN'
                     result.message = f'Client error: HTTP {response.status_code}'
 
@@ -1524,33 +1565,46 @@ class StandaloneHyperlinkValidator:
         result.response_time_ms = (time.time() - start_time) * 1000
         result.attempts = min(attempt + 1, retries + 1) if 'attempt' in dir() else 1
 
-        # v5.9.29: DNS-only corporate domain downgrade
-        # After Tier 2 fresh auth retry, HTTP errors (BROKEN, TIMEOUT, BLOCKED) are genuine.
-        # The ONLY exception: DNSFAILED on corporate domains means internal DNS doesn't resolve
-        # from outside the VPN — that's a network access issue, not a broken link.
-        # Previous blanket downgrades (v5.0.5-v5.9.1) masked real broken links by converting
-        # BROKEN/TIMEOUT/BLOCKED to AUTH_REQUIRED for corporate domains and document URLs.
-        # Those are now removed — Tier 2 auth retry handles auth-related failures properly.
-        if result.status == 'DNSFAILED':
+        # v5.9.30: Post-validation — ONLY network-level downgrades
+        # HTTP responses (200-5xx) are trusted as-is after the GET fallback above.
+        # Only DNS failures and connection-level errors on corporate domains get reclassified,
+        # because these are network access issues (VPN needed), not broken links.
+        try:
+            domain = urlparse(url).netloc.lower()
+
             CORPORATE_NETWORK_DOMAINS = (
                 '.myngc.com', '.northgrum.com', '.northropgrumman.com',
                 'ngc.sharepoint.us', '.ngc.sharepoint.us',
+                'sharepoint.com', '.sharepoint.com',
+                'sharepoint.us', '.sharepoint.us',
                 '.mil', '.gov',
+                'teams.microsoft.com',
+                '.service-now.com', '.servicenow.com',
             )
-            try:
-                domain = urlparse(url).netloc.lower()
-                is_corporate = any(
-                    domain.endswith(d.lstrip('.')) or domain == d.lstrip('.')
-                    for d in CORPORATE_NETWORK_DOMAINS
+            is_corporate = any(
+                domain.endswith(d.lstrip('.')) or domain == d.lstrip('.')
+                for d in CORPORATE_NETWORK_DOMAINS
+            )
+
+            # DNSFAILED on corporate domains → AUTH_REQUIRED
+            # Internal DNS doesn't resolve from outside the VPN — network issue, not dead link
+            if result.status == 'DNSFAILED' and is_corporate:
+                result.status = 'AUTH_REQUIRED'
+                result.message = (
+                    f'Corporate/government domain — DNS does not resolve from this network. '
+                    f'This link likely works from within the corporate network or VPN.'
                 )
-                if is_corporate:
-                    result.status = 'AUTH_REQUIRED'
-                    result.message = (
-                        f'Corporate/government domain — DNS does not resolve from this network. '
-                        f'This link likely works from within the corporate network or VPN.'
-                    )
-            except Exception:
-                pass
+
+            # BLOCKED (connection refused) on corporate domains → AUTH_REQUIRED
+            # Firewall blocking connections to internal servers = VPN needed
+            elif result.status == 'BLOCKED' and is_corporate:
+                result.status = 'AUTH_REQUIRED'
+                result.message = (
+                    f'Corporate network — connection refused, likely requires VPN access.'
+                )
+
+        except Exception:
+            pass
 
         return result
 

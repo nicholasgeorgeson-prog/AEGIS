@@ -51,7 +51,7 @@ EDGE_TTS_VOICES = {
     'female_au': 'en-AU-NatashaNeural',
 }
 
-DEFAULT_VOICE = 'en-US-GuyNeural'
+DEFAULT_VOICE = 'en-US-JennyNeural'  # v5.9.30: Female neural voice — natural, warm tone
 DEFAULT_RATE = '+0%'
 DEFAULT_PITCH = '+0Hz'
 
@@ -95,12 +95,26 @@ def _generate_pyttsx3(text, output_path, rate=150):
     engine = pyttsx3.init()
     engine.setProperty('rate', rate)
 
-    # Select best available voice
+    # v5.9.30: Select best available FEMALE voice (natural sounding)
     voices = engine.getProperty('voices')
+    # Priority: female English voices first, then any English voice
+    female_patterns = ('zira', 'jenny', 'hazel', 'susan', 'samantha', 'karen', 'female')
+    selected = None
     for v in voices:
-        if 'english' in v.name.lower() or 'en_' in v.id.lower() or 'en-' in v.id.lower():
-            engine.setProperty('voice', v.id)
+        vname = v.name.lower()
+        vid = v.id.lower()
+        is_english = 'english' in vname or 'en_' in vid or 'en-' in vid
+        if is_english and any(p in vname or p in vid for p in female_patterns):
+            selected = v
             break
+    if not selected:
+        # Fallback: any English voice
+        for v in voices:
+            if 'english' in v.name.lower() or 'en_' in v.id.lower() or 'en-' in v.id.lower():
+                selected = v
+                break
+    if selected:
+        engine.setProperty('voice', selected.id)
 
     engine.save_to_file(text, str(output_path))
     engine.runAndWait()

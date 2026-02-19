@@ -1,13 +1,23 @@
 {
-  "version": "5.9.29",
+  "version": "5.9.30",
   "release_date": "2026-02-19",
-  "core_version": "5.9.29",
+  "core_version": "5.9.30",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.30",
+      "date": "2026-02-19",
+      "changes": [
+        "FIX: Export Highlighted Excel 413 error — Werkzeug multipart parser rejected large payloads because app-level MAX_CONTENT_LENGTH wasn't disabled; now temporarily sets both request-level and app-config-level limits to None for export endpoints with automatic restoration",
+        "FIX: File download links falsely flagged as BROKEN — added GET fallback for 401/403 responses; when HEAD returns auth error, retries with GET+stream to detect Content-Disposition/Content-Type file downloads; links serving files now correctly marked WORKING",
+        "FIX: TTS narration voice changed from robotic male (GuyNeural) to natural female (JennyNeural) — updated edge-tts default, pyttsx3 fallback now prioritizes female voices (Zira/Jenny/Samantha), Web Speech API voice priority rewritten to prefer Windows neural female voices and macOS Samantha",
+        "ARCH: HV post-validation revised to DNS-only corporate domain downgrades — HTTP errors on corporate domains are now genuine after GET fallback testing; only DNSFAILED and BLOCKED on known corporate domains reclassified to AUTH_REQUIRED"
+      ]
+    },
     {
       "version": "5.9.29",
       "date": "2026-02-19",
