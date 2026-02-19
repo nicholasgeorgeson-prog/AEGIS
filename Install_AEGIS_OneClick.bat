@@ -117,9 +117,9 @@ echo.
 
 set "REPO=nicholasgeorgeson-prog/AEGIS"
 set "SRC_ZIP=%INSTALL_DIR%\aegis_source.zip"
-:: All binary assets hosted on v5.9.26 release
-set "DL_BINARY=https://github.com/%REPO%/releases/download/v5.9.26"
-set "DL_TORCH=https://github.com/%REPO%/releases/download/v5.9.26"
+:: All binary assets hosted on v5.9.21 release
+set "DL_BINARY=https://github.com/%REPO%/releases/download/v5.9.21"
+set "DL_TORCH=https://github.com/%REPO%/releases/download/v5.9.21"
 
 echo  Downloading latest source code from GitHub (main branch)...
 echo  (This includes all dependency wheels - ~600 MB total)
@@ -242,7 +242,7 @@ if exist "%INSTALL_DIR%\packaging\wheels\spacy_lookups_data-1.0.5-py2.py3-none-a
 )
 
 :: Download NLP/ML models (240 MB)
-set "DL_MODELS=https://github.com/%REPO%/releases/download/v5.9.26"
+set "DL_MODELS=https://github.com/%REPO%/releases/download/v5.9.21"
 echo.
 echo  Downloading NLP/ML models (240 MB)...
 echo  (sentence-transformers, NLTK data)
