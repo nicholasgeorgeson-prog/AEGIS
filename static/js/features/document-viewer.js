@@ -522,16 +522,34 @@ const DocumentViewer = (function() {
         state.activeParagraph = paraIndex;
 
         // Highlight text if provided
+        let highlightFound = false;
         if (highlightText) {
-            highlightTextInElement(paraEl, highlightText, decision);
+            highlightFound = highlightTextInElement(paraEl, highlightText, decision);
+
+            // v5.9.28: If not found in target paragraph, try adjacent paragraphs
+            // (extraction boundary differences can shift paragraph indices by +/-1)
+            if (!highlightFound) {
+                for (const offset of [-1, 1, -2, 2]) {
+                    const adjIdx = paraIndex + offset;
+                    const adjEl = state.container.querySelector(`.fav2-paragraph[data-index="${adjIdx}"]`);
+                    if (adjEl && highlightTextInElement(adjEl, highlightText, decision)) {
+                        highlightFound = true;
+                        paraEl.classList.remove('fav2-active');
+                        adjEl.classList.add('fav2-active');
+                        state.activeParagraph = adjIdx;
+                        console.log(`[TWR DocumentViewer] Found highlight in adjacent paragraph ${adjIdx} (offset ${offset > 0 ? '+' : ''}${offset})`);
+                        break;
+                    }
+                }
+            }
         }
 
         // v3.0.111: Scroll to the highlight element if it exists, otherwise scroll to paragraph
         // This ensures the specific flagged text is visible, not just the paragraph
-        const highlightEl = paraEl.querySelector('.fav2-highlight');
-        if (highlightEl) {
-            highlightEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            console.log(`[TWR DocumentViewer] Scrolled to highlight "${highlightText}" in paragraph ${paraIndex} (${decision})`);
+        const scrollTarget = state.container.querySelector('.fav2-highlight') || paraEl;
+        if (scrollTarget.classList.contains('fav2-highlight')) {
+            scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            console.log(`[TWR DocumentViewer] Scrolled to highlight "${highlightText}" in paragraph ${state.activeParagraph} (${decision})`);
         } else {
             paraEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
             console.log(`[TWR DocumentViewer] Scrolled to paragraph ${paraIndex}${highlightText ? ` (highlight "${highlightText}" not found)` : ''}`);

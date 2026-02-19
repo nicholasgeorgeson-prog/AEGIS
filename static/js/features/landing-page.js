@@ -152,6 +152,13 @@ TWR.LandingPage = (function() {
         render();
         wireEvents();
         initParticles();
+
+        // v5.9.28: Dismiss the CSS-only init loader
+        const initLoader = document.getElementById('aegis-init-loader');
+        if (initLoader) {
+            initLoader.classList.add('ail-done');
+            setTimeout(() => initLoader.remove(), 500);
+        }
     }
 
     async function show() {
@@ -598,6 +605,10 @@ TWR.LandingPage = (function() {
                 e.stopPropagation();
                 // v4.6.1: Keep dashboard visible behind modal
                 if (typeof showModal === 'function') showModal('modal-scan-history');
+                // v5.9.28: Load scan history data so table isn't blank
+                if (typeof loadHistoryData === 'function') {
+                    setTimeout(() => loadHistoryData(), 100);
+                }
             });
         }
 
@@ -624,8 +635,13 @@ TWR.LandingPage = (function() {
                     const isDark = document.body.classList.contains('dark-mode');
                     localStorage.setItem('twr-theme', isDark ? 'dark' : 'light');
                 }
-                // Re-pick particle colors for the new theme
-                particles.forEach(p => { p.color = pickParticleColor(); });
+                // v5.9.28: Re-pick particle colors, alpha, and radius for the new theme
+                const nowDark = document.body.classList.contains('dark-mode');
+                particles.forEach(p => {
+                    p.color = pickParticleColor();
+                    p.r = nowDark ? 1 + Math.random() * 1.5 : 1.2 + Math.random() * 1.8;
+                    p.alpha = nowDark ? 0.2 + Math.random() * 0.4 : 0.35 + Math.random() * 0.45;
+                });
             });
         }
 
@@ -1243,5 +1259,14 @@ TWR.LandingPage = (function() {
         updateMetrics();
     }
 
-    return { init, show, hide, destroy, refresh };
+    // v5.9.28: Expose particle theme update for nav bar theme toggle
+    function updateParticleTheme(isDark) {
+        particles.forEach(p => {
+            p.color = pickParticleColor();
+            p.r = isDark ? 1 + Math.random() * 1.5 : 1.2 + Math.random() * 1.8;
+            p.alpha = isDark ? 0.2 + Math.random() * 0.4 : 0.35 + Math.random() * 0.45;
+        });
+    }
+
+    return { init, show, hide, destroy, refresh, updateParticleTheme };
 })();

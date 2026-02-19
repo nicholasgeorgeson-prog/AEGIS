@@ -323,6 +323,18 @@
     cursor: pointer;
 }
 
+/* v5.9.28: Selected document highlight */
+.sow-doc-selectable:has(input:checked) {
+    background: rgba(214, 168, 74, 0.1);
+    border-left: 3px solid #D6A84A;
+    padding-left: calc(0.5rem - 3px);
+}
+
+.sow-doc-selectable:has(input:checked) i {
+    color: #D6A84A;
+    opacity: 1;
+}
+
 /* Dim unchecked documents */
 .sow-doc-selectable:has(input:not(:checked)) .sow-doc-name {
     opacity: 0.5;

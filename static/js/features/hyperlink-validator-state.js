@@ -486,7 +486,7 @@ window.HyperlinkValidatorState = (function() {
     async function loadHistory() {
         try {
             const data = await apiRequest('/history?limit=20');
-            state.history = data.history || [];
+            state.history = data.scans || data.history || [];
             emit('onChange', { ...state });
         } catch (e) {
             console.error('[TWR HVState] Failed to load history:', e);

@@ -5271,6 +5271,172 @@ HelpDocs.content['settings-updates'] = {
 };
 
 // ============================================================================
+// SETTINGS - REVIEW (v5.9.28)
+// ============================================================================
+HelpDocs.content['settings-review'] = {
+    title: 'Review Settings',
+    subtitle: 'Configure style guide presets, thresholds, and extraction options',
+    html: `
+<h2><i data-lucide="book-open"></i> Style Guide Presets</h2>
+<p>Choose a writing style guide to auto-configure which checkers run:</p>
+<ul>
+    <li><strong>Microsoft</strong> — Microsoft Writing Style Guide rules</li>
+    <li><strong>Google</strong> — Google Developer Documentation style</li>
+    <li><strong>Plain Language</strong> — US Plain Language Guidelines</li>
+    <li><strong>ASD-STE100</strong> — Simplified Technical English for aerospace</li>
+    <li><strong>Government</strong> — US Government/Federal style</li>
+    <li><strong>Aerospace</strong> — Aerospace and defense documentation standards</li>
+    <li><strong>All Checks</strong> — Enable every available checker</li>
+    <li><strong>Minimal</strong> — Basic grammar and spelling only</li>
+</ul>
+
+<h2><i data-lucide="sliders-horizontal"></i> Writing Thresholds</h2>
+<ul>
+    <li><strong>Max Sentence Length</strong> — Sentences exceeding this word count are flagged (default: 40)</li>
+    <li><strong>Passive Voice Threshold</strong> — Strict (flag all), Moderate (allow some), or Lenient (only excessive)</li>
+</ul>
+
+<h2><i data-lucide="scan-text"></i> Extraction</h2>
+<ul>
+    <li><strong>Extract roles and responsibilities</strong> — Automatically identify roles, RACI statements, and organizational references during scans</li>
+</ul>
+`
+};
+
+// ============================================================================
+// SETTINGS - NETWORK & AUTH (v5.9.28)
+// ============================================================================
+HelpDocs.content['settings-network'] = {
+    title: 'Network & Authentication',
+    subtitle: 'Configure hyperlink validation, certificates, and proxy settings',
+    html: `
+<h2><i data-lucide="link"></i> Hyperlink Validation Mode</h2>
+<ul>
+    <li><strong>Offline</strong> — Format validation only, no network access. Checks URL syntax without connecting.</li>
+    <li><strong>Validator</strong> — Full HTTP reachability check with authentication support. Supports Windows SSO, CAC/PIV certificates, and proxy servers.</li>
+</ul>
+
+<h2><i data-lucide="key"></i> Client Certificates</h2>
+<p>For CAC/PIV authentication to .mil and .gov sites:</p>
+<ul>
+    <li><strong>Certificate File (.pem)</strong> — Path to your client certificate</li>
+    <li><strong>Private Key File (.pem)</strong> — Path to the corresponding private key</li>
+</ul>
+<p>Leave both blank to use Windows SSO (NTLM/Kerberos) only.</p>
+
+<h2><i data-lucide="shield-check"></i> SSL & Proxy</h2>
+<ul>
+    <li><strong>CA Certificate Bundle</strong> — DoD/Federal PKI root CA bundle for government site validation</li>
+    <li><strong>Proxy Server</strong> — Enterprise proxy URL for network-restricted environments (e.g., <code>http://proxy.corp.mil:8080</code>)</li>
+    <li><strong>Verify SSL certificates</strong> — Disable only for testing with self-signed certificates</li>
+</ul>
+
+<div class="help-callout help-callout-info">
+    <i data-lucide="shield"></i>
+    <div>
+        <strong>Privacy</strong>
+        <p>All network traffic stays local to your machine. No data is sent to external servers. Hyperlink validation only checks URL reachability.</p>
+    </div>
+</div>
+`
+};
+
+// ============================================================================
+// SETTINGS - DOCUMENT PROFILES (v5.9.28)
+// ============================================================================
+HelpDocs.content['settings-profiles'] = {
+    title: 'Document Profiles',
+    subtitle: 'Create per-document-type checker configurations that persist across sessions',
+    html: `
+<h2><i data-lucide="file-check"></i> Document Type Profiles</h2>
+<p>Profiles let you save different checker configurations for different document types. Select a profile to see and modify which checkers are active for that document type.</p>
+<ul>
+    <li><strong>PrOP</strong> — Procedure Operational: focus on process clarity and step-by-step instructions</li>
+    <li><strong>PAL</strong> — Process Asset Library: comprehensive document quality checks</li>
+    <li><strong>FGOST</strong> — Flight Ground Operations Support Tool: safety-critical documentation checks</li>
+    <li><strong>SOW</strong> — Statement of Work: requirements language and compliance focus</li>
+</ul>
+
+<h2><i data-lucide="list-checks"></i> Checker Selection</h2>
+<p>Each profile has its own set of enabled/disabled checkers organized by category:</p>
+<ul>
+    <li><strong>Writing Quality</strong> — Passive voice, weak language, wordy phrases, sentence length</li>
+    <li><strong>Grammar & Spelling</strong> — Spelling, grammar, punctuation, capitalization</li>
+    <li><strong>Technical Writing</strong> — Acronyms, requirements language, TBD items, testability</li>
+    <li><strong>Clarity</strong> — Ambiguity, readability, hedging, cliches</li>
+    <li><strong>Compliance</strong> — MIL-STD, DO-178, accessibility, cross-references</li>
+</ul>
+
+<div class="help-callout help-callout-tip">
+    <i data-lucide="lightbulb"></i>
+    <div>
+        <strong>Quick Actions</strong>
+        <p>Use <strong>Select All</strong>, <strong>Clear All</strong>, or <strong>Reset Default</strong> buttons to quickly configure a profile. Changes are saved when you click Save Settings.</p>
+    </div>
+</div>
+`
+};
+
+// ============================================================================
+// SETTINGS - DISPLAY (v5.9.28)
+// ============================================================================
+HelpDocs.content['settings-display'] = {
+    title: 'Display Settings',
+    subtitle: 'Configure interface layout, modes, and pagination',
+    html: `
+<h2><i data-lucide="layout-grid"></i> Interface Modes</h2>
+<ul>
+    <li><strong>Essentials mode</strong> — Hides advanced features (Statement Forge, Roles Studio, Triage, Families, Analytics) for a simpler, cleaner interface</li>
+    <li><strong>Compact mode</strong> — Reduces spacing and row heights in the issues table for denser information display</li>
+    <li><strong>Expand analytics by default</strong> — Automatically shows the charts and statistics panel after each scan</li>
+</ul>
+
+<h2><i data-lucide="list"></i> Pagination</h2>
+<ul>
+    <li><strong>Issues Per Page</strong> — Choose 25, 50, 100, or All (no pagination) for the review results table</li>
+</ul>
+
+<div class="help-callout help-callout-tip">
+    <i data-lucide="lightbulb"></i>
+    <div>
+        <strong>Performance Tip</strong>
+        <p>For documents with many issues (500+), use pagination instead of "All" to keep the interface responsive.</p>
+    </div>
+</div>
+`
+};
+
+// ============================================================================
+// SETTINGS - DATA MANAGEMENT (v5.9.28)
+// ============================================================================
+HelpDocs.content['settings-data'] = {
+    title: 'Data Management',
+    subtitle: 'View stored data counts and clear individual data categories',
+    html: `
+<h2><i data-lucide="database"></i> Stored Data</h2>
+<p>View and manage the data AEGIS has accumulated across your scanning sessions:</p>
+<ul>
+    <li><strong>Scan History</strong> — Past document scan results, scores, and issue details</li>
+    <li><strong>Statement Data</strong> — Extracted requirements, shall/should/must statements</li>
+    <li><strong>Role Dictionary</strong> — Discovered and adjudicated roles, RACI entries, function tags</li>
+    <li><strong>Learning Data</strong> — Your Keep/Suppress/Fix decisions that improve future scan accuracy</li>
+</ul>
+<p>Click <strong>Clear</strong> next to any category to delete just that data type.</p>
+
+<h2><i data-lucide="alert-triangle"></i> Factory Reset</h2>
+<p>Permanently deletes <strong>ALL</strong> user data including scan history, role dictionaries, learning data, and preferences. This action cannot be undone.</p>
+
+<div class="help-callout help-callout-warning">
+    <i data-lucide="alert-triangle"></i>
+    <div>
+        <strong>Export First</strong>
+        <p>Before clearing data, consider exporting your role dictionary (Roles Studio > Export) and scan history to preserve your work.</p>
+    </div>
+</div>
+`
+};
+
+// ============================================================================
 // KEYBOARD SHORTCUTS
 // ============================================================================
 HelpDocs.content['shortcuts'] = {

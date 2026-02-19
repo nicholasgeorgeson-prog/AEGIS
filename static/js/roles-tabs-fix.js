@@ -1801,7 +1801,7 @@
         // Persist to backend
         try {
             const csrfToken = getCSRFToken();
-            await fetch('/api/roles/adjudicate', {
+            const resp = await fetch('/api/roles/adjudicate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
                 body: JSON.stringify({
@@ -1811,6 +1811,10 @@
                     function_tags: options.functionTags || []
                 })
             });
+            if (!resp.ok) {
+                const errData = await resp.json().catch(() => ({}));
+                console.warn('[TWR RolesTabs] Adjudication API error:', resp.status, errData);
+            }
         } catch (e) {
             console.warn('[TWR RolesTabs] Failed to persist adjudication:', e);
         }

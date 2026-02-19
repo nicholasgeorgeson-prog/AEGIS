@@ -236,6 +236,33 @@
     text-transform: capitalize;
 }
 
+/* v5.9.28: Role extraction pipeline stats */
+.spd-pipeline {
+    margin-top: 6px;
+    padding: 6px 8px;
+    background: rgba(214,168,74,0.06);
+    border-radius: 6px;
+    border-left: 2px solid rgba(214,168,74,0.4);
+}
+.spd-pipe-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2px 0;
+    font-size: 11px;
+}
+.spd-pipe-label {
+    color: rgba(255,255,255,0.5);
+}
+.spd-pipe-val {
+    font-weight: 600;
+    color: rgba(255,255,255,0.8);
+    font-variant-numeric: tabular-nums;
+}
+.spd-pipe-dim { color: rgba(255,255,255,0.35); }
+.spd-pipe-gold { color: #D6A84A; }
+.spd-pipe-green { color: #22c55e; }
+
 /* Step sub-progress bar */
 .spd-step-bar {
     height: 3px;

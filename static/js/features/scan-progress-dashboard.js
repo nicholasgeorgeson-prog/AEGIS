@@ -148,9 +148,25 @@ TWR.ScanProgress = (function() {
         const iconDiv = stepEl.querySelector('.spd-step-icon');
         iconDiv.innerHTML = '<div class="spd-spinner"></div>';
 
-        // Show sub-progress bar
+        // Show sub-progress bar and default detail text
         const barEl = stepEl.querySelector('.spd-step-bar');
         if (barEl) barEl.style.display = 'block';
+        // v5.9.28: Show detail text immediately so user sees activity
+        const detailEl = stepEl.querySelector('.spd-step-detail');
+        if (detailEl) {
+            const stepDef = STEPS[idx];
+            const defaultDetails = {
+                upload: 'Reading file...',
+                extract: 'Extracting text content...',
+                parse: 'Analyzing document structure...',
+                quality: 'Initializing quality checks...',
+                nlp: 'Running NLP analysis...',
+                roles: 'Identifying roles and responsibilities...',
+                finalize: 'Compiling results...'
+            };
+            detailEl.textContent = defaultDetails[stepDef.id] || 'Processing...';
+            detailEl.style.display = 'block';
+        }
 
         // Update overall progress
         updateOverallProgress();
@@ -239,6 +255,24 @@ TWR.ScanProgress = (function() {
                 } else if (detail.match(/^Running quality checks/)) {
                     detailEl.textContent = detail;
                     detailEl.style.display = 'block';
+                } else if (detail.startsWith('PIPELINE:')) {
+                    // v5.9.28: Role extraction pipeline stats
+                    const parts = detail.replace('PIPELINE:', '').split('|');
+                    const [found, dupes, roles, deliverables] = parts.map(Number);
+                    let pipelineEl = stepEl.querySelector('.spd-pipeline');
+                    if (!pipelineEl) {
+                        pipelineEl = document.createElement('div');
+                        pipelineEl.className = 'spd-pipeline';
+                        detailEl.parentNode.insertBefore(pipelineEl, detailEl.nextSibling);
+                    }
+                    pipelineEl.innerHTML = `
+                        <div class="spd-pipe-row"><span class="spd-pipe-label">Candidates found</span><span class="spd-pipe-val">${found}</span></div>
+                        <div class="spd-pipe-row"><span class="spd-pipe-label">Duplicates removed</span><span class="spd-pipe-val spd-pipe-dim">${dupes}</span></div>
+                        <div class="spd-pipe-row"><span class="spd-pipe-label">Unique roles</span><span class="spd-pipe-val spd-pipe-gold">${roles}</span></div>
+                        ${deliverables > 0 ? `<div class="spd-pipe-row"><span class="spd-pipe-label">Deliverables</span><span class="spd-pipe-val spd-pipe-green">${deliverables}</span></div>` : ''}
+                    `;
+                    detailEl.textContent = `${roles} roles extracted from ${found} candidates`;
+                    detailEl.style.display = 'block';
                 } else {
                     detailEl.textContent = detail;
                     detailEl.style.display = 'block';
@@ -280,21 +314,62 @@ TWR.ScanProgress = (function() {
 
     function updateETA(overallPct) {
         const etaEl = overlay?.querySelector('#spd-eta-value');
-        if (!etaEl || overallPct < 5) return;
+        if (!etaEl) return;
 
         const elapsed = (Date.now() - state.startTime) / 1000;
-        const rate = overallPct / elapsed; // %/second
-        const remaining = (100 - overallPct) / rate;
 
-        if (remaining < 2) {
-            etaEl.textContent = 'almost done';
-        } else if (remaining < 60) {
-            etaEl.textContent = `~${Math.round(remaining)}s`;
-        } else {
-            const mins = Math.floor(remaining / 60);
-            const secs = Math.round(remaining % 60);
-            etaEl.textContent = `~${mins}m ${secs}s`;
+        // v5.9.28: Use historical data for early estimates, blend with live rate as progress grows
+        const hasHistory = Object.keys(avgDurations).length >= 3;
+
+        if (overallPct < 3) {
+            // Very early — show historical estimate if available
+            if (hasHistory) {
+                const histTotal = STEPS.reduce((sum, s) => sum + (avgDurations[s.id] || 0), 0);
+                if (histTotal > 0) {
+                    etaEl.textContent = formatETA(histTotal);
+                    return;
+                }
+            }
+            return; // No data yet
         }
+
+        // Live rate-based estimate
+        const rate = overallPct / elapsed;
+        const liveRemaining = (100 - overallPct) / rate;
+
+        // Historical remaining: sum durations for incomplete steps
+        let histRemaining = 0;
+        if (hasHistory) {
+            STEPS.forEach((step, idx) => {
+                if (idx > state.currentStepIdx) {
+                    histRemaining += avgDurations[step.id] || 0;
+                } else if (idx === state.currentStepIdx) {
+                    // Partial credit for active step
+                    const barFill = overlay.querySelector(`[data-step-idx="${idx}"] .spd-step-bar-fill`);
+                    const pct = barFill ? parseFloat(barFill.style.width) || 0 : 0;
+                    histRemaining += (avgDurations[step.id] || 0) * (1 - pct / 100);
+                }
+            });
+        }
+
+        // Blend: lean more on live data as progress increases
+        let remaining;
+        if (!hasHistory || histRemaining <= 0) {
+            remaining = liveRemaining;
+        } else {
+            const liveWeight = Math.min(overallPct / 50, 1); // 0→1 over first 50%
+            remaining = liveRemaining * liveWeight + histRemaining * (1 - liveWeight);
+        }
+
+        etaEl.textContent = formatETA(remaining);
+    }
+
+    function formatETA(seconds) {
+        if (seconds < 2) return 'almost done';
+        if (seconds < 60) return `~${Math.round(seconds)}s`;
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.round(seconds % 60);
+        return `~${mins}m ${secs}s`;
     }
 
     /**

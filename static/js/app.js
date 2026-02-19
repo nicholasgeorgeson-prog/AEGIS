@@ -608,6 +608,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             TWR.LandingPage.init();
         }
     }
+
+    // v5.9.28: Failsafe dismiss of init loader (in case LandingPage didn't dismiss it)
+    const ail = document.getElementById('aegis-init-loader');
+    if (ail && !ail.classList.contains('ail-done')) {
+        ail.classList.add('ail-done');
+        setTimeout(() => ail.remove(), 500);
+    }
 });
 
 // v3.0.32: Initialize top navigation bar
@@ -706,6 +713,11 @@ function toggleTheme() {
         TWR.Storage.ui.setTheme(isDark ? 'dark' : 'light');
     } else {
         localStorage.setItem('twr-theme', isDark ? 'dark' : 'light');
+    }
+
+    // v5.9.28: Update particle colors/opacity when theme toggles from nav bar
+    if (window.TWR?.LandingPage?.updateParticleTheme) {
+        TWR.LandingPage.updateParticleTheme(isDark);
     }
 
     updateThemeIcons(isDark);
@@ -3278,7 +3290,7 @@ function updateExportOptions() {
 async function executeExport() {
     const format = document.querySelector('input[name="export-format"]:checked')?.value || 'docx';
     const mode = document.querySelector('input[name="export-mode"]:checked')?.value || 'all';
-    const reviewerName = document.getElementById('export-reviewer-name')?.value || 'TechWriter Review';
+    const reviewerName = document.getElementById('export-reviewer-name')?.value || 'AEGIS';
     const applyFixes = document.getElementById('export-apply-fixes')?.checked || false;
 
     // Get issues based on mode
@@ -15806,7 +15818,7 @@ const ExportReview = (function() {
         closeModals();
         
         // Use the standard export flow with approved issues
-        const reviewerName = document.getElementById('export-reviewer-name')?.value || 'TechWriter Review';
+        const reviewerName = document.getElementById('export-reviewer-name')?.value || 'AEGIS';
         
         setLoading(true, `Exporting ${approvedIssues.length} approved issues...`);
         

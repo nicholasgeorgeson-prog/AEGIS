@@ -179,7 +179,21 @@ if (document.documentElement.classList.contains('dark-mode')) {
     </div>
 </div>
 
-<!-- v3.1.9: Initial loader removed - app loads fast enough without it -->
+<!-- v5.9.28: CSS-only loading indicator — shows immediately on paint, hides when JS ready -->
+<div id="aegis-init-loader" class="ail-overlay">
+    <div class="ail-content">
+        <div class="ail-ring"></div>
+        <span class="ail-text">AEGIS</span>
+    </div>
+</div>
+<style>
+.ail-overlay{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;pointer-events:none;transition:opacity .4s ease}
+.ail-overlay.ail-done{opacity:0}
+.ail-content{text-align:center}
+.ail-ring{width:48px;height:48px;margin:0 auto 12px;border:3px solid rgba(214,168,74,.15);border-top-color:#D6A84A;border-radius:50%;animation:ail-spin .8s linear infinite}
+.ail-text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;font-weight:600;letter-spacing:2px;color:rgba(214,168,74,.7)}
+@keyframes ail-spin{to{transform:rotate(360deg)}}
+</style>
 <!-- Stub element for any code that references aegisLoader -->
 <div id="aegisLoader" style="display:none;"></div>
 
@@ -371,7 +385,7 @@ if (document.documentElement.classList.contains('dark-mode')) {
                 <div class="checker-category">
                     <div class="checker-category-header" data-target="checks-technical">
                         <span>Technical Writing</span>
-                        <span class="checker-count" id="count-technical">11</span>
+                        <span class="checker-count" id="count-technical">13</span>
                     </div>
                     <div class="checker-list" id="checks-technical">
                         <label class="checker-item"><input type="checkbox" data-checker="acronyms" checked><span>Undefined Acronyms</span></label>
@@ -385,6 +399,8 @@ if (document.documentElement.classList.contains('dark-mode')) {
                         <label class="checker-item"><input type="checkbox" data-checker="terminology" checked><span>Terminology</span></label>
                         <label class="checker-item"><input type="checkbox" data-checker="serial_comma" checked><span>Serial Comma</span></label>
                         <label class="checker-item"><input type="checkbox" data-checker="enhanced_references" checked><span>Enhanced References</span></label>
+                        <label class="checker-item"><input type="checkbox" data-checker="directive_verb_consistency" checked><span>Directive Verb Consistency</span></label>
+                        <label class="checker-item"><input type="checkbox" data-checker="unresolved_cross_reference" checked><span>Unresolved Cross-References</span></label>
                     </div>
                 </div>
 
@@ -1522,7 +1538,7 @@ if (document.documentElement.classList.contains('dark-mode')) {
         <div class="modal-body">
         <div class="form-group">
             <label>Reviewer Name</label>
-            <input type="text" id="export-reviewer-name" class="form-input" value="TechWriter Review" placeholder="Enter reviewer name">
+            <input type="text" id="export-reviewer-name" class="form-input" value="AEGIS" placeholder="Enter reviewer name">
         </div>
         <div class="form-group">
             <label>Export Mode</label>

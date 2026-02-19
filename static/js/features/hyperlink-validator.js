@@ -1033,7 +1033,16 @@ window.HyperlinkValidator = (function() {
                 return;
             }
 
-            formData.append('results', JSON.stringify(results));
+            // v5.9.28: Send only broken/issue results to reduce payload size
+            // Full results can be huge (thousands of OK links) and cause 413 errors
+            const brokenStatuses2 = ['BROKEN', 'INVALID', 'TIMEOUT', 'DNSFAILED', 'SSLERROR',
+                'BLOCKED', 'AUTH_REQUIRED', 'SSL_WARNING', 'REDIRECT_LOOP', 'REDIRECT_ERROR'];
+            const issueResults = results.filter(r => {
+                const s = (r.status || '').toUpperCase();
+                return brokenStatuses2.includes(s) || (r.status_code && r.status_code >= 400);
+            });
+            console.log(`[HyperlinkValidator] Sending ${issueResults.length} issue results (of ${results.length} total)`);
+            formData.append('results', JSON.stringify(issueResults));
 
             // v5.0.5: Get fresh CSRF token from response header (Lesson 18)
             let csrfToken = window.State?.csrfToken ||
@@ -1502,15 +1511,19 @@ window.HyperlinkValidator = (function() {
     function renderSummary(summary) {
         if (!summary) return;
 
+        // v5.9.28: Group error statuses consistently — backend sends them separately,
+        // but the "Broken" tile should show all error types (BROKEN + INVALID + DNSFAILED + SSLERROR)
+        const brokenTotal = (summary.broken || 0) + (summary.dns_failed || 0) + (summary.ssl_error || 0) + (summary.invalid || 0);
+
         // Update summary counts
         const counts = {
             'hv-count-working': summary.working,
-            'hv-count-broken': summary.broken,
+            'hv-count-broken': brokenTotal,
             'hv-count-redirect': summary.redirect,
             'hv-count-timeout': summary.timeout,
             'hv-count-blocked': summary.blocked,
             'hv-count-auth': summary.auth_required || 0,
-            'hv-count-unknown': (summary.unknown || 0) + (summary.dns_failed || 0) + (summary.ssl_error || 0) + (summary.invalid || 0)
+            'hv-count-unknown': summary.unknown || 0
         };
 
         Object.entries(counts).forEach(([id, count]) => {

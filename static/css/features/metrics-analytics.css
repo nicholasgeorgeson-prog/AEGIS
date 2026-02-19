@@ -1014,10 +1014,22 @@ body.dark-mode .ma-table .ma-hint,
    RESPONSIVE
    ============================================================================= */
 
+@media (max-width: 1200px) {
+    #modal-metrics-analytics > .ma-modal-content {
+        width: 98vw;
+        max-width: none;
+    }
+
+    .ma-grid-3col {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
 @media (max-width: 1000px) {
     #modal-metrics-analytics > .ma-modal-content {
-        width: 99vw;
+        width: 98vw;
         height: 96vh;
+        border-radius: 8px;
     }
 
     .ma-hero-stats {
@@ -1036,6 +1048,10 @@ body.dark-mode .ma-table .ma-hint,
 }
 
 @media (max-width: 600px) {
+    #modal-metrics-analytics > .ma-modal-content {
+        border-radius: 0;
+    }
+
     .ma-hero-stats {
         grid-template-columns: 1fr;
     }
