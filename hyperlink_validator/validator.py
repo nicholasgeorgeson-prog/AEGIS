@@ -84,6 +84,9 @@ REQUESTS_AVAILABLE = False
 try:
     import requests
     REQUESTS_AVAILABLE = True
+    # Suppress InsecureRequestWarning when using verify=False for corporate CA bypass
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 except ImportError:
     pass
 
@@ -1497,22 +1500,125 @@ class StandaloneHyperlinkValidator:
                 break  # Success, no retry needed
 
             except requests.exceptions.SSLError as e:
-                # SSL error: try once more without verification to confirm link exists
+                # v5.9.31: Multi-strategy SSL fallback
+                # Corporate sites use internal CA certs that Python's certifi bundle
+                # doesn't trust. Chrome works because it uses the Windows cert store.
+                # Strategy: (1) GET with verify=False + stream=True (was HEAD, which
+                # corporate servers reject), (2) fresh SSO session with verify=False
+                # for internal links that need both SSL bypass AND Windows auth.
                 result.ssl_valid = False
                 last_error = e
+                ssl_error_str = str(e)[:80]
+                ssl_recovered = False
+
+                # --- SSL Strategy 1: GET with verify=False (no auth) ---
                 try:
-                    fallback_resp = session.head(url, timeout=(connect_timeout, read_timeout),
-                                                  allow_redirects=follow_redirects, headers=headers,
-                                                  verify=False)
-                    if 200 <= fallback_resp.status_code < 400:
-                        result.status = 'SSL_WARNING'
-                        result.status_code = fallback_resp.status_code
-                        result.message = f'Link exists but SSL certificate invalid: {str(e)[:80]}'
-                        break
+                    fallback_resp = session.get(
+                        url, timeout=(connect_timeout, read_timeout),
+                        allow_redirects=True, headers=headers,
+                        verify=False, stream=True
+                    )
+                    fb_status = fallback_resp.status_code
+                    fb_ct = fallback_resp.headers.get('Content-Type', '').lower()
+                    fb_cd = fallback_resp.headers.get('Content-Disposition', '').lower()
+                    fallback_resp.close()
+
+                    if 200 <= fb_status < 400:
+                        # Link works — SSL cert is the only issue
+                        _doc_types = ('application/pdf', 'application/msword',
+                                      'application/vnd.openxmlformats', 'application/vnd.ms-excel',
+                                      'application/vnd.ms-powerpoint', 'application/octet-stream',
+                                      'application/zip', 'application/vnd.oasis.opendocument')
+                        _is_file = ('attachment' in fb_cd or
+                                    any(dt in fb_ct for dt in _doc_types))
+                        if _is_file:
+                            fname = ''
+                            if 'filename=' in fb_cd:
+                                fname = fb_cd.split('filename=')[-1].strip('"\'').strip()
+                            result.status = 'SSL_WARNING'
+                            result.status_code = fb_status
+                            result.message = f'File download link (valid, SSL cert untrusted) — {fname or fb_ct}'
+                        else:
+                            result.status = 'SSL_WARNING'
+                            result.status_code = fb_status
+                            result.message = f'Link works but SSL certificate untrusted by Python: {ssl_error_str}'
+                        ssl_recovered = True
+                    elif fb_status in (401, 403):
+                        # Server responded but needs auth — link exists, SSL is the secondary issue
+                        # Try Strategy 2 (fresh SSO) before giving up
+                        pass
                 except Exception:
-                    pass
-                result.status = 'SSLERROR'
-                result.message = f'SSL certificate error: {str(e)[:80]}'
+                    pass  # Strategy 1 failed, try Strategy 2
+
+                # --- SSL Strategy 2: Fresh SSO session with verify=False (for internal/corporate links) ---
+                if not ssl_recovered and WINDOWS_AUTH_AVAILABLE and HttpNegotiateAuth:
+                    try:
+                        parsed_url = urlparse(url)
+                        _corp_domains = ('.mil', '.gov', 'intranet', 'internal',
+                                         'sharepoint', 'teams.microsoft',
+                                         '.myngc.com', '.northgrum.com',
+                                         '.northropgrumman.com', 'ngc.sharepoint.us',
+                                         '.ngc.', '.northgrum.')
+                        is_corp = any(d in parsed_url.netloc.lower() for d in _corp_domains)
+
+                        if is_corp:
+                            fresh_ssl_session = requests.Session()
+                            fresh_ssl_session.verify = False
+                            try:
+                                fresh_ssl_session.auth = HttpNegotiateAuth()
+                            except Exception:
+                                fresh_ssl_session = None
+
+                            if fresh_ssl_session:
+                                try:
+                                    auth_resp = fresh_ssl_session.get(
+                                        url, timeout=(connect_timeout, read_timeout),
+                                        allow_redirects=True, headers=headers,
+                                        stream=True
+                                    )
+                                    auth_status = auth_resp.status_code
+                                    auth_ct = auth_resp.headers.get('Content-Type', '').lower()
+                                    auth_cd = auth_resp.headers.get('Content-Disposition', '').lower()
+                                    auth_resp.close()
+
+                                    if 200 <= auth_status < 400:
+                                        _doc_types2 = ('application/pdf', 'application/msword',
+                                                       'application/vnd.openxmlformats', 'application/vnd.ms-excel',
+                                                       'application/vnd.ms-powerpoint', 'application/octet-stream',
+                                                       'application/zip', 'application/vnd.oasis.opendocument')
+                                        _is_file2 = ('attachment' in auth_cd or
+                                                     any(dt in auth_ct for dt in _doc_types2))
+                                        if _is_file2:
+                                            fname2 = ''
+                                            if 'filename=' in auth_cd:
+                                                fname2 = auth_cd.split('filename=')[-1].strip('"\'').strip()
+                                            result.status = 'SSL_WARNING'
+                                            result.status_code = auth_status
+                                            result.message = f'File download (valid, SSL untrusted, authenticated via SSO) — {fname2 or auth_ct}'
+                                        else:
+                                            result.status = 'SSL_WARNING'
+                                            result.status_code = auth_status
+                                            result.message = f'Link works (authenticated via SSO, SSL cert untrusted): {ssl_error_str}'
+                                        ssl_recovered = True
+                                    elif auth_status in (401, 403):
+                                        # Server responded — link exists but needs different auth
+                                        result.status = 'AUTH_REQUIRED'
+                                        result.status_code = auth_status
+                                        result.message = f'Link exists (SSL untrusted, auth required): {ssl_error_str}'
+                                        ssl_recovered = True
+                                except Exception:
+                                    pass
+                                finally:
+                                    try:
+                                        fresh_ssl_session.close()
+                                    except Exception:
+                                        pass
+                    except Exception:
+                        pass
+
+                if not ssl_recovered:
+                    result.status = 'SSLERROR'
+                    result.message = f'SSL certificate error: {ssl_error_str}'
                 break  # Don't retry SSL errors further
 
             except requests.exceptions.Timeout:
@@ -1964,6 +2070,19 @@ class StandaloneHyperlinkValidator:
             if original.status in ('SSLERROR', 'BROKEN') and url.startswith('https://'):
                 strategies.append(('get_no_ssl', {'verify': False, 'auth': retest_session.auth}))
 
+            # Strategy 2b: For SSL errors on corporate domains, try verify=False + fresh SSO
+            # Corporate sites often need BOTH SSL bypass (internal CA) AND Windows auth
+            if original.status in ('SSLERROR',) and url.startswith('https://'):
+                parsed_ssl_url = urlparse(url)
+                _ssl_corp = ('.mil', '.gov', 'intranet', 'internal',
+                             'sharepoint', 'teams.microsoft',
+                             '.myngc.com', '.northgrum.com',
+                             '.northropgrumman.com', 'ngc.sharepoint.us',
+                             '.ngc.', '.northgrum.')
+                is_corp_ssl = any(d in parsed_ssl_url.netloc.lower() for d in _ssl_corp)
+                if is_corp_ssl and WINDOWS_AUTH_AVAILABLE and HttpNegotiateAuth:
+                    strategies.append(('get_no_ssl_fresh_auth', {'verify': False, 'auth': 'fresh_sso'}))
+
             # Strategy 3: For auth/blocked, try without auth headers
             if original.status in ('BLOCKED', 'AUTH_REQUIRED', 'BROKEN'):
                 strategies.append(('get_no_auth', {'verify': retest_session.verify, 'auth': None}))
@@ -2023,7 +2142,7 @@ class StandaloneHyperlinkValidator:
                     resp.close()
 
                     if 200 <= resp.status_code < 300:
-                        if strategy_name == 'get_no_ssl':
+                        if strategy_name in ('get_no_ssl', 'get_no_ssl_fresh_auth'):
                             result.status = 'SSL_WARNING'
                             result.ssl_valid = False
                             result.message = f'Link works but SSL certificate invalid (retest strategy: {strategy_name})'
@@ -2112,11 +2231,14 @@ class StandaloneHyperlinkValidator:
         if HEADLESS_VALIDATOR_AVAILABLE and HeadlessValidatorClass:
             still_broken = [url for url in broken_urls if url not in retest_results]
             if still_broken:
-                # Prioritize .mil/.gov and internal sites for headless
+                # Prioritize .mil/.gov, internal sites, and corporate domains for headless
                 priority_urls = [u for u in still_broken
                                  if any(d in u.lower() for d in ('.mil', '.gov', '.mil/', '.gov/',
                                                                   'intranet', 'internal', 'sharepoint',
-                                                                  'teams.microsoft'))]
+                                                                  'teams.microsoft',
+                                                                  '.myngc.com', '.northgrum.com',
+                                                                  '.northropgrumman.com', 'ngc.sharepoint.us',
+                                                                  '.ngc.', '.northgrum.'))]
                 # Also include remaining broken URLs up to a cap
                 other_broken = [u for u in still_broken if u not in priority_urls]
                 headless_urls = priority_urls + other_broken[:50]  # Cap at 50 to avoid long waits

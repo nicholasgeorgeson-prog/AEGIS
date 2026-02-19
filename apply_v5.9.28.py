@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-AEGIS v5.9.30 Direct Updater
+AEGIS v5.9.31 Direct Updater
 Downloads all changed files from GitHub and places them
 directly into the correct locations in your AEGIS install.
 
@@ -10,8 +10,8 @@ Usage:
     Place this script in your AEGIS installation directory
     (where app.py, core.py, etc. live) and run:
 
-    python apply_v5.9.30.py
-    python3 apply_v5.9.30.py
+    python apply_v5.9.31.py
+    python3 apply_v5.9.31.py
 
 No dependencies required - uses only Python standard library.
 """
@@ -149,7 +149,7 @@ def main():
 
     print()
     print("  =============================================")
-    print("    AEGIS v5.9.30 Direct Updater")
+    print("    AEGIS v5.9.31 Direct Updater")
     print("  =============================================")
     print()
     print(f"  Install dir: {install_dir}")
