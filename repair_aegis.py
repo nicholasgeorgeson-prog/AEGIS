@@ -55,6 +55,7 @@ def header(msg):
 # ============================================================
 CRITICAL_PACKAGES = [
     # (import_name, pip_name, description)
+    ('pkg_resources', 'setuptools', 'Package Resources (setuptools)'),
     ('flask', 'flask', 'Core Web Framework'),
     ('waitress', 'waitress', 'Production Server'),
     ('docx', 'python-docx', 'Word Document Processing'),
@@ -233,7 +234,7 @@ def main():
         'Core Framework': [('flask',), ('waitress',)],
         'Document Processing': [('docx',), ('mammoth',), ('lxml',), ('openpyxl',)],
         'PDF Processing': [('fitz',), ('pdfplumber',)],
-        'Platform Dependencies': [('colorama',), ('typer',)],
+        'Platform Dependencies': [('pkg_resources',), ('colorama',), ('typer',)],
         'spaCy Dependency Chain': [('cymem',), ('murmurhash',), ('preshed',),
                                     ('blis',), ('srsly',), ('thinc',), ('spacy',)],
         'NLP Libraries': [('sklearn',), ('nltk',), ('textstat',), ('textblob',),
@@ -302,15 +303,23 @@ def main():
 
     repaired = 0
 
-    # Step 3a: Install colorama first (needed by spaCy and Flask)
+    # Step 3a: Install setuptools + colorama first (needed before anything else)
+    priority_pkgs = []
+    if 'setuptools' in failed_names:
+        priority_pkgs.append('setuptools')
     if 'colorama' in failed_names:
-        info('Installing colorama first (required by spaCy/Flask on Windows)...')
-        success, method = pip_install('colorama', wheels_dir)
+        priority_pkgs.append('colorama')
+    if 'typer' in failed_names:
+        priority_pkgs.append('typer')
+
+    if priority_pkgs:
+        info(f'Installing priority packages first: {", ".join(priority_pkgs)}...')
+        success, method = pip_install(priority_pkgs, wheels_dir)
         if success:
-            ok(f'colorama installed ({method})')
-            repaired += 1
+            ok(f'Priority packages installed ({method})')
+            repaired += len(priority_pkgs)
         else:
-            fail(f'colorama install failed: {method}')
+            fail(f'Priority install failed: {method}')
         print()
 
     # Step 3b: If spaCy or any C dep failed, reinstall whole chain
@@ -329,8 +338,8 @@ def main():
         print()
 
     # Step 3c: Repair remaining packages individually
-    skip_names = {'colorama', 'typer', 'spacy', 'cymem', 'murmurhash', 'preshed',
-                  'blis', 'srsly', 'thinc', 'en_core_web_sm'}
+    skip_names = {'setuptools', 'colorama', 'typer', 'spacy', 'cymem', 'murmurhash',
+                  'preshed', 'blis', 'srsly', 'thinc', 'en_core_web_sm'}
     for pip_name, _ in failed:
         if pip_name.lower() in skip_names:
             continue
