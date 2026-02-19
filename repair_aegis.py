@@ -64,6 +64,7 @@ CRITICAL_PACKAGES = [
     ('fitz', 'PyMuPDF', 'PDF Text Extraction'),
     ('pdfplumber', 'pdfplumber', 'PDF Table Extraction'),
     ('colorama', 'colorama', 'Terminal Colors (Windows)'),
+    ('typer', 'typer', 'CLI Framework (spaCy dep)'),
     ('cymem', 'cymem', 'spaCy: Memory Management'),
     ('murmurhash', 'murmurhash', 'spaCy: Hash Functions'),
     ('preshed', 'preshed', 'spaCy: Pre-hashed Data'),
@@ -90,7 +91,7 @@ OPTIONAL_PACKAGES = [
     ('requests_ntlm', 'requests-ntlm', 'Windows Domain Auth'),
 ]
 
-SPACY_CHAIN = ['colorama', 'cymem', 'murmurhash', 'preshed', 'blis', 'srsly',
+SPACY_CHAIN = ['colorama', 'typer', 'cymem', 'murmurhash', 'preshed', 'blis', 'srsly',
                'thinc', 'wasabi', 'weasel', 'catalogue', 'confection', 'spacy']
 
 
@@ -232,7 +233,7 @@ def main():
         'Core Framework': [('flask',), ('waitress',)],
         'Document Processing': [('docx',), ('mammoth',), ('lxml',), ('openpyxl',)],
         'PDF Processing': [('fitz',), ('pdfplumber',)],
-        'Windows Dependencies': [('colorama',)],
+        'Platform Dependencies': [('colorama',), ('typer',)],
         'spaCy Dependency Chain': [('cymem',), ('murmurhash',), ('preshed',),
                                     ('blis',), ('srsly',), ('thinc',), ('spacy',)],
         'NLP Libraries': [('sklearn',), ('nltk',), ('textstat',), ('textblob',),
@@ -314,7 +315,7 @@ def main():
 
     # Step 3b: If spaCy or any C dep failed, reinstall whole chain
     spacy_deps_failed = [n for n in failed_names if n.lower() in
-                         ['spacy', 'cymem', 'murmurhash', 'preshed', 'blis', 'srsly', 'thinc']]
+                         ['spacy', 'typer', 'cymem', 'murmurhash', 'preshed', 'blis', 'srsly', 'thinc']]
     if spacy_deps_failed:
         info('Reinstalling spaCy + ALL C dependencies together...')
         info('(This ensures version compatibility across the chain)')
@@ -328,7 +329,7 @@ def main():
         print()
 
     # Step 3c: Repair remaining packages individually
-    skip_names = {'colorama', 'spacy', 'cymem', 'murmurhash', 'preshed',
+    skip_names = {'colorama', 'typer', 'spacy', 'cymem', 'murmurhash', 'preshed',
                   'blis', 'srsly', 'thinc', 'en_core_web_sm'}
     for pip_name, _ in failed:
         if pip_name.lower() in skip_names:

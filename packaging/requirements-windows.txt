@@ -81,6 +81,7 @@ accelerate==1.12.0
 
 # --- Windows-Required (transitive deps that only trigger on Windows) ---
 colorama==0.4.6
+typer==0.24.0
 
 # --- Data / Utilities ---
 requests==2.32.5

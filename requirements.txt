@@ -159,6 +159,9 @@ requests>=2.31.0
 # Terminal colors (required by spaCy/click/wasabi on Windows)
 colorama>=0.4.6
 
+# CLI framework (required by spaCy on Windows)
+typer>=0.9.0
+
 # Date/time handling
 python-dateutil>=2.8.0
 
