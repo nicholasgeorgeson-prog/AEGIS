@@ -395,6 +395,7 @@ def main():
     print()
 
     # Optional
+    optional_failed = []  # track separately
     print('  --- Optional Packages ---')
     for imp, pip_name, desc in OPTIONAL_PACKAGES:
         success, err = check_import(imp)
@@ -402,13 +403,15 @@ def main():
             ok(desc)
             passed += 1
         else:
-            skip(f'{desc} (optional)')
+            fail(f'{desc} ({pip_name}) — optional but recommended')
+            print(f'         {RED}Error: {err}{RESET}')
+            optional_failed.append((pip_name, err))
     print()
 
     print(f'  Results: {GREEN}{passed} passed{RESET}, {RED}{len(failed)} failed{RESET}')
     print()
 
-    if not failed:
+    if not failed and not optional_failed:
         print(f'  {GREEN}{BOLD}All packages are working! No repairs needed.{RESET}')
         check_nltk_data()
         final_summary(0)
@@ -417,11 +420,15 @@ def main():
     # ============================================================
     # PHASE 3: Repair
     # ============================================================
-    header(f'[Phase 3] Repairing {len(failed)} failed package(s)')
+    total_to_fix = len(failed) + len(optional_failed)
+    header(f'[Phase 3] Repairing {total_to_fix} failed package(s)')
     print()
 
     failed_names = [name for name, _ in failed]
-    print(f'  Failed: {", ".join(failed_names)}')
+    optional_names = [name for name, _ in optional_failed]
+    all_names = failed_names + optional_names
+    print(f'  Critical: {", ".join(failed_names) if failed_names else "none"}')
+    print(f'  Optional: {", ".join(optional_names) if optional_names else "none"}')
     print()
 
     repaired = 0
@@ -514,6 +521,20 @@ def main():
                     print(f'         {RED}{result.stderr[-300:]}{RESET}')
         print()
 
+    # Step 3f: Optional packages
+    if optional_failed:
+        print('  --- Optional Packages ---')
+        for pip_name, _ in optional_failed:
+            info(f'Installing {pip_name}...')
+            success, method = pip_install(pip_name, wheels_dir, force=True)
+            if success:
+                ok(f'{pip_name} installed ({method})')
+                repaired += 1
+            else:
+                warn(f'{pip_name} not available ({method})')
+                warn(f'  This is optional — AEGIS will work without it.')
+        print()
+
     # ============================================================
     # PHASE 4: NLTK Data
     # ============================================================
@@ -558,15 +579,17 @@ def main():
 
     print()
     print('  --- Optional ---')
+    optional_still_broken = 0
     for imp, pip_name, desc in OPTIONAL_PACKAGES:
-        success, _ = check_import(imp)
+        success, err = check_import(imp)
         if success:
-            ok(f'{desc} (optional)')
+            ok(f'{desc}')
             final_pass += 1
         else:
-            skip(f'{desc} (optional)')
+            warn(f'{desc} — not available')
+            optional_still_broken += 1
 
-    final_summary(final_fail)
+    final_summary(final_fail, optional_still_broken)
 
 
 def check_nltk_data():
@@ -615,7 +638,7 @@ def check_nltk_data():
         pass
 
 
-def final_summary(fail_count):
+def final_summary(fail_count, optional_missing=0):
     """Print final summary."""
     print()
     print(f'  {"=" * 56}')
@@ -623,7 +646,9 @@ def final_summary(fail_count):
     print(f'      {BOLD}Repair Complete{RESET}')
     print()
     if fail_count > 0:
-        print(f'      {RED}FAILED: {fail_count} package(s) still broken{RESET}')
+        print(f'      {RED}FAILED: {fail_count} critical package(s) still broken{RESET}')
+        if optional_missing > 0:
+            print(f'      {YELLOW}OPTIONAL: {optional_missing} optional package(s) not available{RESET}')
         print()
         print(f'      The error messages above show exactly why.')
         print(f'      Common fixes:')
@@ -633,6 +658,13 @@ def final_summary(fail_count):
         print(f'      2. DLL error: Install Visual C++ Redistributable.')
         print(f'      3. Corrupted: Delete python\\Lib\\site-packages')
         print(f'         and re-run the full OneClick installer.')
+    elif optional_missing > 0:
+        print(f'      {GREEN}{BOLD}All critical packages are working!{RESET}')
+        print()
+        print(f'      {YELLOW}{optional_missing} optional package(s) not available.{RESET}')
+        print(f'      AEGIS works fine without these. To install them,')
+        print(f'      download their .whl files into the wheels folder')
+        print(f'      and re-run this tool.')
     else:
         print(f'      {GREEN}{BOLD}All packages are working!{RESET}')
     print()
