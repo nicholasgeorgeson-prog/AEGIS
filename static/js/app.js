@@ -609,11 +609,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // v5.9.28: Failsafe dismiss of init loader (in case LandingPage didn't dismiss it)
-    const ail = document.getElementById('aegis-init-loader');
-    if (ail && !ail.classList.contains('ail-done')) {
-        ail.classList.add('ail-done');
-        setTimeout(() => ail.remove(), 500);
+    // v5.9.30: Failsafe dismiss of cinematic boot sequence
+    if (window._aegisBootDismiss) {
+        window._aegisBootDismiss();
+    } else {
+        const ail = document.getElementById('aegis-init-loader');
+        if (ail && !ail.classList.contains('ail-done')) { ail.classList.add('ail-done'); setTimeout(() => ail.remove(), 700); }
     }
 });
 

@@ -179,21 +179,310 @@ if (document.documentElement.classList.contains('dark-mode')) {
     </div>
 </div>
 
-<!-- v5.9.28: CSS-only loading indicator — shows immediately on paint, hides when JS ready -->
+<!-- v5.9.30: Aerospace cinematic boot sequence — pure CSS + inline JS, zero dependencies -->
 <div id="aegis-init-loader" class="ail-overlay">
-    <div class="ail-content">
-        <div class="ail-ring"></div>
-        <span class="ail-text">AEGIS</span>
+  <canvas id="ail-canvas"></canvas>
+  <div class="ail-vignette"></div>
+  <div class="ail-scanline"></div>
+  <div class="ail-hex-grid"></div>
+  <div class="ail-center">
+    <!-- Shield assembly -->
+    <div class="ail-shield">
+      <div class="ail-shield-outer">
+        <svg viewBox="0 0 200 220" class="ail-shield-svg">
+          <defs>
+            <linearGradient id="ail-gold-g" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#FFE08A"/>
+              <stop offset="30%" stop-color="#D6A84A"/>
+              <stop offset="70%" stop-color="#B8743A"/>
+              <stop offset="100%" stop-color="#8B5E2F"/>
+            </linearGradient>
+            <linearGradient id="ail-gold-stroke" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#FFE08A"/>
+              <stop offset="100%" stop-color="#B8743A"/>
+            </linearGradient>
+            <filter id="ail-glow">
+              <feGaussianBlur stdDeviation="3" result="blur"/>
+              <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+            </filter>
+            <filter id="ail-glow-strong">
+              <feGaussianBlur stdDeviation="6" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <!-- Shield outline — draws itself in -->
+          <path class="ail-shield-path" d="M100,8 L185,50 L185,120 Q185,180 100,212 Q15,180 15,120 L15,50 Z"
+                fill="none" stroke="url(#ail-gold-stroke)" stroke-width="2.5" filter="url(#ail-glow)"
+                stroke-dasharray="600" stroke-dashoffset="600"/>
+          <!-- Inner detail lines -->
+          <path class="ail-shield-inner" d="M100,28 L170,62 L170,118 Q170,168 100,196 Q30,168 30,118 L30,62 Z"
+                fill="none" stroke="rgba(214,168,74,0.3)" stroke-width="1" stroke-dasharray="500" stroke-dashoffset="500"/>
+          <!-- Crosshair / targeting reticle -->
+          <circle class="ail-reticle" cx="100" cy="115" r="35" fill="none" stroke="rgba(214,168,74,0.4)" stroke-width="0.8"
+                  stroke-dasharray="220" stroke-dashoffset="220"/>
+          <line class="ail-cross-h" x1="55" y1="115" x2="145" y2="115" stroke="rgba(214,168,74,0.25)" stroke-width="0.5"
+                stroke-dasharray="90" stroke-dashoffset="90"/>
+          <line class="ail-cross-v" x1="100" y1="70" x2="100" y2="160" stroke="rgba(214,168,74,0.25)" stroke-width="0.5"
+                stroke-dasharray="90" stroke-dashoffset="90"/>
+        </svg>
+      </div>
+      <!-- AEGIS text reveal -->
+      <div class="ail-title">
+        <span class="ail-letter" style="--i:0">A</span><span class="ail-letter" style="--i:1">E</span><span class="ail-letter" style="--i:2">G</span><span class="ail-letter" style="--i:3">I</span><span class="ail-letter" style="--i:4">S</span>
+      </div>
+      <div class="ail-subtitle">AEROSPACE ENGINEERING GOVERNANCE &amp; INSPECTION SYSTEM</div>
     </div>
+    <!-- Boot sequence terminal -->
+    <div class="ail-terminal" id="ail-terminal"></div>
+    <!-- Progress bar -->
+    <div class="ail-progress-track">
+      <div class="ail-progress-fill" id="ail-progress"></div>
+      <div class="ail-progress-glow" id="ail-progress-glow"></div>
+    </div>
+    <div class="ail-status" id="ail-status">INITIALIZING</div>
+  </div>
+  <!-- Corner HUD elements -->
+  <div class="ail-hud ail-hud-tl"><span class="ail-hud-label">SYS</span><span class="ail-hud-val" id="ail-hud-sys">BOOT</span></div>
+  <div class="ail-hud ail-hud-tr"><span class="ail-hud-label">SEC</span><span class="ail-hud-val">LEVEL 5</span></div>
+  <div class="ail-hud ail-hud-bl"><span class="ail-hud-label">NET</span><span class="ail-hud-val">LOCAL</span></div>
+  <div class="ail-hud ail-hud-br"><span class="ail-hud-label">VER</span><span class="ail-hud-val" id="ail-hud-ver">--</span></div>
 </div>
 <style>
-.ail-overlay{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;pointer-events:none;transition:opacity .4s ease}
-.ail-overlay.ail-done{opacity:0}
-.ail-content{text-align:center}
-.ail-ring{width:48px;height:48px;margin:0 auto 12px;border:3px solid rgba(214,168,74,.15);border-top-color:#D6A84A;border-radius:50%;animation:ail-spin .8s linear infinite}
-.ail-text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;font-weight:600;letter-spacing:2px;color:rgba(214,168,74,.7)}
-@keyframes ail-spin{to{transform:rotate(360deg)}}
+/* === AEGIS Cinematic Boot Sequence v5.9.30 === */
+.ail-overlay{position:fixed;inset:0;z-index:99999;background:#020408;display:flex;align-items:center;justify-content:center;overflow:hidden;transition:opacity .6s cubic-bezier(.4,0,.2,1)}
+.ail-overlay.ail-done{opacity:0;pointer-events:none}
+
+/* Particle canvas */
+#ail-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:0}
+
+/* Atmospheric effects */
+.ail-vignette{position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:radial-gradient(ellipse 70% 60% at 50% 45%,transparent 30%,rgba(2,4,8,.85) 100%)}
+.ail-scanline{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:.04;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(214,168,74,.15) 2px,rgba(214,168,74,.15) 4px)}
+
+/* Hex grid overlay */
+.ail-hex-grid{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52'%3E%3Cpath d='M30 0L60 15V37L30 52L0 37V15Z' fill='none' stroke='rgba(214,168,74,0.06)' stroke-width='0.5'/%3E%3C/svg%3E");
+  background-size:60px 52px;animation:ail-hexIn 1.5s ease 0.3s forwards}
+@keyframes ail-hexIn{to{opacity:1}}
+
+/* Center content */
+.ail-center{position:relative;z-index:5;display:flex;flex-direction:column;align-items:center;width:min(480px,90vw)}
+
+/* Shield assembly */
+.ail-shield{text-align:center;margin-bottom:20px}
+.ail-shield-outer{width:120px;height:132px;margin:0 auto;opacity:0;animation:ail-shieldIn .8s ease .2s forwards}
+@keyframes ail-shieldIn{0%{opacity:0;transform:scale(.7)}100%{opacity:1;transform:scale(1)}}
+
+/* SVG draw-in animations */
+.ail-shield-path{animation:ail-draw 1.8s cubic-bezier(.4,0,.2,1) .5s forwards}
+.ail-shield-inner{animation:ail-draw 1.5s cubic-bezier(.4,0,.2,1) .8s forwards}
+.ail-reticle{animation:ail-draw 1.2s ease 1.2s forwards}
+.ail-cross-h,.ail-cross-v{animation:ail-draw .8s ease 1.5s forwards}
+@keyframes ail-draw{to{stroke-dashoffset:0}}
+
+/* AEGIS title — letter-by-letter reveal */
+.ail-title{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;font-size:clamp(32px,6vw,48px);font-weight:800;
+  letter-spacing:clamp(8px,2vw,18px);color:transparent;margin:8px 0 6px;display:flex;justify-content:center;gap:2px}
+.ail-letter{display:inline-block;opacity:0;transform:translateY(20px) scale(.8);
+  animation:ail-letterIn .5s cubic-bezier(.2,.8,.3,1) calc(1s + var(--i) * .12s) forwards;
+  background:linear-gradient(180deg,#FFE08A 0%,#D6A84A 40%,#B8743A 100%);-webkit-background-clip:text;background-clip:text;
+  filter:drop-shadow(0 0 12px rgba(214,168,74,.6))}
+@keyframes ail-letterIn{to{opacity:1;transform:translateY(0) scale(1)}}
+
+/* Subtitle */
+.ail-subtitle{font-family:'Segoe UI',system-ui,sans-serif;font-size:clamp(7px,1.3vw,10px);font-weight:500;
+  letter-spacing:clamp(2px,0.8vw,5px);color:rgba(214,168,74,.5);text-align:center;
+  opacity:0;animation:ail-fadeUp .6s ease 1.8s forwards;text-transform:uppercase}
+@keyframes ail-fadeUp{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:translateY(0)}}
+
+/* Boot terminal */
+.ail-terminal{font-family:'Cascadia Code','SF Mono','Consolas','Monaco',monospace;font-size:11px;line-height:1.6;
+  color:rgba(214,168,74,.6);text-align:left;width:100%;max-height:90px;overflow:hidden;
+  padding:10px 14px;margin:16px 0 12px;border:1px solid rgba(214,168,74,.1);border-radius:6px;
+  background:rgba(214,168,74,.03);opacity:0;animation:ail-fadeUp .4s ease 2s forwards}
+.ail-terminal .ail-line{opacity:0;animation:ail-lineIn .3s ease forwards;white-space:nowrap;overflow:hidden}
+@keyframes ail-lineIn{to{opacity:1}}
+.ail-terminal .ail-ok{color:#3fb950}
+.ail-terminal .ail-warn{color:#d29922}
+.ail-terminal .ail-info{color:rgba(214,168,74,.4)}
+
+/* Progress bar */
+.ail-progress-track{width:100%;height:3px;background:rgba(214,168,74,.08);border-radius:2px;overflow:visible;
+  position:relative;opacity:0;animation:ail-fadeUp .3s ease 2.1s forwards}
+.ail-progress-fill{height:100%;width:0%;border-radius:2px;transition:width .3s cubic-bezier(.4,0,.2,1);
+  background:linear-gradient(90deg,#B8743A,#D6A84A,#FFE08A)}
+.ail-progress-glow{position:absolute;top:-3px;height:9px;width:0%;border-radius:4px;transition:width .3s cubic-bezier(.4,0,.2,1);
+  background:linear-gradient(90deg,transparent 80%,rgba(214,168,74,.5));filter:blur(3px);pointer-events:none}
+
+/* Status text */
+.ail-status{font-family:'Segoe UI',system-ui,sans-serif;font-size:10px;font-weight:600;letter-spacing:3px;
+  color:rgba(214,168,74,.5);text-transform:uppercase;margin-top:10px;
+  opacity:0;animation:ail-fadeUp .3s ease 2.2s forwards}
+
+/* HUD corners */
+.ail-hud{position:absolute;z-index:6;font-family:'Cascadia Code','SF Mono','Consolas',monospace;font-size:9px;
+  opacity:0;animation:ail-fadeUp .5s ease 0.8s forwards;display:flex;flex-direction:column;gap:2px}
+.ail-hud-tl{top:20px;left:24px}.ail-hud-tr{top:20px;right:24px;text-align:right;align-items:flex-end}
+.ail-hud-bl{bottom:20px;left:24px}.ail-hud-br{bottom:20px;right:24px;text-align:right;align-items:flex-end}
+.ail-hud-label{color:rgba(214,168,74,.3);letter-spacing:2px;font-size:8px}
+.ail-hud-val{color:rgba(214,168,74,.6);letter-spacing:1px}
+
+/* Flash on complete */
+.ail-overlay.ail-flash::before{content:"";position:absolute;inset:0;z-index:100;
+  background:radial-gradient(circle at 50% 45%,rgba(214,168,74,.3),transparent 70%);
+  animation:ail-flashPulse .6s ease forwards;pointer-events:none}
+@keyframes ail-flashPulse{0%{opacity:0;transform:scale(.8)}40%{opacity:1}100%{opacity:0;transform:scale(1.5)}}
+
+/* Reduced motion */
+@media(prefers-reduced-motion:reduce){
+  .ail-letter,.ail-shield-outer,.ail-terminal,.ail-subtitle,.ail-progress-track,.ail-status,.ail-hud,.ail-hex-grid{animation:none!important;opacity:1!important;transform:none!important}
+  .ail-shield-path,.ail-shield-inner,.ail-reticle,.ail-cross-h,.ail-cross-v{animation:none!important;stroke-dashoffset:0!important}
+  #ail-canvas{display:none}
+}
 </style>
+<script>
+// AEGIS Boot Sequence — inline for instant execution, zero dependencies
+(function(){
+  var ol=document.getElementById('aegis-init-loader');if(!ol)return;
+  var cv=document.getElementById('ail-canvas');
+  var ctx=cv?cv.getContext('2d'):null;
+  var W=0,H=0,dpr=Math.min(window.devicePixelRatio||1,2);
+  var particles=[];var PCOUNT=120;var raf=0;var alive=true;
+
+  // Resize canvas
+  function resize(){
+    if(!cv)return;W=ol.clientWidth;H=ol.clientHeight;
+    cv.width=W*dpr;cv.height=H*dpr;cv.style.width=W+'px';cv.style.height=H+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  resize();window.addEventListener('resize',resize);
+
+  // Particles — gold dust drifting upward
+  for(var i=0;i<PCOUNT;i++){
+    particles.push({
+      x:Math.random()*2000,y:Math.random()*2000,
+      vx:(Math.random()-.5)*.15,vy:-(Math.random()*.3+.1),
+      r:Math.random()*1.5+.3,a:Math.random()*.4+.05,
+      pulse:Math.random()*Math.PI*2,pulseSpeed:Math.random()*.02+.005
+    });
+  }
+
+  function drawParticles(){
+    if(!ctx||!alive)return;
+    ctx.clearRect(0,0,W,H);
+
+    // Nebula glow — subtle radial gradients
+    var g1=ctx.createRadialGradient(W*.3,H*.35,0,W*.3,H*.35,W*.4);
+    g1.addColorStop(0,'rgba(51,100,180,.04)');g1.addColorStop(1,'transparent');ctx.fillStyle=g1;ctx.fillRect(0,0,W,H);
+    var g2=ctx.createRadialGradient(W*.7,H*.6,0,W*.7,H*.6,W*.3);
+    g2.addColorStop(0,'rgba(214,168,74,.03)');g2.addColorStop(1,'transparent');ctx.fillStyle=g2;ctx.fillRect(0,0,W,H);
+
+    // Draw particles
+    for(var i=0;i<particles.length;i++){
+      var p=particles[i];
+      p.x+=p.vx;p.y+=p.vy;p.pulse+=p.pulseSpeed;
+      if(p.y<-10){p.y=H+10;p.x=Math.random()*W;}
+      if(p.x<-10)p.x=W+10;if(p.x>W+10)p.x=-10;
+      var alpha=p.a*(0.6+0.4*Math.sin(p.pulse));
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle='rgba(214,168,74,'+alpha+')';ctx.fill();
+      // Glow
+      if(p.r>1){
+        ctx.beginPath();ctx.arc(p.x,p.y,p.r*3,0,Math.PI*2);
+        ctx.fillStyle='rgba(214,168,74,'+(alpha*.15)+')';ctx.fill();
+      }
+    }
+
+    // Connecting lines between nearby particles
+    ctx.strokeStyle='rgba(214,168,74,.03)';ctx.lineWidth=.5;
+    for(var i=0;i<particles.length;i++){
+      for(var j=i+1;j<particles.length;j++){
+        var dx=particles[i].x-particles[j].x,dy=particles[i].y-particles[j].y;
+        var d=dx*dx+dy*dy;
+        if(d<12000){ctx.beginPath();ctx.moveTo(particles[i].x,particles[i].y);ctx.lineTo(particles[j].x,particles[j].y);ctx.stroke();}
+      }
+    }
+    raf=requestAnimationFrame(drawParticles);
+  }
+  // Start with slight delay to not compete with first paint
+  setTimeout(drawParticles,100);
+
+  // Boot sequence
+  var term=document.getElementById('ail-terminal');
+  var prog=document.getElementById('ail-progress');
+  var progGlow=document.getElementById('ail-progress-glow');
+  var statusEl=document.getElementById('ail-status');
+  var verEl=document.getElementById('ail-hud-ver');
+  var sysEl=document.getElementById('ail-hud-sys');
+
+  var lines=[
+    {t:'> sys.boot()',c:'info',d:200},
+    {t:'  [OK] Kernel initialized',c:'ok',d:150},
+    {t:'  [OK] Security protocols active',c:'ok',d:150},
+    {t:'  [OK] NLP engine loaded',c:'ok',d:120},
+    {t:'  [OK] 105 quality checkers ready',c:'ok',d:120},
+    {t:'  [OK] Document extractors online',c:'ok',d:100},
+    {t:'  [OK] Role analysis engine ready',c:'ok',d:100},
+    {t:'  [OK] Hyperlink validator armed',c:'ok',d:100},
+    {t:'> aegis.launch()',c:'info',d:200}
+  ];
+
+  function setProgress(p){
+    var pct=Math.round(p*100)+'%';
+    if(prog){prog.style.width=pct;}
+    if(progGlow){progGlow.style.width=pct;}
+  }
+
+  function runBoot(){
+    if(!term)return;var idx=0;
+    function next(){
+      if(idx>=lines.length){
+        // Complete
+        setProgress(1);
+        if(statusEl)statusEl.textContent='SYSTEMS ONLINE';
+        if(sysEl)sysEl.textContent='READY';
+        if(statusEl)statusEl.style.color='#3fb950';
+        return;
+      }
+      var ln=lines[idx];
+      var el=document.createElement('div');el.className='ail-line';
+      var sp=document.createElement('span');sp.className='ail-'+ln.c;sp.textContent=ln.t;
+      el.appendChild(sp);term.appendChild(el);
+      term.scrollTop=term.scrollHeight;
+      setProgress((idx+1)/lines.length);
+      if(statusEl){
+        var msgs=['INITIALIZING','LOADING CORE','SECURITY CHECK','NLP ENGINE','QUALITY CHECKS','EXTRACTORS','ROLE ENGINE','VALIDATORS','LAUNCHING'];
+        statusEl.textContent=msgs[idx]||'LOADING';
+      }
+      idx++;setTimeout(next,ln.d);
+    }
+    // Start boot after terminal fades in
+    setTimeout(next,2300);
+  }
+
+  // Get version for HUD
+  try{
+    var x=new XMLHttpRequest();x.open('GET','/api/version',true);x.timeout=2000;
+    x.onload=function(){try{var d=JSON.parse(x.responseText);if(verEl&&d.version)verEl.textContent='v'+d.version;}catch(e){}};
+    x.send();
+  }catch(e){}
+
+  runBoot();
+
+  // Expose dismiss function
+  window._aegisBootDismiss=function(){
+    if(!alive)return;alive=false;
+    ol.classList.add('ail-flash');
+    setTimeout(function(){
+      ol.classList.add('ail-done');
+      cancelAnimationFrame(raf);
+      setTimeout(function(){ol.remove();},700);
+    },400);
+  };
+})();
+</script>
 <!-- Stub element for any code that references aegisLoader -->
 <div id="aegisLoader" style="display:none;"></div>
 

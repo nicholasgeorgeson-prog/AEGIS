@@ -153,11 +153,12 @@ TWR.LandingPage = (function() {
         wireEvents();
         initParticles();
 
-        // v5.9.28: Dismiss the CSS-only init loader
-        const initLoader = document.getElementById('aegis-init-loader');
-        if (initLoader) {
-            initLoader.classList.add('ail-done');
-            setTimeout(() => initLoader.remove(), 500);
+        // v5.9.30: Dismiss cinematic boot sequence
+        if (window._aegisBootDismiss) {
+            window._aegisBootDismiss();
+        } else {
+            const initLoader = document.getElementById('aegis-init-loader');
+            if (initLoader) { initLoader.classList.add('ail-done'); setTimeout(() => initLoader.remove(), 700); }
         }
     }
 
