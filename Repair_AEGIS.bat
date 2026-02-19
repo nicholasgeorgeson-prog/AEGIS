@@ -71,6 +71,23 @@ if not exist "%REPAIR_PY%" (
     exit /b 1
 )
 
+:: Pre-flight: Ensure setuptools is installed (pkg_resources needed by repair script and spaCy)
+:: This must happen in batch because without pkg_resources, Python scripts may fail to import
+"%PYTHON_EXE%" -c "import pkg_resources" >nul 2>nul
+if errorlevel 1 (
+    echo  [PRE-FLIGHT] Installing setuptools (required for pkg_resources^)...
+    set "WHEELS="
+    if exist "%INSTALL_DIR%\wheels" set "WHEELS=%INSTALL_DIR%\wheels"
+    if exist "%INSTALL_DIR%\packaging\wheels" set "WHEELS=%INSTALL_DIR%\packaging\wheels"
+    if defined WHEELS (
+        "%PYTHON_EXE%" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location setuptools >nul 2>nul
+    ) else (
+        "%PYTHON_EXE%" -m pip install --no-warn-script-location setuptools >nul 2>nul
+    )
+    echo  [OK] setuptools installed
+    echo.
+)
+
 :: Run the Python repair tool
 "%PYTHON_EXE%" "%REPAIR_PY%"
 exit /b %errorlevel%
