@@ -1,6 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
-title AEGIS One-Click Installer v5.9.25
+title AEGIS One-Click Installer v5.9.26
 color 0B
 
 echo.
@@ -9,7 +9,7 @@ echo.
 echo       A E G I S   I N S T A L L E R
 echo.
 echo       Aerospace Engineering Governance
-echo       ^& Inspection System  v5.9.25
+echo       ^& Inspection System  v5.9.26
 echo.
 echo  ============================================================
 echo.
@@ -117,9 +117,9 @@ echo.
 
 set "REPO=nicholasgeorgeson-prog/AEGIS"
 set "SRC_ZIP=%INSTALL_DIR%\aegis_source.zip"
-:: All binary assets hosted on v5.9.25 release
-set "DL_BINARY=https://github.com/%REPO%/releases/download/v5.9.25"
-set "DL_TORCH=https://github.com/%REPO%/releases/download/v5.9.25"
+:: All binary assets hosted on v5.9.26 release
+set "DL_BINARY=https://github.com/%REPO%/releases/download/v5.9.26"
+set "DL_TORCH=https://github.com/%REPO%/releases/download/v5.9.26"
 
 echo  Downloading latest source code from GitHub (main branch)...
 echo  (This includes all dependency wheels - ~600 MB total)
@@ -242,7 +242,7 @@ if exist "%INSTALL_DIR%\packaging\wheels\spacy_lookups_data-1.0.5-py2.py3-none-a
 )
 
 :: Download NLP/ML models (240 MB)
-set "DL_MODELS=https://github.com/%REPO%/releases/download/v5.9.25"
+set "DL_MODELS=https://github.com/%REPO%/releases/download/v5.9.26"
 echo.
 echo  Downloading NLP/ML models (240 MB)...
 echo  (sentence-transformers, NLTK data)
@@ -349,13 +349,19 @@ for %%f in ("%WHEELS%\*.whl") do (
     "%PYTHON_DIR%\python.exe" -m pip install --no-index --no-deps --no-warn-script-location "%%f" 2>nul
 )
 
-:: Install packages that may not have wheels (online fallback)
-echo  Installing packages without bundled wheels (online)...
-"%PYTHON_DIR%\python.exe" -m pip install --no-warn-script-location symspellpy 2>nul
+:: Install packages that may need online fallback
+echo  Installing additional packages...
+"%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location symspellpy 2>nul
 if errorlevel 1 (
-    echo  [WARN] symspellpy install failed - spelling features will be limited
+    echo  [WARN] symspellpy offline install failed, trying online...
+    "%PYTHON_DIR%\python.exe" -m pip install --no-warn-script-location symspellpy 2>nul
+    if errorlevel 1 (
+        echo  [WARN] symspellpy install failed - spelling features will be limited
+    ) else (
+        echo  [OK] symspellpy installed from PyPI
+    )
 ) else (
-    echo  [OK] symspellpy installed
+    echo  [OK] symspellpy installed from bundled wheel
 )
 "%PYTHON_DIR%\python.exe" -m pip install --no-warn-script-location proselint textstat 2>nul
 
@@ -473,10 +479,10 @@ echo  ---------------------------------------------------
 :: Create Start_AEGIS.bat
 (
 echo @echo off
-echo title AEGIS v5.9.25
+echo title AEGIS v5.9.26
 echo color 0B
 echo echo.
-echo echo  Starting AEGIS v5.9.25...
+echo echo  Starting AEGIS v5.9.26...
 echo echo  Once started, open your browser to: http://localhost:5050
 echo echo.
 echo echo  DO NOT close this window while using AEGIS.
@@ -556,10 +562,10 @@ echo  [OK] Export_Bugs.bat
 set "ICON_FILE=%INSTALL_DIR%\static\img\aegis_icon.ico"
 echo  Creating Desktop shortcut...
 if exist "%ICON_FILE%" (
-    powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.IconLocation = '%ICON_FILE%,0'; $s.Description = 'Start AEGIS v5.9.25 - Document Analysis Tool'; $s.Save()" 2>nul
+    powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.IconLocation = '%ICON_FILE%,0'; $s.Description = 'Start AEGIS v5.9.26 - Document Analysis Tool'; $s.Save()" 2>nul
     echo  [OK] Desktop shortcut created with AEGIS icon
 ) else (
-    powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.Description = 'Start AEGIS v5.9.25 - Document Analysis Tool'; $s.Save()" 2>nul
+    powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.Description = 'Start AEGIS v5.9.26 - Document Analysis Tool'; $s.Save()" 2>nul
     echo  [OK] Desktop shortcut created
 )
 
@@ -603,7 +609,7 @@ echo       INSTALLATION COMPLETE!
 echo.
 echo  ============================================================
 echo.
-echo  AEGIS v5.9.25 installed to: %INSTALL_DIR%
+echo  AEGIS v5.9.26 installed to: %INSTALL_DIR%
 echo.
 echo  To start:
 echo    1. Double-click "AEGIS" on your Desktop

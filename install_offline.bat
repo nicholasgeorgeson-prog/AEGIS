@@ -21,7 +21,7 @@ setlocal enabledelayedexpansion
 
 echo.
 echo ============================================================
-echo AEGIS v5.9.25 - Offline Dependency Installation
+echo AEGIS v5.9.26 - Offline Dependency Installation
 echo Aerospace Engineering Governance ^& Inspection System
 echo ============================================================
 echo.

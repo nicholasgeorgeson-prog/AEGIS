@@ -1,11 +1,11 @@
 @echo off
 setlocal enabledelayedexpansion
-title AEGIS Installer v5.9.25
+title AEGIS Installer v5.9.26
 color 0A
 
 :: ============================================================================
 :: AEGIS - Aerospace Engineering Governance & Inspection System
-:: Windows Installer v5.9.25
+:: Windows Installer v5.9.26
 :: ============================================================================
 :: Double-click this file to install AEGIS
 ::
@@ -30,7 +30,7 @@ echo.
 echo  ============================================================
 echo.
 echo      AEGIS - Aerospace Engineering Governance ^& Inspection
-echo      Installer v5.9.25
+echo      Installer v5.9.26
 echo.
 echo  ============================================================
 echo.
