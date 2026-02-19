@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """
-AEGIS Repair Tool - Diagnose & Fix Missing Dependencies
-Run via Repair_AEGIS.bat or directly: python repair_aegis.py
+AEGIS Repair Tool v5.9.27 - Single-Script Diagnose & Fix
+=========================================================
+Usage:
+  python\python.exe repair_aegis.py
 
-Phases:
-  1. Environment check (._pth, sys.path)
+No .bat wrapper needed. This script handles everything:
+  0. Pre-flight: fix setuptools v82 (removed pkg_resources) via subprocess
+  1. Environment check
   2. Diagnose all imports (shows actual errors)
   3. Repair failed packages
   4. NLTK data check
@@ -15,12 +18,12 @@ import subprocess
 import sys
 import os
 import importlib
-import traceback
+import glob
 
-# ANSI colors (colorama not guaranteed available yet)
+# Enable ANSI colors on Windows 10+
 try:
-    os.system('')  # Enable ANSI on Windows 10+
-except:
+    os.system('')
+except Exception:
     pass
 
 GREEN = '\033[92m'
@@ -30,24 +33,30 @@ CYAN = '\033[96m'
 BOLD = '\033[1m'
 RESET = '\033[0m'
 
+
 def ok(msg):
     print(f'  {GREEN}[OK]{RESET} {msg}')
+
 
 def fail(msg):
     print(f'  {RED}[FAIL]{RESET} {msg}')
 
+
 def warn(msg):
     print(f'  {YELLOW}[WARN]{RESET} {msg}')
+
 
 def skip(msg):
     print(f'  {YELLOW}[SKIP]{RESET} {msg}')
 
+
 def info(msg):
     print(f'  {CYAN}[INFO]{RESET} {msg}')
 
+
 def header(msg):
     print(f'\n  {BOLD}{msg}{RESET}')
-    print(f'  {"-" * 51}')
+    print(f'  {"-" * 55}')
 
 
 # ============================================================
@@ -92,18 +101,33 @@ OPTIONAL_PACKAGES = [
     ('requests_ntlm', 'requests-ntlm', 'Windows Domain Auth'),
 ]
 
-SPACY_CHAIN = ['colorama', 'typer', 'cymem', 'murmurhash', 'preshed', 'blis', 'srsly',
-               'thinc', 'wasabi', 'weasel', 'catalogue', 'confection', 'spacy']
+SPACY_CHAIN = ['colorama', 'typer', 'cymem', 'murmurhash', 'preshed', 'blis',
+               'srsly', 'thinc', 'wasabi', 'weasel', 'catalogue', 'confection',
+               'spacy']
 
+DIAGNOSTIC_GROUPS = {
+    'Core Framework': [('flask',), ('waitress',)],
+    'Document Processing': [('docx',), ('mammoth',), ('lxml',), ('openpyxl',)],
+    'PDF Processing': [('fitz',), ('pdfplumber',)],
+    'Platform Dependencies': [('pkg_resources',), ('colorama',), ('typer',)],
+    'spaCy Dependency Chain': [('cymem',), ('murmurhash',), ('preshed',),
+                                ('blis',), ('srsly',), ('thinc',), ('spacy',)],
+    'NLP Libraries': [('sklearn',), ('nltk',), ('textstat',), ('textblob',),
+                      ('rapidfuzz',), ('symspellpy',)],
+    'Data Libraries': [('pandas',), ('numpy',), ('requests',), ('reportlab',)],
+}
+
+
+# ============================================================
+# Utility functions
+# ============================================================
 
 def find_install_dir():
     """Find the AEGIS installation directory."""
-    # Check script's own directory
     script_dir = os.path.dirname(os.path.abspath(__file__))
     if os.path.exists(os.path.join(script_dir, 'app.py')):
         return script_dir
 
-    # Check common locations
     home = os.path.expanduser('~')
     candidates = [
         r'C:\AEGIS',
@@ -118,12 +142,12 @@ def find_install_dir():
         if os.path.exists(os.path.join(d, 'app.py')):
             return d
 
-    return script_dir  # fallback
+    return script_dir
 
 
 def find_wheels_dir(install_dir):
     """Find the wheels directory."""
-    for sub in ['packaging/wheels', 'wheels']:
+    for sub in ['wheels', 'packaging/wheels']:
         path = os.path.join(install_dir, sub)
         if os.path.isdir(path):
             return path
@@ -146,7 +170,7 @@ def pip_install(packages, wheels_dir=None, force=False):
         if result.returncode == 0:
             return True, 'offline'
 
-        # Try with online fallback (still use wheels as extra source)
+        # Try hybrid (wheels + online)
         hybrid_cmd = cmd + ['--find-links', wheels_dir] + packages
         result = subprocess.run(hybrid_cmd, capture_output=True, text=True)
         if result.returncode == 0:
@@ -164,7 +188,6 @@ def pip_install(packages, wheels_dir=None, force=False):
 def check_import(module_name):
     """Try importing a module. Returns (success, error_message)."""
     try:
-        # Force reimport in case it was fixed during this run
         if module_name in sys.modules:
             del sys.modules[module_name]
         importlib.import_module(module_name)
@@ -185,17 +208,133 @@ def check_spacy_model():
         return False, str(e)
 
 
+# ============================================================
+# PHASE 0: Pre-flight setuptools fix (runs BEFORE anything imports)
+# ============================================================
+
+def preflight_setuptools(wheels_dir):
+    """Fix setuptools v82+ which removed pkg_resources.
+
+    This runs as a subprocess so it takes effect for THIS process
+    when we later try to import pkg_resources.
+
+    setuptools v82.0 (Feb 2026) completely removed pkg_resources.
+    spaCy model loading requires pkg_resources. The fix is to
+    force-downgrade to setuptools<81 which still has it.
+    """
+    header('[Phase 0] Pre-flight: setuptools / pkg_resources')
+    print()
+
+    # Test if pkg_resources works
+    result = subprocess.run(
+        [sys.executable, '-c', 'import pkg_resources'],
+        capture_output=True, text=True
+    )
+
+    if result.returncode == 0:
+        ok('pkg_resources available')
+        return
+
+    # It's broken - check what version of setuptools is installed
+    ver_result = subprocess.run(
+        [sys.executable, '-c',
+         'try:\n import setuptools; print(setuptools.__version__)\nexcept: print("none")'],
+        capture_output=True, text=True
+    )
+    st_ver = ver_result.stdout.strip() if ver_result.returncode == 0 else 'unknown'
+    warn(f'pkg_resources missing! setuptools version: {st_ver}')
+
+    if st_ver != 'none' and st_ver != 'unknown':
+        try:
+            major = int(st_ver.split('.')[0])
+            if major >= 81:
+                info(f'setuptools {st_ver} removed pkg_resources (v82+ breaking change)')
+                info('Downgrading to setuptools<81 which still includes it...')
+        except ValueError:
+            pass
+
+    # Method 1: Force-reinstall setuptools<81 from wheels
+    if wheels_dir:
+        info(f'Trying offline install from: {wheels_dir}')
+        result = subprocess.run(
+            [sys.executable, '-m', 'pip', 'install', '--force-reinstall',
+             '--no-index', '--find-links', wheels_dir,
+             '--no-warn-script-location', 'setuptools<81'],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            # Verify it worked
+            verify = subprocess.run(
+                [sys.executable, '-c', 'import pkg_resources; print("OK")'],
+                capture_output=True, text=True
+            )
+            if verify.returncode == 0:
+                ok('setuptools downgraded - pkg_resources now available')
+                return
+            else:
+                warn('pip said success but pkg_resources still fails')
+
+        # Method 2: Try installing the wheel file directly
+        for whl in sorted(glob.glob(os.path.join(wheels_dir, 'setuptools-[0-7]*.whl')),
+                         reverse=True):
+            info(f'Trying direct wheel: {os.path.basename(whl)}')
+            result = subprocess.run(
+                [sys.executable, '-m', 'pip', 'install', '--force-reinstall',
+                 '--no-warn-script-location', whl],
+                capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                verify = subprocess.run(
+                    [sys.executable, '-c', 'import pkg_resources; print("OK")'],
+                    capture_output=True, text=True
+                )
+                if verify.returncode == 0:
+                    ok('setuptools installed from wheel - pkg_resources available')
+                    return
+
+    # Method 3: Online fallback
+    info('Trying online install: setuptools<81...')
+    result = subprocess.run(
+        [sys.executable, '-m', 'pip', 'install', '--force-reinstall',
+         '--no-warn-script-location', 'setuptools<81'],
+        capture_output=True, text=True
+    )
+    if result.returncode == 0:
+        verify = subprocess.run(
+            [sys.executable, '-c', 'import pkg_resources; print("OK")'],
+            capture_output=True, text=True
+        )
+        if verify.returncode == 0:
+            ok('setuptools installed online - pkg_resources available')
+            return
+
+    # All methods failed
+    fail('Could not fix pkg_resources!')
+    warn('spaCy model loading will fail. You may need to manually run:')
+    warn(f'  {sys.executable} -m pip install "setuptools<81"')
+    print()
+
+
+# ============================================================
+# Main repair flow
+# ============================================================
+
 def main():
     print()
     print(f'  {"=" * 56}')
     print()
-    print(f'      {BOLD}AEGIS Repair Tool v5.9.26{RESET}')
-    print(f'      Diagnose & Fix Missing Dependencies')
+    print(f'      {BOLD}AEGIS Repair Tool v5.9.27{RESET}')
+    print(f'      Single-Script Diagnose & Fix')
     print()
     print(f'  {"=" * 56}')
 
     install_dir = find_install_dir()
     wheels_dir = find_wheels_dir(install_dir)
+
+    # ============================================================
+    # PHASE 0: Pre-flight setuptools fix (BEFORE any imports)
+    # ============================================================
+    preflight_setuptools(wheels_dir)
 
     # ============================================================
     # PHASE 1: Environment
@@ -206,13 +345,11 @@ def main():
     info(f'Executable: {sys.executable}')
     info(f'Install dir: {install_dir}')
 
-    # Check site-packages on path
     sp = [p for p in sys.path if 'site-packages' in p]
     if sp:
         ok(f'site-packages on path: {sp[0]}')
     else:
         fail('site-packages NOT on sys.path!')
-        warn('This means pip-installed packages cannot be found.')
         warn('Check python310._pth file has "import site" uncommented.')
 
     if wheels_dir:
@@ -228,23 +365,9 @@ def main():
 
     failed = []  # list of (pip_name, error_msg)
     passed = 0
-
-    # Group display
-    groups = {
-        'Core Framework': [('flask',), ('waitress',)],
-        'Document Processing': [('docx',), ('mammoth',), ('lxml',), ('openpyxl',)],
-        'PDF Processing': [('fitz',), ('pdfplumber',)],
-        'Platform Dependencies': [('pkg_resources',), ('colorama',), ('typer',)],
-        'spaCy Dependency Chain': [('cymem',), ('murmurhash',), ('preshed',),
-                                    ('blis',), ('srsly',), ('thinc',), ('spacy',)],
-        'NLP Libraries': [('sklearn',), ('nltk',), ('textstat',), ('textblob',),
-                          ('rapidfuzz',), ('symspellpy',)],
-        'Data Libraries': [('pandas',), ('numpy',), ('requests',), ('reportlab',)],
-    }
-
     pkg_lookup = {p[0]: p for p in CRITICAL_PACKAGES}
 
-    for group_name, group_imports in groups.items():
+    for group_name, group_imports in DIAGNOSTIC_GROUPS.items():
         print(f'  --- {group_name} ---')
         for (imp_name,) in group_imports:
             pkg = pkg_lookup[imp_name]
@@ -276,7 +399,7 @@ def main():
     for imp, pip_name, desc in OPTIONAL_PACKAGES:
         success, err = check_import(imp)
         if success:
-            ok(f'{desc}')
+            ok(desc)
             passed += 1
         else:
             skip(f'{desc} (optional)')
@@ -303,13 +426,9 @@ def main():
 
     repaired = 0
 
-    # Step 3a: Fix setuptools FIRST if pkg_resources is missing
-    # setuptools v82+ removed pkg_resources entirely. Must downgrade to <81.
-    # Force-reinstall is required because pip sees v82 as "already satisfied".
+    # Step 3a: Fix setuptools if still broken after pre-flight
     if 'setuptools' in failed_names:
         info('setuptools v82+ removed pkg_resources — downgrading to v80...')
-        info('(This is a known breaking change from Feb 2026)')
-        # Force reinstall with version pin to get <81 from wheels
         success, method = pip_install(['setuptools<81'], wheels_dir, force=True)
         if success:
             ok(f'setuptools downgraded ({method})')
@@ -318,29 +437,28 @@ def main():
             fail(f'setuptools downgrade failed: {method}')
         print()
 
-    # Step 3a2: Install colorama/typer if needed
+    # Step 3b: Install colorama/typer if needed
     other_priority = []
     if 'colorama' in failed_names:
         other_priority.append('colorama')
     if 'typer' in failed_names:
         other_priority.append('typer')
-
     if other_priority:
-        info(f'Installing priority packages: {", ".join(other_priority)}...')
+        info(f'Installing: {", ".join(other_priority)}...')
         success, method = pip_install(other_priority, wheels_dir)
         if success:
-            ok(f'Priority packages installed ({method})')
+            ok(f'Installed ({method})')
             repaired += len(other_priority)
         else:
-            fail(f'Priority install failed: {method}')
+            fail(f'Install failed: {method}')
         print()
 
-    # Step 3b: If spaCy or any C dep failed, reinstall whole chain
+    # Step 3c: If spaCy or any C dep failed, reinstall whole chain
     spacy_deps_failed = [n for n in failed_names if n.lower() in
-                         ['spacy', 'typer', 'cymem', 'murmurhash', 'preshed', 'blis', 'srsly', 'thinc']]
+                         ['spacy', 'typer', 'cymem', 'murmurhash', 'preshed',
+                          'blis', 'srsly', 'thinc']]
     if spacy_deps_failed:
         info('Reinstalling spaCy + ALL C dependencies together...')
-        info('(This ensures version compatibility across the chain)')
         success, method = pip_install(SPACY_CHAIN, wheels_dir, force=True)
         if success:
             ok(f'spaCy chain installed ({method})')
@@ -350,9 +468,10 @@ def main():
             print(f'         {RED}{method}{RESET}')
         print()
 
-    # Step 3c: Repair remaining packages individually
-    skip_names = {'setuptools', 'colorama', 'typer', 'spacy', 'cymem', 'murmurhash',
-                  'preshed', 'blis', 'srsly', 'thinc', 'en_core_web_sm'}
+    # Step 3d: Repair remaining packages individually
+    skip_names = {'setuptools', 'colorama', 'typer', 'spacy', 'cymem',
+                  'murmurhash', 'preshed', 'blis', 'srsly', 'thinc',
+                  'en_core_web_sm'}
     for pip_name, _ in failed:
         if pip_name.lower() in skip_names:
             continue
@@ -365,13 +484,11 @@ def main():
             fail(f'{pip_name} install failed: {method}')
         print()
 
-    # Step 3d: en_core_web_sm
+    # Step 3e: en_core_web_sm model
     if 'en_core_web_sm' in failed_names:
         info('Reinstalling spaCy English model...')
-        # Try wheel first
         sm_installed = False
         if wheels_dir:
-            import glob
             sm_wheels = glob.glob(os.path.join(wheels_dir, 'en_core_web_sm*.whl'))
             for whl in sm_wheels:
                 info(f'Installing from wheel: {os.path.basename(whl)}')
@@ -421,14 +538,22 @@ def main():
             print(f'         {RED}Error: {err}{RESET}')
             final_fail += 1
 
-    # spaCy model
-    model_ok, model_info = check_spacy_model()
-    if model_ok:
-        ok(f'spaCy en_core_web_sm model ({model_info})')
+    # spaCy model — test via subprocess to get clean import state
+    info('Testing spaCy model in clean subprocess...')
+    model_result = subprocess.run(
+        [sys.executable, '-c',
+         'import spacy; nlp=spacy.load("en_core_web_sm"); '
+         'print("OK:" + nlp.meta.get("version", "?"))'],
+        capture_output=True, text=True
+    )
+    if model_result.returncode == 0 and model_result.stdout.strip().startswith('OK:'):
+        ver = model_result.stdout.strip().split(':')[1]
+        ok(f'spaCy en_core_web_sm model ({ver})')
         final_pass += 1
     else:
-        fail('spaCy en_core_web_sm model')
-        print(f'         {RED}Error: {model_info}{RESET}')
+        err_msg = model_result.stderr.strip().split('\n')[-1] if model_result.stderr else 'unknown'
+        fail(f'spaCy en_core_web_sm model')
+        print(f'         {RED}Error: {err_msg}{RESET}')
         final_fail += 1
 
     print()
@@ -473,7 +598,7 @@ def check_nltk_data():
             try:
                 import ssl
                 ssl._create_default_https_context = ssl._create_unverified_context
-            except:
+            except Exception:
                 pass
             nltk.download(name, quiet=True)
 
@@ -486,7 +611,7 @@ def check_nltk_data():
         if os.path.exists(zip_path) and not os.path.isdir(dir_path):
             zipfile.ZipFile(zip_path).extractall(nltk_dir)
             ok('Extracted wordnet.zip')
-    except:
+    except Exception:
         pass
 
 
