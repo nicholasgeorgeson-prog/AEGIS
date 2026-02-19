@@ -60,27 +60,19 @@ if exist "%~dp0pull_updates.py" (
 
 :: If not, download it from GitHub first
 echo  Downloading pull_updates.py from GitHub...
-"%PYTHON_EXE%" -c "import urllib.request,ssl;c=ssl.create_default_context();c.check_hostname=False;c.verify_mode=ssl.CERT_NONE;urllib.request.urlretrieve('https://raw.githubusercontent.com/nicholasgeorgeson-prog/AEGIS/main/pull_updates.py','pull_updates.py',context=c)" 2>nul
+"%PYTHON_EXE%" -c "import urllib.request,ssl;c=ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT);c.check_hostname=False;c.verify_mode=ssl.CERT_NONE;r=urllib.request.urlopen('https://raw.githubusercontent.com/nicholasgeorgeson-prog/AEGIS/main/pull_updates.py',context=c);open('pull_updates.py','wb').write(r.read())" 2>nul
 
-if exist "%~dp0pull_updates.py" (
+if exist "pull_updates.py" (
     echo  Downloaded successfully - running...
     echo.
-    "%PYTHON_EXE%" "%~dp0pull_updates.py"
+    "%PYTHON_EXE%" "pull_updates.py"
 ) else (
-    :: Fallback: try with default SSL
-    "%PYTHON_EXE%" -c "import urllib.request;urllib.request.urlretrieve('https://raw.githubusercontent.com/nicholasgeorgeson-prog/AEGIS/main/pull_updates.py','pull_updates.py')" 2>nul
-    if exist "%~dp0pull_updates.py" (
-        echo  Downloaded successfully - running...
-        echo.
-        "%PYTHON_EXE%" "%~dp0pull_updates.py"
-    ) else (
-        echo.
-        echo  [ERROR] Could not download pull_updates.py
-        echo.
-        echo  Please download it manually from:
-        echo  https://github.com/nicholasgeorgeson-prog/AEGIS/releases/tag/v5.9.21
-        echo  Place it next to this .bat file and try again.
-    )
+    echo.
+    echo  [ERROR] Could not download pull_updates.py
+    echo.
+    echo  Please download both files from:
+    echo  https://github.com/nicholasgeorgeson-prog/AEGIS/releases/tag/v5.9.21
+    echo  Place pull_updates.py next to this .bat file and try again.
 )
 
 :done

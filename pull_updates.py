@@ -2,11 +2,13 @@
 """
 AEGIS v5.9.28 Update Puller
 Downloads the 26 changed files from GitHub and saves them
-into an updates_v5.9.28/ folder ready for deployment.
+into the updates/ folder for the built-in AEGIS updater.
 
 Usage:
     python3 pull_updates.py
     python pull_updates.py
+
+After running, open AEGIS > Settings > Updates > Check for Updates > Apply.
 
 No dependencies required — uses only Python standard library.
 """
@@ -20,7 +22,7 @@ import sys
 # ── Configuration ──
 REPO = "nicholasgeorgeson-prog/AEGIS"
 BRANCH = "main"
-OUTPUT_DIR = "updates_v5.9.28"
+OUTPUT_DIR = "updates"
 
 FILES = [
     # Python backend
@@ -161,13 +163,14 @@ def main():
     print()
 
     if failed == 0:
-        print("All files downloaded successfully!")
+        print("All files downloaded to updates/ folder!")
         print()
         print("NEXT STEPS:")
-        print(f"  1. Stop AEGIS (Ctrl+C or close terminal)")
-        print(f"  2. Copy all files from {OUTPUT_DIR}/ into your AEGIS install directory")
-        print(f"     (overwrite existing files, preserve folder structure)")
-        print(f"  3. Restart AEGIS with Start_AEGIS.bat")
+        print(f"  1. Start AEGIS (if not already running)")
+        print(f"  2. Go to Settings > Updates tab")
+        print(f"  3. Click 'Check for Updates'")
+        print(f"  4. Click 'Apply Updates'")
+        print(f"  5. AEGIS will backup, apply, and restart automatically")
     else:
         print(f"WARNING: {failed} file(s) failed to download.")
         print("Check your internet connection and try again.")
