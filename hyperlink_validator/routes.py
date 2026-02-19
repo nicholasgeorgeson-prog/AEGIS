@@ -71,6 +71,16 @@ from .models import (
 hv_blueprint = Blueprint('hyperlink_validator', __name__)
 
 
+@hv_blueprint.before_request
+def _hv_increase_upload_limit():
+    """Raise upload limit to 200MB for export-highlighted endpoints.
+    These endpoints receive the original file + full validation results JSON
+    as multipart form data, which can exceed the default 50MB limit for
+    large Excel workbooks with many hyperlinks."""
+    if request.path.endswith(('/export-highlighted/excel', '/export-highlighted/docx')):
+        request.max_content_length = 200 * 1024 * 1024  # 200MB
+
+
 # =============================================================================
 # STANDARDIZED ERROR HANDLING DECORATOR
 # =============================================================================
@@ -1786,10 +1796,20 @@ def export_highlighted_docx_endpoint():
         tmp_path = tmp.name
 
     try:
+        # v5.9.29: Log result stats for debugging export issues
+        status_counts = {}
+        for r in results:
+            s = r.status.upper() if r.status else 'NONE'
+            status_counts[s] = status_counts.get(s, 0) + 1
+        logger.info(f"Export highlighted DOCX: {len(results)} results received, status breakdown: {status_counts}")
+
         # Create highlighted document
         success, message, file_bytes = export_highlighted_docx(tmp_path, results)
 
+        logger.info(f"Export highlighted DOCX result: success={success}, message={message}, bytes={len(file_bytes)}")
+
         if not success:
+            logger.warning(f"Export highlighted DOCX failed: {message}")
             return jsonify({
                 'success': False,
                 'error': {
