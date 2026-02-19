@@ -166,7 +166,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.9.30
+- **Current version**: 5.9.31
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -711,6 +711,18 @@ The actual logic lives in `repair_aegis.py` (500 lines) where Python's error han
 **Root Cause**: Three places configured TTS voices: (1) `demo_audio_generator.py` — `DEFAULT_VOICE = 'en-US-GuyNeural'` (male). (2) `guide-system.js` Web Speech API — priority list started with "Google US English" (often male/robotic on Windows). (3) `pyttsx3` fallback — picked first English voice found (often male).
 **Fix**: (1) Changed edge-tts default to `'en-US-JennyNeural'` (female, natural-sounding neural voice). (2) Rewrote `_selectPreferredVoice()` priority: Microsoft Online neural female (Aria/Jenny/Sonia/Libby) → Microsoft Zira → macOS Samantha/Karen/Moira → Google voices → any en-US. (3) pyttsx3 fallback now searches for female voice patterns (zira, jenny, samantha, etc.) before falling back to any English voice. (4) Set `utterance.pitch = 1.05` for slightly more natural female tone.
 **Lesson**: When shipping TTS features, specify the EXACT voice you want as default — don't rely on system defaults which vary wildly by OS. On Windows, Microsoft neural "Online" voices (Aria, Jenny) are dramatically better than standard voices (David, Zira). On macOS, Samantha is the best built-in English voice. Always provide voice selection UI so users can choose.
+
+### 81. Multi-Strategy SSL Fallback for Corporate CA Certificates (v5.9.31)
+**Problem**: Corporate internal links (`.northgrum.com`, `.myngc.com`, `ngc.sharepoint.us`) were flagged SSLERROR when they worked fine in Chrome. Hundreds of working links showed as broken.
+**Root Cause**: Three compounding issues: (1) Python's `requests` library uses `certifi` (Mozilla CA bundle), NOT the Windows certificate store. Corporate sites use internal CA certificates that certifi doesn't trust → SSL handshake fails. (2) The existing SSL fallback tried `session.head(url, verify=False)` but many corporate servers reject HEAD requests entirely. (3) No attempt at combining SSL bypass with Windows SSO auth — corporate links often need BOTH.
+**Fix**: Replaced single HEAD-with-verify=False fallback with a multi-strategy cascade:
+- **Strategy 1**: `session.get(url, verify=False, stream=True)` — bypasses cert check with GET (not HEAD), detects file downloads via Content-Type/Content-Disposition, marks as SSL_WARNING if link works.
+- **Strategy 2**: Fresh SSO session (`requests.Session()` + `HttpNegotiateAuth()`) with `verify=False` — for corporate domains that need both SSL bypass AND Windows authentication. Creates a brand-new session (no shared state corruption).
+- **Retest Strategy 2b**: `get_no_ssl_fresh_auth` — combined `verify=False` + fresh Windows SSO in the retest phase for SSLERROR links on corporate domains.
+- **Headless fallback**: Expanded priority URL list to include NGC corporate domains (`.myngc.com`, `.northgrum.com`, `ngc.sharepoint.us`) so headless Chromium (which trusts the OS cert store) catches any remaining SSLERROR links.
+- **urllib3 warning suppression**: `urllib3.disable_warnings(InsecureRequestWarning)` since `verify=False` is deliberate for corporate CA bypass.
+**Why headless Chromium is the ultimate fallback**: Playwright's Chromium uses the Windows certificate store — same as Chrome. So it trusts the same corporate CA certs that Python's certifi doesn't. Links that fail all `requests`-based strategies will typically succeed with headless because it handles SSL, auth, and JavaScript in one shot.
+**Lesson**: When Python's `requests` fails SSL on corporate networks, the root cause is ALWAYS the CA cert bundle mismatch. The fix has 3 layers: (1) `verify=False` with GET (not HEAD) for servers that respond to GET differently, (2) fresh SSO session + verify=False for internal links needing auth, (3) headless Chromium as nuclear option (uses OS cert store). Chrome works because it uses the OS cert store + SPNEGO auth automatically — replicate both in Python fallbacks.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
