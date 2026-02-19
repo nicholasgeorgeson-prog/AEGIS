@@ -663,6 +663,12 @@ The actual logic lives in `repair_aegis.py` (500 lines) where Python's error han
 **Fix**: Renamed to `find_wheels_dirs()` (plural). Returns a LIST of all found directories. `pip_install()` now accepts a list and passes multiple `--find-links` flags: `--find-links wheels/ --find-links packaging/wheels/`. All callers updated: `preflight_setuptools()`, Phase 3 repair steps, en_core_web_sm wheel search.
 **Lesson**: When an offline installer has wheels split across multiple directories (e.g., `wheels/` for pure-Python, `packaging/wheels/` for large platform-specific binaries), the install tool must search ALL of them. Always pass multiple `--find-links` flags to pip rather than consolidating into one directory.
 
+### 74. coreferee Incompatible with spaCy 3.6+ (Abandoned Library)
+**Problem**: During AEGIS startup/document scan, a warning prints: "en_core_web_sm version 3.8.0 is not supported by coreferee please examine coreferee/lang/en/config to see supported models/versions".
+**Root Cause**: `coreferee` 1.4.1 (last release June 2023) requires `spaCy <3.6.0`. AEGIS uses spaCy 3.8.x with en_core_web_sm 3.8.0. The library is fundamentally incompatible and hasn't been maintained for 2+ years. The warning is printed by coreferee's internal version check during `nlp.add_pipe('coreferee')` before it raises an exception.
+**Fix**: (1) Added model version guard in both `coreference_checker.py` (`_init_nlp()`) and `nlp_enhanced.py` (`_setup_coreference()`): if model version >= 3.6, skip coreferee import entirely and use fallback. (2) Commented out `coreferee>=1.4.0` in `requirements.txt` with explanation. (3) Deleted `coreferee-1.4.1-py3-none-any.whl` from `wheels/`. (4) The coreference checker's `_fallback_check()` method (pattern-matching for paragraph-initial pronouns) works without coreferee.
+**Lesson**: Before bundling NLP pipeline components (coreferee, negspacy, etc.), always check their spaCy version constraints on PyPI. Libraries that haven't been updated in 1+ years are likely incompatible with the latest spaCy. The safe pattern is: version-guard before import, graceful fallback, never let an incompatible library print warnings to stdout during startup.
+
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
 1. **Changelog update** in `version.json` (and copy to `static/version.json`)

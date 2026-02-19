@@ -64,21 +64,36 @@ class CoreferenceResolutionChecker(BaseChecker):
         self._init_nlp()
 
     def _init_nlp(self) -> bool:
-        """Initialize spaCy + coreferee pipeline."""
+        """Initialize spaCy + coreferee pipeline.
+
+        NOTE: coreferee 1.4.1 requires spaCy <3.6.0 but AEGIS uses spaCy 3.8+.
+        The library is fundamentally incompatible and hasn't been updated since
+        June 2023. We skip the coreferee import entirely and use the fallback
+        pattern-matching approach instead. If a future coreferee version supports
+        spaCy 3.8+, this guard can be removed.
+        """
         try:
             import spacy
-            # Try to load model with coreferee
+            self.nlp = spacy.load('en_core_web_sm')
+            model_ver = self.nlp.meta.get('version', '0.0.0')
+            major_minor = tuple(int(x) for x in model_ver.split('.')[:2])
+
+            # coreferee 1.4.1 only supports spaCy models < 3.6
+            if major_minor >= (3, 6):
+                # Incompatible — use fallback pattern matching
+                self.coreferee_available = False
+                return False
+
+            # Try coreferee for older models
             try:
-                self.nlp = spacy.load('en_core_web_sm')
-                # Try to add coreferee component
                 if 'coreferee' not in self.nlp.pipe_names:
                     self.nlp.add_pipe('coreferee')
                 self.coreferee_available = True
                 return True
-            except (OSError, ValueError) as e:
-                # coreferee not available or model not found
+            except (OSError, ValueError, Exception):
+                self.coreferee_available = False
                 return False
-        except ImportError:
+        except (ImportError, OSError):
             return False
 
     def check(

@@ -236,8 +236,11 @@ py-readability-metrics>=1.4.0
 # If not installed, checkers gracefully disable with informative logging
 #
 # Coreference Resolution - Pronoun antecedent detection
-# Uses spaCy pipeline component for ambiguous reference detection
-coreferee>=1.4.0
+# NOTE: coreferee 1.4.1 (last release June 2023) requires spaCy <3.6.0
+# AEGIS uses spaCy 3.8+ — coreferee is INCOMPATIBLE. The coreference checker
+# falls back to pattern-matching mode automatically. If coreferee is ever
+# updated for spaCy 3.8+, uncomment the line below.
+# coreferee>=1.4.0
 
 # Advanced Prose Quality - Clichés, hedging, redundancy detection
 # Extensive pattern database for technical writing issues

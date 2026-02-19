@@ -547,6 +547,15 @@ class EnhancedNLPProcessor:
             return
 
         try:
+            # coreferee 1.4.1 requires spaCy <3.6.0 — AEGIS uses 3.8+
+            # Skip entirely for incompatible versions to avoid startup warnings
+            model_ver = self.nlp.meta.get('version', '0.0.0')
+            major_minor = tuple(int(x) for x in model_ver.split('.')[:2])
+            if major_minor >= (3, 6):
+                logger.debug("Coreferee incompatible with spaCy model >= 3.6 - coreference disabled")
+                self.has_coreference = False
+                return
+
             import coreferee
             # Add coreferee to the pipeline if not already present
             if 'coreferee' not in self.nlp.pipe_names:
