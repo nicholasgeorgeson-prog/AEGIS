@@ -942,7 +942,8 @@ window.HyperlinkValidator = (function() {
     function updateHighlightedExportButton(results) {
         if (!el.exportHighlighted) return;
 
-        const brokenStatuses = ['BROKEN', 'INVALID', 'TIMEOUT', 'DNSFAILED', 'SSLERROR', 'BLOCKED', 'AUTH_REQUIRED'];
+        // v5.9.29: AUTH_REQUIRED is NOT broken — link exists but needs credentials
+        const brokenStatuses = ['BROKEN', 'INVALID', 'TIMEOUT', 'DNSFAILED', 'SSLERROR', 'BLOCKED'];
         const brokenCount = results.filter(r =>
             brokenStatuses.includes(r.status?.toUpperCase())
         ).length;
@@ -987,8 +988,8 @@ window.HyperlinkValidator = (function() {
             return;
         }
 
-        // Count broken links being sent (includes AUTH_REQUIRED for highlighting)
-        const brokenStatuses = ['BROKEN', 'INVALID', 'TIMEOUT', 'DNSFAILED', 'SSLERROR', 'BLOCKED', 'AUTH_REQUIRED'];
+        // v5.9.29: Count broken links only (AUTH_REQUIRED excluded — not broken, just needs credentials)
+        const brokenStatuses = ['BROKEN', 'INVALID', 'TIMEOUT', 'DNSFAILED', 'SSLERROR', 'BLOCKED'];
         const brokenCount = results.filter(r => brokenStatuses.includes(r.status?.toUpperCase())).length;
         console.log(`[HyperlinkValidator] Sending ${results.length} results (${brokenCount} broken) for highlighting`);
 
@@ -1035,8 +1036,9 @@ window.HyperlinkValidator = (function() {
 
             // v5.9.28: Send only broken/issue results to reduce payload size
             // Full results can be huge (thousands of OK links) and cause 413 errors
+            // v5.9.29: AUTH_REQUIRED removed — not a broken link, just needs credentials
             const brokenStatuses2 = ['BROKEN', 'INVALID', 'TIMEOUT', 'DNSFAILED', 'SSLERROR',
-                'BLOCKED', 'AUTH_REQUIRED', 'SSL_WARNING', 'REDIRECT_LOOP', 'REDIRECT_ERROR'];
+                'BLOCKED', 'SSL_WARNING', 'REDIRECT_LOOP', 'REDIRECT_ERROR'];
             const issueResults = results.filter(r => {
                 const s = (r.status || '').toUpperCase();
                 return brokenStatuses2.includes(s) || (r.status_code && r.status_code >= 400);

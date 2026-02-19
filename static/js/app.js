@@ -11556,6 +11556,410 @@ STEPS TO REPRODUCE
             });
         }
 
+        // ====================================================================
+        // v5.9.29: SharePoint Online Scan Handlers
+        // ====================================================================
+        const btnSpTest = document.getElementById('btn-sp-test');
+        const btnSpDiscover = document.getElementById('btn-sp-discover');
+        const btnSpScan = document.getElementById('btn-sp-scan');
+        const spSiteUrl = document.getElementById('sp-site-url');
+        const spLibraryPath = document.getElementById('sp-library-path');
+        const spRecursive = document.getElementById('sp-recursive');
+        const spConnectionStatus = document.getElementById('sp-connection-status');
+        const spFilePreview = document.getElementById('sp-file-preview');
+
+        // Auto-parse library path from site URL when user pastes full URL
+        if (spSiteUrl) {
+            spSiteUrl.addEventListener('change', () => {
+                const url = spSiteUrl.value.trim();
+                if (!url) return;
+                // Simple heuristic: if URL contains Shared Documents or a deep path, extract library
+                const patterns = ['/Shared Documents', '/Shared%20Documents', '/Documents/'];
+                for (const p of patterns) {
+                    const idx = url.indexOf(p);
+                    if (idx > 0) {
+                        // Extract site URL (everything before the library path)
+                        const parsed = new URL(url);
+                        const pathParts = parsed.pathname.split(p);
+                        if (pathParts.length > 1) {
+                            const sitePath = pathParts[0];
+                            spSiteUrl.value = `${parsed.protocol}//${parsed.host}${sitePath}`;
+                            spLibraryPath.value = `${sitePath}${p}${pathParts[1] || ''}`.replace(/\/$/, '');
+                        }
+                        break;
+                    }
+                }
+            });
+        }
+
+        // Test Connection button
+        if (btnSpTest) {
+            btnSpTest.addEventListener('click', async () => {
+                const siteUrl = spSiteUrl?.value?.trim();
+                if (!siteUrl) {
+                    window.showToast?.('Please enter a SharePoint site URL', 'warning');
+                    return;
+                }
+                btnSpTest.disabled = true;
+                btnSpTest.innerHTML = '<i data-lucide="loader" class="spin"></i> Testing...';
+                try {
+                    const resp = await fetch('/api/review/sharepoint-test', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': window.CSRF_TOKEN || document.querySelector('meta[name="csrf-token"]')?.content || ''
+                        },
+                        body: JSON.stringify({ site_url: siteUrl })
+                    });
+                    const json = await resp.json();
+                    if (spConnectionStatus) {
+                        spConnectionStatus.classList.remove('hidden');
+                        if (json.success && json.data) {
+                            spConnectionStatus.style.background = 'rgba(34,197,94,0.1)';
+                            spConnectionStatus.style.border = '1px solid rgba(34,197,94,0.3)';
+                            spConnectionStatus.style.color = 'var(--success, #22c55e)';
+                            spConnectionStatus.innerHTML = `<strong>✓ Connected</strong> — ${escapeHtml(json.data.title || 'SharePoint site')} (${json.data.auth_method})`;
+                            // Auto-fill library path if parsed from URL
+                            if (json.data.parsed_library_path && !spLibraryPath?.value?.trim()) {
+                                spLibraryPath.value = json.data.parsed_library_path;
+                            }
+                            if (btnSpDiscover) btnSpDiscover.disabled = false;
+                            window.showToast?.(`Connected to "${json.data.title}"`, 'success');
+                        } else {
+                            spConnectionStatus.style.background = 'rgba(239,68,68,0.1)';
+                            spConnectionStatus.style.border = '1px solid rgba(239,68,68,0.3)';
+                            spConnectionStatus.style.color = 'var(--danger, #ef4444)';
+                            spConnectionStatus.innerHTML = `<strong>✗ Failed</strong> — ${escapeHtml(json.data?.message || json.error?.message || 'Connection failed')}`;
+                            window.showToast?.(json.data?.message || json.error?.message || 'Connection failed', 'error');
+                        }
+                    }
+                } catch (err) {
+                    console.error('[TWR SP] Test error:', err);
+                    window.showToast?.('SharePoint test failed: ' + err.message, 'error');
+                    if (spConnectionStatus) {
+                        spConnectionStatus.classList.remove('hidden');
+                        spConnectionStatus.style.background = 'rgba(239,68,68,0.1)';
+                        spConnectionStatus.style.border = '1px solid rgba(239,68,68,0.3)';
+                        spConnectionStatus.style.color = 'var(--danger, #ef4444)';
+                        spConnectionStatus.innerHTML = `<strong>✗ Error</strong> — ${escapeHtml(err.message)}`;
+                    }
+                } finally {
+                    btnSpTest.disabled = false;
+                    btnSpTest.innerHTML = '<i data-lucide="plug"></i> Test';
+                    lucide?.createIcons?.();
+                }
+            });
+        }
+
+        // Preview (Discover) button
+        if (btnSpDiscover) {
+            btnSpDiscover.addEventListener('click', async () => {
+                const siteUrl = spSiteUrl?.value?.trim();
+                const libPath = spLibraryPath?.value?.trim();
+                if (!siteUrl) {
+                    window.showToast?.('Please enter a SharePoint site URL', 'warning');
+                    return;
+                }
+                if (!libPath) {
+                    window.showToast?.('Please enter a document library path', 'warning');
+                    return;
+                }
+                btnSpDiscover.disabled = true;
+                btnSpDiscover.innerHTML = '<i data-lucide="loader" class="spin"></i> Scanning...';
+                try {
+                    const resp = await fetch('/api/review/sharepoint-scan-start', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': window.CSRF_TOKEN || document.querySelector('meta[name="csrf-token"]')?.content || ''
+                        },
+                        body: JSON.stringify({
+                            site_url: siteUrl,
+                            library_path: libPath,
+                            recursive: spRecursive?.checked ?? true,
+                            max_files: 500,
+                            // Discovery-only: we just want the file list, not a full scan
+                            // But the API starts the scan — we'll cancel polling after showing preview
+                        })
+                    });
+                    const json = await resp.json();
+                    if (json.success && json.data?.discovery) {
+                        const d = json.data.discovery;
+                        let html = `<div class="folder-scan-stats">`;
+                        html += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${d.supported_files || d.total_discovered}</div><div class="folder-scan-stat-label">Documents</div></div>`;
+                        html += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${d.total_size_human || '—'}</div><div class="folder-scan-stat-label">Total Size</div></div>`;
+                        const types = d.file_type_breakdown || {};
+                        Object.entries(types).forEach(([ext, count]) => {
+                            html += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${count}</div><div class="folder-scan-stat-label">${ext}</div></div>`;
+                        });
+                        html += `</div>`;
+                        if (d.files && d.files.length > 0) {
+                            html += `<div class="folder-scan-file-list">`;
+                            d.files.forEach(f => {
+                                html += `<div class="folder-scan-file-item">
+                                    <span class="folder-scan-file-path" title="${f.relative_path || f.server_relative_url}">${escapeHtml(f.filename || f.name)}</span>
+                                    <span class="folder-scan-file-size">${f.size_human || ''}</span>
+                                </div>`;
+                            });
+                            html += `</div>`;
+                        }
+                        if (spFilePreview) {
+                            spFilePreview.innerHTML = html;
+                            spFilePreview.classList.remove('hidden');
+                        }
+                        // Enable Scan All since we now have a running scan
+                        if (btnSpScan) btnSpScan.disabled = false;
+                        // Store scan_id for the scan handler
+                        if (btnSpScan) btnSpScan.dataset.scanId = json.data.scan_id || '';
+                        if (btnSpScan) btnSpScan.dataset.totalFiles = d.supported_files || d.total_discovered || 0;
+
+                        // If scan_id is set, the scan is ALREADY running from this call
+                        // Store discovery files for dashboard initialization
+                        if (btnSpScan) btnSpScan.dataset.discoveryFiles = JSON.stringify(d.files || []);
+
+                        window.showToast?.(`Found ${d.supported_files || d.total_discovered} documents`, 'success');
+
+                        if (json.data.scan_id) {
+                            window.showToast?.('Scan has started — click "Scan All" to see live progress', 'info');
+                        }
+                    } else if (json.data?.message) {
+                        window.showToast?.(json.data.message, 'info');
+                        if (spFilePreview) {
+                            spFilePreview.innerHTML = `<p style="color:var(--text-muted);font-size:12px;">${escapeHtml(json.data.message)}</p>`;
+                            spFilePreview.classList.remove('hidden');
+                        }
+                    } else {
+                        window.showToast?.(json.error?.message || 'Discovery failed', 'error');
+                    }
+                } catch (err) {
+                    console.error('[TWR SP] Discover error:', err);
+                    window.showToast?.('SharePoint discovery failed: ' + err.message, 'error');
+                } finally {
+                    btnSpDiscover.disabled = false;
+                    btnSpDiscover.innerHTML = '<i data-lucide="search"></i> Preview';
+                    lucide?.createIcons?.();
+                }
+            });
+        }
+
+        // Scan All button — starts polling the already-running scan
+        if (btnSpScan) {
+            btnSpScan.addEventListener('click', async () => {
+                const scanId = btnSpScan.dataset.scanId;
+                const totalFiles = parseInt(btnSpScan.dataset.totalFiles || '0', 10);
+
+                if (!scanId) {
+                    window.showToast?.('Please click Preview first to discover files', 'warning');
+                    return;
+                }
+
+                btnSpScan.disabled = true;
+                btnSpDiscover.disabled = true;
+                btnSpTest.disabled = true;
+                btnSpScan.innerHTML = '<i data-lucide="loader" class="spin"></i> Scanning...';
+                if (spFilePreview) spFilePreview.classList.add('hidden');
+
+                // Show progress dashboard
+                const dashEl = document.getElementById('sp-scan-dashboard');
+                const spDocsComplete = document.getElementById('sp-docs-complete');
+                const spDocsTotal = document.getElementById('sp-docs-total');
+                const spPercent = document.getElementById('sp-percent');
+                const spFill = document.getElementById('sp-progress-fill');
+                const spGlow = document.getElementById('sp-progress-glow');
+                const spElapsed = document.getElementById('sp-elapsed-time');
+                const spRemaining = document.getElementById('sp-remaining-time');
+                const spSpeedEl = document.getElementById('sp-speed');
+                const spQueueStatus = document.getElementById('sp-queue-status');
+                const spDocList = document.getElementById('sp-doc-list');
+                const spIssueCount = document.getElementById('sp-issues-found');
+
+                if (dashEl) {
+                    dashEl.classList.remove('hidden');
+                    dashEl.classList.add('scanning');
+                }
+                if (spDocsTotal) spDocsTotal.textContent = totalFiles;
+                if (spDocsComplete) spDocsComplete.textContent = '0';
+                if (spPercent) spPercent.textContent = '0%';
+                if (spIssueCount) spIssueCount.textContent = '0';
+
+                // Build initial doc rows from stored discovery
+                let discoveryFiles = [];
+                try {
+                    discoveryFiles = JSON.parse(btnSpScan.dataset.discoveryFiles || '[]');
+                } catch (e) { /* ignore */ }
+
+                const spFileIndexMap = {};
+                if (spDocList && discoveryFiles.length > 0) {
+                    spDocList.innerHTML = discoveryFiles.map((f, i) => {
+                        spFileIndexMap[f.filename || f.name] = i;
+                        return `
+                            <div class="bpd-doc-row queued" id="sp-doc-${i}">
+                                <div class="bpd-doc-icon"><div class="bpd-pending-dot"></div></div>
+                                <div class="bpd-doc-content">
+                                    <div class="bpd-doc-name">${escapeHtml(f.filename || f.name)}</div>
+                                    <div class="bpd-doc-detail" id="sp-doc-meta-${i}">Queued — ${escapeHtml(f.relative_path || f.server_relative_url || '')}</div>
+                                </div>
+                                <div class="bpd-doc-bar" id="sp-doc-progress-${i}">
+                                    <div class="bpd-doc-bar-fill" id="sp-doc-fill-${i}" style="width:0%"></div>
+                                </div>
+                                <div class="bpd-doc-duration" id="sp-doc-duration-${i}"></div>
+                            </div>`;
+                    }).join('');
+                }
+                if (window.lucide) window.lucide.createIcons();
+
+                // Polling — reuses exact same folder-scan-progress endpoint
+                let spLastDocCount = 0;
+                let spPollInterval = null;
+
+                const _formatSPTime = (seconds) => {
+                    if (!seconds || seconds < 0) return '--:--';
+                    const m = Math.floor(seconds / 60);
+                    const s = Math.floor(seconds % 60);
+                    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+                };
+
+                const _updateSPDocRow = (idx, status, detail) => {
+                    const row = document.getElementById(`sp-doc-${idx}`);
+                    const metaEl = document.getElementById(`sp-doc-meta-${idx}`);
+                    const fillEl = document.getElementById(`sp-doc-fill-${idx}`);
+                    if (row) {
+                        row.className = `bpd-doc-row ${status}`;
+                        const iconDiv = row.querySelector('.bpd-doc-icon');
+                        if (iconDiv) {
+                            if (status === 'processing') {
+                                iconDiv.innerHTML = '<div class="bpd-spinner"></div>';
+                                row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                            } else if (status === 'complete') {
+                                iconDiv.innerHTML = '<div class="bpd-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg></div>';
+                            } else if (status === 'error') {
+                                iconDiv.innerHTML = '<div class="bpd-error-icon"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></div>';
+                            }
+                        }
+                    }
+                    if (metaEl) metaEl.textContent = detail;
+                    if (fillEl) fillEl.style.width = (status === 'complete' || status === 'error') ? '100%' : '50%';
+                };
+
+                const pollSPProgress = async () => {
+                    try {
+                        const resp = await fetch(`/api/review/folder-scan-progress/${scanId}?since=${spLastDocCount}`);
+                        const json = await resp.json();
+                        if (!json.success) return;
+
+                        const data = json.data;
+                        const done = data.processed + data.errors;
+                        const pct = totalFiles > 0 ? Math.round((done / totalFiles) * 100) : 0;
+
+                        if (spDocsComplete) spDocsComplete.textContent = done;
+                        if (spPercent) spPercent.textContent = pct + '%';
+                        if (spFill) spFill.style.width = pct + '%';
+                        if (spGlow) spGlow.style.width = pct + '%';
+                        if (spElapsed) spElapsed.textContent = _formatSPTime(data.elapsed_seconds);
+                        if (spRemaining) spRemaining.textContent = _formatSPTime(data.estimated_remaining);
+                        if (spIssueCount) spIssueCount.textContent = data.summary?.total_issues || 0;
+
+                        if (spSpeedEl && data.elapsed_seconds > 0 && done > 0) {
+                            const docsPerMin = (done / data.elapsed_seconds * 60).toFixed(1);
+                            spSpeedEl.textContent = docsPerMin + '/min';
+                        }
+
+                        if (spQueueStatus) {
+                            if (data.phase === 'complete') {
+                                spQueueStatus.textContent = 'Complete';
+                            } else if (data.current_file) {
+                                spQueueStatus.textContent = `Chunk ${data.current_chunk}/${data.total_chunks} — ${data.current_file}`;
+                            } else {
+                                spQueueStatus.textContent = `Processing chunk ${data.current_chunk}/${data.total_chunks}...`;
+                            }
+                        }
+
+                        // Mark currently processing file
+                        if (data.current_file && data.phase === 'reviewing') {
+                            // current_file may contain multiple filenames separated by comma
+                            const names = data.current_file.split(', ');
+                            names.forEach(name => {
+                                const idx = spFileIndexMap[name.trim()];
+                                if (idx !== undefined) {
+                                    const row = document.getElementById(`sp-doc-${idx}`);
+                                    if (row && !row.classList.contains('complete') && !row.classList.contains('error')) {
+                                        _updateSPDocRow(idx, 'processing', `Downloading & analyzing...`);
+                                    }
+                                }
+                            });
+                        }
+
+                        // Update newly completed documents
+                        if (data.documents && data.documents.length > 0) {
+                            data.documents.forEach(doc => {
+                                const idx = spFileIndexMap[doc.filename];
+                                if (idx === undefined) return;
+                                if (doc.status === 'error') {
+                                    _updateSPDocRow(idx, 'error', `Error: ${doc.error || 'Unknown'}`);
+                                } else {
+                                    _updateSPDocRow(idx, 'complete',
+                                        `Grade ${doc.grade} — Score ${doc.score} — ${doc.issue_count} issues — ${(doc.word_count || 0).toLocaleString()} words`);
+                                }
+                            });
+                            spLastDocCount = data.total_documents_ready;
+                        }
+
+                        // Check if done
+                        if (data.phase === 'complete' || data.phase === 'error') {
+                            clearInterval(spPollInterval);
+                            spPollInterval = null;
+
+                            if (dashEl) {
+                                dashEl.classList.remove('scanning');
+                                dashEl.classList.add('bpd-complete');
+                            }
+
+                            // Build final summary
+                            const summary = data.summary || {};
+                            const grades = summary.grade_distribution || {};
+                            let summaryHtml = `<div class="folder-scan-stats" style="margin-top:12px;">`;
+                            summaryHtml += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${totalFiles}</div><div class="folder-scan-stat-label">Discovered</div></div>`;
+                            summaryHtml += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${summary.processed || 0}</div><div class="folder-scan-stat-label">Scanned</div></div>`;
+                            summaryHtml += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${summary.errors || 0}</div><div class="folder-scan-stat-label">Errors</div></div>`;
+                            summaryHtml += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${summary.total_issues || 0}</div><div class="folder-scan-stat-label">Issues</div></div>`;
+                            summaryHtml += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${_formatSPTime(data.elapsed_seconds)}</div><div class="folder-scan-stat-label">Time</div></div>`;
+                            summaryHtml += `</div>`;
+
+                            if (Object.keys(grades).length > 0) {
+                                summaryHtml += `<div style="margin-top:8px;"><strong style="font-size:12px;color:var(--text-muted);">Grade Distribution:</strong> `;
+                                Object.entries(grades).sort().forEach(([grade, count]) => {
+                                    summaryHtml += `<span style="margin-right:12px;font-size:13px;">${grade}: <strong>${count}</strong></span>`;
+                                });
+                                summaryHtml += `</div>`;
+                            }
+
+                            if (spFilePreview) {
+                                spFilePreview.innerHTML = summaryHtml;
+                                spFilePreview.classList.remove('hidden');
+                            }
+
+                            const msg = data.phase === 'error'
+                                ? `SharePoint scan failed: ${data.error_message || 'Unknown error'}`
+                                : `SharePoint scan complete: ${done} documents, ${summary.total_issues || 0} issues in ${_formatSPTime(data.elapsed_seconds)}`;
+                            window.showToast?.(msg, data.phase === 'error' ? 'error' : 'success');
+
+                            btnSpScan.disabled = false;
+                            btnSpDiscover.disabled = false;
+                            btnSpTest.disabled = false;
+                            btnSpScan.innerHTML = '<i data-lucide="scan-line"></i> Scan All';
+                            if (window.lucide) window.lucide.createIcons();
+                        }
+                    } catch (pollErr) {
+                        console.error('[TWR SP] Poll error:', pollErr);
+                    }
+                };
+
+                // Start polling every 2 seconds (slightly slower than folder scan — remote downloads are slower)
+                spPollInterval = setInterval(pollSPProgress, 2000);
+                pollSPProgress();
+            });
+        }
+
         // Start batch processing
         document.getElementById('btn-start-batch')?.addEventListener('click', startBatchProcessing);
         

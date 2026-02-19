@@ -848,6 +848,113 @@ if (document.documentElement.classList.contains('dark-mode')) {
                                 </div>
                             </div>
                         </div>
+                        <!-- v5.9.29: SharePoint Online Scan Section -->
+                        <div class="sharepoint-scan-section" id="sharepoint-scan-section">
+                            <div class="folder-scan-divider">
+                                <span>or scan a SharePoint library</span>
+                            </div>
+                            <div class="folder-scan-input-row" style="flex-wrap:wrap;gap:6px;">
+                                <input type="text" id="sp-site-url" class="folder-scan-input"
+                                       placeholder="SharePoint site URL (e.g. https://ngc.sharepoint.us/sites/MyTeam)"
+                                       aria-label="SharePoint site URL"
+                                       style="flex:1 1 100%;">
+                                <input type="text" id="sp-library-path" class="folder-scan-input"
+                                       placeholder="Library path (e.g. /sites/MyTeam/Shared Documents)"
+                                       aria-label="SharePoint document library path"
+                                       style="flex:1 1 60%;">
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-sp-test"
+                                        aria-label="Test connection to SharePoint">
+                                    <i data-lucide="plug" aria-hidden="true"></i> Test
+                                </button>
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-sp-discover"
+                                        aria-label="Preview files in SharePoint library">
+                                    <i data-lucide="search" aria-hidden="true"></i> Preview
+                                </button>
+                                <button type="button" class="btn btn-primary btn-sm" id="btn-sp-scan"
+                                        aria-label="Scan all documents in SharePoint library" disabled>
+                                    <i data-lucide="scan-line" aria-hidden="true"></i> Scan All
+                                </button>
+                            </div>
+                            <div style="margin-top:4px;">
+                                <label style="font-size:11px;color:var(--text-muted);cursor:pointer;">
+                                    <input type="checkbox" id="sp-recursive" checked style="margin-right:4px;">
+                                    Include subfolders
+                                </label>
+                            </div>
+                            <div id="sp-connection-status" class="hidden" style="margin-top:8px;padding:8px 12px;border-radius:6px;font-size:12px;"></div>
+                            <div class="folder-scan-preview hidden" id="sp-file-preview">
+                                <!-- SharePoint discovery results shown here -->
+                            </div>
+
+                            <!-- SharePoint Scan Progress Dashboard (reuses bpd-* classes + folder scan dashboard) -->
+                            <div class="bpd-dashboard hidden" id="sp-scan-dashboard">
+                                <div class="bpd-header">
+                                    <div class="bpd-header-icon">
+                                        <i data-lucide="cloud"></i>
+                                    </div>
+                                    <h2 class="bpd-title">SharePoint Scan</h2>
+                                    <div class="bpd-subtitle">Downloading and reviewing SharePoint documents</div>
+                                </div>
+
+                                <div class="bpd-stats">
+                                    <div class="bpd-stat">
+                                        <div class="bpd-stat-value" id="sp-docs-complete">0</div>
+                                        <div class="bpd-stat-label">Complete</div>
+                                    </div>
+                                    <div class="bpd-stat-divider"></div>
+                                    <div class="bpd-stat">
+                                        <div class="bpd-stat-value" id="sp-docs-total">0</div>
+                                        <div class="bpd-stat-label">Total</div>
+                                    </div>
+                                    <div class="bpd-stat-divider"></div>
+                                    <div class="bpd-stat">
+                                        <div class="bpd-stat-value" id="sp-percent">0%</div>
+                                        <div class="bpd-stat-label">Progress</div>
+                                    </div>
+                                    <div class="bpd-stat-divider"></div>
+                                    <div class="bpd-stat">
+                                        <div class="bpd-stat-value" id="sp-issues-found">0</div>
+                                        <div class="bpd-stat-label">Issues</div>
+                                    </div>
+                                </div>
+
+                                <div class="bpd-overall">
+                                    <div class="bpd-overall-bar">
+                                        <div class="bpd-overall-fill" id="sp-progress-fill"></div>
+                                        <div class="bpd-overall-glow" id="sp-progress-glow"></div>
+                                    </div>
+                                </div>
+
+                                <div class="bpd-metrics">
+                                    <div class="bpd-metric">
+                                        <i data-lucide="clock" class="bpd-metric-icon"></i>
+                                        <span class="bpd-metric-label">Elapsed</span>
+                                        <span class="bpd-metric-value" id="sp-elapsed-time">00:00</span>
+                                    </div>
+                                    <div class="bpd-metric">
+                                        <i data-lucide="timer" class="bpd-metric-icon"></i>
+                                        <span class="bpd-metric-label">Remaining</span>
+                                        <span class="bpd-metric-value bpd-estimated" id="sp-remaining-time">--:--</span>
+                                    </div>
+                                    <div class="bpd-metric">
+                                        <i data-lucide="activity" class="bpd-metric-icon"></i>
+                                        <span class="bpd-metric-label">Speed</span>
+                                        <span class="bpd-metric-value" id="sp-speed">--</span>
+                                    </div>
+                                </div>
+
+                                <div class="bpd-queue">
+                                    <div class="bpd-queue-header">
+                                        <span><i data-lucide="cloud" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px;"></i> Document Queue</span>
+                                        <span class="bpd-queue-status" id="sp-queue-status">Starting...</span>
+                                    </div>
+                                    <div class="bpd-queue-list" id="sp-doc-list">
+                                        <!-- Document rows inserted dynamically by polling -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="batch-file-list" id="batch-file-list">
                             <!-- Files will be listed here -->
                         </div>

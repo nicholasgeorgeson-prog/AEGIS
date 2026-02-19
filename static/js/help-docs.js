@@ -7402,6 +7402,31 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.9.29 <span class="changelog-date">February 19, 2026</span></h3>
+        <p><strong>Export Fix + Robust Internal Auth + SharePoint Batch Scan</strong></p>
+        <ul>
+            <li><strong>FIX: Export Highlighted</strong> — Button showed 1200+ broken links when only 80 were broken. AUTH_REQUIRED was incorrectly counted as "broken" in 4 locations.</li>
+            <li><strong>Robust Windows SSO Auth</strong> — 6-tier cascade for internal link validation: pre-validation auth probe, per-URL fresh session retry on 401/403, SharePoint login redirect detection, DNS-only corporate domain downgrade, and AUTH_REQUIRED included in retest phase.</li>
+            <li><strong>SharePoint Online Scan</strong> — New SharePoint tab in batch upload modal. Connects via REST API with Windows SSO, discovers documents in SharePoint libraries, downloads and reviews with full AEGIS engine. Real-time progress dashboard.</li>
+            <li><strong>Fresh Session Auth</strong> — NTLM/Negotiate auth is connection-specific; shared sessions across threads corrupt handshake state. New _retry_with_fresh_auth() creates clean sessions per auth retry.</li>
+            <li><strong>DNS-Only Downgrade</strong> — Replaced blanket corporate/document domain downgrades (v5.0.5-v5.9.1) with targeted DNS-only rule. HTTP errors are now genuine after auth retry.</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.21 — v5.9.28 <span class="changelog-date">February 19, 2026</span></h3>
+        <p><strong>Windows Deployment QA — 23 Fixes</strong></p>
+        <ul>
+            <li><strong>Settings presets</strong> — 9 checkers in additional_checkers bypassed UI toggles; moved all to option_mapping.</li>
+            <li><strong>Adjudication freeze</strong> — Missing return path when function_tags empty caused 500 error.</li>
+            <li><strong>HV Excel export 413</strong> — Now sends only broken/issue results (reduced payload ~50MB to ~500KB).</li>
+            <li><strong>Annotation alignment</strong> — Document viewer searches adjacent paragraphs when flagged text not found.</li>
+            <li><strong>Rebranding</strong> — Replaced all remaining TechWriter Review references with AEGIS.</li>
+            <li><strong>SSL certificate handling</strong> — 3-tier SSL context for Windows embedded Python (certifi → system → unverified).</li>
+            <li><strong>Update delivery</strong> — Direct apply script (apply_v5.9.28.py) + .bat wrapper for one-click updates.</li>
+            <li><strong>FileRouter fix</strong> — update_manager.py now properly detects and routes .aegis-roles files.</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.9.20 <span class="changelog-date">February 18, 2026</span></h3>
         <p><strong>Production Release — Email Diagnostics, Visual Polish, Demo System</strong></p>
         <ul>
