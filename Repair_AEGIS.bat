@@ -119,9 +119,6 @@ set "FAIL_COUNT=0"
 set "PASS_COUNT=0"
 set "FAILED_PACKAGES="
 
-:: Use a temp file marker approach for reliable errorlevel detection
-set "TEMPMARK=%TEMP%\aegis_repair_check.tmp"
-
 :: --- Core Framework ---
 echo  --- Core Framework ---
 call :check_import flask "flask" "Core Web Framework"
@@ -155,12 +152,9 @@ call :check_import spacy "spacy" "NLP Engine"
 :: --- spaCy Model ---
 echo.
 echo  --- spaCy Model ---
-del "%TEMPMARK%" 2>nul
-"%PYTHON_DIR%\python.exe" -c "import spacy; nlp=spacy.load('en_core_web_sm'); print('  [OK] en_core_web_sm (' + nlp.meta['version'] + ')'); open(r'%TEMPMARK%','w').write('ok')" 2>&1
-if exist "%TEMPMARK%" (
+"%PYTHON_DIR%\python.exe" -c "import spacy; nlp=spacy.load('en_core_web_sm'); print('  [OK] en_core_web_sm (' + nlp.meta['version'] + ')')" 2>&1 && (
     set /a PASS_COUNT+=1
-    del "%TEMPMARK%" 2>nul
-) else (
+) || (
     set /a FAIL_COUNT+=1
     set "FAILED_PACKAGES=!FAILED_PACKAGES! en_core_web_sm"
     echo  [FAIL] en_core_web_sm - spaCy English model
@@ -339,7 +333,7 @@ echo.
 set "FINAL_PASS=0"
 set "FINAL_FAIL=0"
 
-:: Verify each critical package using temp file marker
+:: Verify each critical package
 call :verify_final flask "Flask"
 call :verify_final docx "python-docx"
 call :verify_final mammoth "mammoth"
@@ -350,21 +344,18 @@ call :verify_final pandas "Pandas"
 call :verify_final numpy "NumPy"
 call :verify_final requests "requests"
 call :verify_final waitress "waitress"
+call :verify_final colorama "colorama"
+call :verify_final cymem "cymem"
+call :verify_final thinc "thinc"
 call :verify_final spacy "spaCy"
 call :verify_final sklearn "scikit-learn"
 call :verify_final nltk "NLTK"
 call :verify_final reportlab "reportlab"
-call :verify_final colorama "colorama"
-call :verify_final cymem "cymem"
-call :verify_final thinc "thinc"
 
 :: spaCy model
-del "%TEMPMARK%" 2>nul
-"%PYTHON_DIR%\python.exe" -c "import spacy; nlp=spacy.load('en_core_web_sm'); print('  [OK] spaCy en_core_web_sm model'); open(r'%TEMPMARK%','w').write('ok')" 2>&1
-if exist "%TEMPMARK%" (
+"%PYTHON_DIR%\python.exe" -c "import spacy; nlp=spacy.load('en_core_web_sm'); print('  [OK] spaCy en_core_web_sm model')" 2>&1 && (
     set /a FINAL_PASS+=1
-    del "%TEMPMARK%" 2>nul
-) else (
+) || (
     echo  [FAIL] spaCy en_core_web_sm model
     set /a FINAL_FAIL+=1
 )
@@ -414,13 +405,10 @@ exit /b 0
 
 :check_import
 :: %1 = Python module name, %2 = pip package name, %3 = description
-:: Uses temp file marker for reliable success/fail detection
-del "%TEMPMARK%" 2>nul
-"%PYTHON_DIR%\python.exe" -c "import %~1; print('  [OK] %~3'); open(r'%TEMPMARK%','w').write('ok')" 2>&1
-if exist "%TEMPMARK%" (
+:: Uses && / || for reliable success/fail detection (no temp files)
+"%PYTHON_DIR%\python.exe" -c "import %~1; print('  [OK] %~3')" 2>&1 && (
     set /a PASS_COUNT+=1
-    del "%TEMPMARK%" 2>nul
-) else (
+) || (
     echo  [FAIL] %~3 (%~2^)
     set /a FAIL_COUNT+=1
     set "FAILED_PACKAGES=!FAILED_PACKAGES! %~2"
@@ -429,24 +417,18 @@ goto :eof
 
 :check_import_opt
 :: %1 = Python module name, %2 = display name, %3 = description
-del "%TEMPMARK%" 2>nul
-"%PYTHON_DIR%\python.exe" -c "import %~1; print('  [OK] %~2 - %~3'); open(r'%TEMPMARK%','w').write('ok')" 2>nul
-if exist "%TEMPMARK%" (
+"%PYTHON_DIR%\python.exe" -c "import %~1; print('  [OK] %~2 - %~3')" 2>nul && (
     set /a PASS_COUNT+=1
-    del "%TEMPMARK%" 2>nul
-) else (
+) || (
     echo  [SKIP] %~2 - %~3 (optional, not critical^)
 )
 goto :eof
 
 :verify_final
 :: %1 = Python module name, %2 = display name
-del "%TEMPMARK%" 2>nul
-"%PYTHON_DIR%\python.exe" -c "import %~1; print('  [OK] %~2'); open(r'%TEMPMARK%','w').write('ok')" 2>&1
-if exist "%TEMPMARK%" (
+"%PYTHON_DIR%\python.exe" -c "import %~1; print('  [OK] %~2')" 2>&1 && (
     set /a FINAL_PASS+=1
-    del "%TEMPMARK%" 2>nul
-) else (
+) || (
     echo  [FAIL] %~2 - STILL BROKEN
     set /a FINAL_FAIL+=1
 )
@@ -454,12 +436,9 @@ goto :eof
 
 :verify_optional
 :: %1 = Python module name, %2 = display name
-del "%TEMPMARK%" 2>nul
-"%PYTHON_DIR%\python.exe" -c "import %~1; print('  [OK] %~2 (optional)'); open(r'%TEMPMARK%','w').write('ok')" 2>nul
-if exist "%TEMPMARK%" (
+"%PYTHON_DIR%\python.exe" -c "import %~1; print('  [OK] %~2 (optional)')" 2>nul && (
     set /a FINAL_PASS+=1
-    del "%TEMPMARK%" 2>nul
-) else (
+) || (
     echo  [SKIP] %~2 (optional^)
 )
 goto :eof
