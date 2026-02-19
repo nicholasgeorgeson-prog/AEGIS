@@ -349,6 +349,16 @@ for %%f in ("%WHEELS%\*.whl") do (
     "%PYTHON_DIR%\python.exe" -m pip install --no-index --no-deps --no-warn-script-location "%%f" 2>nul
 )
 
+:: Install packages that may not have wheels (online fallback)
+echo  Installing packages without bundled wheels (online)...
+"%PYTHON_DIR%\python.exe" -m pip install --no-warn-script-location symspellpy 2>nul
+if errorlevel 1 (
+    echo  [WARN] symspellpy install failed - spelling features will be limited
+) else (
+    echo  [OK] symspellpy installed
+)
+"%PYTHON_DIR%\python.exe" -m pip install --no-warn-script-location proselint textstat 2>nul
+
 :: Install Playwright browser (for headless .mil/.gov link validation)
 echo  Installing headless browser for link validation...
 "%PYTHON_DIR%\python.exe" -m playwright install chromium --with-deps 2>nul
