@@ -145,33 +145,46 @@ def find_install_dir():
     return script_dir
 
 
-def find_wheels_dir(install_dir):
-    """Find the wheels directory."""
-    for sub in ['wheels', 'packaging/wheels']:
+def find_wheels_dirs(install_dir):
+    """Find ALL wheels directories (there may be more than one)."""
+    dirs = []
+    for sub in ['wheels', 'packaging/wheels', 'packaging']:
         path = os.path.join(install_dir, sub)
         if os.path.isdir(path):
-            return path
-    return None
+            dirs.append(path)
+    return dirs
 
 
-def pip_install(packages, wheels_dir=None, force=False):
-    """Install packages via pip. Offline-first with online fallback."""
+def pip_install(packages, wheels_dirs=None, force=False):
+    """Install packages via pip. Offline-first with online fallback.
+
+    wheels_dirs can be a single path string or a list of paths.
+    All directories are passed as --find-links so pip searches all of them.
+    """
     if isinstance(packages, str):
         packages = [packages]
+    if isinstance(wheels_dirs, str):
+        wheels_dirs = [wheels_dirs]
 
     cmd = [sys.executable, '-m', 'pip', 'install', '--no-warn-script-location']
     if force:
         cmd.append('--force-reinstall')
 
-    # Try offline first
-    if wheels_dir:
-        offline_cmd = cmd + ['--no-index', '--find-links', wheels_dir] + packages
+    # Build --find-links flags for all wheel directories
+    find_links = []
+    if wheels_dirs:
+        for d in wheels_dirs:
+            find_links.extend(['--find-links', d])
+
+    # Try offline first (all wheel dirs)
+    if find_links:
+        offline_cmd = cmd + ['--no-index'] + find_links + packages
         result = subprocess.run(offline_cmd, capture_output=True, text=True)
         if result.returncode == 0:
             return True, 'offline'
 
         # Try hybrid (wheels + online)
-        hybrid_cmd = cmd + ['--find-links', wheels_dir] + packages
+        hybrid_cmd = cmd + find_links + packages
         result = subprocess.run(hybrid_cmd, capture_output=True, text=True)
         if result.returncode == 0:
             return True, 'hybrid'
@@ -212,7 +225,7 @@ def check_spacy_model():
 # PHASE 0: Pre-flight setuptools fix (runs BEFORE anything imports)
 # ============================================================
 
-def preflight_setuptools(wheels_dir):
+def preflight_setuptools(wheels_dirs):
     """Fix setuptools v82+ which removed pkg_resources.
 
     This runs as a subprocess so it takes effect for THIS process
@@ -221,6 +234,8 @@ def preflight_setuptools(wheels_dir):
     setuptools v82.0 (Feb 2026) completely removed pkg_resources.
     spaCy model loading requires pkg_resources. The fix is to
     force-downgrade to setuptools<81 which still has it.
+
+    wheels_dirs: list of paths to search for wheel files.
     """
     header('[Phase 0] Pre-flight: setuptools / pkg_resources')
     print()
@@ -253,13 +268,19 @@ def preflight_setuptools(wheels_dir):
         except ValueError:
             pass
 
+    # Build --find-links for all wheel directories
+    find_links = []
+    if wheels_dirs:
+        for d in wheels_dirs:
+            find_links.extend(['--find-links', d])
+
     # Method 1: Force-reinstall setuptools<81 from wheels
-    if wheels_dir:
-        info(f'Trying offline install from: {wheels_dir}')
+    if find_links:
+        info(f'Trying offline install from {len(wheels_dirs)} wheel dir(s)...')
         result = subprocess.run(
             [sys.executable, '-m', 'pip', 'install', '--force-reinstall',
-             '--no-index', '--find-links', wheels_dir,
-             '--no-warn-script-location', 'setuptools<81'],
+             '--no-index'] + find_links +
+            ['--no-warn-script-location', 'setuptools<81'],
             capture_output=True, text=True
         )
         if result.returncode == 0:
@@ -275,22 +296,23 @@ def preflight_setuptools(wheels_dir):
                 warn('pip said success but pkg_resources still fails')
 
         # Method 2: Try installing the wheel file directly
-        for whl in sorted(glob.glob(os.path.join(wheels_dir, 'setuptools-[0-7]*.whl')),
-                         reverse=True):
-            info(f'Trying direct wheel: {os.path.basename(whl)}')
-            result = subprocess.run(
-                [sys.executable, '-m', 'pip', 'install', '--force-reinstall',
-                 '--no-warn-script-location', whl],
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                verify = subprocess.run(
-                    [sys.executable, '-c', 'import pkg_resources; print("OK")'],
+        for wd in (wheels_dirs or []):
+            for whl in sorted(glob.glob(os.path.join(wd, 'setuptools-[0-7]*.whl')),
+                             reverse=True):
+                info(f'Trying direct wheel: {os.path.basename(whl)}')
+                result = subprocess.run(
+                    [sys.executable, '-m', 'pip', 'install', '--force-reinstall',
+                     '--no-warn-script-location', whl],
                     capture_output=True, text=True
                 )
-                if verify.returncode == 0:
-                    ok('setuptools installed from wheel - pkg_resources available')
-                    return
+                if result.returncode == 0:
+                    verify = subprocess.run(
+                        [sys.executable, '-c', 'import pkg_resources; print("OK")'],
+                        capture_output=True, text=True
+                    )
+                    if verify.returncode == 0:
+                        ok('setuptools installed from wheel - pkg_resources available')
+                        return
 
     # Method 3: Online fallback
     info('Trying online install: setuptools<81...')
@@ -329,12 +351,12 @@ def main():
     print(f'  {"=" * 56}')
 
     install_dir = find_install_dir()
-    wheels_dir = find_wheels_dir(install_dir)
+    wheels_dirs = find_wheels_dirs(install_dir)
 
     # ============================================================
     # PHASE 0: Pre-flight setuptools fix (BEFORE any imports)
     # ============================================================
-    preflight_setuptools(wheels_dir)
+    preflight_setuptools(wheels_dirs)
 
     # ============================================================
     # PHASE 1: Environment
@@ -352,8 +374,9 @@ def main():
         fail('site-packages NOT on sys.path!')
         warn('Check python310._pth file has "import site" uncommented.')
 
-    if wheels_dir:
-        ok(f'Wheels directory: {wheels_dir}')
+    if wheels_dirs:
+        for wd in wheels_dirs:
+            ok(f'Wheels directory: {wd}')
     else:
         warn('No wheels directory found. Will try online install only.')
 
@@ -436,7 +459,7 @@ def main():
     # Step 3a: Fix setuptools if still broken after pre-flight
     if 'setuptools' in failed_names:
         info('setuptools v82+ removed pkg_resources — downgrading to v80...')
-        success, method = pip_install(['setuptools<81'], wheels_dir, force=True)
+        success, method = pip_install(['setuptools<81'], wheels_dirs, force=True)
         if success:
             ok(f'setuptools downgraded ({method})')
             repaired += 1
@@ -452,7 +475,7 @@ def main():
         other_priority.append('typer')
     if other_priority:
         info(f'Installing: {", ".join(other_priority)}...')
-        success, method = pip_install(other_priority, wheels_dir)
+        success, method = pip_install(other_priority, wheels_dirs)
         if success:
             ok(f'Installed ({method})')
             repaired += len(other_priority)
@@ -466,7 +489,7 @@ def main():
                           'blis', 'srsly', 'thinc']]
     if spacy_deps_failed:
         info('Reinstalling spaCy + ALL C dependencies together...')
-        success, method = pip_install(SPACY_CHAIN, wheels_dir, force=True)
+        success, method = pip_install(SPACY_CHAIN, wheels_dirs, force=True)
         if success:
             ok(f'spaCy chain installed ({method})')
             repaired += 1
@@ -483,7 +506,7 @@ def main():
         if pip_name.lower() in skip_names:
             continue
         info(f'Reinstalling {pip_name}...')
-        success, method = pip_install(pip_name, wheels_dir, force=True)
+        success, method = pip_install(pip_name, wheels_dirs, force=True)
         if success:
             ok(f'{pip_name} installed ({method})')
             repaired += 1
@@ -495,15 +518,18 @@ def main():
     if 'en_core_web_sm' in failed_names:
         info('Reinstalling spaCy English model...')
         sm_installed = False
-        if wheels_dir:
-            sm_wheels = glob.glob(os.path.join(wheels_dir, 'en_core_web_sm*.whl'))
-            for whl in sm_wheels:
-                info(f'Installing from wheel: {os.path.basename(whl)}')
-                success, method = pip_install(whl, wheels_dir, force=True)
-                if success:
-                    ok('en_core_web_sm installed from wheel')
-                    sm_installed = True
-                    repaired += 1
+        if wheels_dirs:
+            for wd in wheels_dirs:
+                sm_wheels = glob.glob(os.path.join(wd, 'en_core_web_sm*.whl'))
+                for whl in sm_wheels:
+                    info(f'Installing from wheel: {os.path.basename(whl)}')
+                    success, method = pip_install(whl, wheels_dirs, force=True)
+                    if success:
+                        ok('en_core_web_sm installed from wheel')
+                        sm_installed = True
+                        repaired += 1
+                        break
+                if sm_installed:
                     break
 
         if not sm_installed:
@@ -526,7 +552,7 @@ def main():
         print('  --- Optional Packages ---')
         for pip_name, _ in optional_failed:
             info(f'Installing {pip_name}...')
-            success, method = pip_install(pip_name, wheels_dir, force=True)
+            success, method = pip_install(pip_name, wheels_dirs, force=True)
             if success:
                 ok(f'{pip_name} installed ({method})')
                 repaired += 1
