@@ -1,13 +1,22 @@
 {
-  "version": "5.9.23",
+  "version": "5.9.24",
   "release_date": "2026-02-19",
-  "core_version": "5.9.23",
+  "core_version": "5.9.24",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.24",
+      "date": "2026-02-19",
+      "changes": [
+        "FIX: Overview 'Export All Roles (CSV)' and 'Export All Roles (JSON)' now correctly extract roles from /api/roles/aggregated response — data is a direct array, not {roles: [...]}",
+        "FIX: Overview 'Export Current Document (CSV)' now works — Cache.overview was never populated, added assignment in renderOverview() after filter application",
+        "ENHANCE: 'Export Current Document (CSV)' now includes Documents, Mentions, Responsibilities, Category, Source columns (was only Name, Mentions, Statements) and reflects document filter in filename"
+      ]
+    },
     {
       "version": "5.9.23",
       "date": "2026-02-19",

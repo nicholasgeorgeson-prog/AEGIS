@@ -99,7 +99,8 @@
         aggregated: null,
         matrix: null,
         scanHistory: null,
-        dictionary: null  // v3.0.56: fallback to dictionary when no scan data
+        dictionary: null,  // v3.0.56: fallback to dictionary when no scan data
+        overview: null     // v5.9.24: filtered roles for "Export Current Document" feature
     };
 
     // v3.0.118: Current document filter selection
@@ -468,6 +469,9 @@
         const filteredRoles = filterRolesByDocument(roles, currentDocumentFilter);
         const filteredHistory = filterHistoryByDocument(history, currentDocumentFilter);
         console.log('[TWR RolesTabs] Filter applied:', currentDocumentFilter, '- roles:', filteredRoles.length, '/', roles.length);
+
+        // v5.9.24: Store filtered roles in cache for "Export Current Document" feature
+        Cache.overview = filteredRoles;
 
         // Update stat cards (use filtered data)
         const totalRoles = filteredRoles.length;
@@ -4639,6 +4643,7 @@
         Cache.dictionary = null;
         Cache.matrix = null;
         Cache.scanHistory = null;
+        Cache.overview = null;
         modal._rolesTabsLoaded = true;
 
         // v4.7.0-fix: Await switchToTab to ensure overview renders fully on first open
@@ -4678,7 +4683,7 @@
                 showToast('info', 'Exporting all roles...');
                 const resp = await fetch('/api/roles/aggregated');
                 const json = await resp.json();
-                const roles = json?.data?.roles || json?.roles || [];
+                const roles = Array.isArray(json?.data) ? json.data : (json?.data?.roles || json?.roles || []);
                 if (!roles.length) { showToast('warning', 'No roles to export'); return; }
                 const csv = ['Role Name,Documents,Mentions,Category,Source,Adjudicated,Deliverable']
                     .concat(roles.map(r => `"${(r.role_name||'').replace(/"/g,'""')}",${r.document_count||0},${r.total_mentions||0},"${r.category||''}","${r.source||''}",${r.is_active?'Yes':'No'},${r.is_deliverable?'Yes':'No'}`))
@@ -4690,11 +4695,12 @@
         document.getElementById('btn-export-current-csv')?.addEventListener('click', function() {
             dropdownMenu.classList.remove('show');
             const roles = Cache.overview || [];
-            if (!roles.length) { showToast('warning', 'No roles loaded for current document'); return; }
-            const csv = ['Role Name,Mentions,Statements'].concat(
-                roles.map(r => `"${(r.role_name||'').replace(/"/g,'""')}",${r.total_mentions||0},${r.statement_count||0}`)
+            if (!roles.length) { showToast('warning', 'No roles loaded — open Overview tab first'); return; }
+            const filterLabel = currentDocumentFilter !== 'all' ? currentDocumentFilter : 'All_Documents';
+            const csv = ['Role Name,Documents,Mentions,Responsibilities,Category,Source'].concat(
+                roles.map(r => `"${(r.role_name||'').replace(/"/g,'""')}",${r.document_count||r.unique_document_count||0},${r.total_mentions||0},${r.responsibility_count||0},"${r.category||''}","${r.source||''}"`)
             ).join('\n');
-            downloadCSV(csv, `AEGIS_Roles_${new Date().toISOString().slice(0,10)}.csv`);
+            downloadCSV(csv, `AEGIS_Roles_${filterLabel.replace(/[^a-zA-Z0-9_-]/g,'_')}_${new Date().toISOString().slice(0,10)}.csv`);
             showToast('success', `Exported ${roles.length} roles as CSV`);
         });
         document.getElementById('btn-export-all-json')?.addEventListener('click', async function() {
@@ -4703,7 +4709,7 @@
                 showToast('info', 'Exporting all roles as JSON...');
                 const resp = await fetch('/api/roles/aggregated');
                 const json = await resp.json();
-                const roles = json?.data?.roles || json?.roles || [];
+                const roles = Array.isArray(json?.data) ? json.data : (json?.data?.roles || json?.roles || []);
                 const blob = new Blob([JSON.stringify(roles, null, 2)], { type: 'application/json' });
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
