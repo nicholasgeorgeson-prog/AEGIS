@@ -1371,7 +1371,7 @@ window.DocCompare = (function() {
     }
 
     /**
-     * Export the comparison as CSV or HTML report.
+     * Export the comparison — shows format picker (CSV or HTML).
      */
     function exportComparison() {
         const diff = DocCompareState.getDiff();
@@ -1380,18 +1380,86 @@ window.DocCompare = (function() {
             return;
         }
 
+        // Show format picker dropdown near button
+        const exportBtn = document.getElementById('dc-btn-export');
+        let picker = document.getElementById('dc-export-picker');
+
+        if (picker) {
+            // Toggle visibility
+            picker.style.display = picker.style.display === 'none' ? 'flex' : 'none';
+            return;
+        }
+
+        // Create format picker
+        picker = document.createElement('div');
+        picker.id = 'dc-export-picker';
+        picker.style.cssText = 'position:absolute;right:8px;top:100%;display:flex;flex-direction:column;gap:4px;padding:8px;background:var(--bg-surface,#1e1e2e);border:1px solid var(--border-color,#333);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.3);z-index:10000;min-width:160px;';
+        picker.innerHTML = `
+            <button class="dc-export-opt" data-format="csv" style="padding:8px 12px;border:none;border-radius:6px;background:transparent;color:var(--text-primary,#fff);cursor:pointer;text-align:left;font-size:13px;display:flex;align-items:center;gap:8px;transition:background 0.15s;">
+                <i data-lucide="file-spreadsheet" style="width:16px;height:16px;"></i> Export CSV
+            </button>
+            <button class="dc-export-opt" data-format="html" style="padding:8px 12px;border:none;border-radius:6px;background:transparent;color:var(--text-primary,#fff);cursor:pointer;text-align:left;font-size:13px;display:flex;align-items:center;gap:8px;transition:background 0.15s;">
+                <i data-lucide="file-code" style="width:16px;height:16px;"></i> Export HTML Report
+            </button>
+        `;
+
+        // Position relative to export button
+        if (exportBtn && exportBtn.parentElement) {
+            exportBtn.parentElement.style.position = 'relative';
+            exportBtn.parentElement.appendChild(picker);
+        } else {
+            document.body.appendChild(picker);
+        }
+
+        // Hover styles
+        picker.querySelectorAll('.dc-export-opt').forEach(btn => {
+            btn.addEventListener('mouseenter', () => btn.style.background = 'var(--bg-hover,rgba(255,255,255,0.1))');
+            btn.addEventListener('mouseleave', () => btn.style.background = 'transparent');
+        });
+
+        // Click handlers
+        picker.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-format]');
+            if (!btn) return;
+            const format = btn.dataset.format;
+            picker.style.display = 'none';
+            if (format === 'csv') exportComparisonCSV();
+            else if (format === 'html') exportComparisonHTML();
+        });
+
+        // Close on outside click
+        setTimeout(() => {
+            document.addEventListener('click', function _closePicker(e) {
+                if (!picker.contains(e.target) && e.target !== exportBtn) {
+                    picker.style.display = 'none';
+                    document.removeEventListener('click', _closePicker);
+                }
+            });
+        }, 100);
+
+        if (typeof lucide !== 'undefined') {
+            try { lucide.createIcons({ attrs: { class: '' } }); } catch(_) {}
+        }
+    }
+
+    /**
+     * Export comparison as CSV file.
+     */
+    function exportComparisonCSV() {
+        const diff = DocCompareState.getDiff();
+        if (!diff || !diff.rows) return;
+
         const stats = diff.stats || {};
         const docInfo = DocCompareState.getDocument();
         const filename = docInfo?.filename || 'document';
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 
-        // Build CSV content
         const csvRows = [
             ['Row', 'Status', 'Section', 'Old Text', 'New Text'].join(',')
         ];
 
         diff.rows.forEach((row, i) => {
-            if (row.status === 'unchanged') return; // Skip unchanged for export
+            if (row.status === 'unchanged') return;
             const escapeCsv = (s) => {
                 if (!s) return '""';
                 return '"' + s.replace(/"/g, '""') + '"';
@@ -1405,7 +1473,6 @@ window.DocCompare = (function() {
             ].join(','));
         });
 
-        // Add summary header
         const header = [
             `# Document Comparison Export`,
             `# File: ${filename}`,
@@ -1416,12 +1483,242 @@ window.DocCompare = (function() {
             ``
         ].join('\n');
 
-        const csvContent = header + csvRows.join('\n');
-
-        // Download as CSV
-        downloadCSV(csvContent, `comparison_${filename}_${timestamp}.csv`);
-
+        downloadCSV(header + csvRows.join('\n'), `comparison_${filename}_${timestamp}.csv`);
         showToast(`Exported ${csvRows.length - 1} changes to CSV`, 'success');
+    }
+
+    /**
+     * v5.9.26: Export comparison as standalone HTML report.
+     */
+    function exportComparisonHTML() {
+        const diff = DocCompareState.getDiff();
+        if (!diff || !diff.rows) return;
+
+        const stats = diff.stats || {};
+        const docInfo = DocCompareState.getDocument();
+        const filename = docInfo?.filename || 'document';
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const exportDate = new Date().toLocaleString();
+
+        const escHtml = (s) => {
+            if (!s) return '';
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        };
+
+        // Count changes
+        let addedCount = 0, deletedCount = 0, modifiedCount = 0, unchangedCount = 0;
+        diff.rows.forEach(r => {
+            if (r.status === 'added') addedCount++;
+            else if (r.status === 'deleted') deletedCount++;
+            else if (r.status === 'modified') modifiedCount++;
+            else unchangedCount++;
+        });
+
+        // Build table rows
+        const tableRows = diff.rows.map((row, i) => {
+            const statusClass = row.status || 'unchanged';
+            const statusLabel = (row.status || 'unchanged').charAt(0).toUpperCase() + (row.status || 'unchanged').slice(1);
+            const oldText = escHtml(row.old_line || '');
+            const newText = escHtml(row.new_line || '');
+
+            return `<tr class="row-${statusClass}">
+                <td class="col-num">${i + 1}</td>
+                <td class="col-status"><span class="badge badge-${statusClass}">${statusLabel}</span></td>
+                <td class="col-old">${oldText}</td>
+                <td class="col-new">${newText}</td>
+            </tr>`;
+        }).join('\n');
+
+        const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AEGIS Document Comparison — ${escHtml(filename)}</title>
+<style>
+:root {
+    --aegis-gold: #D6A84A;
+    --aegis-bronze: #B8743A;
+    --bg: #0d1117;
+    --bg-card: #161b22;
+    --bg-surface: #1e2530;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --border: #30363d;
+    --added-bg: rgba(46,160,67,0.15);
+    --added-text: #3fb950;
+    --added-border: rgba(46,160,67,0.4);
+    --deleted-bg: rgba(248,81,73,0.15);
+    --deleted-text: #f85149;
+    --deleted-border: rgba(248,81,73,0.4);
+    --modified-bg: rgba(210,153,34,0.15);
+    --modified-text: #d29922;
+    --modified-border: rgba(210,153,34,0.4);
+    --unchanged-bg: transparent;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+.container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+.header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid var(--aegis-gold); }
+.header h1 { font-size: 24px; font-weight: 600; }
+.header .aegis-badge { background: linear-gradient(135deg, var(--aegis-gold), var(--aegis-bronze)); color: #000; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; letter-spacing: 1px; }
+.meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.meta-item { background: var(--bg-card); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border); }
+.meta-label { font-size: 11px; text-transform: uppercase; color: var(--text-dim); letter-spacing: 0.5px; }
+.meta-value { font-size: 14px; font-weight: 500; margin-top: 4px; }
+.stats { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+.stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 20px; text-align: center; min-width: 100px; }
+.stat-card.added { border-color: var(--added-border); }
+.stat-card.deleted { border-color: var(--deleted-border); }
+.stat-card.modified { border-color: var(--modified-border); }
+.stat-num { font-size: 28px; font-weight: 700; }
+.stat-card.added .stat-num { color: var(--added-text); }
+.stat-card.deleted .stat-num { color: var(--deleted-text); }
+.stat-card.modified .stat-num { color: var(--modified-text); }
+.stat-label { font-size: 11px; text-transform: uppercase; color: var(--text-dim); letter-spacing: 0.5px; }
+.filter-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.filter-btn { padding: 6px 14px; border: 1px solid var(--border); border-radius: 20px; background: transparent; color: var(--text-dim); cursor: pointer; font-size: 12px; transition: all 0.2s; }
+.filter-btn:hover, .filter-btn.active { color: var(--text); border-color: var(--aegis-gold); background: rgba(214,168,74,0.1); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th { background: var(--bg-surface); padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase; color: var(--text-dim); letter-spacing: 0.5px; border-bottom: 2px solid var(--border); position: sticky; top: 0; z-index: 1; }
+td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; word-break: break-word; }
+.col-num { width: 50px; text-align: center; color: var(--text-dim); }
+.col-status { width: 90px; }
+.col-old, .col-new { width: 42%; }
+.badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.badge-added { background: var(--added-bg); color: var(--added-text); border: 1px solid var(--added-border); }
+.badge-deleted { background: var(--deleted-bg); color: var(--deleted-text); border: 1px solid var(--deleted-border); }
+.badge-modified { background: var(--modified-bg); color: var(--modified-text); border: 1px solid var(--modified-border); }
+.badge-unchanged { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+.row-added { background: var(--added-bg); }
+.row-deleted { background: var(--deleted-bg); }
+.row-deleted .col-old { text-decoration: line-through; opacity: 0.8; }
+.row-modified { background: var(--modified-bg); }
+.row-unchanged { opacity: 0.6; }
+.footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-dim); }
+
+@media print {
+    body { background: #fff; color: #000; }
+    .container { max-width: 100%; padding: 12px; }
+    .header { border-bottom-color: #000; }
+    .header .aegis-badge { background: #D6A84A; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .meta-item, .stat-card { border-color: #ccc; background: #f9f9f9; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .stat-card.added .stat-num { color: #1a7f37; }
+    .stat-card.deleted .stat-num { color: #cf222e; }
+    .stat-card.modified .stat-num { color: #9a6700; }
+    thead th { background: #f0f0f0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .row-added { background: #dafbe1; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .row-deleted { background: #ffebe9; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .row-modified { background: #fff8c5; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .badge-added { background: #dafbe1; color: #1a7f37; border-color: #1a7f37; }
+    .badge-deleted { background: #ffebe9; color: #cf222e; border-color: #cf222e; }
+    .badge-modified { background: #fff8c5; color: #9a6700; border-color: #9a6700; }
+    .filter-bar, .filter-btn { display: none; }
+}
+</style>
+<script>
+function filterRows(status) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.status === status || status === 'all'));
+    document.querySelectorAll('tbody tr').forEach(tr => {
+        if (status === 'all') { tr.style.display = ''; return; }
+        const isMatch = tr.classList.contains('row-' + status);
+        tr.style.display = isMatch ? '' : 'none';
+    });
+}
+</script>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <span class="aegis-badge">AEGIS</span>
+        <h1>Document Comparison Report</h1>
+    </div>
+
+    <div class="meta">
+        <div class="meta-item">
+            <div class="meta-label">Document</div>
+            <div class="meta-value">${escHtml(filename)}</div>
+        </div>
+        <div class="meta-item">
+            <div class="meta-label">Previous Scan</div>
+            <div class="meta-value">${escHtml(diff.old_scan_time || 'N/A')}</div>
+        </div>
+        <div class="meta-item">
+            <div class="meta-label">Current Scan</div>
+            <div class="meta-value">${escHtml(diff.new_scan_time || 'N/A')}</div>
+        </div>
+        <div class="meta-item">
+            <div class="meta-label">Exported</div>
+            <div class="meta-value">${exportDate}</div>
+        </div>
+    </div>
+
+    <div class="stats">
+        <div class="stat-card added">
+            <div class="stat-num">${addedCount}</div>
+            <div class="stat-label">Added</div>
+        </div>
+        <div class="stat-card deleted">
+            <div class="stat-num">${deletedCount}</div>
+            <div class="stat-label">Deleted</div>
+        </div>
+        <div class="stat-card modified">
+            <div class="stat-num">${modifiedCount}</div>
+            <div class="stat-label">Modified</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-num">${unchangedCount}</div>
+            <div class="stat-label">Unchanged</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-num">${diff.rows.length}</div>
+            <div class="stat-label">Total Rows</div>
+        </div>
+    </div>
+
+    <div class="filter-bar">
+        <button class="filter-btn active" data-status="all" onclick="filterRows('all')">All</button>
+        <button class="filter-btn" data-status="added" onclick="filterRows('added')">Added (${addedCount})</button>
+        <button class="filter-btn" data-status="deleted" onclick="filterRows('deleted')">Deleted (${deletedCount})</button>
+        <button class="filter-btn" data-status="modified" onclick="filterRows('modified')">Modified (${modifiedCount})</button>
+        <button class="filter-btn" data-status="unchanged" onclick="filterRows('unchanged')">Unchanged (${unchangedCount})</button>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th class="col-num">#</th>
+                <th class="col-status">Status</th>
+                <th class="col-old">Previous Version</th>
+                <th class="col-new">Current Version</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${tableRows}
+        </tbody>
+    </table>
+
+    <div class="footer">
+        <span>Generated by AEGIS v${escHtml(window.AEGIS_VERSION || '5.9')}</span>
+        <span>${escHtml(filename)} — ${exportDate}</span>
+    </div>
+</div>
+</body>
+</html>`;
+
+        // Download HTML file
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `comparison_${filename.replace(/[^a-zA-Z0-9_.-]/g, '_')}_${timestamp}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        const changeCount = addedCount + deletedCount + modifiedCount;
+        showToast(`Exported ${changeCount} changes to HTML report`, 'success');
     }
 
     // =========================================================================

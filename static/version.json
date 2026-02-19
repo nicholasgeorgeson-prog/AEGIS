@@ -12,6 +12,8 @@
       "version": "5.9.26",
       "date": "2026-02-19",
       "changes": [
+        "FEATURE: SOW Generator API endpoints — added GET /api/sow/data and POST /api/sow/generate backend routes, SOW Generator is now fully functional",
+        "FEATURE: Document Compare HTML export — standalone HTML report with AEGIS branding, color-coded diff rows, interactive filter buttons, print-optimized styling",
         "FIX: Added symspellpy, editdistpy, and en_core_web_sm wheels to wheels/ directory for complete offline installation",
         "FIX: Windows MIME type error — added explicit MIME type registration for .css, .js, .json, .svg to prevent 'refused to apply style' browser errors",
         "FIX: POST /api/diagnostics/frontend 404 — added endpoint for frontend-logger.js diagnostic log sync (was firing every 60s with no backend route)",

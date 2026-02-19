@@ -16,6 +16,7 @@ from routes.roles_routes import roles_bp
 from routes.scan_history_routes import scan_bp
 from routes.jobs_routes import jobs_bp
 from routes.data_routes import data_bp
+from routes.sow_routes import sow_bp
 
 
 def register_all_blueprints(app):
@@ -31,3 +32,4 @@ def register_all_blueprints(app):
     app.register_blueprint(scan_bp)
     app.register_blueprint(jobs_bp)
     app.register_blueprint(data_bp)
+    app.register_blueprint(sow_bp)
