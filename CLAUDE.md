@@ -525,7 +525,50 @@ preAction: async () => {
 **Fix**: Added `this.refs.beacon.style.display = 'none'` in all 3 demo start locations (`startDemo()`, `startFullDemo()`, `startSubDemo()`) right after `this.demo.isPlaying = true`. Added `this.refs.beacon.style.display = ''` in `stopDemo()` to restore it when demo ends.
 **Lesson**: Any persistent floating UI element (beacons, FABs, chat widgets) must be hidden when a full-screen overlay or bottom-bar UI is active. Check all fixed-position elements' z-indices when adding new fixed-position features. The beacon's z-index (150000) was intentionally highest for normal use, but that same priority made it block demo controls.
 
-### 56. Windows-Only Transitive Dependencies Not in Wheels (colorama)
+### 56. `--no-deps` Flag Prevents Dependency Resolution for spaCy
+**Problem**: spaCy showed as installed (`pip list` confirmed `spacy 3.8.11`) but `import spacy` failed at runtime.
+**Root Cause**: The OneClick installer (line 317) originally installed spaCy with `--no-deps --no-index`:
+```bat
+"%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-deps --no-warn-script-location spacy ...
+```
+The `--no-deps` flag means pip installs the spaCy wheel itself but does NOT install its 15+ dependencies (thinc, cymem, preshed, blis, murmurhash, srsly, wasabi, weasel, catalogue, confection, etc.). The wheel file gets placed in site-packages, but `import spacy` fails because it can't import thinc, which can't import cymem, etc.
+**Fix**: Removed `--no-deps` from lines 316-317. Changed to `--no-index --find-links="%WHEELS%"` only, which lets pip resolve dependencies from the local wheels directory.
+**Lesson**: NEVER use `--no-deps` when installing packages that have compiled C extension dependencies (spaCy, numpy, scipy, torch, etc.). The `--no-deps` flag is only safe for the stragglers loop where packages are already installed and you just want to ensure the wheel itself is present. For primary installs, use `--no-index --find-links` without `--no-deps` so pip can resolve the dependency tree from available wheels.
+
+### 57. `replace_all` on Version Strings Can Accidentally Change URLs
+**Problem**: When updating installer branding from v5.9.25 to v5.9.26, `replace_all` changed ALL occurrences including the GitHub release download URLs where binary assets are hosted (on the v5.9.21 release).
+**Root Cause**: The installer had `v5.9.25` in two contexts: (1) branding/display strings, and (2) release download URLs pointing to where binary assets live. A blanket `replace_all` of `v5.9.25` → `v5.9.26` changed the download URLs from `releases/download/v5.9.25` to `releases/download/v5.9.26` — but there IS no v5.9.26 release with binary assets.
+**Fix**: Manually changed the 3 release download URLs back to v5.9.21 (where Python, torch, pip, and models are hosted).
+**Lesson**: When using `replace_all` on version strings, ALWAYS check that the replacement doesn't affect URLs, paths, or identifiers that should remain at a different version. Release download URLs and branding strings can contain the same version number for different reasons. Do a preview/diff after `replace_all` to catch unintended changes.
+
+### 58. lxml Version Constraint Rejected Bundled Wheel
+**Problem**: lxml failed to install from the wheels directory despite having a wheel file present.
+**Root Cause**: `requirements.txt` had `lxml>=4.9.0,<5.0.0` but the bundled wheel was `lxml-5.4.0-cp310-cp310-win_amd64.whl`. The upper bound constraint `<5.0.0` caused pip to reject the v5.4.0 wheel.
+**Fix**: Changed `requirements.txt` from `lxml>=4.9.0,<5.0.0` to `lxml>=4.9.0` (removed upper bound).
+**Lesson**: When bundling wheels for offline install, verify that version constraints in requirements files don't reject the bundled wheel versions. Run `pip install --dry-run --no-index --find-links=wheels/ -r requirements.txt` to catch constraint conflicts before shipping.
+
+### 59. Offline-First Install Pattern for Optional Packages
+**Problem**: `symspellpy`, `proselint`, and `textstat` had wheels in the wheels directory but the installer tried to install them from the internet first (or only from internet), which fails on air-gapped machines.
+**Root Cause**: These packages were added to the installer after the initial offline design. The install commands used `pip install <package>` (online) instead of `pip install --no-index --find-links="%WHEELS%" <package>` (offline).
+**Fix**: Changed to offline-first pattern with online fallback:
+```bat
+"%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location symspellpy 2>nul
+if errorlevel 1 (
+    echo  [WARN] symspellpy offline install failed, trying online...
+    "%PYTHON_DIR%\python.exe" -m pip install --no-warn-script-location symspellpy 2>nul
+)
+```
+**Lesson**: Every package in the OneClick installer MUST use offline-first (`--no-index --find-links`) with online fallback. The target environment is NGC (Northrop Grumman) air-gapped Windows machines. Never assume internet access. The pattern is: try offline → if fail → try online → if fail → warn and continue.
+
+### 60. `requirements-windows.txt` Contains Direct URLs That Fail Offline
+**Pattern**: `packaging/requirements-windows.txt` line 44 contains:
+```
+en_core_web_md @ https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.8.0/en_core_web_md-3.8.0-py3-none-any.whl
+```
+This direct URL download works online but fails silently on air-gapped machines when installed via `pip install --no-index --find-links`. The `--no-index` flag prevents URL resolution, so this line is skipped. The `en_core_web_sm` model is bundled as a wheel in the wheels directory and installed separately — that's the model AEGIS actually uses.
+**Lesson**: Direct URL dependencies in requirements files (`package @ https://...`) are incompatible with `--no-index` offline installs. For offline deployments, download the wheel file and include it in the wheels directory instead. The `en_core_web_md` line in requirements-windows.txt is effectively a no-op on air-gapped machines but doesn't cause errors because `--no-index` just skips it.
+
+### 61. Windows-Only Transitive Dependencies Not in Wheels (colorama)
 **Problem**: spaCy, Flask, and click all showed `[SKIP]` / `[WARN]` during OneClick installer verification despite pip confirming they were installed in site-packages. The `2>nul` error suppression hid the actual error.
 **Root Cause**: `colorama>=0.4.6` is a **Windows-only** transitive dependency required by:
 - spaCy → wasabi → colorama (conditional: `sys_platform == "win32"`)
@@ -534,33 +577,48 @@ Since development is on Mac, colorama never appeared as a dependency. The offlin
 **Fix**: (1) Downloaded `colorama-0.4.6-py2.py3-none-any.whl` to `wheels/`. (2) Added `colorama>=0.4.6` to `requirements.txt` and `packaging/requirements-windows.txt`. (3) Install colorama FIRST in OneClick installer (line 315) before Flask/spaCy. (4) Repair script installs colorama as priority before attempting spaCy chain reinstall.
 **Lesson**: Always check platform-conditional dependencies when building offline installers on a different OS than the target. Use `pip install --dry-run --report` or `pipdeptree` on the TARGET platform to find all transitive deps. On Windows, `colorama` is required by: click, wasabi, tqdm, pytest, and many others. It should ALWAYS be in the wheels directory for any Windows offline installer.
 
-### 57. Batch Script `errorlevel` Unreliable Across Subroutines
+### 62. Batch Script `errorlevel` Unreliable Across Subroutines
 **Problem**: Repair_AEGIS.bat showed false failures — packages that imported successfully were reported as `[FAIL]` with "Error details:" messages.
 **Root Cause**: In Windows batch, `errorlevel` is **sticky** — it persists from previous commands and doesn't reset to 0 on success in all contexts. When using `call :subroutine` with `if errorlevel 1` after a Python command, the errorlevel from a PREVIOUS subroutine call could bleed through, causing false positives.
 **Attempted fixes that also failed**:
 1. **Temp file markers**: `open(r'%TEMPMARK%','w').write('ok')` inside Python `-c` strings crashed because `%TEMP%` path expansion produces backslashes that conflict with Python string parsing, and paths with spaces (OneDrive) break the command.
-2. **`&&` / `||` pattern**: `python.exe -c "..." 2>&1 && (success) || (failure)` — also unreliable inside `call :subroutine` blocks on some Windows versions.
+2. **`&&` / `||` pattern**: `python.exe -c "..." 2>&1 && (success) || (failure)` — also crashes inside `call :subroutine` blocks on some Windows versions.
 **Lesson**: Batch scripting for reliable error detection is extremely fragile. For complex diagnostic tools, consider writing the logic in Python instead of batch — a Python script called by a simple 5-line `.bat` wrapper would be far more reliable. The `.bat` file just needs to find python.exe and call the Python script. All the import testing, error capturing, and repair logic belongs in Python where error handling actually works.
 
-### 58. Installer `2>nul` Hides Critical Errors — Use Repair Tool for Diagnosis
+### 63. Installer `2>nul` Hides Critical Errors — Use Repair Tool for Diagnosis
 **Problem**: The OneClick installer uses `2>nul` on ALL verification commands (lines 589-604), so when `import spacy` fails, the user sees `[SKIP] spaCy (optional)` with zero information about WHY. Multiple sessions were spent guessing at root causes (--no-deps, ._pth file, path spaces) when the actual error was a missing colorama wheel.
 **Root Cause**: The `2>nul` pattern was designed to keep output clean for non-technical users. But it also hides the exact Python traceback that would immediately reveal the root cause.
 **Fix**: Created `Repair_AEGIS.bat` that runs the same import checks with `2>&1` (errors shown) instead of `2>nul` (errors hidden). This immediately revealed `ERROR: Could not find a version that satisfies the requirement colorama>=0.4.6`.
 **Lesson**: NEVER use `2>nul` on diagnostic/verification commands without also providing a way to see the errors. The installer should either: (1) log errors to a file even when suppressing console output, or (2) have a `--verbose` flag, or (3) ship with a separate diagnostic tool. The Repair_AEGIS.bat serves as that diagnostic tool.
 
-### 59. Stragglers Loop Creates Version Churn (Duplicate Wheels)
+### 64. Stragglers Loop Creates Version Churn (Duplicate Wheels)
 **Problem**: The OneClick installer's "stragglers" loop (line 348) installs ALL `.whl` files individually with `--no-deps`. When the wheels directory contains multiple versions of the same package (e.g., `filelock-3.24.0` AND `filelock-3.24.2`), this causes packages to be installed, uninstalled, and reinstalled as each version is processed alphabetically. The installer log showed packages like huggingface_hub flip from 1.4.1 → 0.36.2 → 1.4.1.
 **Root Cause**: The `wheels/` directory accumulated duplicate versions over time. The `for %%f in (*.whl)` loop processes them alphabetically, and `--no-deps` means pip doesn't check version compatibility — it just force-installs whatever wheel it's given.
 **Impact**: Not breaking (final version is usually correct since alphabetically-last wins), but wastes time and produces confusing installer output. Can occasionally leave a WRONG version if the alphabetically-last wheel is an older version.
 **Lesson**: Before releasing, deduplicate the wheels directory — keep only the latest version of each package. Use: `pip download -r requirements.txt --dest wheels/ --only-binary=:all:` which always gets latest compatible versions. The stragglers loop should be a safety net, not the primary install mechanism.
 
-### 60. GitHub Release Assets for Installer Updates
+### 65. GitHub Release Assets for Installer Updates
 **Pattern**: When updating installer `.bat` files, THREE places must be updated:
 1. **Main branch** — `Install_AEGIS_OneClick.bat` (root) via GitHub REST API commit
 2. **Packaging copy** — `packaging/Install_AEGIS_OneClick.bat` (keep in sync with root)
 3. **Release asset** — DELETE old asset + POST new asset on v5.9.21 release
 The v5.9.21 release hosts all binary assets (Python, torch, pip, wheels, models). The installer `.bat` files download from this release. When updating the installer, always update the release asset too, or users downloading from the release page get the old version.
 **API workflow**: `GET /releases` → find release by tag → `GET release.assets` → find asset by name → `DELETE /releases/assets/{id}` → `POST` to `upload_url` with `?name=filename`.
+
+### 66. OneDrive Paths with Spaces Break Batch Python Commands
+**Problem**: Repair_AEGIS.bat crashed when trying to write temp files or execute Python commands with file path arguments on the target machine.
+**Root Cause**: The AEGIS install path is `C:\Users\M26402\OneDrive - NGC\Desktop\Doc Review\AEGIS`. The `OneDrive - NGC` segment contains spaces AND a dash. When batch variables expand inside Python `-c` strings (e.g., `open(r'%TEMPMARK%','w')`), the spaces in `%TEMP%` or `%INSTALL_DIR%` paths break the Python command parsing. Quoting helps for batch commands (`"%PYTHON_DIR%\python.exe"`) but not for Python code embedded in `-c` strings that reference batch-expanded paths.
+**Lesson**: When writing batch scripts that target machines with OneDrive or paths containing spaces: (1) NEVER embed batch variable paths inside Python `-c` code strings. (2) Keep Python `-c` commands self-contained — no file I/O referencing batch paths. (3) If you need Python to write/read files, pass the path as a command-line argument and use `sys.argv[1]` in the Python code, with proper quoting. (4) Better yet, write a `.py` script file and call it from batch.
+
+### 67. Installer File Inventory — Three .bat Files Must Stay in Sync
+**Pattern**: The project has THREE installer-related .bat files that must be kept consistent:
+1. `Install_AEGIS_OneClick.bat` (project root) — the "source of truth"
+2. `packaging/Install_AEGIS_OneClick.bat` — copy for packaging, must mirror root
+3. `Install_AEGIS.bat` (project root) — the manual/legacy installer
+After editing the OneClick installer, ALWAYS run: `cp Install_AEGIS_OneClick.bat packaging/Install_AEGIS_OneClick.bat`
+Additionally, version branding updates should be applied to ALL three files. Use `replace_all` but then verify URLs weren't accidentally changed (see Lesson 57).
+**Also exists**: `install_offline.bat` — simpler offline installer for air-gapped environments. Has its own version reference that needs updating.
+**Lesson**: When the project has multiple copies of the same file, document which is the source of truth and always sync after editing. A future improvement would be to have the packaging copy be a symlink or generated from the root copy.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
