@@ -1874,22 +1874,23 @@ def export_highlighted_docx_endpoint():
 @handle_hv_errors
 def export_highlighted_excel_endpoint():
     """
-    Create a highlighted copy of an Excel file with broken link rows marked.
+    Create a highlighted copy of an Excel file with link rows color-coded by status.
 
-    Broken link rows are highlighted with:
-    - Light red background fill on the entire row
-    - Darker red fill and bold text on the URL cell
-    - Comment on URL cell with error details
+    v5.9.33: Supports two modes via 'mode' form field:
+    - 'multicolor' (default): Color-code ALL rows by status (green/yellow/orange/red/grey)
+    - 'broken_only': Legacy mode — only highlight broken links in red
 
     Accepts multipart/form-data with:
         file: The original Excel file (.xlsx)
         results: JSON string of validation results
         link_column: Optional column number (1-based) containing URLs
+        mode: 'multicolor' or 'broken_only' (default: 'multicolor')
 
     Returns:
         The highlighted Excel file as a download
     """
-    from .export import export_highlighted_excel, OPENPYXL_AVAILABLE
+    from .export import (export_highlighted_excel, export_highlighted_excel_multicolor,
+                         OPENPYXL_AVAILABLE)
 
     if not OPENPYXL_AVAILABLE:
         return jsonify({
@@ -1936,6 +1937,9 @@ def export_highlighted_excel_endpoint():
     link_column_str = request.form.get('link_column', '')
     link_column = int(link_column_str) if link_column_str else None
 
+    # v5.9.33: Get export mode — multicolor (new default) or broken_only (legacy)
+    export_mode = request.form.get('mode', 'multicolor').lower()
+
     # Save file temporarily
     # v5.9.32: Close temp file before saving — Windows can't have two handles on same file
     import tempfile
@@ -1943,13 +1947,20 @@ def export_highlighted_excel_endpoint():
     tmp_path = tmp.name
     tmp.close()  # Close handle BEFORE file.save() opens it
 
-    logger.info(f"Export highlighted Excel: saving uploaded file ({file.filename}) to {tmp_path}")
+    logger.info(f"Export highlighted Excel: mode={export_mode}, saving uploaded file ({file.filename}) to {tmp_path}")
     file.save(tmp_path)
     logger.info(f"Export highlighted Excel: file saved, size={os.path.getsize(tmp_path)} bytes, {len(results)} results")
 
     try:
-        # Create highlighted document
-        success, message, file_bytes = export_highlighted_excel(tmp_path, results, link_column=link_column)
+        # Create highlighted document — choose function by mode
+        if export_mode == 'multicolor':
+            success, message, file_bytes = export_highlighted_excel_multicolor(
+                tmp_path, results, link_column=link_column
+            )
+        else:
+            success, message, file_bytes = export_highlighted_excel(
+                tmp_path, results, link_column=link_column
+            )
 
         if not success:
             return jsonify({
@@ -1963,7 +1974,8 @@ def export_highlighted_excel_endpoint():
         # Generate output filename
         base_name = os.path.splitext(file.filename)[0]
         ext = os.path.splitext(file.filename)[1]
-        output_filename = f"{base_name}_broken_links_highlighted{ext}"
+        suffix = '_status_highlighted' if export_mode == 'multicolor' else '_broken_links_highlighted'
+        output_filename = f"{base_name}{suffix}{ext}"
 
         return Response(
             file_bytes,

@@ -4745,13 +4745,22 @@ HelpDocs.content['hyperlink-overview'] = {
 <p>Click status badges in result rows to filter all results to that status type.</p>
 
 <h2><i data-lucide="download"></i> Export Options</h2>
-<p>Export validated hyperlinks with highlighting:</p>
+<p>Export validated hyperlinks with color-coded status highlighting:</p>
 <ul>
+    <li><strong>Export Highlighted Excel (v5.9.33)</strong> — Multi-color row highlighting by validation status:
+        <ul>
+            <li><span style="color:#006100;background:#C6EFCE;padding:0 4px;border-radius:3px">Green</span> — Link verified working (HTTP 200)</li>
+            <li><span style="color:#7D6608;background:#FFF2CC;padding:0 4px;border-radius:3px">Yellow</span> — SSL warning or redirect issue</li>
+            <li><span style="color:#974706;background:#FCE4D6;padding:0 4px;border-radius:3px">Orange</span> — Auth required or blocked by firewall</li>
+            <li><span style="color:#C00000;background:#FFC7CE;padding:0 4px;border-radius:3px">Red</span> — Broken, timeout, DNS failed, or SSL error</li>
+            <li><span style="color:#808080;background:#F2F2F2;padding:0 4px;border-radius:3px">Grey</span> — No URL in row (not tested)</li>
+        </ul>
+        Adds "Link Status" and "Link Details" columns plus a Summary sheet with counts and color legend.
+    </li>
     <li><strong>Export Highlighted DOCX</strong> — Broken links marked in red/yellow with strikethrough</li>
-    <li><strong>Export Highlighted Excel</strong> — Broken link rows highlighted with red background</li>
     <li><strong>CSV Export</strong> — Full results table for spreadsheet analysis</li>
 </ul>
-<p>The "Export Highlighted" button appears after validation completes.</p>
+<p>The "Export Highlighted" button appears after validation completes. Every row with a URL gets color-coded by its validation status.</p>
 
 <h2><i data-lucide="scan-search"></i> Deep Validate (v4.6.2)</h2>
 <p>Some government sites (defense.gov, dcma.mil, navy.mil, etc.) use aggressive bot protection that blocks standard HTTP requests, showing as "Blocked (403)". The <strong>Deep Validate</strong> feature uses a real Chrome browser to retry these URLs.</p>
@@ -7410,6 +7419,19 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.9.33 <span class="changelog-date">February 19, 2026</span></h3>
+        <p><strong>Multi-Color Status Highlighting for Excel Export</strong></p>
+        <ul>
+            <li><strong>NEW: Multi-color export</strong> — Rows color-coded by validation status: green (working), yellow (SSL/redirect warning), orange (auth/blocked), red (broken/timeout), grey (no URL)</li>
+            <li><strong>NEW: Status columns</strong> — "Link Status" and "Link Details" columns auto-added to exported Excel with status label and error details per row</li>
+            <li><strong>NEW: Summary sheet</strong> — "Link Validation Summary" sheet with category counts, detailed status breakdown, and color legend</li>
+            <li><strong>CHANGE: Export button</strong> — Now enabled whenever results exist (not just when broken links found) — every row gets color-coded</li>
+            <li><strong>FIX: SSL false positives</strong> — Multi-strategy SSL fallback cascade for corporate CA certificates</li>
+            <li><strong>FIX: .mil/.gov bot protection</strong> — DoD WAF 403s now marked BLOCKED (eligible for headless browser retest)</li>
+            <li><strong>FIX: Windows file locking</strong> — Temp file handle closed before save to prevent PermissionError on Windows</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.9.29 <span class="changelog-date">February 19, 2026</span></h3>
         <p><strong>Export Fix + Robust Internal Auth + SharePoint Batch Scan</strong></p>
         <ul>

@@ -43,8 +43,9 @@ except ImportError:
 # Check for openpyxl availability
 try:
     from openpyxl import load_workbook
-    from openpyxl.styles import PatternFill, Font, Border, Side
+    from openpyxl.styles import PatternFill, Font, Border, Side, Alignment
     from openpyxl.comments import Comment
+    from openpyxl.utils import get_column_letter
     OPENPYXL_AVAILABLE = True
 except ImportError:
     OPENPYXL_AVAILABLE = False
@@ -936,6 +937,435 @@ def _find_url_columns(ws) -> List[int]:
                     break
 
     return url_columns
+
+
+# =============================================================================
+# MULTI-COLOR STATUS HIGHLIGHTING (v5.9.33)
+# =============================================================================
+
+# Status → color mapping for row highlighting
+_STATUS_COLORS = {
+    # Green shades — link verified working
+    'WORKING':       {'fill': 'C6EFCE', 'font': '006100', 'label': 'Working'},
+    'OK':            {'fill': 'C6EFCE', 'font': '006100', 'label': 'Working'},
+
+    # Light green — redirect (link works but redirects)
+    'REDIRECT':      {'fill': 'D5F5E3', 'font': '1E8449', 'label': 'Redirect'},
+
+    # Yellow — warnings (link works but has issues)
+    'SSL_WARNING':   {'fill': 'FFF2CC', 'font': '7D6608', 'label': 'SSL Warning'},
+    'REDIRECT_LOOP': {'fill': 'FFF2CC', 'font': '7D6608', 'label': 'Redirect Loop'},
+    'REDIRECT_ERROR':{'fill': 'FFF2CC', 'font': '7D6608', 'label': 'Redirect Error'},
+
+    # Orange — auth/access issues (link exists but can't verify)
+    'AUTH_REQUIRED': {'fill': 'FCE4D6', 'font': '974706', 'label': 'Auth Required'},
+    'BLOCKED':       {'fill': 'FCE4D6', 'font': '974706', 'label': 'Blocked'},
+
+    # Red — broken/failed
+    'BROKEN':        {'fill': 'FFC7CE', 'font': 'C00000', 'label': 'Broken'},
+    'INVALID':       {'fill': 'FFC7CE', 'font': 'C00000', 'label': 'Invalid URL'},
+    'TIMEOUT':       {'fill': 'FFC7CE', 'font': 'C00000', 'label': 'Timeout'},
+    'DNSFAILED':     {'fill': 'FFC7CE', 'font': 'C00000', 'label': 'DNS Failed'},
+    'SSLERROR':      {'fill': 'FFC7CE', 'font': 'C00000', 'label': 'SSL Error'},
+
+    # Grey — no URL / not tested
+    'NO_URL':        {'fill': 'F2F2F2', 'font': '808080', 'label': 'No URL'},
+    'EXCLUDED':      {'fill': 'E2EFDA', 'font': '548235', 'label': 'Excluded (OK)'},
+}
+
+# Status categories for summary counts
+_STATUS_CATEGORY = {
+    'WORKING': 'good', 'OK': 'good', 'REDIRECT': 'good', 'EXCLUDED': 'good',
+    'SSL_WARNING': 'warning', 'REDIRECT_LOOP': 'warning', 'REDIRECT_ERROR': 'warning',
+    'AUTH_REQUIRED': 'caution', 'BLOCKED': 'caution',
+    'BROKEN': 'broken', 'INVALID': 'broken', 'TIMEOUT': 'broken',
+    'DNSFAILED': 'broken', 'SSLERROR': 'broken',
+    'NO_URL': 'no_url',
+}
+
+
+def _build_url_status_map(results: List[ValidationResult]) -> Dict[str, ValidationResult]:
+    """
+    Build a map of URL → ValidationResult for quick lookup.
+    Includes normalized variants (no trailing slash, http/https swap).
+    """
+    url_map = {}
+    for result in results:
+        # Apply exclusion display rules
+        display_result = _apply_exclusion_display(result)
+        url = display_result.url
+        url_map[url] = display_result
+        url_map[url.rstrip('/')] = display_result
+        # Add protocol-swapped variant
+        if url.startswith('http://'):
+            url_map[url.replace('http://', 'https://')] = display_result
+        elif url.startswith('https://'):
+            url_map[url.replace('https://', 'http://')] = display_result
+    return url_map
+
+
+def export_highlighted_excel_multicolor(
+    source_path: str,
+    results: List[ValidationResult],
+    output_path: Optional[str] = None,
+    link_column: Optional[int] = None
+) -> Tuple[bool, str, bytes]:
+    """
+    Create a copy of an Excel file with ALL rows color-coded by link validation status.
+
+    Color scheme:
+    - Green:  WORKING, OK, REDIRECT — link verified working
+    - Yellow: SSL_WARNING, REDIRECT_LOOP — link works but has issues
+    - Orange: AUTH_REQUIRED, BLOCKED — link exists but can't fully verify
+    - Red:    BROKEN, INVALID, TIMEOUT, DNSFAILED, SSLERROR — link is broken
+    - Grey:   No URL in row — neutral, not tested
+
+    Every row with a URL gets colored. Rows without URLs get light grey.
+    A status column is added at the end showing the validation status.
+    A summary sheet is added with counts by status category.
+
+    Args:
+        source_path: Path to the original Excel file
+        results: List of ALL validation results (working + broken + everything)
+        output_path: Optional path for output file (if None, returns bytes)
+        link_column: Optional column index (1-based) containing URLs.
+                     If None, will auto-detect.
+
+    Returns:
+        Tuple of (success: bool, message: str, file_bytes: bytes)
+    """
+    if not OPENPYXL_AVAILABLE:
+        return False, "openpyxl library not installed. Cannot create highlighted Excel.", b''
+
+    if not os.path.exists(source_path):
+        return False, f"Source file not found: {source_path}", b''
+
+    if not results:
+        return False, "No validation results provided.", b''
+
+    try:
+        # Load workbook
+        wb = load_workbook(source_path)
+
+        # Build URL → result lookup map
+        url_status_map = _build_url_status_map(results)
+
+        # Pre-create PatternFill and Font objects for each status
+        status_fills = {}
+        status_fonts = {}
+        for status_key, colors in _STATUS_COLORS.items():
+            status_fills[status_key] = PatternFill(
+                start_color=colors['fill'], end_color=colors['fill'], fill_type='solid'
+            )
+            status_fonts[status_key] = Font(color=colors['font'])
+
+        # Bold font variants for URL cells
+        status_fonts_bold = {}
+        for status_key, colors in _STATUS_COLORS.items():
+            status_fonts_bold[status_key] = Font(color=colors['font'], bold=True)
+
+        # Header style
+        header_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
+        header_font = Font(color='FFFFFF', bold=True)
+
+        # Tracking counts
+        total_highlighted = 0
+        category_counts = {'good': 0, 'warning': 0, 'caution': 0, 'broken': 0, 'no_url': 0}
+
+        # Process each sheet
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+
+            if ws.max_row is None or ws.max_row < 2:
+                continue
+
+            # Find URL columns if not specified
+            url_columns = _find_url_columns(ws) if link_column is None else [link_column]
+
+            # Add "Link Status" column header
+            status_col = ws.max_column + 1
+            status_header_cell = ws.cell(row=1, column=status_col)
+            status_header_cell.value = 'Link Status'
+            status_header_cell.fill = header_fill
+            status_header_cell.font = header_font
+            status_header_cell.alignment = Alignment(horizontal='center')
+
+            # Also add "Link Details" column
+            details_col = status_col + 1
+            details_header_cell = ws.cell(row=1, column=details_col)
+            details_header_cell.value = 'Link Details'
+            details_header_cell.fill = header_fill
+            details_header_cell.font = header_font
+
+            # Set column widths
+            ws.column_dimensions[get_column_letter(status_col)].width = 16
+            ws.column_dimensions[get_column_letter(details_col)].width = 50
+
+            # Process each data row
+            for row_idx in range(2, ws.max_row + 1):
+                row_url = None
+                row_result = None
+
+                # Find URL in this row
+                for col_idx in url_columns:
+                    cell = ws.cell(row=row_idx, column=col_idx)
+                    cell_value = str(cell.value).strip() if cell.value else ''
+
+                    if cell_value and ('http://' in cell_value.lower() or 'https://' in cell_value.lower()):
+                        row_url = cell_value
+                        # Look up in our status map
+                        row_result = url_status_map.get(cell_value) or \
+                                     url_status_map.get(cell_value.rstrip('/'))
+                        if row_result:
+                            break
+
+                    # Also check hyperlink target
+                    if cell.hyperlink and cell.hyperlink.target:
+                        target = cell.hyperlink.target
+                        row_result = url_status_map.get(target) or \
+                                     url_status_map.get(target.rstrip('/'))
+                        if row_result:
+                            row_url = target
+                            break
+
+                # Determine status for coloring
+                if row_result:
+                    status_key = row_result.status.upper()
+                    # Handle excluded URLs
+                    if row_result.excluded and getattr(row_result, 'treat_as_valid', True):
+                        status_key = 'EXCLUDED'
+                elif row_url:
+                    # URL exists but wasn't in our results (wasn't validated)
+                    status_key = 'NO_URL'
+                else:
+                    # No URL in this row
+                    status_key = 'NO_URL'
+
+                # Get colors (fall back to NO_URL grey if unknown status)
+                if status_key not in _STATUS_COLORS:
+                    status_key = 'BROKEN' if row_result else 'NO_URL'
+
+                fill = status_fills.get(status_key, status_fills['NO_URL'])
+                font = status_fonts.get(status_key, status_fonts['NO_URL'])
+                font_bold = status_fonts_bold.get(status_key, status_fonts_bold['NO_URL'])
+                color_info = _STATUS_COLORS.get(status_key, _STATUS_COLORS['NO_URL'])
+
+                # Apply fill to entire row
+                for col_idx in range(1, status_col):  # Don't include new status columns yet
+                    cell = ws.cell(row=row_idx, column=col_idx)
+                    cell.fill = fill
+
+                # Apply bold font to the URL cell specifically
+                for col_idx in url_columns:
+                    cell = ws.cell(row=row_idx, column=col_idx)
+                    if cell.value:
+                        cell.font = font_bold
+
+                # Write status column
+                status_cell = ws.cell(row=row_idx, column=status_col)
+                status_cell.value = color_info['label']
+                status_cell.fill = fill
+                status_cell.font = font_bold
+                status_cell.alignment = Alignment(horizontal='center')
+
+                # Write details column
+                details_cell = ws.cell(row=row_idx, column=details_col)
+                if row_result:
+                    detail_parts = []
+                    if row_result.status_code:
+                        detail_parts.append(f'HTTP {row_result.status_code}')
+                    if row_result.message:
+                        detail_parts.append(row_result.message[:200])
+                    details_cell.value = ' — '.join(detail_parts) if detail_parts else ''
+                elif row_url:
+                    details_cell.value = 'URL present but not validated'
+                else:
+                    details_cell.value = ''
+                details_cell.fill = fill
+                details_cell.font = font
+
+                # Track counts
+                cat = _STATUS_CATEGORY.get(status_key, 'no_url')
+                category_counts[cat] = category_counts.get(cat, 0) + 1
+                if status_key != 'NO_URL':
+                    total_highlighted += 1
+
+        # Add summary sheet
+        _add_summary_sheet(wb, results, category_counts, total_highlighted)
+
+        # Save to bytes buffer
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        file_bytes = buffer.getvalue()
+
+        # Optionally save to file
+        if output_path:
+            with open(output_path, 'wb') as f:
+                f.write(file_bytes)
+
+        wb.close()
+
+        good = category_counts.get('good', 0)
+        warn = category_counts.get('warning', 0)
+        caution = category_counts.get('caution', 0)
+        broken = category_counts.get('broken', 0)
+
+        message = (f"Highlighted {total_highlighted} rows: "
+                   f"{good} working (green), {warn} warning (yellow), "
+                   f"{caution} auth/blocked (orange), {broken} broken (red)")
+
+        return True, message, file_bytes
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return False, f"Error processing Excel: {str(e)}", b''
+
+
+def _add_summary_sheet(wb, results: List[ValidationResult],
+                       category_counts: Dict[str, int],
+                       total_highlighted: int):
+    """Add a summary sheet to the workbook with validation statistics."""
+    try:
+        # Create or get summary sheet
+        summary_name = 'Link Validation Summary'
+        if summary_name in wb.sheetnames:
+            del wb[summary_name]
+        ws = wb.create_sheet(summary_name)
+
+        # Styles
+        title_font = Font(size=16, bold=True, color='1F4E79')
+        subtitle_font = Font(size=12, bold=True, color='2E75B6')
+        header_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
+        header_font = Font(color='FFFFFF', bold=True, size=11)
+        normal_font = Font(size=11)
+        bold_font = Font(size=11, bold=True)
+
+        # Title
+        ws.cell(row=1, column=1).value = 'Hyperlink Validation Report'
+        ws.cell(row=1, column=1).font = title_font
+        ws.merge_cells('A1:D1')
+
+        ws.cell(row=2, column=1).value = f'Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+        ws.cell(row=2, column=1).font = Font(size=10, color='808080')
+
+        # Summary counts section
+        ws.cell(row=4, column=1).value = 'Status Summary'
+        ws.cell(row=4, column=1).font = subtitle_font
+
+        # Headers
+        for col, header_text in enumerate(['Category', 'Count', 'Color'], start=1):
+            cell = ws.cell(row=5, column=col)
+            cell.value = header_text
+            cell.fill = header_fill
+            cell.font = header_font
+
+        # Category rows
+        summary_rows = [
+            ('Working (verified)', category_counts.get('good', 0), 'C6EFCE', '006100'),
+            ('Warning (SSL/redirect)', category_counts.get('warning', 0), 'FFF2CC', '7D6608'),
+            ('Auth/Blocked', category_counts.get('caution', 0), 'FCE4D6', '974706'),
+            ('Broken', category_counts.get('broken', 0), 'FFC7CE', 'C00000'),
+            ('No URL', category_counts.get('no_url', 0), 'F2F2F2', '808080'),
+        ]
+
+        for i, (label, count, fill_color, font_color) in enumerate(summary_rows, start=6):
+            ws.cell(row=i, column=1).value = label
+            ws.cell(row=i, column=1).font = bold_font
+            ws.cell(row=i, column=2).value = count
+            ws.cell(row=i, column=2).font = normal_font
+            ws.cell(row=i, column=2).alignment = Alignment(horizontal='center')
+            # Color swatch
+            ws.cell(row=i, column=3).fill = PatternFill(
+                start_color=fill_color, end_color=fill_color, fill_type='solid'
+            )
+
+        total_row = 6 + len(summary_rows)
+        ws.cell(row=total_row, column=1).value = 'Total URLs Validated'
+        ws.cell(row=total_row, column=1).font = bold_font
+        ws.cell(row=total_row, column=2).value = total_highlighted
+        ws.cell(row=total_row, column=2).font = bold_font
+        ws.cell(row=total_row, column=2).alignment = Alignment(horizontal='center')
+
+        # Detailed status breakdown
+        detail_start = total_row + 2
+        ws.cell(row=detail_start, column=1).value = 'Detailed Status Breakdown'
+        ws.cell(row=detail_start, column=1).font = subtitle_font
+
+        for col, header_text in enumerate(['Status', 'Count', 'Color', 'Description'], start=1):
+            cell = ws.cell(row=detail_start + 1, column=col)
+            cell.value = header_text
+            cell.fill = header_fill
+            cell.font = header_font
+
+        # Count each specific status
+        status_detail_counts = {}
+        for result in results:
+            s = result.status.upper()
+            status_detail_counts[s] = status_detail_counts.get(s, 0) + 1
+
+        detail_row = detail_start + 2
+        status_descriptions = {
+            'WORKING': 'Link verified working (HTTP 200)',
+            'REDIRECT': 'Link redirects to another URL but works',
+            'SSL_WARNING': 'Link works but SSL certificate not trusted',
+            'AUTH_REQUIRED': 'Link requires authentication credentials',
+            'BLOCKED': 'Link blocked by bot protection or firewall',
+            'BROKEN': 'Link returns an error (404, 500, etc.)',
+            'INVALID': 'URL format is invalid',
+            'TIMEOUT': 'Connection timed out before response',
+            'DNSFAILED': 'Domain name could not be resolved',
+            'SSLERROR': 'SSL/TLS connection error',
+            'REDIRECT_LOOP': 'Too many redirects detected',
+            'REDIRECT_ERROR': 'Redirect chain encountered an error',
+        }
+
+        for status_key in ['WORKING', 'REDIRECT', 'SSL_WARNING', 'AUTH_REQUIRED',
+                           'BLOCKED', 'BROKEN', 'INVALID', 'TIMEOUT', 'DNSFAILED',
+                           'SSLERROR', 'REDIRECT_LOOP', 'REDIRECT_ERROR']:
+            count = status_detail_counts.get(status_key, 0)
+            if count > 0:
+                colors = _STATUS_COLORS.get(status_key, _STATUS_COLORS['NO_URL'])
+                ws.cell(row=detail_row, column=1).value = colors['label']
+                ws.cell(row=detail_row, column=1).font = bold_font
+                ws.cell(row=detail_row, column=2).value = count
+                ws.cell(row=detail_row, column=2).alignment = Alignment(horizontal='center')
+                ws.cell(row=detail_row, column=3).fill = PatternFill(
+                    start_color=colors['fill'], end_color=colors['fill'], fill_type='solid'
+                )
+                ws.cell(row=detail_row, column=4).value = status_descriptions.get(status_key, '')
+                detail_row += 1
+
+        # Column widths
+        ws.column_dimensions['A'].width = 30
+        ws.column_dimensions['B'].width = 12
+        ws.column_dimensions['C'].width = 10
+        ws.column_dimensions['D'].width = 50
+
+        # Legend section
+        legend_start = detail_row + 2
+        ws.cell(row=legend_start, column=1).value = 'Color Legend'
+        ws.cell(row=legend_start, column=1).font = subtitle_font
+
+        legend_items = [
+            ('Green', 'C6EFCE', 'Link verified working — safe'),
+            ('Yellow', 'FFF2CC', 'Link works but has SSL or redirect warning'),
+            ('Orange', 'FCE4D6', 'Link requires authentication or is blocked by firewall'),
+            ('Red', 'FFC7CE', 'Link is broken, timed out, or unreachable'),
+            ('Grey', 'F2F2F2', 'No URL in this row — not tested'),
+        ]
+        for i, (label, fill_color, desc) in enumerate(legend_items, start=legend_start + 1):
+            ws.cell(row=i, column=1).value = label
+            ws.cell(row=i, column=1).font = bold_font
+            ws.cell(row=i, column=1).fill = PatternFill(
+                start_color=fill_color, end_color=fill_color, fill_type='solid'
+            )
+            ws.cell(row=i, column=2).value = desc
+            ws.merge_cells(start_row=i, start_column=2, end_row=i, end_column=4)
+
+    except Exception:
+        pass  # Summary sheet is optional — don't fail the export
 
 
 def is_highlighted_export_available() -> Dict[str, bool]:

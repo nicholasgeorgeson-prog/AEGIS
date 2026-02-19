@@ -166,7 +166,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.9.32
+- **Current version**: 5.9.33
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -735,6 +735,13 @@ The actual logic lives in `repair_aegis.py` (500 lines) where Python's error han
 **Root Cause**: The SSL fallback code used `str(e)[:80]` from the SSLError exception, which includes the verbose `requests` wrapper: `HTTPSConnectionPool(...): Max retries exceeded with url: ... (Caused by SSLError(SSLCertVerificationError(...)))`. The actual useful information is buried inside nested parentheses.
 **Fix**: Added SSL error reason extraction at the SSLError handler that checks for common patterns: `CERTIFICATE_VERIFY_FAILED` → "certificate not trusted (corporate/internal CA)", `HANDSHAKE_FAILURE` → "SSL handshake failed", `certificate has expired` → "certificate expired", `self signed` → "self-signed certificate", `unable to get local issuer` → "certificate issuer not trusted". Falls back to regex extraction of the inner reason string, then to a generic "SSL certificate verification failed".
 **Lesson**: Python's `requests` library wraps all SSL errors in verbose `HTTPSConnectionPool` messages. When displaying SSL errors to users, always parse the exception string to extract the meaningful certificate reason. The pattern `re.search(r"Caused by SSLError\([^)]*?'([^']{10,80})'", str(e))` extracts the inner reason from most requests SSLError exceptions.
+
+### 84. Multi-Color Excel Export — Send ALL Results, Not Just Broken (v5.9.33)
+**Problem**: Export Highlighted only colored broken links red. User needed ALL rows colored by status (green/yellow/orange/red) to quickly scan a 6,000-row document registry.
+**Root Cause**: (1) Frontend only sent broken/issue results (filtered by `brokenStatuses2` array) to reduce payload — but multicolor mode needs ALL results including WORKING. (2) Backend `export_highlighted_excel()` only called `_get_broken_urls()` and aborted if empty — no support for coloring non-broken rows. (3) Export function only had red fill for broken links.
+**Fix**: (1) New `export_highlighted_excel_multicolor()` function in `export.py` with `_STATUS_COLORS` dict mapping each status to fill/font colors. (2) Adds "Link Status" and "Link Details" columns to the sheet. (3) Adds "Link Validation Summary" sheet with category counts, detailed breakdown, and color legend. (4) Frontend now sends ALL results (slimmed to essential fields: url, status, status_code, message) with `mode=multicolor` form field. (5) Route selects between multicolor and legacy broken_only mode based on `mode` parameter.
+**Color scheme**: Green (`C6EFCE`) = WORKING/OK/REDIRECT. Yellow (`FFF2CC`) = SSL_WARNING/REDIRECT_LOOP. Orange (`FCE4D6`) = AUTH_REQUIRED/BLOCKED. Red (`FFC7CE`) = BROKEN/INVALID/TIMEOUT/DNSFAILED/SSLERROR. Grey (`F2F2F2`) = no URL in row.
+**Lesson**: For export features that color-code data, send ALL data points (not just problems). Users want at-a-glance status of everything, not just what's broken. Slim the payload by sending only the fields needed for highlighting (url, status, status_code, message) rather than the full validation result objects. The `_build_url_status_map()` helper creates a URL→result lookup dict with normalized variants for fast per-row matching.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

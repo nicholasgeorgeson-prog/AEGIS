@@ -936,28 +936,32 @@ window.HyperlinkValidator = (function() {
     // =========================================================================
 
     /**
-     * Check if there are broken links and enable/disable the highlighted export button.
+     * Check results and enable/disable the highlighted export button.
+     * v5.9.33: Button enabled whenever there are ANY results (multicolor mode colors all rows).
      * v4.6.2: Also checks ArrayBuffer backup for file availability.
      */
     function updateHighlightedExportButton(results) {
         if (!el.exportHighlighted) return;
 
-        // v5.9.29: AUTH_REQUIRED is NOT broken — link exists but needs credentials
+        const hasResults = results && results.length > 0;
+        const hasSourceFile = sourceFile !== null || sourceFileBuffer !== null;
+
+        // v5.9.33: Count by category for tooltip
         const brokenStatuses = ['BROKEN', 'INVALID', 'TIMEOUT', 'DNSFAILED', 'SSLERROR', 'BLOCKED'];
         const brokenCount = results.filter(r =>
             brokenStatuses.includes(r.status?.toUpperCase())
         ).length;
-        const hasBrokenLinks = brokenCount > 0;
+        const workingCount = results.filter(r =>
+            ['WORKING', 'OK', 'REDIRECT'].includes(r.status?.toUpperCase())
+        ).length;
 
-        const hasSourceFile = sourceFile !== null || sourceFileBuffer !== null;
-
-        if (hasSourceFile && hasBrokenLinks) {
+        if (hasSourceFile && hasResults) {
             el.exportHighlighted.disabled = false;
-            el.exportHighlighted.title = `Export ${sourceFileType === 'docx' ? 'DOCX' : 'Excel'} with ${brokenCount} issue link${brokenCount !== 1 ? 's' : ''} highlighted`;
-            console.log(`[HyperlinkValidator] Export Highlighted button enabled (${brokenCount} broken links)`);
-        } else if (hasSourceFile && !hasBrokenLinks) {
+            el.exportHighlighted.title = `Export color-coded ${sourceFileType === 'docx' ? 'DOCX' : 'Excel'}: ${workingCount} working, ${brokenCount} broken, ${results.length} total`;
+            console.log(`[HyperlinkValidator] Export Highlighted button enabled (${results.length} results: ${workingCount} working, ${brokenCount} broken)`);
+        } else if (hasSourceFile && !hasResults) {
             el.exportHighlighted.disabled = true;
-            el.exportHighlighted.title = 'No broken links to highlight';
+            el.exportHighlighted.title = 'Run validation first to enable export';
         } else {
             el.exportHighlighted.disabled = true;
             el.exportHighlighted.title = 'Upload a DOCX or Excel file first';
@@ -966,7 +970,7 @@ window.HyperlinkValidator = (function() {
 
     /**
      * Handle the Export Highlighted button click.
-     * Sends the source file and validation results to the server for highlighting.
+     * v5.9.33: Sends ALL results for multicolor mode (green/yellow/orange/red by status).
      * v4.6.2: Uses ArrayBuffer backup if File object is stale, improved logging.
      */
     async function handleExportHighlighted() {
@@ -984,21 +988,13 @@ window.HyperlinkValidator = (function() {
 
         const results = HyperlinkValidatorState.getResults();
         if (!results || results.length === 0) {
-            showToast('error', 'No validation results available.');
+            showToast('error', 'No validation results available. Run validation first.');
             return;
         }
 
-        // v5.9.29: Count broken links only (AUTH_REQUIRED excluded — not broken, just needs credentials)
-        const brokenStatuses = ['BROKEN', 'INVALID', 'TIMEOUT', 'DNSFAILED', 'SSLERROR', 'BLOCKED'];
-        const brokenCount = results.filter(r => brokenStatuses.includes(r.status?.toUpperCase())).length;
-        console.log(`[HyperlinkValidator] Sending ${results.length} results (${brokenCount} broken) for highlighting`);
+        console.log(`[HyperlinkValidator] Preparing multicolor export: ${results.length} total results`);
 
-        if (brokenCount === 0) {
-            showToast('info', 'No broken links found to highlight.');
-            return;
-        }
-
-        showToast('info', `Creating highlighted ${sourceFileType.toUpperCase()} file with ${brokenCount} broken links...`);
+        showToast('info', `Creating color-coded ${sourceFileType.toUpperCase()} file with ${results.length} link statuses...`);
 
         try {
             const formData = new FormData();
@@ -1034,17 +1030,20 @@ window.HyperlinkValidator = (function() {
                 return;
             }
 
-            // v5.9.28: Send only broken/issue results to reduce payload size
-            // Full results can be huge (thousands of OK links) and cause 413 errors
-            // v5.9.29: AUTH_REQUIRED removed — not a broken link, just needs credentials
-            const brokenStatuses2 = ['BROKEN', 'INVALID', 'TIMEOUT', 'DNSFAILED', 'SSLERROR',
-                'BLOCKED', 'SSL_WARNING', 'REDIRECT_LOOP', 'REDIRECT_ERROR'];
-            const issueResults = results.filter(r => {
-                const s = (r.status || '').toUpperCase();
-                return brokenStatuses2.includes(s) || (r.status_code && r.status_code >= 400);
-            });
-            console.log(`[HyperlinkValidator] Sending ${issueResults.length} issue results (of ${results.length} total)`);
-            formData.append('results', JSON.stringify(issueResults));
+            // v5.9.33: Send ALL results for multicolor mode
+            // Each row gets colored by its validation status (green/yellow/orange/red)
+            // Slim down results to only the fields needed for highlighting
+            const slimResults = results.map(r => ({
+                url: r.url || r.link_url || '',
+                status: r.status || 'UNKNOWN',
+                status_code: r.status_code || 0,
+                message: (r.message || '').substring(0, 200),
+                excluded: r.excluded || false,
+                treat_as_valid: r.treat_as_valid || false
+            }));
+            console.log(`[HyperlinkValidator] Sending ${slimResults.length} results for multicolor export (payload ~${Math.round(JSON.stringify(slimResults).length / 1024)}KB)`);
+            formData.append('results', JSON.stringify(slimResults));
+            formData.append('mode', 'multicolor');
 
             // v5.0.5: Get fresh CSRF token from response header (Lesson 18)
             let csrfToken = window.State?.csrfToken ||
@@ -1061,7 +1060,7 @@ window.HyperlinkValidator = (function() {
                 ? '/api/hyperlink-validator/export-highlighted/docx'
                 : '/api/hyperlink-validator/export-highlighted/excel';
 
-            console.log(`[HyperlinkValidator] POST ${endpoint}`);
+            console.log(`[HyperlinkValidator] POST ${endpoint} (mode=multicolor)`);
 
             const response = await fetch(endpoint, {
                 method: 'POST',
@@ -1100,11 +1099,11 @@ window.HyperlinkValidator = (function() {
 
             // Get highlight count from header if available
             const highlightCount = response.headers.get('X-Highlight-Count') || '';
-            showToast('success', highlightCount || `Exported highlighted ${sourceFileType.toUpperCase()} file`);
+            showToast('success', highlightCount || `Exported color-coded ${sourceFileType.toUpperCase()} file`);
 
         } catch (e) {
             console.error('[HyperlinkValidator] Export Highlighted failed:', e);
-            showToast('error', `Highlighted export failed: ${e.message}`);
+            showToast('error', `Export failed: ${e.message}`);
         }
     }
 

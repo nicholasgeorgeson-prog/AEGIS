@@ -1,13 +1,26 @@
 {
-  "version": "5.9.32",
+  "version": "5.9.33",
   "release_date": "2026-02-19",
-  "core_version": "5.9.32",
+  "core_version": "5.9.33",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.33",
+      "date": "2026-02-19",
+      "changes": [
+        "NEW: Multi-color status highlighting for Excel export — rows color-coded by validation status: green (working), yellow (SSL/redirect warning), orange (auth required/blocked), red (broken/timeout/DNS failed), grey (no URL)",
+        "NEW: 'Link Status' and 'Link Details' columns auto-added to exported Excel with status label and error details per row",
+        "NEW: Summary sheet ('Link Validation Summary') added to exported Excel with category counts, detailed status breakdown, and color legend",
+        "CHANGE: Export Highlighted button now enabled whenever results exist (not just broken links) — every row gets color-coded regardless of status",
+        "CHANGE: Frontend sends ALL validation results to backend for multicolor export (was sending only broken/issue results)",
+        "CHANGE: Results slimmed to essential fields (url, status, status_code, message) before sending to reduce payload size",
+        "FIX: Windows NamedTemporaryFile compatibility — close temp handle before file.save() to avoid file locking conflicts"
+      ]
+    },
     {
       "version": "5.9.32",
       "date": "2026-02-19",
