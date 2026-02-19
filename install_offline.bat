@@ -21,7 +21,7 @@ setlocal enabledelayedexpansion
 
 echo.
 echo ============================================================
-echo AEGIS v5.9.4 - Offline Dependency Installation
+echo AEGIS v5.9.25 - Offline Dependency Installation
 echo Aerospace Engineering Governance ^& Inspection System
 echo ============================================================
 echo.
@@ -103,7 +103,48 @@ if errorlevel 1 (
 )
 
 echo.
-echo [5/5] Verifying installation...
+echo [5/6] Installing NLP models (spaCy + NLTK data)...
+echo.
+
+REM Install spaCy model from wheel if available
+for %%f in (%WHEELS_DIR%\en_core_web_sm*.whl) do (
+    echo Installing spaCy model from wheel: %%f
+    python -m pip install --no-index --find-links=%WHEELS_DIR% "%%f"
+)
+
+REM Download spaCy model if not installed from wheel
+python -c "import spacy; spacy.load('en_core_web_sm')" 2>nul
+if errorlevel 1 (
+    echo Downloading spaCy en_core_web_sm model...
+    python -m spacy download en_core_web_sm 2>nul
+    if errorlevel 1 (
+        echo WARNING: spaCy model download failed - some NLP features will be limited
+    ) else (
+        echo [OK] spaCy model downloaded
+    )
+) else (
+    echo [OK] spaCy model already installed
+)
+
+REM Install NLTK data - use install_nlp.py if available, otherwise download directly
+if exist "install_nlp.py" (
+    echo Running NLP model installer...
+    python install_nlp.py 2>nul
+) else (
+    echo Downloading NLTK data packages...
+    python -c "import ssl; ssl._create_default_https_context = ssl._create_unverified_context; import nltk; [nltk.download(d, quiet=True) for d in ['punkt','punkt_tab','averaged_perceptron_tagger','averaged_perceptron_tagger_eng','stopwords','wordnet','omw-1.4','cmudict']]" 2>nul
+    if errorlevel 1 (
+        echo WARNING: NLTK data download failed - some NLP features will be limited
+    ) else (
+        echo [OK] NLTK data downloaded
+    )
+)
+
+REM Fix wordnet zip extraction bug
+python -c "import nltk, zipfile, os; p=os.path.join(os.path.expanduser('~'),'nltk_data','corpora','wordnet.zip'); d=os.path.join(os.path.expanduser('~'),'nltk_data','corpora','wordnet'); (zipfile.ZipFile(p).extractall(os.path.dirname(p)) if os.path.exists(p) and not os.path.isdir(d) else None)" 2>nul
+
+echo.
+echo [6/6] Verifying installation...
 echo.
 
 REM Verify key dependencies
@@ -120,6 +161,10 @@ python -c "import fitz; print('[OK] PyMuPDF')" 2>nul || echo [FAIL] PyMuPDF
 python -c "import requests_negotiate_sspi; print('[OK] SSPI Auth')" 2>nul || echo [SKIP] SSPI Auth (Windows auth)
 python -c "import requests_ntlm; print('[OK] NTLM Auth')" 2>nul || echo [SKIP] NTLM Auth (Windows auth)
 python -c "import mammoth; print('[OK] mammoth')" 2>nul || echo [FAIL] mammoth
+python -c "import nltk; nltk.data.find('corpora/wordnet'); print('[OK] NLTK wordnet')" 2>nul || echo [WARN] NLTK wordnet missing
+python -c "import nltk; nltk.data.find('tokenizers/punkt'); print('[OK] NLTK punkt')" 2>nul || echo [WARN] NLTK punkt missing
+python -c "import nltk; nltk.data.find('corpora/stopwords'); print('[OK] NLTK stopwords')" 2>nul || echo [WARN] NLTK stopwords missing
+python -c "import nltk; nltk.data.find('taggers/averaged_perceptron_tagger_eng'); print('[OK] NLTK tagger_eng')" 2>nul || echo [WARN] NLTK tagger_eng missing
 
 echo.
 echo ============================================================

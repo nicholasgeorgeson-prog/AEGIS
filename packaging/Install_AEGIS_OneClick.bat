@@ -1,6 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
-title AEGIS One-Click Installer v5.9.21
+title AEGIS One-Click Installer v5.9.25
 color 0B
 
 echo.
@@ -9,7 +9,7 @@ echo.
 echo       A E G I S   I N S T A L L E R
 echo.
 echo       Aerospace Engineering Governance
-echo       ^& Inspection System  v5.9.21
+echo       ^& Inspection System  v5.9.25
 echo.
 echo  ============================================================
 echo.
@@ -117,9 +117,9 @@ echo.
 
 set "REPO=nicholasgeorgeson-prog/AEGIS"
 set "SRC_ZIP=%INSTALL_DIR%\aegis_source.zip"
-:: All binary assets hosted on v5.9.21 release
-set "DL_BINARY=https://github.com/%REPO%/releases/download/v5.9.21"
-set "DL_TORCH=https://github.com/%REPO%/releases/download/v5.9.21"
+:: All binary assets hosted on v5.9.25 release
+set "DL_BINARY=https://github.com/%REPO%/releases/download/v5.9.25"
+set "DL_TORCH=https://github.com/%REPO%/releases/download/v5.9.25"
 
 echo  Downloading latest source code from GitHub (main branch)...
 echo  (This includes all dependency wheels - ~600 MB total)
@@ -242,7 +242,7 @@ if exist "%INSTALL_DIR%\packaging\wheels\spacy_lookups_data-1.0.5-py2.py3-none-a
 )
 
 :: Download NLP/ML models (240 MB)
-set "DL_MODELS=https://github.com/%REPO%/releases/download/v5.9.21"
+set "DL_MODELS=https://github.com/%REPO%/releases/download/v5.9.25"
 echo.
 echo  Downloading NLP/ML models (240 MB)...
 echo  (sentence-transformers, NLTK data)
@@ -370,7 +370,7 @@ echo  [Step 7 of 8] Configuring NLP models...
 echo  ---------------------------------------------------
 echo.
 
-:: Install spaCy English model from bundled wheel
+:: ---- 7a: spaCy English model ----
 set "SPACY_MODEL_FOUND=0"
 for %%f in ("%WHEELS%\en_core_web_sm*.whl") do (
     set "SPACY_MODEL_FOUND=1"
@@ -397,19 +397,58 @@ if "%SPACY_MODEL_FOUND%"=="0" (
     )
 )
 
-:: Configure sentence-transformers model from bundled models
+:: ---- 7b: NLTK data (punkt, punkt_tab, taggers, stopwords, wordnet) ----
+echo.
+echo  Installing NLTK data packages...
+echo  ^(punkt, punkt_tab, taggers, stopwords, wordnet, cmudict^)
+
+:: If bundled NLTK data exists, use it
+if exist "%INSTALL_DIR%\models\nltk_data" (
+    echo  Using bundled NLTK data...
+    set "NLTK_DATA=%INSTALL_DIR%\models\nltk_data"
+    echo  [OK] NLTK data ready ^(bundled^)
+) else (
+    :: Download NLTK data online using install_nlp.py
+    if exist "%INSTALL_DIR%\install_nlp.py" (
+        echo  Running NLP model installer...
+        "%PYTHON_DIR%\python.exe" "%INSTALL_DIR%\install_nlp.py" 2>nul
+        if errorlevel 1 (
+            echo  [WARN] Some NLP models may not have installed - downloading individually...
+            "%PYTHON_DIR%\python.exe" -c "import ssl; ssl._create_default_https_context = ssl._create_unverified_context; import nltk; [nltk.download(d, quiet=True) for d in ['punkt','punkt_tab','averaged_perceptron_tagger','averaged_perceptron_tagger_eng','stopwords','wordnet','omw-1.4','cmudict']]" 2>nul
+        )
+        echo  [OK] NLTK data configured
+    ) else (
+        :: Fallback: download NLTK data directly via Python
+        echo  Downloading NLTK data directly...
+        "%PYTHON_DIR%\python.exe" -c "import ssl; ssl._create_default_https_context = ssl._create_unverified_context; import nltk; [nltk.download(d, quiet=True) for d in ['punkt','punkt_tab','averaged_perceptron_tagger','averaged_perceptron_tagger_eng','stopwords','wordnet','omw-1.4','cmudict']]" 2>nul
+        if errorlevel 1 (
+            echo  [WARN] NLTK data download failed - some NLP features may be limited
+        ) else (
+            echo  [OK] NLTK data downloaded
+        )
+    )
+)
+
+:: ---- 7c: Verify NLTK data extraction (wordnet zip bug fix) ----
+echo  Verifying NLTK data extraction...
+"%PYTHON_DIR%\python.exe" -c "import nltk; import zipfile, os; nltk_dir = os.path.join(os.path.expanduser('~'), 'nltk_data'); [((lambda p, n: (zipfile.ZipFile(p).extractall(os.path.dirname(p)), None) if os.path.exists(p) and not os.path.isdir(os.path.join(os.path.dirname(p), n)) else (None, None))(os.path.join(nltk_dir, cat, name + '.zip'), name) for cat, name in [('corpora','wordnet'),('corpora','stopwords'),('corpora','omw-1.4'),('tokenizers','punkt'),('tokenizers','punkt_tab'),('taggers','averaged_perceptron_tagger'),('taggers','averaged_perceptron_tagger_eng')])]" 2>nul
+echo  [OK] NLTK data verified
+
+:: ---- 7d: sentence-transformers ----
 if exist "%INSTALL_DIR%\models\sentence_transformers" (
     echo  [OK] Sentence-transformers model ready ^(bundled^)
 ) else (
     echo  [NOTE] Sentence-transformers model will download on first use ^(~80 MB^)
 )
 
-:: Configure NLTK data from bundled models
-if exist "%INSTALL_DIR%\models\nltk_data" (
-    echo  [OK] NLTK data ready ^(bundled^)
-) else (
-    echo  [NOTE] NLTK data will download on first use ^(~120 MB^)
-)
+:: ---- 7e: Final NLP verification ----
+echo.
+echo  Running NLP health check...
+"%PYTHON_DIR%\python.exe" -c "import spacy; nlp=spacy.load('en_core_web_sm'); print('  [OK] spaCy en_core_web_sm')" 2>nul || echo  [WARN] spaCy model not available
+"%PYTHON_DIR%\python.exe" -c "import nltk; nltk.data.find('corpora/wordnet'); print('  [OK] NLTK wordnet')" 2>nul || echo  [WARN] NLTK wordnet not available
+"%PYTHON_DIR%\python.exe" -c "import nltk; nltk.data.find('tokenizers/punkt'); print('  [OK] NLTK punkt')" 2>nul || echo  [WARN] NLTK punkt not available
+"%PYTHON_DIR%\python.exe" -c "import nltk; nltk.data.find('corpora/stopwords'); print('  [OK] NLTK stopwords')" 2>nul || echo  [WARN] NLTK stopwords not available
+"%PYTHON_DIR%\python.exe" -c "import nltk; nltk.data.find('taggers/averaged_perceptron_tagger_eng'); print('  [OK] NLTK tagger_eng')" 2>nul || echo  [WARN] NLTK tagger_eng not available
 
 echo.
 echo  [OK] NLP models configured
@@ -424,10 +463,10 @@ echo  ---------------------------------------------------
 :: Create Start_AEGIS.bat
 (
 echo @echo off
-echo title AEGIS v5.9.21
+echo title AEGIS v5.9.25
 echo color 0B
 echo echo.
-echo echo  Starting AEGIS v5.9.21...
+echo echo  Starting AEGIS v5.9.25...
 echo echo  Once started, open your browser to: http://localhost:5050
 echo echo.
 echo echo  DO NOT close this window while using AEGIS.
@@ -507,10 +546,10 @@ echo  [OK] Export_Bugs.bat
 set "ICON_FILE=%INSTALL_DIR%\static\img\aegis_icon.ico"
 echo  Creating Desktop shortcut...
 if exist "%ICON_FILE%" (
-    powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.IconLocation = '%ICON_FILE%,0'; $s.Description = 'Start AEGIS v5.9.21 - Document Analysis Tool'; $s.Save()" 2>nul
+    powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.IconLocation = '%ICON_FILE%,0'; $s.Description = 'Start AEGIS v5.9.25 - Document Analysis Tool'; $s.Save()" 2>nul
     echo  [OK] Desktop shortcut created with AEGIS icon
 ) else (
-    powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.Description = 'Start AEGIS v5.9.21 - Document Analysis Tool'; $s.Save()" 2>nul
+    powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.Description = 'Start AEGIS v5.9.25 - Document Analysis Tool'; $s.Save()" 2>nul
     echo  [OK] Desktop shortcut created
 )
 
@@ -554,7 +593,7 @@ echo       INSTALLATION COMPLETE!
 echo.
 echo  ============================================================
 echo.
-echo  AEGIS v5.9.21 installed to: %INSTALL_DIR%
+echo  AEGIS v5.9.25 installed to: %INSTALL_DIR%
 echo.
 echo  To start:
 echo    1. Double-click "AEGIS" on your Desktop

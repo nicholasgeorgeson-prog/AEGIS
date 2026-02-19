@@ -1,13 +1,24 @@
 {
-  "version": "5.9.24",
+  "version": "5.9.25",
   "release_date": "2026-02-19",
-  "core_version": "5.9.24",
+  "core_version": "5.9.25",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.25",
+      "date": "2026-02-19",
+      "changes": [
+        "FIX: install_nlp.py rewritten — now installs all 7 required NLP models (spaCy en_core_web_sm + 6 NLTK data packages: punkt, punkt_tab, averaged_perceptron_tagger, averaged_perceptron_tagger_eng, stopwords, wordnet) to match health check requirements",
+        "FIX: NLTK wordnet zip extraction bug — installer now auto-extracts downloaded zip files that NLTK fails to extract, preventing 'wordnet missing' health check failure",
+        "UPDATE: Install_AEGIS_OneClick.bat v5.9.25 — Step 7 now downloads and verifies all NLTK data packages with fallback extraction, runs NLP health check at end of install",
+        "UPDATE: install_offline.bat v5.9.25 — added Step 5/6 for NLP model installation with spaCy download + NLTK data download + wordnet extraction fix",
+        "UPDATE: Install_AEGIS.bat v5.9.25 — added NLTK data download for both offline and online install paths, added install_nlp.py --verify step"
+      ]
+    },
     {
       "version": "5.9.24",
       "date": "2026-02-19",
