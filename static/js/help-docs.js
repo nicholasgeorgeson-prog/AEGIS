@@ -6469,49 +6469,57 @@ defense, aerospace, government, and academic document types.</p>
 
 <h2><i data-lucide="layers"></i> Extraction Pipeline</h2>
 
-<pre class="help-code">
-Document Text
-      │
-      ▼
-┌─────────────────────┐
-│  Pre-processing     │ ← Normalize text, split paragraphs
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│  Pattern Matching   │ ← 20+ regex patterns for role indicators
-│  - Job title suffixes (Manager, Engineer, Director)
-│  - Organizational patterns (team, group, office)
-│  - Acronym expansion (PM → Project Manager)
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│  Known Roles Scan   │ ← 228+ pre-defined roles with aliases
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│  False Positive     │ ← 192+ exclusions (facilities, processes)
-│  Filtering          │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│  Table Boosting     │ ← +20% confidence for RACI/responsibility tables
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│  Canonical Name     │ ← Consolidate variations (PM → Project Manager)
-│  Resolution         │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│  Confidence Scoring │ ← 0.0 to 1.0 based on context
-└─────────────────────┘
-</pre>
+<div style="width:100%;overflow-x:auto;padding:10px 0;">
+<div class="rep-root">
+<style>
+.rep-root{max-width:520px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e6edf3;display:flex;flex-direction:column;align-items:center;gap:0;padding:16px 0}
+@keyframes repFadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes repGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.rep-pill{background:linear-gradient(135deg,#D6A84A,#B8743A);color:#0d1117;font-size:12px;font-weight:700;padding:8px 28px;border-radius:20px;text-align:center;animation:repFadeUp .5s ease both;display:inline-block}
+.rep-pill:hover{transform:scale(1.02);box-shadow:0 0 20px rgba(214,168,74,0.4)}
+.rep-arrow{display:flex;flex-direction:column;align-items:center;padding:2px 0;animation:repFadeUp .5s ease both}
+.rep-arrow-line{width:2px;height:16px;background:linear-gradient(180deg,#D6A84A,#B8743A);transform-origin:top;animation:repGrow .3s ease both}
+.rep-arrow-head{width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #B8743A}
+.rep-step{display:flex;align-items:center;gap:14px;width:100%;animation:repFadeUp .5s ease both}
+.rep-num{min-width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#D6A84A,#B8743A);color:#0d1117;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.rep-card{flex:1;background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px 14px;transition:transform .2s,box-shadow .2s;cursor:default;border-left:3px solid #D6A84A}
+.rep-card:hover{transform:scale(1.02);box-shadow:0 0 20px rgba(214,168,74,0.25)}
+.rep-card-title{font-size:12px;font-weight:600;color:#e6edf3;margin-bottom:2px}
+.rep-card-desc{font-size:10px;color:#8b949e;line-height:1.4}
+.rep-card-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.rep-tag{font-size:9px;padding:2px 7px;border-radius:10px;background:rgba(214,168,74,0.12);color:#D6A84A;border:1px solid rgba(214,168,74,0.2)}
+.rep-result{background:#161b22;border:2px solid #D6A84A;border-radius:8px;padding:12px 24px;text-align:center;animation:repFadeUp .5s ease both;transition:transform .2s,box-shadow .2s;cursor:default}
+.rep-result:hover{transform:scale(1.02);box-shadow:0 0 24px rgba(214,168,74,0.35)}
+.rep-result-title{font-size:13px;font-weight:700;color:#D6A84A;margin-bottom:2px}
+.rep-result-sub{font-size:10px;color:#8b949e}
+.rep-d0{animation-delay:.15s}.rep-d1{animation-delay:.35s}.rep-d1 .rep-arrow-line{animation-delay:.35s}
+.rep-d2{animation-delay:.55s}.rep-d3{animation-delay:.75s}.rep-d3 .rep-arrow-line{animation-delay:.75s}
+.rep-d4{animation-delay:.95s}.rep-d5{animation-delay:1.15s}.rep-d5 .rep-arrow-line{animation-delay:1.15s}
+.rep-d6{animation-delay:1.35s}.rep-d7{animation-delay:1.55s}.rep-d7 .rep-arrow-line{animation-delay:1.55s}
+.rep-d8{animation-delay:1.75s}.rep-d9{animation-delay:1.95s}.rep-d9 .rep-arrow-line{animation-delay:1.95s}
+.rep-d10{animation-delay:2.15s}.rep-d11{animation-delay:2.35s}.rep-d11 .rep-arrow-line{animation-delay:2.35s}
+.rep-d12{animation-delay:2.55s}.rep-d13{animation-delay:2.75s}.rep-d13 .rep-arrow-line{animation-delay:2.75s}
+.rep-d14{animation-delay:2.95s}
+</style>
+<div class="rep-pill rep-d0">Document Text</div>
+<div class="rep-arrow rep-d1"><div class="rep-arrow-line"></div><div class="rep-arrow-head"></div></div>
+<div class="rep-step rep-d2"><div class="rep-num">1</div><div class="rep-card"><div class="rep-card-title">Pre-processing</div><div class="rep-card-desc">Normalize text, split paragraphs, clean whitespace</div></div></div>
+<div class="rep-arrow rep-d3"><div class="rep-arrow-line"></div><div class="rep-arrow-head"></div></div>
+<div class="rep-step rep-d4"><div class="rep-num">2</div><div class="rep-card"><div class="rep-card-title">Pattern Matching</div><div class="rep-card-desc">20+ regex patterns for role indicators</div><div class="rep-card-tags"><span class="rep-tag">Job Titles</span><span class="rep-tag">Org Patterns</span><span class="rep-tag">Acronyms</span></div></div></div>
+<div class="rep-arrow rep-d5"><div class="rep-arrow-line"></div><div class="rep-arrow-head"></div></div>
+<div class="rep-step rep-d6"><div class="rep-num">3</div><div class="rep-card"><div class="rep-card-title">Known Roles Scan</div><div class="rep-card-desc">228+ pre-defined roles with alias matching</div></div></div>
+<div class="rep-arrow rep-d7"><div class="rep-arrow-line"></div><div class="rep-arrow-head"></div></div>
+<div class="rep-step rep-d8"><div class="rep-num">4</div><div class="rep-card" style="border-left-color:#f85149"><div class="rep-card-title">False Positive Filtering</div><div class="rep-card-desc">192+ exclusions for facilities, processes, and generic terms</div></div></div>
+<div class="rep-arrow rep-d9"><div class="rep-arrow-line"></div><div class="rep-arrow-head"></div></div>
+<div class="rep-step rep-d10"><div class="rep-num">5</div><div class="rep-card" style="border-left-color:#3fb950"><div class="rep-card-title">Table Boosting</div><div class="rep-card-desc">+20% confidence for roles in RACI and responsibility tables</div></div></div>
+<div class="rep-arrow rep-d11"><div class="rep-arrow-line"></div><div class="rep-arrow-head"></div></div>
+<div class="rep-step rep-d12"><div class="rep-num">6</div><div class="rep-card"><div class="rep-card-title">Canonical Name Resolution</div><div class="rep-card-desc">Consolidate variations &mdash; PM, Proj. Mgr &rarr; Project Manager</div></div></div>
+<div class="rep-arrow rep-d13"><div class="rep-arrow-line"></div><div class="rep-arrow-head"></div></div>
+<div class="rep-step rep-d14" style="animation-delay:2.95s"><div class="rep-num">7</div><div class="rep-card"><div class="rep-card-title">Confidence Scoring</div><div class="rep-card-desc">0.0 to 1.0 based on context, position, and frequency</div></div></div>
+<div class="rep-arrow" style="animation:repFadeUp .5s ease both;animation-delay:3.15s"><div class="rep-arrow-line" style="animation-delay:3.15s"></div><div class="rep-arrow-head"></div></div>
+<div class="rep-result" style="animation-delay:3.35s"><div class="rep-result-title">Extracted Roles</div><div class="rep-result-sub">Named &middot; Scored &middot; Deduplicated &middot; Ready for Adjudication</div></div>
+</div>
+</div>
 
 <h2><i data-lucide="shield"></i> False Positive Prevention</h2>
 
