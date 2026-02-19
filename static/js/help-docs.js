@@ -7432,6 +7432,29 @@ HelpDocs.content['version-history'] = {
         </ul>
     </div>
     <div class="changelog-version">
+        <h3>v5.9.32 <span class="changelog-date">February 19, 2026</span></h3>
+        <p><strong>Corporate SSL + .mil/.gov Bot Protection + Export Fix</strong></p>
+        <ul>
+            <li><strong>FIX: Corporate SSLERROR false positives</strong> — Multi-strategy SSL fallback cascade replaces single HEAD-with-verify=False. Strategy 1: GET with verify=False + stream=True (corporate servers reject HEAD). Strategy 2: Fresh SSO session + verify=False for internal links needing both SSL bypass and Windows auth.</li>
+            <li><strong>FIX: .mil/.gov bot-protected links</strong> — DoD WAF/Cloudflare 403 responses now marked BLOCKED instead of BROKEN. BLOCKED links are eligible for headless browser retest which passes bot protection with a genuine browser TLS fingerprint.</li>
+            <li><strong>FIX: SSL_WARNING messages</strong> — Removed verbose HTTPSConnectionPool error text. Now shows human-readable reasons: "certificate not trusted (corporate/internal CA)", "certificate expired", "self-signed certificate", etc.</li>
+            <li><strong>FIX: Export error handler</strong> — Catches RequestEntityTooLarge (413) specifically with helpful message instead of generic "internal error". Error messages now include exception type.</li>
+            <li><strong>FIX: Windows file locking</strong> — NamedTemporaryFile handle closed before file.save() to prevent PermissionError on Windows when two handles exist on the same file.</li>
+            <li><strong>ARCH: Retest Strategy 2b</strong> — New get_no_ssl_fresh_auth strategy combining verify=False with fresh Windows SSO for corporate SSLERROR links in the retest phase.</li>
+            <li><strong>ARCH: Headless browser priority</strong> — Expanded priority URL list to include NGC corporate domains (.myngc.com, .northgrum.com, ngc.sharepoint.us) so headless Chromium catches remaining SSL errors.</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.30 <span class="changelog-date">February 19, 2026</span></h3>
+        <p><strong>Export 413 Fix + GET Fallback + TTS Voice</strong></p>
+        <ul>
+            <li><strong>FIX: Export Highlighted 413 error</strong> — Werkzeug multipart parser rejected large payloads because app-level MAX_CONTENT_LENGTH wasn't disabled. Now temporarily sets both request-level and app-config-level limits to None for export endpoints with automatic restoration.</li>
+            <li><strong>FIX: File download links falsely flagged as BROKEN</strong> — Added GET fallback for 401/403 responses. When HEAD returns auth error, retries with GET+stream to detect Content-Disposition/Content-Type file downloads. Links serving files now correctly marked WORKING.</li>
+            <li><strong>FIX: TTS narration voice</strong> — Changed from robotic male (GuyNeural) to natural female (JennyNeural). Updated edge-tts default, pyttsx3 fallback now prioritizes female voices (Zira/Jenny/Samantha), Web Speech API voice priority rewritten.</li>
+            <li><strong>NEW: Cinematic boot sequence</strong> — Aerospace-themed animated shield assembly, particle field, and terminal readout on startup landing page.</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.9.29 <span class="changelog-date">February 19, 2026</span></h3>
         <p><strong>Export Fix + Robust Internal Auth + SharePoint Batch Scan</strong></p>
         <ul>
