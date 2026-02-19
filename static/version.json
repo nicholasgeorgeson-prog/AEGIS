@@ -1,13 +1,25 @@
 {
-  "version": "5.9.25",
+  "version": "5.9.26",
   "release_date": "2026-02-19",
-  "core_version": "5.9.25",
+  "core_version": "5.9.26",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.26",
+      "date": "2026-02-19",
+      "changes": [
+        "FIX: Added symspellpy, editdistpy, and en_core_web_sm wheels to wheels/ directory for complete offline installation",
+        "FIX: Windows MIME type error — added explicit MIME type registration for .css, .js, .json, .svg to prevent 'refused to apply style' browser errors",
+        "FIX: POST /api/diagnostics/frontend 404 — added endpoint for frontend-logger.js diagnostic log sync (was firing every 60s with no backend route)",
+        "FIX: POST /api/diagnostics/frontend-logs 404 — added endpoint for console-capture.js log sync",
+        "FIX: Created static/audio/demo/manifest.json — empty manifest to prevent 404 on every page load",
+        "FIX: Ensured static/images/logo.svg is included in distribution for proper logo display"
+      ]
+    },
     {
       "version": "5.9.25",
       "date": "2026-02-19",

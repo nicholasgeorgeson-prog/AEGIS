@@ -27,8 +27,21 @@ import sys
 import time
 import threading
 import webbrowser
+import mimetypes
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
+
+# ==========================================================================
+# FIX: Windows MIME type registry can return wrong types for .css/.js
+# This causes "refused to apply style" errors with X-Content-Type-Options: nosniff
+# ==========================================================================
+mimetypes.add_type('text/css', '.css')
+mimetypes.add_type('application/javascript', '.js')
+mimetypes.add_type('application/json', '.json')
+mimetypes.add_type('image/svg+xml', '.svg')
+mimetypes.add_type('font/woff2', '.woff2')
+mimetypes.add_type('font/woff', '.woff')
+mimetypes.add_type('font/ttf', '.ttf')
 
 _APP_START_TIME = time.time()
 

@@ -648,6 +648,38 @@ def diagnostics_email():
         return (jsonify({'success': False, 'error': {'code': 'EMAIL_EXPORT_ERROR', 'message': str(e)}}), 500)
 
 
+@core_bp.route('/api/diagnostics/frontend', methods=['POST'])
+def diagnostics_frontend():
+    """
+    Receive frontend diagnostic logs from the browser.
+    Accepts batched log entries from frontend-logger.js.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        logs = data.get('logs', [])
+        if logs:
+            logger.debug(f'Received {len(logs)} frontend log entries')
+        return jsonify({'success': True, 'received': len(logs)})
+    except Exception as e:
+        return jsonify({'success': True, 'received': 0})
+
+
+@core_bp.route('/api/diagnostics/frontend-logs', methods=['POST'])
+def diagnostics_frontend_logs():
+    """
+    Receive frontend console capture logs from the browser.
+    Accepts batched console entries from console-capture.js.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        logs = data.get('logs', [])
+        if logs:
+            logger.debug(f'Received {len(logs)} frontend console entries')
+        return jsonify({'success': True, 'received': len(logs)})
+    except Exception as e:
+        return jsonify({'success': True, 'received': 0})
+
+
 @core_bp.route('/api/diagnostics/health')
 @handle_api_errors
 def diagnostics_health():
