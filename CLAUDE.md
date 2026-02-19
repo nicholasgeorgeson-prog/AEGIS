@@ -166,7 +166,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.9.29
+- **Current version**: 5.9.30
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -692,6 +692,25 @@ The actual logic lives in `repair_aegis.py` (500 lines) where Python's error han
 **Throttling**: SharePoint returns HTTP 429 with `Retry-After` header. Always respect it.
 **Files**: `sharepoint_connector.py` (connector class), `routes/review_routes.py` (endpoints)
 **Lesson**: When the target Windows machine already has `requests-negotiate-sspi` installed for one feature (HV auth), you can reuse it for any other corporate system that accepts Windows SSO. SharePoint, JIRA, Confluence, ServiceNow on corporate networks all support Negotiate/NTLM auth.
+
+### 78. Werkzeug 413 — request.max_content_length vs app.config['MAX_CONTENT_LENGTH'] (v5.9.30)
+**Problem**: `export_highlighted_excel_endpoint` crashed with `413 Request Entity Too Large` even though the `before_request` handler set `request.max_content_length = 200MB`.
+**Root Cause**: Werkzeug's multipart form parser (`formparser.py:389`) reads the content length limit from the Flask app's `MAX_CONTENT_LENGTH` config, not from `request.max_content_length`. The `before_request` hook runs before the view function, but when `request.files` is accessed (lazy property), Werkzeug's `_load_form_data()` calls the multipart parser which checks `app.config['MAX_CONTENT_LENGTH']` — the app-level value the before_request didn't modify.
+**Fix**: Three-part approach: (1) Set `request.max_content_length = None` (request-level, unlimited). (2) Set `current_app.config['MAX_CONTENT_LENGTH'] = None` (app-level, unlimited). (3) Save original value on `g._hv_original_max_content` and restore it in `@hv_blueprint.after_request`.
+**Lesson**: When overriding Flask's upload size limit for specific routes, you must modify BOTH `request.max_content_length` AND `current_app.config['MAX_CONTENT_LENGTH']`. The request-level only affects direct size checks; the multipart parser reads from the app config. Always restore the app config in an `after_request` handler to prevent the override from leaking to other requests.
+
+### 79. GET Fallback for HEAD-Rejected File Download Links (v5.9.30)
+**Problem**: Corporate file servers and document management systems return 401/403 on HEAD requests but serve files correctly on GET. Over 1000 links were falsely flagged as BROKEN.
+**Root Cause**: The validator used HEAD requests for speed. Many servers (SharePoint, ADFS-protected doc servers, government file portals) reject HEAD but allow GET. The GET response includes `Content-Disposition: attachment` and document MIME types proving the file is accessible.
+**Fix**: Added GET fallback in the 4xx handler: when HEAD returns 401/403, retry with `session.get(url, stream=True)`. Check response for (a) 200-399 status code, (b) Content-Disposition containing 'attachment', (c) Content-Type matching document MIME types (pdf, msword, openxmlformats, excel, powerpoint, octet-stream, zip, opendocument). If GET serves a file → WORKING with "File download link (valid)" message. If GET returns a page → WORKING with "GET fallback" message.
+**Key requirement from user**: "I need the link tested to see if it broken or it will open the file" — explicitly rejected URL-pattern guessing and blanket pass approaches. The GET fallback actually tests the link.
+**Lesson**: HEAD and GET can return completely different responses on enterprise file servers. Always have a GET fallback for auth-related errors (401/403). Use `stream=True` to avoid downloading file bodies.
+
+### 80. TTS Voice Selection — Prioritize Female Neural Voices (v5.9.30)
+**Problem**: Demo narration used a robotic-sounding male voice on Windows.
+**Root Cause**: Three places configured TTS voices: (1) `demo_audio_generator.py` — `DEFAULT_VOICE = 'en-US-GuyNeural'` (male). (2) `guide-system.js` Web Speech API — priority list started with "Google US English" (often male/robotic on Windows). (3) `pyttsx3` fallback — picked first English voice found (often male).
+**Fix**: (1) Changed edge-tts default to `'en-US-JennyNeural'` (female, natural-sounding neural voice). (2) Rewrote `_selectPreferredVoice()` priority: Microsoft Online neural female (Aria/Jenny/Sonia/Libby) → Microsoft Zira → macOS Samantha/Karen/Moira → Google voices → any en-US. (3) pyttsx3 fallback now searches for female voice patterns (zira, jenny, samantha, etc.) before falling back to any English voice. (4) Set `utterance.pitch = 1.05` for slightly more natural female tone.
+**Lesson**: When shipping TTS features, specify the EXACT voice you want as default — don't rely on system defaults which vary wildly by OS. On Windows, Microsoft neural "Online" voices (Aria, Jenny) are dramatically better than standard voices (David, Zira). On macOS, Samantha is the best built-in English voice. Always provide voice selection UI so users can choose.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
