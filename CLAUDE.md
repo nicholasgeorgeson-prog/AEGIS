@@ -637,6 +637,13 @@ The actual logic lives in `repair_aegis.py` (500 lines) where Python's error han
 **Both files** must be in the AEGIS install directory and uploaded as release assets on v5.9.21.
 **Lesson**: For any non-trivial Windows tooling, write the logic in Python and use batch only as a 10-line launcher. Batch scripting is fundamentally broken for: error handling (`errorlevel` sticky), string processing (paths with spaces), and control flow (`call :subroutine` + `&&/||`).
 
+### 70. setuptools v82+ Removed pkg_resources (Feb 2026 Breaking Change)
+**Problem**: `import pkg_resources` fails with `No module named 'pkg_resources'` even though `pip list` shows setuptools 82.0.0 installed. spaCy's `en_core_web_sm` model requires `pkg_resources` to load.
+**Root Cause**: setuptools v82.0 (released ~8 Feb 2026) **completely removed** the `pkg_resources` module. This is a massive breaking change affecting thousands of packages. pip reports "Requirement already satisfied: setuptools (82.0.0)" but the installed version doesn't have the module that everything expects.
+**Fix**: (1) Replaced `setuptools-82.0.0-py3-none-any.whl` with `setuptools-80.10.2-py3-none-any.whl` in wheels directory. (2) Pinned `setuptools>=60.0,<81` in `requirements.txt`. (3) Repair tool uses `pip_install(['setuptools<81'], wheels_dir, force=True)` — the `--force-reinstall` is critical because pip sees v82 as "already satisfied" and won't downgrade without it. (4) Batch wrapper pre-flight also uses `--force-reinstall` with `"setuptools<81"` version pin. (5) OneClick installer pins `"setuptools<81"` with `--force-reinstall`.
+**Why force-reinstall is required**: pip's default behavior is to skip packages that are already installed. When v82 is installed, `pip install setuptools` returns "already satisfied" even though v82 doesn't have `pkg_resources`. Only `--force-reinstall` combined with `<81` version pin forces pip to actually downgrade.
+**Lesson**: Always check the actual version of critical infrastructure packages in the wheels directory. When a package has a major version change that removes functionality (like setuptools dropping pkg_resources), version pinning is essential. The `--force-reinstall` flag is needed when the installed version must be DOWNGRADED, not just installed.
+
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
 1. **Changelog update** in `version.json` (and copy to `static/version.json`)
