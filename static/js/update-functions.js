@@ -54,10 +54,14 @@ window.checkForUpdates = async function() {
             if (data.has_updates && data.updates && data.updates.length > 0) {
                 // Updates available
                 console.log('[TWR] Updates found:', data.updates.length);
-                
+
                 if (noUpdatesDiv) noUpdatesDiv.style.display = 'none';
                 if (updatesAvailableDiv) updatesAvailableDiv.style.display = 'block';
                 if (updateCountSpan) updateCountSpan.textContent = data.count || data.updates.length;
+
+                // v5.9.40: Show the Apply Updates button
+                const applyBtn = document.getElementById('btn-apply-updates');
+                if (applyBtn) applyBtn.style.display = 'inline-flex';
                 
                 // Populate update list
                 if (updateListDiv) {
@@ -89,7 +93,7 @@ window.checkForUpdates = async function() {
             } else {
                 // No updates
                 console.log('[TWR] No updates found');
-                
+
                 if (noUpdatesDiv) {
                     noUpdatesDiv.style.display = 'flex';
                     // Update the text to show last checked time
@@ -97,6 +101,10 @@ window.checkForUpdates = async function() {
                     if (pEl) pEl.textContent = 'No updates available';
                 }
                 if (updatesAvailableDiv) updatesAvailableDiv.style.display = 'none';
+
+                // v5.9.40: Hide the Apply Updates button
+                const applyBtn2 = document.getElementById('btn-apply-updates');
+                if (applyBtn2) applyBtn2.style.display = 'none';
                 
                 // Legacy support
                 if (legacyStatusDiv) {

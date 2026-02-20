@@ -47,6 +47,7 @@ FILES = [
 
     # JavaScript
     "static/js/app.js",
+    "static/js/update-functions.js",
     "static/js/help-docs.js",
     "static/js/features/proposal-compare.js",
     "static/js/features/metrics-analytics.js",
