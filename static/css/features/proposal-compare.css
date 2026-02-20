@@ -21,8 +21,8 @@
 .pc-modal-overlay {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.65);
-    backdrop-filter: blur(4px);
+    /* v5.9.39: Reduced opacity to let particle canvas show through on the sides (matches other modals at 0.45) */
+    background: rgba(0, 0, 0, 0.45);
 }
 
 .pc-modal-container {

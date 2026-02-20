@@ -59,6 +59,7 @@ body.landing-active #modal-hyperlink-validator.active {
 }
 body:has(.modal.active) .lp-bg-canvas,
 body:has(.modal.show) .lp-bg-canvas,
+body:has(.pc-modal.active) .lp-bg-canvas,
 body:not(.landing-active) .lp-bg-canvas {
     z-index: 10000;
 }
