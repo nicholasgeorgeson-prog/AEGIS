@@ -804,6 +804,31 @@ The actual logic lives in `repair_aegis.py` (500 lines) where Python's error han
 **Files**: `hyperlink_validator/routes.py` — `_hv_increase_upload_limit()` before_request hook, DOCX export endpoint (~line 1785), Excel export endpoint (~line 1916)
 **Lesson**: Never assume Flask/Werkzeug properties are settable across versions. Always wrap property assignments in `try/except AttributeError` when the code must work on multiple Werkzeug versions. The Mac development environment and Windows production can have different Werkzeug behaviors. Use `current_app.config` as the primary mechanism since it's always a regular dict.
 
+### 92. Missing /api/capabilities Endpoint Caused Boot Error (v5.9.40)
+**Problem**: `checkCapabilities()` in app.js called `fetch('/api/capabilities')` during boot, but no such endpoint existed. The call silently failed (wrapped in try-catch), but `State.capabilities` stayed undefined, causing export buttons (Excel, PDF) to show as disabled with "install openpyxl"/"install reportlab" tooltips even when those packages were installed.
+**Root Cause**: The endpoint was referenced in app.js (line 773) and tests.py (lines 956, 971) but never implemented. Only `/api/extraction/capabilities` existed (different endpoint, different response format).
+**Fix**: Added `/api/capabilities` endpoint in `config_routes.py` that returns `{success: true, data: {version, capabilities: {excel_export, pdf_export, docling, mammoth, spacy, proposal_compare, sharepoint}}}`. Each capability is detected via try/except import.
+**Lesson**: When adding `fetch()` calls to the boot sequence, always implement the corresponding endpoint first. Silent failures in capability checks cascade to broken UI states (disabled buttons, missing features) that are hard to diagnose because there's no visible error. Always search for endpoint usage across frontend AND test files before shipping.
+
+### 93. Proposal Compare z-index Behind Landing Page Tiles on Windows Chrome (v5.9.40)
+**Problem**: Clicking the Proposal Compare tile on the landing page opened the modal BEHIND the dashboard tiles — the user could see it was loading but couldn't interact with it.
+**Root Cause**: The `.pc-modal` CSS had `z-index: 10001` and the `.lp-page` (landing page) had `z-index: 9999`. Theoretically 10001 > 9999 should work since both are `position: fixed` at the root level. BUT — on Windows Chrome, the `backdrop-filter: blur(8px)` on `.lp-tile` elements creates an implicit stacking context that can elevate tiles above their parent's z-index in certain compositing scenarios.
+**Fix**: Bumped `.pc-modal` z-index from 10001 to 15000 in both CSS (`proposal-compare.css`) and JavaScript (`ProposalCompare.open()` sets `modal.style.zIndex = '15000'`). Updated `landing-page.css` override rule to match. The belt-and-suspenders approach (CSS + JS) ensures it works regardless of CSS loading order.
+**Lesson**: `backdrop-filter` creates a new stacking context (per CSS spec). When any descendant element has `backdrop-filter`, that element and its children form an independent layer. On some browsers/platforms (notably Windows Chrome), this can cause unexpected stacking behavior where the backdrop-filter element appears above siblings that have lower or equal z-index to the parent. Solution: use a significantly higher z-index (15000 vs 10001) to guarantee visibility, not just barely-above.
+
+### 94. apply_v5.x.xx.py Update Script Pattern (v5.9.40)
+**Pattern**: When delivering updates to the user, create an `apply_v{VERSION}.py` script that:
+1. Downloads all changed files from GitHub (`raw.githubusercontent.com`)
+2. Creates timestamped backup of each file before overwriting
+3. Places files directly into the AEGIS install directory (no intermediary)
+4. Verifies it's running from the correct directory (checks for `app.py` and `static/`)
+5. Creates necessary directories (e.g., `proposal_compare/` with `__init__.py`)
+6. Uses the same SSL fallback pattern as all other download scripts
+7. No external dependencies — Python standard library only
+8. Prints summary of changes, next steps, and backup location
+**Files**: `apply_v5.9.40.py` (this version), prior examples: `apply_v5.9.33.py` through `apply_v5.9.38.py`
+**Lesson**: Always provide BOTH `pull_updates.py` (for AEGIS built-in updater) AND `apply_v{VERSION}.py` (direct updater) for each release. The `apply_v{VERSION}.py` script is more reliable because it places files directly without requiring the AEGIS app to be running.
+
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
 1. **Changelog update** in `version.json` (and copy to `static/version.json`)

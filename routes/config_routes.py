@@ -624,6 +624,68 @@ def api_prose_lint():
         return (jsonify({'success': False, 'error': {'code': 'LINT_ERROR', 'message': str(e)}}), 500)
 _cached_checker_count = None
 
+
+@config_bp.route('/api/capabilities', methods=['GET'])
+@handle_api_errors
+def capabilities():
+    """
+    Get server capabilities for UI feature gating (v5.9.40).
+    Called during boot by app.js checkCapabilities().
+    Returns what export/analysis features are available.
+    """
+    caps = {
+        'excel_export': False,
+        'pdf_export': False,
+        'docling': False,
+        'mammoth': False,
+        'spacy': False,
+        'proposal_compare': False,
+        'sharepoint': False,
+    }
+    try:
+        import openpyxl
+        caps['excel_export'] = True
+    except ImportError:
+        pass
+    try:
+        from reportlab.lib.pagesizes import letter
+        caps['pdf_export'] = True
+    except ImportError:
+        pass
+    try:
+        from docling_extractor import DoclingManager
+        caps['docling'] = True
+    except Exception:
+        pass
+    try:
+        import mammoth
+        caps['mammoth'] = True
+    except ImportError:
+        pass
+    try:
+        import spacy
+        caps['spacy'] = True
+    except ImportError:
+        pass
+    try:
+        from proposal_compare.parser import ProposalParser
+        caps['proposal_compare'] = True
+    except Exception:
+        pass
+    try:
+        from sharepoint_connector import SharePointConnector
+        caps['sharepoint'] = True
+    except Exception:
+        pass
+    return jsonify({
+        'success': True,
+        'data': {
+            'version': get_version(),
+            'capabilities': caps
+        }
+    })
+
+
 @config_bp.route('/api/version', methods=['GET'])
 @handle_api_errors
 def version():

@@ -31,6 +31,7 @@ FILES = [
     "core.py",
     "docling_extractor.py",
     "routes/_shared.py",
+    "routes/config_routes.py",
 
     # Hyperlink Validator
     "hyperlink_validator/routes.py",
@@ -45,6 +46,7 @@ FILES = [
     "templates/index.html",
 
     # JavaScript
+    "static/js/app.js",
     "static/js/help-docs.js",
     "static/js/features/proposal-compare.js",
     "static/js/features/metrics-analytics.js",
@@ -53,6 +55,10 @@ FILES = [
     # CSS
     "static/css/features/proposal-compare.css",
     "static/css/features/metrics-analytics.css",
+    "static/css/features/landing-page.css",
+
+    # Update script
+    "apply_v5.9.40.py",
 
     # Docs
     "CLAUDE.md",

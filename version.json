@@ -26,7 +26,10 @@
         "FIX: Docling artifacts_path validation with auto-detection fallback when env var points to invalid directory",
         "FIX: Session-broken flag prevents repeated 60s Docling timeouts across batch files (skip instantly after first failure)",
         "FIX: Folder scan chunk size reduced from 8→5 and workers from 4→3 for stable Windows+OneDrive performance",
-        "FIX: Export Highlighted crash on Windows — request.max_content_length is read-only on some Werkzeug versions (wrapped in try/except at 3 locations)"
+        "FIX: Export Highlighted crash on Windows — request.max_content_length is read-only on some Werkzeug versions (wrapped in try/except at 3 locations)",
+        "FIX: Boot error — added missing /api/capabilities endpoint (checkCapabilities() was silently failing, export buttons showed disabled)",
+        "FIX: Proposal Compare z-index bumped from 10001 to 15000 — modal was behind landing page tiles on Windows Chrome with backdrop-filter",
+        "ENH: Guide system updated with comprehensive Proposal Compare v2.0 demos — 8 overview scenes + 7 sub-demos covering all new tabs"
       ]
     },
     {

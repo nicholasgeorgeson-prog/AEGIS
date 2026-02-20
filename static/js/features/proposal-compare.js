@@ -53,6 +53,8 @@ window.ProposalCompare = (function() {
             return;
         }
         modal.classList.add('active');
+        // v5.9.40: Force z-index above landing page tiles (belt-and-suspenders with CSS)
+        modal.style.zIndex = '15000';
         document.body.classList.add('modal-open');
         reset();
         renderUploadPhase();
