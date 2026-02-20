@@ -3447,7 +3447,7 @@ const AEGISGuide = {
         const nav = this.refs.panel.querySelector('#guide-section-nav');
         if (!nav) return;
 
-        const sectionOrder = ['landing', 'review', 'batch', 'roles', 'forge', 'validator', 'compare', 'metrics', 'history', 'settings', 'portfolio'];
+        const sectionOrder = ['landing', 'review', 'batch', 'roles', 'forge', 'sow', 'proposal-compare', 'validator', 'compare', 'metrics', 'history', 'settings', 'portfolio'];
         nav.innerHTML = sectionOrder.map(id => {
             const s = this.sections[id];
             if (!s) return '';
@@ -4464,7 +4464,7 @@ const AEGISGuide = {
         // Guard against double-start
         if (this.demo.isPlaying) return;
         // Build combined demo from all sections
-        const sectionOrder = ['landing', 'review', 'batch', 'roles', 'forge', 'validator', 'compare', 'metrics', 'history', 'settings', 'portfolio'];
+        const sectionOrder = ['landing', 'review', 'batch', 'roles', 'forge', 'sow', 'proposal-compare', 'validator', 'compare', 'metrics', 'history', 'settings', 'portfolio'];
         let allScenes = [];
 
         sectionOrder.forEach(id => {
@@ -5047,6 +5047,7 @@ const AEGISGuide = {
             { id: 'modal-sow-generator', section: 'sow', check: el => el.classList.contains('active') || el.style.display === 'flex' },
             { id: 'modal-hyperlink-validator', section: 'validator', check: el => el.classList.contains('active') },
             { id: 'modal-doc-compare', section: 'compare', check: el => el.classList.contains('active') },
+            { id: 'pc-modal', section: 'proposal-compare', check: el => el.classList.contains('active') },
             { id: 'modal-metrics-analytics', section: 'metrics', check: el => el.classList.contains('active') },
             { id: 'modal-scan-history', section: 'history', check: el => el.classList.contains('active') },
             { id: 'modal-settings', section: 'settings', check: el => el.classList.contains('active') },

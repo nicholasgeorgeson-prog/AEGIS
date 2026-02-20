@@ -7660,6 +7660,24 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.9.40 <span class="changelog-date">February 20, 2026</span></h3>
+        <p><strong>Proposal Compare v2.0 + Bug Fixes</strong></p>
+        <ul>
+            <li><strong>NEW: Proposal Compare v2.0</strong> — Upload 2–10 vendor proposals (DOCX, PDF, XLSX) for automated financial extraction and side-by-side comparison with 8 result tabs</li>
+            <li><strong>NEW: Executive Summary tab</strong> — Auto-generated overview with key findings, cost ranges, and recommendation highlights</li>
+            <li><strong>NEW: Red Flags tab</strong> — Automated detection of pricing anomalies, missing line items, unusual cost structures, and outlier values across proposals</li>
+            <li><strong>NEW: Heatmap tab</strong> — Visual cost comparison matrix with color-coded cells showing relative pricing across vendors and categories</li>
+            <li><strong>NEW: Vendor Scores tab</strong> — Composite scoring across cost competitiveness, completeness, detail level, and consistency metrics</li>
+            <li><strong>NEW: Project Management</strong> — Group related proposals into projects for organized comparison — persistent across sessions</li>
+            <li><strong>NEW: M&amp;A Dashboard integration</strong> — Proposal Compare results feed into Metrics &amp; Analytics with dedicated Proposals tab</li>
+            <li><strong>FIX: Boot error</strong> — Added missing /api/capabilities endpoint that caused console errors on startup</li>
+            <li><strong>FIX: Proposal Compare z-index</strong> — Modal now opens above dashboard tiles on Windows Chrome (backdrop-filter stacking context fix)</li>
+            <li><strong>FIX: Export Highlighted crash</strong> — Resolved 413 upload limit and Windows file path issues for multicolor Excel export</li>
+            <li><strong>FIX: Apply Updates button</strong> — "Check for Updates" now shows the Apply button when updates are available</li>
+            <li><strong>ENH: Help &amp; Demo coverage</strong> — Proposal Compare added to help documentation (5 sections), guided tour, and live demo system (8 scenes + 7 sub-demos)</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.9.39 <span class="changelog-date">February 20, 2026</span></h3>
         <p><strong>Batch Scan Minimize &amp; Portfolio Fix</strong></p>
         <ul>
