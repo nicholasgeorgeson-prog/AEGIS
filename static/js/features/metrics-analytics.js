@@ -26,6 +26,8 @@ window.MetricsAnalytics = (function () {
     let currentTab = 'overview';
     let charts = {};             // Chart.js instances keyed by canvas ID
     let sortState = {};          // Per-table sort state
+    let proposalData = null;     // v5.9.40: Cached proposal metrics (separate API)
+    let proposalDataTimestamp = null;
 
     // ── Helpers ──────────────────────────────────────────────────
 
@@ -1256,6 +1258,270 @@ window.MetricsAnalytics = (function () {
         refreshIcons();
     }
 
+    // ── Proposals Tab (v5.9.40) ──────────────────────────────────
+
+    function renderProposalsTab() {
+        // Fetch proposal data from separate API (lazy load + cache 5 min)
+        if (proposalData && proposalDataTimestamp && (Date.now() - proposalDataTimestamp) < 300000) {
+            _renderProposalsContent(proposalData);
+            return;
+        }
+
+        // Show loading state in tab
+        var heroEl = document.getElementById('ma-proposals-hero');
+        if (heroEl) heroEl.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--text-secondary)"><i data-lucide="loader-2" class="spinning" style="width:20px;height:20px"></i> Loading proposal metrics...</div>';
+
+        fetch('/api/proposal-compare/metrics', {
+            method: 'GET',
+            headers: { 'X-CSRF-Token': csrfToken() }
+        })
+            .then(function (resp) {
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                return resp.json();
+            })
+            .then(function (json) {
+                if (json.success && json.data) {
+                    proposalData = json.data;
+                    proposalDataTimestamp = Date.now();
+                    _renderProposalsContent(proposalData);
+                } else {
+                    _showProposalsEmpty();
+                }
+            })
+            .catch(function (err) {
+                console.warn('[MetricsAnalytics] Proposal metrics unavailable:', err.message);
+                _showProposalsEmpty();
+            });
+    }
+
+    function _showProposalsEmpty() {
+        var heroEl = document.getElementById('ma-proposals-hero');
+        if (heroEl) heroEl.innerHTML = '';
+        var emptyEl = document.getElementById('ma-pc-empty');
+        if (emptyEl) emptyEl.style.display = 'block';
+    }
+
+    function _fmtCurrency(n) {
+        if (n == null || isNaN(n)) return '$0';
+        if (n >= 1e9) return '$' + (n / 1e9).toFixed(1) + 'B';
+        if (n >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
+        if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
+        return '$' + Math.round(n).toLocaleString();
+    }
+
+    function _renderProposalsContent(pd) {
+        var emptyEl = document.getElementById('ma-pc-empty');
+        if (emptyEl) emptyEl.style.display = 'none';
+
+        var proj = pd.projects || {};
+        var prop = pd.proposals || {};
+        var comp = pd.comparisons || {};
+        var vendors = pd.vendors || [];
+        var recent = pd.recent_activity || [];
+        var fileTypes = pd.file_types || {};
+        var catDist = pd.category_distribution || {};
+
+        // Check if there's any data at all
+        if ((proj.total || 0) === 0 && (prop.total || 0) === 0) {
+            _showProposalsEmpty();
+            return;
+        }
+
+        // Hero stats
+        buildHeroStats('ma-proposals-hero', [
+            { label: 'Projects', value: proj.total || 0, sub: (proj.active || 0) + ' active', accent: 'blue' },
+            { label: 'Proposals', value: prop.total || 0, sub: (prop.unique_vendors || 0) + ' unique vendors', accent: 'purple' },
+            { label: 'Line Items', value: prop.total_line_items || 0, sub: 'across all proposals', accent: 'amber' },
+            { label: 'Total Analyzed', value: 0, sub: _fmtCurrency(prop.total_value_analyzed || 0), accent: 'green' }
+        ]);
+
+        // Overwrite the Total Analyzed value with currency format (bypasses countUp integer formatting)
+        var heroEl = document.getElementById('ma-proposals-hero');
+        if (heroEl) {
+            var statCards = heroEl.querySelectorAll('.ma-stat-card');
+            if (statCards.length >= 4) {
+                var valEl = statCards[3].querySelector('.ma-stat-value');
+                if (valEl) valEl.textContent = _fmtCurrency(prop.total_value_analyzed || 0);
+            }
+        }
+
+        // --- Chart: Proposal Value Distribution (bar) ---
+        if (vendors.length > 0 && window.Chart) {
+            var vendorNames = vendors.slice(0, 10).map(function (v) { return v.name || 'Unknown'; });
+            var vendorAvgs = vendors.slice(0, 10).map(function (v) { return v.avg_amount || 0; });
+
+            makeChart('ma-chart-pc-values', {
+                type: 'bar',
+                data: {
+                    labels: vendorNames,
+                    datasets: [{
+                        label: 'Avg Proposal Value',
+                        data: vendorAvgs,
+                        backgroundColor: '#D6A84Acc',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: Object.assign({}, defaultTooltip(), {
+                            callbacks: {
+                                label: function (ctx) {
+                                    return 'Avg: ' + _fmtCurrency(ctx.parsed.y);
+                                }
+                            }
+                        })
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: chartTextColor(), font: { size: 9 }, maxRotation: 45, autoSkip: true },
+                            grid: { color: chartGridColor() }
+                        },
+                        y: {
+                            ticks: {
+                                color: chartTextColor(),
+                                font: { size: 10 },
+                                callback: function (val) { return _fmtCurrency(val); }
+                            },
+                            grid: { color: chartGridColor() },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- Chart: File Type Breakdown (doughnut) ---
+        var ftLabels = Object.keys(fileTypes);
+        var ftValues = Object.values(fileTypes);
+        if (ftLabels.length > 0 && window.Chart) {
+            makeChart('ma-chart-pc-filetypes', {
+                type: 'doughnut',
+                data: {
+                    labels: ftLabels.map(function (t) { return t.toUpperCase(); }),
+                    datasets: [{
+                        data: ftValues,
+                        backgroundColor: CHART_PALETTE.slice(0, ftLabels.length),
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '50%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: chartTextColor(), font: { size: 10 }, padding: 8, usePointStyle: true } },
+                        tooltip: defaultTooltip()
+                    }
+                }
+            });
+        }
+
+        // --- Chart: Top Vendors (horizontal bar) ---
+        if (vendors.length > 0 && window.Chart) {
+            var vSlice = vendors.slice(0, 12);
+            makeChart('ma-chart-pc-vendors', {
+                type: 'bar',
+                data: {
+                    labels: vSlice.map(function (v) { return v.name || 'Unknown'; }),
+                    datasets: [{
+                        label: 'Proposals',
+                        data: vSlice.map(function (v) { return v.proposal_count || 0; }),
+                        backgroundColor: '#8b5cf6cc',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: defaultTooltip() },
+                    scales: {
+                        x: {
+                            ticks: { color: chartTextColor(), stepSize: 1 },
+                            grid: { color: chartGridColor() },
+                            beginAtZero: true,
+                            title: { display: true, text: 'Proposal Count', color: chartTextColor(), font: { size: 10 } }
+                        },
+                        y: { ticks: { color: chartTextColor(), font: { size: 10 } }, grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        // --- Chart: Line Item Categories (doughnut) ---
+        var catLabels = Object.keys(catDist);
+        var catValues = Object.values(catDist);
+        if (catLabels.length > 0 && window.Chart) {
+            // Sort by value descending, take top 8
+            var catPairs = catLabels.map(function (l, i) { return { label: l, value: catValues[i] }; });
+            catPairs.sort(function (a, b) { return b.value - a.value; });
+            catPairs = catPairs.slice(0, 8);
+
+            makeChart('ma-chart-pc-categories', {
+                type: 'doughnut',
+                data: {
+                    labels: catPairs.map(function (c) { return c.label; }),
+                    datasets: [{
+                        data: catPairs.map(function (c) { return c.value; }),
+                        backgroundColor: ['#3b82f6', '#8b5cf6', '#ec4899', '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '50%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: chartTextColor(), font: { size: 10 }, padding: 8, usePointStyle: true } },
+                        tooltip: defaultTooltip()
+                    }
+                }
+            });
+        }
+
+        // --- Recent Activity Table ---
+        if (recent.length > 0) {
+            buildTable('ma-pc-activity-table', [
+                { key: 'filename', label: 'Proposal', name: true, render: function (v) { return truncFile(v, 35); } },
+                { key: 'company_name', label: 'Vendor', name: true, render: function (v) { return v || '—'; } },
+                { key: 'total_raw', label: 'Amount', num: true, render: function (v) { return v || '—'; } },
+                { key: 'project_name', label: 'Project', name: true, render: function (v) { return v || '—'; } },
+                { key: 'added_at', label: 'Added', render: function (v) { return relTime(v); } }
+            ], recent.slice(), {
+                clickable: true,
+                onRowClick: function (row) {
+                    // Find vendor details from vendors array
+                    var vendorInfo = vendors.find(function (v) { return v.name === row.company_name; });
+                    var html = '<p style="font-size:0.8125rem;color:var(--text-secondary);margin:0 0 0.75rem">' +
+                        '<strong>' + (row.filename || 'Unknown') + '</strong> — ' +
+                        (row.company_name || 'Unknown vendor') + '</p>';
+
+                    if (vendorInfo) {
+                        html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;margin-bottom:1rem">';
+                        html += '<div class="ma-mini-card"><div class="ma-mini-value">' + (vendorInfo.proposal_count || 0) + '</div><div class="ma-mini-label">Proposals</div></div>';
+                        html += '<div class="ma-mini-card"><div class="ma-mini-value">' + _fmtCurrency(vendorInfo.avg_amount || 0) + '</div><div class="ma-mini-label">Avg Amount</div></div>';
+                        html += '<div class="ma-mini-card"><div class="ma-mini-value">' + (row.total_raw || '—') + '</div><div class="ma-mini-label">This Proposal</div></div>';
+                        html += '</div>';
+                    }
+
+                    if (row.project_name) {
+                        html += '<p style="font-size:0.75rem;color:var(--text-muted);margin:0"><i data-lucide="folder" style="width:12px;height:12px;vertical-align:-2px"></i> Project: ' + row.project_name + '</p>';
+                    }
+
+                    openDrilldown('ma-proposals-drilldown', 'Proposal: ' + (row.company_name || row.filename), html);
+                }
+            });
+        } else {
+            var tableWrap = document.getElementById('ma-pc-activity-table');
+            if (tableWrap) tableWrap.innerHTML = '<p style="text-align:center;padding:1.5rem;color:var(--text-muted);font-size:0.8125rem">No recent proposal activity</p>';
+        }
+
+        refreshIcons();
+    }
+
     // ══════════════════════════════════════════════════════════════
     //  TAB MANAGEMENT
     // ══════════════════════════════════════════════════════════════
@@ -1290,6 +1556,7 @@ window.MetricsAnalytics = (function () {
             case 'statements': renderStatementsTab(); break;
             case 'roles': renderRolesTab(); break;
             case 'documents': renderDocumentsTab(); break;
+            case 'proposals': renderProposalsTab(); break;
         }
     }
 

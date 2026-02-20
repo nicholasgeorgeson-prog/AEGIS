@@ -79,7 +79,12 @@ def _hv_increase_upload_limit():
     but we also force it here in case any middleware re-sets it. Also directly patches
     request.max_content_length to None for this specific request."""
     if request.path.endswith(('/export-highlighted/excel', '/export-highlighted/docx')):
-        request.max_content_length = None
+        # v5.9.40: request.max_content_length is read-only on some Werkzeug versions
+        # (Windows embedded Python). Wrap in try/except to handle gracefully.
+        try:
+            request.max_content_length = None
+        except (AttributeError, TypeError):
+            pass  # Read-only property on this Werkzeug version
         current_app.config['MAX_CONTENT_LENGTH'] = None
 
 
@@ -1776,8 +1781,12 @@ def export_highlighted_docx_endpoint():
             }
         }), 501
 
-    # v5.9.34: Force-clear upload limit before accessing request.files
-    request.max_content_length = None
+    # v5.9.40: Force-clear upload limit before accessing request.files
+    # request.max_content_length is read-only on some Werkzeug versions (Windows embedded Python)
+    try:
+        request.max_content_length = None
+    except (AttributeError, TypeError):
+        pass
     current_app.config['MAX_CONTENT_LENGTH'] = None
     request.environ.pop('MAX_CONTENT_LENGTH', None)
 
@@ -1904,17 +1913,24 @@ def export_highlighted_excel_endpoint():
             }
         }), 501
 
-    # v5.9.34: Force-clear upload limit RIGHT BEFORE accessing request.files.
+    # v5.9.40: Force-clear upload limit RIGHT BEFORE accessing request.files.
     # Werkzeug's _load_form_data() is triggered lazily on first request.files access.
     # The MultiPartParser reads max_content_length at that exact moment.
-    # We set it to None at THREE levels to guarantee Werkzeug can't find a limit:
-    request.max_content_length = None
+    # request.max_content_length is read-only on some Werkzeug versions (Windows embedded Python)
+    try:
+        request.max_content_length = None
+    except (AttributeError, TypeError):
+        pass
     current_app.config['MAX_CONTENT_LENGTH'] = None
     # Also patch the environ which some Werkzeug versions read directly:
     request.environ.pop('MAX_CONTENT_LENGTH', None)
 
+    try:
+        rcl = request.max_content_length
+    except Exception:
+        rcl = 'unavailable'
     logger.info(f"Export Excel: pre-parse check — MAX_CONTENT_LENGTH={current_app.config.get('MAX_CONTENT_LENGTH')}, "
-                f"request.max_content_length={request.max_content_length}, "
+                f"request.max_content_length={rcl}, "
                 f"Content-Length={request.content_length}")
 
     # Check for file in request — wrap in try/except for Werkzeug 413

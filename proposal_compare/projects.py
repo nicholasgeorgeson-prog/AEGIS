@@ -1,0 +1,473 @@
+"""
+AEGIS Proposal Compare — Project Management
+
+Provides persistent project-based proposal storage using SQLite.
+Users can create named projects, add proposals incrementally,
+and retrieve comparison history.
+"""
+
+import os
+import json
+import sqlite3
+import logging
+from datetime import datetime, timezone
+from typing import List, Dict, Optional, Any
+
+logger = logging.getLogger(__name__)
+
+DB_NAME = 'proposal_projects.db'
+
+
+def _get_db_path():
+    """Get the database path relative to the project root."""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(root, DB_NAME)
+
+
+def _get_connection():
+    """Get a SQLite connection with WAL mode for concurrency."""
+    conn = sqlite3.connect(_get_db_path())
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys=ON")
+    return conn
+
+
+def init_db():
+    """Initialize the proposal projects database schema."""
+    conn = _get_connection()
+    try:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS pc_projects (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT DEFAULT '',
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                status TEXT DEFAULT 'active',
+                metadata_json TEXT DEFAULT '{}'
+            );
+
+            CREATE TABLE IF NOT EXISTS pc_proposals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL,
+                filename TEXT NOT NULL,
+                file_type TEXT DEFAULT '',
+                company_name TEXT DEFAULT '',
+                proposal_title TEXT DEFAULT '',
+                date TEXT DEFAULT '',
+                total_amount REAL,
+                total_raw TEXT DEFAULT '',
+                currency TEXT DEFAULT 'USD',
+                page_count INTEGER DEFAULT 0,
+                line_item_count INTEGER DEFAULT 0,
+                table_count INTEGER DEFAULT 0,
+                extraction_notes_json TEXT DEFAULT '[]',
+                proposal_data_json TEXT NOT NULL,
+                added_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (project_id) REFERENCES pc_projects(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS pc_comparisons (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL,
+                proposal_ids_json TEXT NOT NULL,
+                result_json TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                notes TEXT DEFAULT '',
+                FOREIGN KEY (project_id) REFERENCES pc_projects(id) ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_pc_proposals_project ON pc_proposals(project_id);
+            CREATE INDEX IF NOT EXISTS idx_pc_comparisons_project ON pc_comparisons(project_id);
+        """)
+        conn.commit()
+        logger.info("Proposal projects database initialized")
+    except Exception as e:
+        logger.error(f"Failed to init proposal projects DB: {e}", exc_info=True)
+    finally:
+        conn.close()
+
+
+# ──────────────────────────────────────────
+# Project CRUD
+# ──────────────────────────────────────────
+
+def create_project(name: str, description: str = '') -> Dict[str, Any]:
+    """Create a new proposal comparison project."""
+    conn = _get_connection()
+    try:
+        cursor = conn.execute(
+            "INSERT INTO pc_projects (name, description) VALUES (?, ?)",
+            (name.strip(), description.strip())
+        )
+        conn.commit()
+        project_id = cursor.lastrowid
+        return get_project(project_id)
+    finally:
+        conn.close()
+
+
+def get_project(project_id: int) -> Optional[Dict[str, Any]]:
+    """Get a single project with its proposal count."""
+    conn = _get_connection()
+    try:
+        row = conn.execute("""
+            SELECT p.*,
+                   COUNT(pp.id) as proposal_count,
+                   COALESCE(SUM(pp.line_item_count), 0) as total_line_items
+            FROM pc_projects p
+            LEFT JOIN pc_proposals pp ON pp.project_id = p.id
+            WHERE p.id = ?
+            GROUP BY p.id
+        """, (project_id,)).fetchone()
+        if not row:
+            return None
+        return _row_to_project(row)
+    finally:
+        conn.close()
+
+
+def list_projects(status: str = 'active') -> List[Dict[str, Any]]:
+    """List all projects, optionally filtered by status."""
+    conn = _get_connection()
+    try:
+        rows = conn.execute("""
+            SELECT p.*,
+                   COUNT(pp.id) as proposal_count,
+                   COALESCE(SUM(pp.line_item_count), 0) as total_line_items
+            FROM pc_projects p
+            LEFT JOIN pc_proposals pp ON pp.project_id = p.id
+            WHERE p.status = ? OR ? = 'all'
+            GROUP BY p.id
+            ORDER BY p.updated_at DESC
+        """, (status, status)).fetchall()
+        return [_row_to_project(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def update_project(project_id: int, name: str = None, description: str = None,
+                   status: str = None) -> Optional[Dict[str, Any]]:
+    """Update a project's metadata."""
+    conn = _get_connection()
+    try:
+        updates = []
+        params = []
+        if name is not None:
+            updates.append("name = ?")
+            params.append(name.strip())
+        if description is not None:
+            updates.append("description = ?")
+            params.append(description.strip())
+        if status is not None:
+            updates.append("status = ?")
+            params.append(status)
+        if not updates:
+            return get_project(project_id)
+        updates.append("updated_at = datetime('now')")
+        params.append(project_id)
+        conn.execute(
+            f"UPDATE pc_projects SET {', '.join(updates)} WHERE id = ?",
+            params
+        )
+        conn.commit()
+        return get_project(project_id)
+    finally:
+        conn.close()
+
+
+def delete_project(project_id: int) -> bool:
+    """Delete a project and all its proposals/comparisons."""
+    conn = _get_connection()
+    try:
+        conn.execute("DELETE FROM pc_projects WHERE id = ?", (project_id,))
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
+# ──────────────────────────────────────────
+# Proposal management within projects
+# ──────────────────────────────────────────
+
+def add_proposal_to_project(project_id: int, proposal_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Add an extracted proposal to a project."""
+    conn = _get_connection()
+    try:
+        cursor = conn.execute("""
+            INSERT INTO pc_proposals
+            (project_id, filename, file_type, company_name, proposal_title,
+             date, total_amount, total_raw, currency, page_count,
+             line_item_count, table_count, extraction_notes_json, proposal_data_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            project_id,
+            proposal_data.get('filename', ''),
+            proposal_data.get('file_type', ''),
+            proposal_data.get('company_name', ''),
+            proposal_data.get('proposal_title', ''),
+            proposal_data.get('date', ''),
+            proposal_data.get('total_amount'),
+            proposal_data.get('total_raw', ''),
+            proposal_data.get('currency', 'USD'),
+            proposal_data.get('page_count', 0),
+            len(proposal_data.get('line_items', [])),
+            len(proposal_data.get('tables', [])),
+            json.dumps(proposal_data.get('extraction_notes', [])),
+            json.dumps(proposal_data),
+        ))
+        conn.execute(
+            "UPDATE pc_projects SET updated_at = datetime('now') WHERE id = ?",
+            (project_id,)
+        )
+        conn.commit()
+        return {
+            'id': cursor.lastrowid,
+            'project_id': project_id,
+            'filename': proposal_data.get('filename', ''),
+            'company_name': proposal_data.get('company_name', ''),
+        }
+    finally:
+        conn.close()
+
+
+def get_project_proposals(project_id: int) -> List[Dict[str, Any]]:
+    """Get all proposals in a project (metadata only, not full data)."""
+    conn = _get_connection()
+    try:
+        rows = conn.execute("""
+            SELECT id, project_id, filename, file_type, company_name,
+                   proposal_title, date, total_amount, total_raw, currency,
+                   page_count, line_item_count, table_count,
+                   extraction_notes_json, added_at
+            FROM pc_proposals
+            WHERE project_id = ?
+            ORDER BY added_at ASC
+        """, (project_id,)).fetchall()
+        return [_row_to_proposal_summary(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_proposal_full_data(proposal_id: int) -> Optional[Dict[str, Any]]:
+    """Get the full extracted data for a single proposal."""
+    conn = _get_connection()
+    try:
+        row = conn.execute(
+            "SELECT proposal_data_json FROM pc_proposals WHERE id = ?",
+            (proposal_id,)
+        ).fetchone()
+        if not row:
+            return None
+        return json.loads(row['proposal_data_json'])
+    finally:
+        conn.close()
+
+
+def remove_proposal_from_project(proposal_id: int) -> bool:
+    """Remove a proposal from its project."""
+    conn = _get_connection()
+    try:
+        # Get project_id for update
+        row = conn.execute(
+            "SELECT project_id FROM pc_proposals WHERE id = ?",
+            (proposal_id,)
+        ).fetchone()
+        if not row:
+            return False
+        project_id = row['project_id']
+        conn.execute("DELETE FROM pc_proposals WHERE id = ?", (proposal_id,))
+        conn.execute(
+            "UPDATE pc_projects SET updated_at = datetime('now') WHERE id = ?",
+            (project_id,)
+        )
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
+# ──────────────────────────────────────────
+# Comparison history
+# ──────────────────────────────────────────
+
+def save_comparison(project_id: int, proposal_ids: List[int],
+                    result_data: Dict[str, Any], notes: str = '') -> int:
+    """Save a comparison result for a project."""
+    conn = _get_connection()
+    try:
+        cursor = conn.execute("""
+            INSERT INTO pc_comparisons (project_id, proposal_ids_json, result_json, notes)
+            VALUES (?, ?, ?, ?)
+        """, (
+            project_id,
+            json.dumps(proposal_ids),
+            json.dumps(result_data),
+            notes,
+        ))
+        conn.execute(
+            "UPDATE pc_projects SET updated_at = datetime('now') WHERE id = ?",
+            (project_id,)
+        )
+        conn.commit()
+        return cursor.lastrowid
+    finally:
+        conn.close()
+
+
+# ──────────────────────────────────────────
+# Metrics / Analytics aggregation
+# ──────────────────────────────────────────
+
+def get_proposal_metrics() -> Dict[str, Any]:
+    """Get aggregated metrics for the Metrics & Analytics dashboard."""
+    conn = _get_connection()
+    try:
+        # Project stats
+        project_stats = conn.execute("""
+            SELECT COUNT(*) as total_projects,
+                   SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active_projects
+            FROM pc_projects
+        """).fetchone()
+
+        # Proposal stats
+        proposal_stats = conn.execute("""
+            SELECT COUNT(*) as total_proposals,
+                   COUNT(DISTINCT company_name) as unique_vendors,
+                   COALESCE(SUM(line_item_count), 0) as total_line_items,
+                   COALESCE(AVG(total_amount), 0) as avg_proposal_value,
+                   COALESCE(MIN(total_amount), 0) as min_proposal_value,
+                   COALESCE(MAX(total_amount), 0) as max_proposal_value,
+                   COALESCE(SUM(total_amount), 0) as total_value_analyzed
+            FROM pc_proposals
+            WHERE total_amount IS NOT NULL AND total_amount > 0
+        """).fetchone()
+
+        # Comparison stats
+        comparison_stats = conn.execute("""
+            SELECT COUNT(*) as total_comparisons
+            FROM pc_comparisons
+        """).fetchone()
+
+        # File type distribution
+        file_types = conn.execute("""
+            SELECT file_type, COUNT(*) as count
+            FROM pc_proposals
+            GROUP BY file_type
+            ORDER BY count DESC
+        """).fetchall()
+
+        # Category distribution across all proposals
+        category_dist = {}
+        rows = conn.execute(
+            "SELECT proposal_data_json FROM pc_proposals"
+        ).fetchall()
+        for row in rows:
+            try:
+                data = json.loads(row['proposal_data_json'])
+                for li in data.get('line_items', []):
+                    cat = li.get('category', 'Other')
+                    category_dist[cat] = category_dist.get(cat, 0) + 1
+            except (json.JSONDecodeError, TypeError):
+                continue
+
+        # Recent activity
+        recent = conn.execute("""
+            SELECT pp.filename, pp.company_name, pp.total_raw,
+                   pp.added_at, p.name as project_name
+            FROM pc_proposals pp
+            JOIN pc_projects p ON p.id = pp.project_id
+            ORDER BY pp.added_at DESC
+            LIMIT 10
+        """).fetchall()
+
+        # Vendor frequency
+        vendors = conn.execute("""
+            SELECT company_name, COUNT(*) as proposal_count,
+                   COALESCE(AVG(total_amount), 0) as avg_amount
+            FROM pc_proposals
+            WHERE company_name != ''
+            GROUP BY company_name
+            ORDER BY proposal_count DESC
+            LIMIT 20
+        """).fetchall()
+
+        return {
+            'projects': {
+                'total': project_stats['total_projects'] or 0,
+                'active': project_stats['active_projects'] or 0,
+            },
+            'proposals': {
+                'total': proposal_stats['total_proposals'] or 0,
+                'unique_vendors': proposal_stats['unique_vendors'] or 0,
+                'total_line_items': proposal_stats['total_line_items'] or 0,
+                'avg_value': round(proposal_stats['avg_proposal_value'] or 0, 2),
+                'min_value': round(proposal_stats['min_proposal_value'] or 0, 2),
+                'max_value': round(proposal_stats['max_proposal_value'] or 0, 2),
+                'total_value_analyzed': round(proposal_stats['total_value_analyzed'] or 0, 2),
+            },
+            'comparisons': {
+                'total': comparison_stats['total_comparisons'] or 0,
+            },
+            'file_types': {r['file_type']: r['count'] for r in file_types},
+            'category_distribution': category_dist,
+            'recent_activity': [
+                {
+                    'filename': r['filename'],
+                    'company_name': r['company_name'],
+                    'total_raw': r['total_raw'],
+                    'added_at': r['added_at'],
+                    'project_name': r['project_name'],
+                }
+                for r in recent
+            ],
+            'vendors': [
+                {
+                    'name': r['company_name'],
+                    'proposal_count': r['proposal_count'],
+                    'avg_amount': round(r['avg_amount'], 2),
+                }
+                for r in vendors
+            ],
+        }
+    finally:
+        conn.close()
+
+
+# ──────────────────────────────────────────
+# Helpers
+# ──────────────────────────────────────────
+
+def _row_to_project(row) -> Dict[str, Any]:
+    """Convert a database row to a project dict."""
+    return {
+        'id': row['id'],
+        'name': row['name'],
+        'description': row['description'],
+        'created_at': row['created_at'],
+        'updated_at': row['updated_at'],
+        'status': row['status'],
+        'proposal_count': row['proposal_count'] if 'proposal_count' in row.keys() else 0,
+        'total_line_items': row['total_line_items'] if 'total_line_items' in row.keys() else 0,
+    }
+
+
+def _row_to_proposal_summary(row) -> Dict[str, Any]:
+    """Convert a database row to a proposal summary dict."""
+    return {
+        'id': row['id'],
+        'project_id': row['project_id'],
+        'filename': row['filename'],
+        'file_type': row['file_type'],
+        'company_name': row['company_name'],
+        'proposal_title': row['proposal_title'],
+        'date': row['date'],
+        'total_amount': row['total_amount'],
+        'total_raw': row['total_raw'],
+        'line_item_count': row['line_item_count'],
+        'table_count': row['table_count'],
+        'added_at': row['added_at'],
+        'extraction_notes': json.loads(row['extraction_notes_json'] or '[]'),
+    }

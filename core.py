@@ -76,6 +76,7 @@ def _log(message: str, level: str = 'debug', **kwargs):
 
 import threading
 import time as _time
+import atexit
 
 
 def _docling_persistent_worker(request_queue, response_queue):
@@ -148,10 +149,14 @@ class _PersistentDoclingPool:
             ctx = multiprocessing.get_context('spawn')
             self._request_queue = ctx.Queue()
             self._response_queue = ctx.Queue()
+            # v5.9.40: daemon=False — Windows forbids daemon processes from
+            # spawning children, and Docling uses multiprocessing internally.
+            # daemon=True caused "daemonic processes are not allowed to have
+            # children" on Windows, silently falling back to slow per-doc spawn.
             self._process = ctx.Process(
                 target=_docling_persistent_worker,
                 args=(self._request_queue, self._response_queue),
-                daemon=True
+                daemon=False
             )
             self._process.start()
 
@@ -281,6 +286,14 @@ class _PersistentDoclingPool:
 
 # Module-level singleton — shared across all batch threads
 _docling_pool = _PersistentDoclingPool()
+
+# v5.9.40: Remember Docling failures to skip quickly in batch scans
+# When Docling fails (bad artifacts_path, import error, etc.), set this to True
+# so subsequent files in the same batch/scan don't waste 60-120s each on timeouts
+_docling_session_broken = False
+
+# v5.9.40: Clean up persistent worker on exit (non-daemon process won't auto-terminate)
+atexit.register(lambda: _docling_pool.shutdown() if _docling_pool else None)
 
 
 def _docling_subprocess_worker(filepath, fast_mode, result_queue):
@@ -2072,6 +2085,12 @@ class AEGISEngine:
             _log(f"  Medium file ({file_size_mb:.1f}MB) — using Docling fast table mode")
             use_fast_docling = True
 
+        # v5.9.40: Skip Docling entirely if it already failed this session
+        global _docling_session_broken
+        if _docling_session_broken:
+            skip_docling = True
+            _log("  Docling previously failed this session — skipping (use fallback extractors)")
+
         if not skip_docling and filepath_lower.endswith(('.pdf', '.docx', '.pptx', '.xlsx', '.html', '.htm')):
             try:
                 # v4.5.1: Check Docling availability before spawning subprocess
@@ -2080,6 +2099,11 @@ class AEGISEngine:
                 _docling_available = _docling_check.is_available
                 _docling_backend = _docling_check.backend_name if _docling_available else ''
                 del _docling_check
+
+                if not _docling_available:
+                    # v5.9.40: Mark as broken for rest of session
+                    _docling_session_broken = True
+                    _log("  Docling not available — marking broken for session")
 
                 if _docling_available:
                     _log(f"Using Docling ({_docling_backend}) for extraction via subprocess...")
@@ -2090,7 +2114,9 @@ class AEGISEngine:
                         filepath, fast_mode=use_fast_docling, timeout=docling_timeout
                     )
                     if doc_result is None:
-                        _log("  Docling subprocess failed or timed out — falling back to next extractor")
+                        # v5.9.40: Mark broken so we don't waste timeout on every file
+                        _docling_session_broken = True
+                        _log("  Docling subprocess failed or timed out — marking broken for session, falling back")
                         raise RuntimeError("Docling subprocess returned no result")
                     
                     # Create adapter to match legacy extractor interface

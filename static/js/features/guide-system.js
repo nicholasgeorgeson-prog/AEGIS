@@ -2410,6 +2410,12 @@ const AEGISGuide = {
                     narration: 'The Documents tab shows per-document analytics. See every scanned document with its grade history, issue breakdown, scan frequency, and word count trends. Sort by any column to find outliers. All charts in Metrics and Analytics are interactive — hover for exact values, and the data refreshes automatically after every new scan.',
                     duration: 9000,
                     navigate: 'metrics'
+                },
+                {
+                    target: '#ma-tab-btn-proposals',
+                    narration: 'The Proposals tab integrates with the Proposal Compare tool to show aggregated financial analytics. See project and vendor counts, total value analyzed, proposal value distributions, file type breakdowns, vendor frequency charts, category spending patterns, and a recent activity feed. Data loads on demand from a separate API.',
+                    duration: 9000,
+                    navigate: 'metrics'
                 }
             ],
             // v2.3.0: Deep-dive sub-demos
@@ -2536,7 +2542,25 @@ const AEGISGuide = {
                         { target: '#ma-tab-btn-quality', narration: 'The Quality tab provides deeper analysis of your document grades. It shows grade distribution as a bar chart, score trends per individual document, category-level analysis showing which checker groups find the most issues, and a top and bottom performers ranking.', duration: 8500, navigate: 'metrics' },
                         { target: '#ma-tab-btn-statements', narration: 'The Statements tab analyzes requirement extraction data. It shows the distribution of directive types — how many shall versus should versus must versus will statements exist across your repository. Statements-per-document charts reveal document complexity trends.', duration: 8000, navigate: 'metrics' },
                         { target: '#ma-tab-btn-roles', narration: 'The Roles tab provides organizational analytics. See the top roles by mention count across all documents, role distribution showing how roles spread across your document corpus, function tag coverage metrics, and the adjudication status breakdown.', duration: 8000, navigate: 'metrics' },
-                        { target: '#ma-tab-btn-documents', narration: 'The Documents tab lists every scanned document with sortable columns for grade, scan count, issue count, word count, and last scanned date. Click any row for a grade history timeline. This is your single pane of glass for all document quality data.', duration: 8000, navigate: 'metrics' }
+                        { target: '#ma-tab-btn-documents', narration: 'The Documents tab lists every scanned document with sortable columns for grade, scan count, issue count, word count, and last scanned date. Click any row for a grade history timeline. This is your single pane of glass for all document quality data.', duration: 8000, navigate: 'metrics' },
+                        { target: '#ma-tab-btn-proposals', narration: 'The Proposals tab connects to the Proposal Compare tool. It shows total projects, proposals, vendors analyzed, and value distribution charts. Data is fetched separately and cached, so the first visit may take a moment to load.', duration: 8000, navigate: 'metrics' }
+                    ]
+                },
+                proposals_analytics: {
+                    id: 'proposals_analytics',
+                    title: 'Proposals Tab',
+                    icon: 'git-compare',
+                    description: 'Vendor analytics and financial metrics from proposal comparisons',
+                    preAction: async () => {
+                        if (window.MetricsAnalytics?.switchTab) window.MetricsAnalytics.switchTab('proposals');
+                        else document.querySelector('#ma-tab-btn-proposals')?.click();
+                        await AEGISGuide._wait(600);
+                    },
+                    scenes: [
+                        { target: '#ma-proposals-hero', narration: 'The Proposals hero stats show your total project count, proposal count, line items analyzed, and total dollar value across all proposals. These aggregate metrics give an at-a-glance view of your procurement analysis activity.', duration: 7500, navigate: 'metrics' },
+                        { target: '#ma-chart-pc-values', narration: 'The value distribution chart shows average proposal amounts per vendor. This helps identify which vendors consistently come in higher or lower than competitors across multiple comparisons.', duration: 7000, navigate: 'metrics' },
+                        { target: '#ma-chart-pc-vendors', narration: 'The vendor frequency chart ranks vendors by how many proposals they have submitted. Frequent vendors may warrant closer scrutiny or relationship management attention.', duration: 7000, navigate: 'metrics' },
+                        { target: '#ma-pc-activity-table', narration: 'The recent activity table shows your latest proposal uploads with vendor name, amount, project, and timestamp. Click any row to drill down into vendor details including their average proposal amount and total submission count.', duration: 7500, navigate: 'metrics' }
                     ]
                 }
             }

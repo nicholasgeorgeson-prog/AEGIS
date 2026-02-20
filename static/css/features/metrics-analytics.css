@@ -111,6 +111,9 @@
     to { transform: rotate(360deg); }
 }
 
+/* v5.9.40: Generic spinning class for inline loader icons */
+.spinning { animation: ma-spin 1s linear infinite; }
+
 /* =============================================================================
    TAB BAR
    ============================================================================= */
@@ -279,6 +282,7 @@
 
 .ma-grid-60-40 { grid-template-columns: 3fr 2fr; }
 .ma-grid-50-50 { grid-template-columns: 1fr 1fr; }
+.ma-grid-2col  { grid-template-columns: 1fr 1fr; }
 .ma-grid-3col  { grid-template-columns: 1fr 1fr 1fr; }
 
 .ma-chart-box {
@@ -1038,6 +1042,7 @@ body.dark-mode .ma-table .ma-hint,
 
     .ma-grid-60-40,
     .ma-grid-50-50,
+    .ma-grid-2col,
     .ma-grid-3col {
         grid-template-columns: 1fr;
     }

@@ -2,9 +2,23 @@
 AEGIS Proposal Compare API Routes
 
 Endpoints:
-- POST /api/proposal-compare/upload     — Upload proposal files, extract data
-- POST /api/proposal-compare/compare    — Compare extracted proposals
-- GET  /api/proposal-compare/export     — Export comparison as XLSX
+- POST /api/proposal-compare/upload          — Upload proposal files, extract data
+- POST /api/proposal-compare/compare         — Compare extracted proposals
+- POST /api/proposal-compare/export          — Export comparison as XLSX
+
+Project Management:
+- GET  /api/proposal-compare/projects        — List all projects
+- POST /api/proposal-compare/projects        — Create a new project
+- GET  /api/proposal-compare/projects/<id>   — Get project details
+- PUT  /api/proposal-compare/projects/<id>   — Update project
+- DELETE /api/proposal-compare/projects/<id> — Delete project
+- GET  /api/proposal-compare/projects/<id>/proposals — List proposals in project
+- POST /api/proposal-compare/projects/<id>/proposals — Add proposal to project
+- DELETE /api/proposal-compare/proposals/<id>        — Remove proposal from project
+- POST /api/proposal-compare/projects/<id>/compare   — Compare proposals in a project
+
+Metrics:
+- GET  /api/proposal-compare/metrics         — Aggregated metrics for M&A dashboard
 """
 
 import os
@@ -19,11 +33,35 @@ logger = logging.getLogger(__name__)
 pc_blueprint = Blueprint('proposal_compare', __name__)
 
 
+# ──────────────────────────────────────────
+# Init DB on first request
+# ──────────────────────────────────────────
+
+_db_initialized = False
+
+@pc_blueprint.before_app_request
+def _ensure_db():
+    global _db_initialized
+    if not _db_initialized:
+        try:
+            from .projects import init_db
+            init_db()
+            _db_initialized = True
+        except Exception as e:
+            logger.error(f"Failed to init proposal projects DB: {e}")
+            _db_initialized = True  # Don't retry every request
+
+
+# ──────────────────────────────────────────
+# Upload & Extract
+# ──────────────────────────────────────────
+
 @pc_blueprint.route('/api/proposal-compare/upload', methods=['POST'])
 def upload_proposals():
     """Upload one or more proposal files and extract financial data.
 
     Expects multipart/form-data with 'files[]' field.
+    Optional: 'project_id' form field to auto-add to a project.
     Returns extracted data for each file.
     """
     try:
@@ -47,6 +85,8 @@ def upload_proposals():
                 'success': False,
                 'error': {'message': 'Maximum 10 files allowed per upload'}
             }), 400
+
+        project_id = request.form.get('project_id')
 
         results = []
         temp_dir = tempfile.mkdtemp(prefix='aegis_proposal_')
@@ -79,10 +119,23 @@ def upload_proposals():
             # Parse
             try:
                 proposal_data = parse_proposal(temp_path)
+                data_dict = proposal_data.to_dict()
+
+                # Auto-add to project if specified
+                db_id = None
+                if project_id:
+                    try:
+                        from .projects import add_proposal_to_project
+                        result_row = add_proposal_to_project(int(project_id), data_dict)
+                        db_id = result_row.get('id')
+                    except Exception as db_err:
+                        logger.warning(f'Failed to add proposal to project: {db_err}')
+
                 results.append({
                     'filename': f.filename,
                     'success': True,
-                    'data': proposal_data.to_dict(),
+                    'data': data_dict,
+                    'db_id': db_id,
                 })
             except Exception as parse_err:
                 logger.error(f'Proposal parse error for {f.filename}: {parse_err}', exc_info=True)
@@ -124,12 +177,17 @@ def upload_proposals():
         }), 500
 
 
+# ──────────────────────────────────────────
+# Compare
+# ──────────────────────────────────────────
+
 @pc_blueprint.route('/api/proposal-compare/compare', methods=['POST'])
 def compare_proposals_endpoint():
     """Compare extracted proposal data.
 
     Expects JSON body with 'proposals' array of ProposalData dicts
     (as returned by the upload endpoint).
+    Optional: 'project_id' to save comparison result.
     """
     try:
         from .parser import ProposalData, LineItem, ExtractedTable
@@ -205,10 +263,21 @@ def compare_proposals_endpoint():
 
         # Run comparison
         result = compare_proposals(proposals)
+        result_dict = result.to_dict()
+
+        # Save comparison if project_id provided
+        project_id = data.get('project_id')
+        if project_id:
+            try:
+                from .projects import save_comparison
+                proposal_ids = data.get('proposal_db_ids', [])
+                save_comparison(int(project_id), proposal_ids, result_dict)
+            except Exception as db_err:
+                logger.warning(f'Failed to save comparison: {db_err}')
 
         return jsonify({
             'success': True,
-            'data': result.to_dict(),
+            'data': result_dict,
         })
 
     except Exception as e:
@@ -219,12 +288,13 @@ def compare_proposals_endpoint():
         }), 500
 
 
+# ──────────────────────────────────────────
+# Export
+# ──────────────────────────────────────────
+
 @pc_blueprint.route('/api/proposal-compare/export', methods=['POST'])
 def export_comparison():
-    """Export comparison results as XLSX.
-
-    Expects JSON body with comparison result data.
-    """
+    """Export comparison results as XLSX."""
     try:
         import openpyxl
         from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -240,13 +310,12 @@ def export_comparison():
         aligned_items = data.get('aligned_items', [])
         category_summaries = data.get('category_summaries', [])
         totals = data.get('totals', {})
+        red_flags = data.get('red_flags', {})
+        vendor_scores = data.get('vendor_scores', {})
+        executive_summary = data.get('executive_summary', {})
 
         # Create workbook
         wb = openpyxl.Workbook()
-
-        # -- Sheet 1: Side-by-Side Comparison --
-        ws = wb.active
-        ws.title = 'Proposal Comparison'
 
         # Styles
         header_fill = PatternFill(start_color='1B2838', end_color='1B2838', fill_type='solid')
@@ -257,6 +326,8 @@ def export_comparison():
         high_fill = PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid')
         total_fill = PatternFill(start_color='D6A84A', end_color='D6A84A', fill_type='solid')
         total_font = Font(color='1B2838', bold=True, size=11)
+        red_flag_fill = PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid')
+        warning_fill = PatternFill(start_color='FFF2CC', end_color='FFF2CC', fill_type='solid')
         border = Border(
             left=Side(style='thin', color='555555'),
             right=Side(style='thin', color='555555'),
@@ -266,15 +337,103 @@ def export_comparison():
         money_fmt = '$#,##0.00'
         pct_fmt = '0.0%'
 
-        # Title row
         prop_ids = [p.get('id', p.get('filename', f'Proposal {i+1}')) for i, p in enumerate(proposals)]
+
+        # ── Sheet 1: Executive Summary ──
+        ws_exec = wb.active
+        ws_exec.title = 'Executive Summary'
+
+        ws_exec.merge_cells(start_row=1, start_column=1, end_row=1, end_column=4)
+        cell = ws_exec.cell(row=1, column=1, value='AEGIS Proposal Comparison — Executive Summary')
+        cell.fill = gold_fill
+        cell.font = gold_font
+        cell.alignment = Alignment(horizontal='center')
+
+        row = 3
+        # Price ranking
+        price_ranking = executive_summary.get('price_ranking', [])
+        if price_ranking:
+            ws_exec.cell(row=row, column=1, value='Price Ranking').font = Font(bold=True, size=12)
+            row += 1
+            for h_idx, h in enumerate(['Rank', 'Vendor', 'Total Price', 'Delta from Lowest']):
+                c = ws_exec.cell(row=row, column=h_idx+1, value=h)
+                c.fill = header_fill
+                c.font = header_font
+                c.border = border
+            row += 1
+            for pr in price_ranking:
+                ws_exec.cell(row=row, column=1, value=pr['rank']).border = border
+                ws_exec.cell(row=row, column=2, value=pr['vendor']).border = border
+                c = ws_exec.cell(row=row, column=3, value=pr['total'])
+                c.number_format = money_fmt
+                c.border = border
+                if pr['rank'] == 1:
+                    c.fill = low_fill
+                delta = ws_exec.cell(row=row, column=4, value=f"+{pr['delta_pct']}%" if pr['delta_pct'] > 0 else '—')
+                delta.border = border
+                row += 1
+
+        # Vendor scores
+        row += 1
+        if vendor_scores:
+            ws_exec.cell(row=row, column=1, value='Vendor Scores').font = Font(bold=True, size=12)
+            row += 1
+            for h_idx, h in enumerate(['Vendor', 'Overall', 'Grade', 'Price', 'Complete', 'Risk', 'Red Flags']):
+                c = ws_exec.cell(row=row, column=h_idx+1, value=h)
+                c.fill = header_fill
+                c.font = header_font
+                c.border = border
+            row += 1
+            for pid in prop_ids:
+                vs = vendor_scores.get(pid, {})
+                ws_exec.cell(row=row, column=1, value=pid).border = border
+                ws_exec.cell(row=row, column=2, value=vs.get('overall', 0)).border = border
+                ws_exec.cell(row=row, column=3, value=vs.get('grade', '—')).border = border
+                ws_exec.cell(row=row, column=4, value=vs.get('price_score', 0)).border = border
+                ws_exec.cell(row=row, column=5, value=vs.get('completeness_score', 0)).border = border
+                ws_exec.cell(row=row, column=6, value=vs.get('risk_score', 0)).border = border
+                ws_exec.cell(row=row, column=7, value=vs.get('red_flag_count', 0)).border = border
+                row += 1
+
+        # Negotiation opportunities
+        row += 1
+        negot = executive_summary.get('negotiation_opportunities', [])
+        if negot:
+            ws_exec.cell(row=row, column=1, value='Top Negotiation Opportunities').font = Font(bold=True, size=12)
+            row += 1
+            for h_idx, h in enumerate(['Vendor', 'Line Item', 'Current', 'Average', 'Potential Savings']):
+                c = ws_exec.cell(row=row, column=h_idx+1, value=h)
+                c.fill = header_fill
+                c.font = header_font
+                c.border = border
+            row += 1
+            for n in negot[:5]:
+                ws_exec.cell(row=row, column=1, value=n['vendor']).border = border
+                ws_exec.cell(row=row, column=2, value=n['line_item']).border = border
+                c = ws_exec.cell(row=row, column=3, value=n['current_amount'])
+                c.number_format = money_fmt
+                c.border = border
+                c = ws_exec.cell(row=row, column=4, value=n['avg_amount'])
+                c.number_format = money_fmt
+                c.border = border
+                c = ws_exec.cell(row=row, column=5, value=n['potential_savings'])
+                c.number_format = money_fmt
+                c.fill = low_fill
+                c.border = border
+                row += 1
+
+        for col_letter in ['A', 'B', 'C', 'D', 'E', 'F', 'G']:
+            ws_exec.column_dimensions[col_letter].width = 22
+
+        # ── Sheet 2: Side-by-Side Comparison ──
+        ws = wb.create_sheet('Proposal Comparison')
+
         ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=3 + len(prop_ids))
         title_cell = ws.cell(row=1, column=1, value='AEGIS Proposal Comparison')
         title_cell.fill = gold_fill
         title_cell.font = gold_font
         title_cell.alignment = Alignment(horizontal='center')
 
-        # Header row
         headers = ['Line Item', 'Category'] + prop_ids + ['Variance']
         for col, h in enumerate(headers, 1):
             cell = ws.cell(row=3, column=col, value=h)
@@ -283,7 +442,6 @@ def export_comparison():
             cell.alignment = Alignment(horizontal='center', wrap_text=True)
             cell.border = border
 
-        # Data rows
         row_num = 4
         for item in aligned_items:
             ws.cell(row=row_num, column=1, value=item.get('description', '')).border = border
@@ -303,7 +461,6 @@ def export_comparison():
                 if amount is not None:
                     cell.value = amount
                     cell.number_format = money_fmt
-                    # Highlight lowest green, highest red
                     if len(valid_amounts) > 1:
                         if amount == min_amount:
                             cell.fill = low_fill
@@ -313,7 +470,6 @@ def export_comparison():
                     cell.value = '—'
                     cell.alignment = Alignment(horizontal='center')
 
-            # Variance column
             variance_col = 3 + len(prop_ids)
             cell = ws.cell(row=row_num, column=variance_col)
             cell.border = border
@@ -325,10 +481,9 @@ def export_comparison():
             else:
                 cell.value = '—'
                 cell.alignment = Alignment(horizontal='center')
-
             row_num += 1
 
-        # Total row
+        # Grand total row
         row_num += 1
         total_cell = ws.cell(row=row_num, column=1, value='GRAND TOTAL')
         total_cell.fill = total_fill
@@ -341,17 +496,14 @@ def export_comparison():
             col = 3 + p_idx
             cell = ws.cell(row=row_num, column=col)
             total_val = totals.get(pid)
-            if total_val is not None:
-                cell.value = total_val
+            cell.value = total_val if total_val else '—'
+            if isinstance(total_val, (int, float)):
                 cell.number_format = money_fmt
-            else:
-                cell.value = '—'
             cell.fill = total_fill
             cell.font = total_font
             cell.border = border
             cell.alignment = Alignment(horizontal='right')
 
-        # Variance on total
         variance_col = 3 + len(prop_ids)
         cell = ws.cell(row=row_num, column=variance_col)
         cell.fill = total_fill
@@ -364,7 +516,6 @@ def export_comparison():
         else:
             cell.value = '—'
 
-        # Column widths
         ws.column_dimensions['A'].width = 40
         ws.column_dimensions['B'].width = 15
         for p_idx in range(len(prop_ids)):
@@ -372,41 +523,68 @@ def export_comparison():
             ws.column_dimensions[col_letter].width = 20
         ws.column_dimensions[openpyxl.utils.get_column_letter(variance_col)].width = 12
 
-        # -- Sheet 2: Category Summary --
-        ws2 = wb.create_sheet('Category Summary')
+        # ── Sheet 3: Red Flags ──
+        ws3 = wb.create_sheet('Red Flags')
+        rf_headers = ['Vendor', 'Severity', 'Flag Type', 'Title', 'Detail']
+        for col, h in enumerate(rf_headers, 1):
+            c = ws3.cell(row=1, column=col, value=h)
+            c.fill = header_fill
+            c.font = header_font
+            c.border = border
+        rf_row = 2
+        for pid in prop_ids:
+            for flag in red_flags.get(pid, []):
+                ws3.cell(row=rf_row, column=1, value=pid).border = border
+                sev_cell = ws3.cell(row=rf_row, column=2, value=flag.get('severity', '').upper())
+                sev_cell.border = border
+                if flag.get('severity') == 'critical':
+                    sev_cell.fill = red_flag_fill
+                elif flag.get('severity') == 'warning':
+                    sev_cell.fill = warning_fill
+                ws3.cell(row=rf_row, column=3, value=flag.get('type', '')).border = border
+                ws3.cell(row=rf_row, column=4, value=flag.get('title', '')).border = border
+                ws3.cell(row=rf_row, column=5, value=flag.get('detail', '')).border = border
+                rf_row += 1
+        ws3.column_dimensions['A'].width = 25
+        ws3.column_dimensions['B'].width = 12
+        ws3.column_dimensions['C'].width = 20
+        ws3.column_dimensions['D'].width = 30
+        ws3.column_dimensions['E'].width = 60
+
+        # ── Sheet 4: Category Summary ──
+        ws4 = wb.create_sheet('Category Summary')
         cat_headers = ['Category', 'Items'] + prop_ids
         for col, h in enumerate(cat_headers, 1):
-            cell = ws2.cell(row=1, column=col, value=h)
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.border = border
-
+            c = ws4.cell(row=1, column=col, value=h)
+            c.fill = header_fill
+            c.font = header_font
+            c.border = border
         for row_idx, cat in enumerate(category_summaries, 2):
-            ws2.cell(row=row_idx, column=1, value=cat.get('category', '')).border = border
-            ws2.cell(row=row_idx, column=2, value=cat.get('item_count', 0)).border = border
+            ws4.cell(row=row_idx, column=1, value=cat.get('category', '')).border = border
+            ws4.cell(row=row_idx, column=2, value=cat.get('item_count', 0)).border = border
             cat_totals = cat.get('totals', {})
             for p_idx, pid in enumerate(prop_ids):
-                cell = ws2.cell(row=row_idx, column=3 + p_idx)
+                c = ws4.cell(row=row_idx, column=3 + p_idx)
                 val = cat_totals.get(pid, 0)
-                cell.value = val if val else '—'
+                c.value = val if val else '—'
                 if isinstance(val, (int, float)) and val > 0:
-                    cell.number_format = money_fmt
-                cell.border = border
+                    c.number_format = money_fmt
+                c.border = border
 
-        ws2.column_dimensions['A'].width = 20
-        ws2.column_dimensions['B'].width = 10
+        ws4.column_dimensions['A'].width = 20
+        ws4.column_dimensions['B'].width = 10
         for p_idx in range(len(prop_ids)):
             col_letter = openpyxl.utils.get_column_letter(3 + p_idx)
-            ws2.column_dimensions[col_letter].width = 20
+            ws4.column_dimensions[col_letter].width = 20
 
-        # -- Sheet 3: Proposal Details --
-        ws3 = wb.create_sheet('Proposal Details')
+        # ── Sheet 5: Proposal Details ──
+        ws5 = wb.create_sheet('Proposal Details')
         detail_headers = ['Field'] + prop_ids
         for col, h in enumerate(detail_headers, 1):
-            cell = ws3.cell(row=1, column=col, value=h)
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.border = border
+            c = ws5.cell(row=1, column=col, value=h)
+            c.fill = header_fill
+            c.font = header_font
+            c.border = border
 
         detail_fields = [
             ('Company', 'company_name'),
@@ -420,15 +598,15 @@ def export_comparison():
         ]
 
         for row_idx, (label, key) in enumerate(detail_fields, 2):
-            ws3.cell(row=row_idx, column=1, value=label).border = border
+            ws5.cell(row=row_idx, column=1, value=label).border = border
             for p_idx, p in enumerate(proposals):
-                cell = ws3.cell(row=row_idx, column=2 + p_idx, value=str(p.get(key, '')))
-                cell.border = border
+                c = ws5.cell(row=row_idx, column=2 + p_idx, value=str(p.get(key, '')))
+                c.border = border
 
-        ws3.column_dimensions['A'].width = 15
+        ws5.column_dimensions['A'].width = 15
         for p_idx in range(len(prop_ids)):
             col_letter = openpyxl.utils.get_column_letter(2 + p_idx)
-            ws3.column_dimensions[col_letter].width = 30
+            ws5.column_dimensions[col_letter].width = 30
 
         # Save to temp file
         temp_path = os.path.join(tempfile.gettempdir(), 'aegis_proposal_comparison.xlsx')
@@ -447,3 +625,242 @@ def export_comparison():
             'success': False,
             'error': {'message': f'Export error: {str(e)}', 'traceback': traceback.format_exc()}
         }), 500
+
+
+# ──────────────────────────────────────────
+# Project Management Endpoints
+# ──────────────────────────────────────────
+
+@pc_blueprint.route('/api/proposal-compare/projects', methods=['GET'])
+def list_projects():
+    """List all proposal comparison projects."""
+    try:
+        from .projects import list_projects as _list
+        status = request.args.get('status', 'active')
+        projects = _list(status)
+        return jsonify({'success': True, 'data': projects})
+    except Exception as e:
+        logger.error(f'List projects error: {e}', exc_info=True)
+        return jsonify({'success': False, 'error': {'message': str(e)}}), 500
+
+
+@pc_blueprint.route('/api/proposal-compare/projects', methods=['POST'])
+def create_project():
+    """Create a new proposal comparison project."""
+    try:
+        from .projects import create_project as _create
+        data = request.get_json()
+        if not data or not data.get('name'):
+            return jsonify({
+                'success': False,
+                'error': {'message': 'Project name is required'}
+            }), 400
+        project = _create(data['name'], data.get('description', ''))
+        return jsonify({'success': True, 'data': project})
+    except Exception as e:
+        logger.error(f'Create project error: {e}', exc_info=True)
+        return jsonify({'success': False, 'error': {'message': str(e)}}), 500
+
+
+@pc_blueprint.route('/api/proposal-compare/projects/<int:project_id>', methods=['GET'])
+def get_project(project_id):
+    """Get a single project's details."""
+    try:
+        from .projects import get_project as _get
+        project = _get(project_id)
+        if not project:
+            return jsonify({'success': False, 'error': {'message': 'Project not found'}}), 404
+        return jsonify({'success': True, 'data': project})
+    except Exception as e:
+        logger.error(f'Get project error: {e}', exc_info=True)
+        return jsonify({'success': False, 'error': {'message': str(e)}}), 500
+
+
+@pc_blueprint.route('/api/proposal-compare/projects/<int:project_id>', methods=['PUT'])
+def update_project(project_id):
+    """Update a project's metadata."""
+    try:
+        from .projects import update_project as _update
+        data = request.get_json()
+        project = _update(
+            project_id,
+            name=data.get('name'),
+            description=data.get('description'),
+            status=data.get('status'),
+        )
+        if not project:
+            return jsonify({'success': False, 'error': {'message': 'Project not found'}}), 404
+        return jsonify({'success': True, 'data': project})
+    except Exception as e:
+        logger.error(f'Update project error: {e}', exc_info=True)
+        return jsonify({'success': False, 'error': {'message': str(e)}}), 500
+
+
+@pc_blueprint.route('/api/proposal-compare/projects/<int:project_id>', methods=['DELETE'])
+def delete_project(project_id):
+    """Delete a project and all its proposals."""
+    try:
+        from .projects import delete_project as _delete
+        _delete(project_id)
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f'Delete project error: {e}', exc_info=True)
+        return jsonify({'success': False, 'error': {'message': str(e)}}), 500
+
+
+@pc_blueprint.route('/api/proposal-compare/projects/<int:project_id>/proposals', methods=['GET'])
+def get_project_proposals(project_id):
+    """List all proposals in a project."""
+    try:
+        from .projects import get_project_proposals as _get_proposals
+        proposals = _get_proposals(project_id)
+        return jsonify({'success': True, 'data': proposals})
+    except Exception as e:
+        logger.error(f'Get proposals error: {e}', exc_info=True)
+        return jsonify({'success': False, 'error': {'message': str(e)}}), 500
+
+
+@pc_blueprint.route('/api/proposal-compare/projects/<int:project_id>/proposals', methods=['POST'])
+def add_proposal_to_project(project_id):
+    """Add an already-extracted proposal to a project (from JSON body)."""
+    try:
+        from .projects import add_proposal_to_project as _add
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': {'message': 'Proposal data required'}
+            }), 400
+        result = _add(project_id, data)
+        return jsonify({'success': True, 'data': result})
+    except Exception as e:
+        logger.error(f'Add proposal error: {e}', exc_info=True)
+        return jsonify({'success': False, 'error': {'message': str(e)}}), 500
+
+
+@pc_blueprint.route('/api/proposal-compare/proposals/<int:proposal_id>', methods=['DELETE'])
+def remove_proposal(proposal_id):
+    """Remove a proposal from its project."""
+    try:
+        from .projects import remove_proposal_from_project as _remove
+        _remove(proposal_id)
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f'Remove proposal error: {e}', exc_info=True)
+        return jsonify({'success': False, 'error': {'message': str(e)}}), 500
+
+
+@pc_blueprint.route('/api/proposal-compare/projects/<int:project_id>/compare', methods=['POST'])
+def compare_project_proposals(project_id):
+    """Compare all proposals in a project (or selected ones).
+
+    Optional JSON body: { "proposal_ids": [1, 2, 3] } to compare specific proposals.
+    If no body, compares all proposals in the project.
+    """
+    try:
+        from .parser import ProposalData, LineItem, ExtractedTable
+        from .analyzer import compare_proposals
+        from .projects import get_project_proposals, get_proposal_full_data, save_comparison
+
+        data = request.get_json() or {}
+        selected_ids = data.get('proposal_ids')
+
+        # Get proposals from project
+        all_proposals = get_project_proposals(project_id)
+        if selected_ids:
+            all_proposals = [p for p in all_proposals if p['id'] in selected_ids]
+
+        if len(all_proposals) < 2:
+            return jsonify({
+                'success': False,
+                'error': {'message': f'Need at least 2 proposals to compare. Project has {len(all_proposals)}.'}
+            }), 400
+
+        # Load full data for each
+        proposals = []
+        proposal_db_ids = []
+        for prop_summary in all_proposals:
+            full_data = get_proposal_full_data(prop_summary['id'])
+            if not full_data:
+                continue
+
+            p = ProposalData(
+                filename=full_data.get('filename', ''),
+                filepath=full_data.get('filepath', ''),
+                file_type=full_data.get('file_type', ''),
+                company_name=full_data.get('company_name', ''),
+                proposal_title=full_data.get('proposal_title', ''),
+                date=full_data.get('date', ''),
+                total_amount=full_data.get('total_amount'),
+                total_raw=full_data.get('total_raw', ''),
+                currency=full_data.get('currency', 'USD'),
+                page_count=full_data.get('page_count', 0),
+                extraction_notes=full_data.get('extraction_notes', []),
+            )
+
+            for td in full_data.get('tables', []):
+                t = ExtractedTable(
+                    headers=td.get('headers', []),
+                    rows=td.get('rows', []),
+                    source=td.get('source', ''),
+                    table_index=td.get('table_index', 0),
+                    has_financial_data=td.get('has_financial_data', False),
+                    total_row_index=td.get('total_row_index'),
+                )
+                p.tables.append(t)
+
+            for lid in full_data.get('line_items', []):
+                li = LineItem(
+                    description=lid.get('description', ''),
+                    amount=lid.get('amount'),
+                    amount_raw=lid.get('amount_raw', ''),
+                    quantity=lid.get('quantity'),
+                    unit_price=lid.get('unit_price'),
+                    unit=lid.get('unit', ''),
+                    category=lid.get('category', ''),
+                    row_index=lid.get('row_index', 0),
+                    table_index=lid.get('table_index', 0),
+                    source_sheet=lid.get('source_sheet', ''),
+                    confidence=lid.get('confidence', 1.0),
+                )
+                p.line_items.append(li)
+
+            proposals.append(p)
+            proposal_db_ids.append(prop_summary['id'])
+
+        if len(proposals) < 2:
+            return jsonify({
+                'success': False,
+                'error': {'message': 'Could not load enough proposals with valid data'}
+            }), 400
+
+        result = compare_proposals(proposals)
+        result_dict = result.to_dict()
+
+        # Save comparison
+        save_comparison(project_id, proposal_db_ids, result_dict)
+
+        return jsonify({'success': True, 'data': result_dict})
+
+    except Exception as e:
+        logger.error(f'Project compare error: {e}', exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': {'message': f'Compare error: {str(e)}', 'traceback': traceback.format_exc()}
+        }), 500
+
+
+# ──────────────────────────────────────────
+# Metrics for Metrics & Analytics Dashboard
+# ──────────────────────────────────────────
+
+@pc_blueprint.route('/api/proposal-compare/metrics', methods=['GET'])
+def proposal_metrics():
+    """Get aggregated proposal comparison metrics for the M&A dashboard."""
+    try:
+        from .projects import get_proposal_metrics
+        metrics = get_proposal_metrics()
+        return jsonify({'success': True, 'data': metrics})
+    except Exception as e:
+        logger.error(f'Proposal metrics error: {e}', exc_info=True)
+        return jsonify({'success': False, 'error': {'message': str(e)}}), 500

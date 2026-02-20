@@ -166,7 +166,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.9.39
+- **Current version**: 5.9.40
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -780,6 +780,29 @@ The actual logic lives in `repair_aegis.py` (500 lines) where Python's error han
 **Fix**: (1) Implemented minimize/restore pattern matching HV cinematic progress: `minimizeBatchModal()` hides modal, creates `.batch-mini-badge` with SVG progress ring and percentage. `restoreBatchModal()` shows modal and removes badge. `closeBatchModal()` now checks `_isBatchScanStillRunning()` and calls `minimizeBatchModal()` if any scan is active. Minimize button shown in modal header during active scans. Badge loop reads percentage from whichever dashboard is active (batch/folder/SP). (2) Changed detail query from `±5 minutes` to `±30 seconds` to match the card view's `BATCH_TIME_WINDOW_SECONDS = 30`.
 **Files**: `static/js/app.js` (minimize/restore functions), `static/css/features/batch-progress-dashboard.css` (mini badge styling), `templates/index.html` (minimize button), `portfolio/routes.py` (detail query window fix)
 **Lesson**: When a modal hosts a long-running operation, NEVER close it on outside-click — minimize to a floating indicator instead. For batch grouping, use the SAME time window constant in both the list view and detail view queries. Two different window sizes cause visible count mismatches that confuse users.
+
+### 89. Metrics & Analytics Cross-Module Tab Pattern (v5.9.40)
+**Feature**: Added a "Proposals" tab to the Metrics & Analytics dashboard that fetches data from a SEPARATE API endpoint (`/api/proposal-compare/metrics`) rather than the main `/api/metrics/dashboard` endpoint.
+**Architecture**: The existing 5 M&A tabs (Overview, Quality, Statements, Roles, Documents) all render from the same `data` object fetched once from `/api/metrics/dashboard`. The Proposals tab uses a separate `proposalData` cache with its own timestamp, fetched lazily only when the user clicks the Proposals tab. This avoids bloating the main dashboard endpoint and gracefully degrades when the proposal compare module isn't configured.
+**Key pattern**: `renderProposalsTab()` checks `proposalData` cache first (5-min TTL, same as main data), fetches from `/api/proposal-compare/metrics` if stale, and renders 4 hero stats + 4 charts + activity table with drill-down. If the fetch fails (module not installed, no data, etc.), shows a friendly empty state instead of breaking the dashboard.
+**Files**: `metrics-analytics.js` (new renderProposalsTab + helpers), `metrics-analytics.css` (ma-grid-2col responsive), `templates/index.html` (tab button + panel), `guide-system.js` (demo scene + sub-demo)
+**Lesson**: When integrating cross-module data into a shared dashboard, use lazy loading with a separate cache rather than bundling into the main data fetch. This keeps the primary endpoint fast and prevents failures in optional modules from blocking the core dashboard. The tab pattern (fetch on first visit, cache for N minutes, show empty state on error) works well for any cross-module integration.
+
+### 90. Docling Daemon Process Restriction on Windows (v5.9.40)
+**Problem**: Batch scan processing 63 documents took 70+ minutes at 0.2 docs/min. Docling timed out on every single file with "subprocess timed out after 60s" errors.
+**Root Cause**: Three compounding issues:
+1. **daemon=True restriction**: The persistent Docling worker (`_PersistentDoclingPool`) was spawned with `daemon=True`. On Windows, daemon processes cannot spawn child processes — and Docling uses `multiprocessing` internally. So the persistent worker always failed silently, falling back to per-document subprocess spawning.
+2. **Invalid DOCLING_ARTIFACTS_PATH**: The environment variable pointed to `C:/Users/M26402/OneDrive - NGC/Desktop/doclingtest/TechWriterReview/docling_models` — an old test folder. Every subprocess failed the artifacts_path validation.
+3. **No session-broken flag**: After the first Docling failure, every subsequent file in the batch still attempted Docling, waited 60s for timeout, then fell back. 63 files × 60s = 63 minutes wasted.
+**Fix**: (1) Changed `daemon=False` with `atexit` cleanup handler for the non-daemon process. (2) Added artifacts_path validation + auto-detection relative to `docling_extractor.py`'s own directory. (3) Added `_docling_session_broken` module-level flag — first failure marks it True, all subsequent files skip Docling instantly. (4) Reduced chunk size 8→5 and workers 4→3 for stability.
+**Lesson**: On Windows, NEVER use `daemon=True` for processes that need to spawn their own children (Docling, torch, any ML framework with multiprocessing). Use `daemon=False` + `atexit` cleanup instead. Always validate env var paths on startup and have auto-detection fallbacks. For batch operations, a "session broken" flag prevents repeating expensive failures across hundreds of files.
+
+### 91. request.max_content_length Read-Only on Windows Werkzeug (v5.9.40)
+**Problem**: Export Highlighted crashed with `AttributeError: can't set attribute 'max_content_length'` on the Windows machine. The error occurred in the `before_request` hook, preventing ALL export-highlighted requests from even reaching the endpoint.
+**Root Cause**: The Windows embedded Python ships with a Werkzeug version where `request.max_content_length` is implemented as a **read-only property** (getter only, no setter). The Mac development Werkzeug has a settable property. The `before_request` hook and the endpoint body both did `request.max_content_length = None` which crashed with `AttributeError`.
+**Fix**: Wrapped all 3 locations that set `request.max_content_length` in `try/except (AttributeError, TypeError): pass`. The `current_app.config['MAX_CONTENT_LENGTH'] = None` line (which IS settable on all versions) does the actual heavy lifting. The `request.max_content_length` was just belt-and-suspenders.
+**Files**: `hyperlink_validator/routes.py` — `_hv_increase_upload_limit()` before_request hook, DOCX export endpoint (~line 1785), Excel export endpoint (~line 1916)
+**Lesson**: Never assume Flask/Werkzeug properties are settable across versions. Always wrap property assignments in `try/except AttributeError` when the code must work on multiple Werkzeug versions. The Mac development environment and Windows production can have different Werkzeug behaviors. Use `current_app.config` as the primary mechanism since it's always a regular dict.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

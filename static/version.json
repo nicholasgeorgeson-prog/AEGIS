@@ -1,13 +1,34 @@
 {
-  "version": "5.9.39",
+  "version": "5.9.40",
   "release_date": "2026-02-20",
-  "core_version": "5.9.39",
+  "core_version": "5.9.40",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.40",
+      "date": "2026-02-20",
+      "changes": [
+        "ENH: Proposal Compare v2.0 — expanded from 4 to 8 result tabs with executive summary, red flags, heatmap, and vendor scores",
+        "ENH: Executive Summary tab with hero stats, price/score rankings, key findings, and negotiation opportunities table",
+        "ENH: Red Flags tab showing automated risk checks per vendor with critical/warning/info severity badges",
+        "ENH: Heatmap tab with color-coded deviation grid (green=below avg, red=above avg) and legend",
+        "ENH: Vendor Scores tab with letter grades (A-F), overall scores, and 4 weighted component bars (Price 40%, Completeness 25%, Risk 25%, Data Quality 10%)",
+        "ENH: Project management — create named projects, group proposals, add new proposals to existing projects",
+        "ENH: Chart.js integration — optional bar charts in Categories and Vendor Scores tabs (graceful degradation)",
+        "ENH: Full CSS suite for all new components with dark mode support",
+        "ENH: Metrics & Analytics Proposals tab — 4 hero stats, value distribution, file types, vendor frequency, category doughnut, and recent activity table with drill-down",
+        "ENH: Proposal metrics API endpoint (/api/proposal-compare/metrics) with lazy loading and 5-minute cache in M&A dashboard",
+        "FIX: Batch scan performance — Docling persistent worker daemon=False for Windows (daemon procs can't spawn children)",
+        "FIX: Docling artifacts_path validation with auto-detection fallback when env var points to invalid directory",
+        "FIX: Session-broken flag prevents repeated 60s Docling timeouts across batch files (skip instantly after first failure)",
+        "FIX: Folder scan chunk size reduced from 8→5 and workers from 4→3 for stable Windows+OneDrive performance",
+        "FIX: Export Highlighted crash on Windows — request.max_content_length is read-only on some Werkzeug versions (wrapped in try/except at 3 locations)"
+      ]
+    },
     {
       "version": "5.9.39",
       "date": "2026-02-20",

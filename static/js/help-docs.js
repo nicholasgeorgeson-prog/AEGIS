@@ -139,6 +139,7 @@ const HelpDocs = {
             { id: 'pc-overview', title: 'Overview', icon: 'info' },
             { id: 'pc-uploading', title: 'Uploading Proposals', icon: 'upload' },
             { id: 'pc-comparison', title: 'Comparison View', icon: 'columns' },
+            { id: 'pc-analytics', title: 'Analytics Tabs', icon: 'bar-chart-3' },
             { id: 'pc-export', title: 'Exporting Results', icon: 'download' }
         ]},
         { id: 'exporting', title: 'Exporting Results', icon: 'download', subsections: [
@@ -5126,7 +5127,7 @@ HelpDocs.content['pc-overview'] = {
     <li>Click <strong>Extract Data</strong> to parse all files</li>
     <li>Review extracted data and edit company names if needed</li>
     <li>Click <strong>Compare Proposals</strong> to generate the comparison</li>
-    <li>Use tabs to view comparison matrix, category summaries, or raw details</li>
+    <li>Use 8 tabs to explore results: Executive Summary, Comparison, Categories, Red Flags, Heatmap, Vendor Scores, Details, and Raw Tables</li>
     <li>Click <strong>Export XLSX</strong> to download a formatted spreadsheet</li>
 </ol>
 `
@@ -5206,16 +5207,74 @@ HelpDocs.content['pc-comparison'] = {
 <h2><i data-lucide="percent"></i> Variance Column</h2>
 <p>The rightmost column shows variance percentage — the spread between the lowest and highest amounts for each line item. Higher variance indicates greater disagreement between vendors on that cost.</p>
 
-<h2><i data-lucide="layout-grid"></i> Additional Tabs</h2>
+<h2><i data-lucide="layout-grid"></i> Result Tabs</h2>
 <table class="help-table">
     <thead><tr><th>Tab</th><th>Shows</th></tr></thead>
     <tbody>
+        <tr><td><strong>Executive Summary</strong></td><td>Hero stats, price rankings, score rankings, key findings, negotiation opportunities</td></tr>
         <tr><td><strong>Comparison</strong></td><td>Side-by-side line item matrix with color coding</td></tr>
-        <tr><td><strong>Categories</strong></td><td>Cost summaries grouped by Labor, Material, Travel, ODC, Overhead, Fee</td></tr>
+        <tr><td><strong>Categories</strong></td><td>Cost summaries grouped by category with optional Chart.js bar chart</td></tr>
+        <tr><td><strong>Red Flags</strong></td><td>Automated risk checks per vendor — critical, warning, and info severity</td></tr>
+        <tr><td><strong>Heatmap</strong></td><td>Color-coded deviation from average for each line item per vendor</td></tr>
+        <tr><td><strong>Vendor Scores</strong></td><td>Overall scores, letter grades, and component breakdowns (Price, Completeness, Risk, Data Quality)</td></tr>
         <tr><td><strong>Details</strong></td><td>Per-proposal metadata — company, date, file type, totals</td></tr>
         <tr><td><strong>Raw Tables</strong></td><td>Original extracted tables from each document</td></tr>
     </tbody>
 </table>
+`
+};
+
+// ============================================================================
+// PROPOSAL COMPARE - ANALYTICS TABS
+// ============================================================================
+HelpDocs.content['pc-analytics'] = {
+    title: 'Analytics Tabs',
+    subtitle: 'Executive summary, red flags, heatmap, and vendor scores',
+    html: `
+<h2><i data-lucide="trophy"></i> Executive Summary</h2>
+<p>The first tab shown after comparison. Displays hero stat cards (line items compared, vendor count, red flags, potential savings), price ranking with gold/silver/bronze medals, overall score ranking, key findings with severity badges, and a negotiation opportunities table.</p>
+
+<h2><i data-lucide="shield-alert"></i> Red Flags</h2>
+<p>Automated risk checks run on each vendor's data. Flags are categorized by severity:</p>
+<table class="help-table">
+    <thead><tr><th>Severity</th><th>Meaning</th></tr></thead>
+    <tbody>
+        <tr><td><span style="color:#f44336;font-weight:700">CRITICAL</span></td><td>Serious pricing anomalies, missing major line items, or unusually high costs</td></tr>
+        <tr><td><span style="color:#ff9800;font-weight:700">WARNING</span></td><td>Notable deviations, incomplete data, or unusual patterns worth investigating</td></tr>
+        <tr><td><span style="color:#2196f3;font-weight:700">INFO</span></td><td>Observations and data quality notes for awareness</td></tr>
+    </tbody>
+</table>
+
+<h2><i data-lucide="grid-3x3"></i> Heatmap</h2>
+<p>A color-coded table showing how each vendor's line item amounts deviate from the group average. Colors range from dark green (significantly below average) through neutral (within 5%) to red (significantly above average). Grey cells indicate missing data.</p>
+
+<h2><i data-lucide="bar-chart-3"></i> Vendor Scores</h2>
+<p>Each vendor receives an overall score (0-100) and letter grade (A-F) based on four weighted components:</p>
+<table class="help-table">
+    <thead><tr><th>Component</th><th>Weight</th><th>Measures</th></tr></thead>
+    <tbody>
+        <tr><td><strong>Price</strong></td><td>40%</td><td>Cost competitiveness relative to other vendors</td></tr>
+        <tr><td><strong>Completeness</strong></td><td>25%</td><td>How many line items the vendor quoted vs total across all vendors</td></tr>
+        <tr><td><strong>Risk</strong></td><td>25%</td><td>Inverse of red flag count and severity</td></tr>
+        <tr><td><strong>Data Quality</strong></td><td>10%</td><td>Extraction confidence and data consistency</td></tr>
+    </tbody>
+</table>
+<p>If Chart.js is loaded, a grouped bar chart shows component scores for all vendors side by side.</p>
+
+<h2><i data-lucide="folder-open"></i> Project Management</h2>
+<p>On the upload screen, use the project selector to group proposals into named projects. Create a new project with the folder-plus button. When a project is selected, its existing proposals are shown below the selector and count toward the comparison minimum (2 proposals). This lets you add new proposals to a previous comparison session.</p>
+
+<h2><i data-lucide="bar-chart-3"></i> Metrics & Analytics Integration</h2>
+<p>The <strong>Proposals</strong> tab in the Metrics & Analytics dashboard (v5.9.40) shows aggregated data across all your proposal comparison projects:</p>
+<ul>
+    <li><strong>Hero Stats</strong> — Total projects, proposals, line items, and total value analyzed</li>
+    <li><strong>Value Distribution</strong> — Bar chart of average proposal values per vendor</li>
+    <li><strong>File Types</strong> — Doughnut chart showing DOCX/PDF/XLSX breakdown</li>
+    <li><strong>Top Vendors</strong> — Horizontal bar chart of vendors by proposal frequency</li>
+    <li><strong>Line Item Categories</strong> — Doughnut chart of category distribution across all proposals</li>
+    <li><strong>Recent Activity</strong> — Sortable table of latest proposals with drill-down to vendor details</li>
+</ul>
+<p>Data is loaded lazily when you switch to the Proposals tab and cached for 5 minutes. Click <strong>Refresh</strong> to force a data reload.</p>
 `
 };
 

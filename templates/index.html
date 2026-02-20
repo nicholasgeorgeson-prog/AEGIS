@@ -6593,6 +6593,9 @@ if (document.documentElement.classList.contains('dark-mode')) {
             <button class="ma-tab" data-tab="documents" role="tab" aria-selected="false" aria-controls="ma-tab-documents" id="ma-tab-btn-documents">
                 <i data-lucide="file-stack" aria-hidden="true"></i> Documents
             </button>
+            <button class="ma-tab" data-tab="proposals" role="tab" aria-selected="false" aria-controls="ma-tab-proposals" id="ma-tab-btn-proposals">
+                <i data-lucide="git-compare" aria-hidden="true"></i> Proposals
+            </button>
         </nav>
 
         <!-- Content Area -->
@@ -6814,6 +6817,46 @@ if (document.documentElement.classList.contains('dark-mode')) {
                     <div class="ma-table-wrap" id="ma-docs-portfolio-table"></div>
                 </div>
                 <div class="ma-drilldown" id="ma-documents-drilldown"></div>
+            </div>
+
+            <!-- Proposals Tab (v5.9.40) -->
+            <div class="ma-tab-content" id="ma-tab-proposals" role="tabpanel" aria-labelledby="ma-tab-btn-proposals">
+                <div class="ma-hero-stats" id="ma-proposals-hero"></div>
+                <div class="ma-chart-grid ma-grid-2col">
+                    <div class="ma-chart-box">
+                        <div class="ma-chart-header"><h4>Proposal Value Distribution</h4></div>
+                        <div class="ma-chart-body"><canvas id="ma-chart-pc-values"></canvas></div>
+                    </div>
+                    <div class="ma-chart-box">
+                        <div class="ma-chart-header"><h4>File Types</h4></div>
+                        <div class="ma-chart-body ma-chart-doughnut-wrap"><canvas id="ma-chart-pc-filetypes"></canvas></div>
+                    </div>
+                </div>
+                <div class="ma-chart-grid ma-grid-2col">
+                    <div class="ma-chart-box">
+                        <div class="ma-chart-header"><h4>Top Vendors</h4></div>
+                        <div class="ma-chart-body"><canvas id="ma-chart-pc-vendors"></canvas></div>
+                    </div>
+                    <div class="ma-chart-box">
+                        <div class="ma-chart-header"><h4>Line Item Categories</h4></div>
+                        <div class="ma-chart-body ma-chart-doughnut-wrap"><canvas id="ma-chart-pc-categories"></canvas></div>
+                    </div>
+                </div>
+                <div class="ma-chart-box ma-chart-full">
+                    <div class="ma-chart-header">
+                        <h4>Recent Proposal Activity</h4>
+                        <span class="ma-chart-subtitle">Click column headers to sort · Click rows to drill down</span>
+                    </div>
+                    <div class="ma-table-wrap" id="ma-pc-activity-table"></div>
+                </div>
+                <div class="ma-drilldown" id="ma-proposals-drilldown"></div>
+                <div class="ma-pc-empty-state" id="ma-pc-empty" style="display:none">
+                    <div style="text-align:center;padding:3rem 2rem;color:var(--text-secondary)">
+                        <i data-lucide="git-compare" style="width:48px;height:48px;margin-bottom:1rem;opacity:0.4"></i>
+                        <h4 style="margin:0 0 0.5rem;color:var(--text-primary)">No Proposal Data Yet</h4>
+                        <p style="margin:0;font-size:0.875rem">Upload and compare proposals in the Proposal Compare tool to see analytics here.</p>
+                    </div>
+                </div>
             </div>
 
             <!-- Loading Overlay -->

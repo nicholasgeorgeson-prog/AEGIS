@@ -290,12 +290,26 @@ class DoclingExtractor:
             table_mode: Table extraction mode ('fast' or 'accurate')
             fallback_to_legacy: Fall back to pdfplumber/python-docx on errors
         """
-        # Resolve artifacts path
+        # Resolve artifacts path — v5.9.40: validate path exists, auto-detect
+        # if env var points to a stale/wrong directory (e.g. old doclingtest)
         self.artifacts_path = (
-            artifacts_path or 
+            artifacts_path or
             os.environ.get('DOCLING_ARTIFACTS_PATH') or
             os.environ.get('DOCLING_SERVE_ARTIFACTS_PATH')
         )
+
+        # v5.9.40: Validate artifacts_path actually exists — auto-detect if not
+        if self.artifacts_path and not os.path.isdir(self.artifacts_path):
+            _log(f"  Docling artifacts_path invalid: {self.artifacts_path} — auto-detecting...")
+            self.artifacts_path = None  # Reset so auto-detection kicks in
+
+        if not self.artifacts_path:
+            # Auto-detect relative to this file's location
+            _here = os.path.dirname(os.path.abspath(__file__))
+            _candidate = os.path.join(_here, 'docling_models')
+            if os.path.isdir(_candidate):
+                self.artifacts_path = _candidate
+                _log(f"  Docling auto-detected models: {_candidate}")
         
         self.enable_ocr = enable_ocr
         self.ocr_engine = ocr_engine

@@ -77,17 +77,25 @@ class CategorySummary:
 @dataclass
 class ComparisonResult:
     """Complete comparison of multiple proposals."""
-    proposals: List[Dict[str, Any]] = field(default_factory=list)  # List of proposal summaries
+    proposals: List[Dict[str, Any]] = field(default_factory=list)
     aligned_items: List[AlignedItem] = field(default_factory=list)
     category_summaries: List[CategorySummary] = field(default_factory=list)
-    unmatched_items: Dict[str, List[Dict]] = field(default_factory=dict)  # proposal_id → items
-    totals: Dict[str, Optional[float]] = field(default_factory=dict)  # proposal_id → grand total
+    unmatched_items: Dict[str, List[Dict]] = field(default_factory=dict)
+    totals: Dict[str, Optional[float]] = field(default_factory=dict)
     totals_raw: Dict[str, str] = field(default_factory=dict)
 
     # Overall comparison metrics
     lowest_total_proposal: str = ''
     highest_total_proposal: str = ''
     total_variance_pct: Optional[float] = None
+
+    # Advanced analytics
+    red_flags: Dict[str, List[Dict]] = field(default_factory=dict)
+    heatmap: Dict[str, Any] = field(default_factory=dict)
+    rate_analysis: Dict[str, Any] = field(default_factory=dict)
+    cost_breakdown: Dict[str, Any] = field(default_factory=dict)
+    vendor_scores: Dict[str, Dict] = field(default_factory=dict)
+    executive_summary: Dict[str, Any] = field(default_factory=dict)
 
     notes: List[str] = field(default_factory=list)
 
@@ -102,6 +110,12 @@ class ComparisonResult:
             'lowest_total_proposal': self.lowest_total_proposal,
             'highest_total_proposal': self.highest_total_proposal,
             'total_variance_pct': self.total_variance_pct,
+            'red_flags': self.red_flags,
+            'heatmap': self.heatmap,
+            'rate_analysis': self.rate_analysis,
+            'cost_breakdown': self.cost_breakdown,
+            'vendor_scores': self.vendor_scores,
+            'executive_summary': self.executive_summary,
             'notes': self.notes,
         }
 
@@ -355,6 +369,31 @@ def compare_proposals(proposals: List[ProposalData]) -> ComparisonResult:
         if min_total > 0:
             result.total_variance_pct = round((max_total - min_total) / min_total * 100, 1)
 
+    # ── Advanced Analytics ──
+
+    # Red flags
+    result.red_flags = detect_red_flags(proposals, prop_ids, result.aligned_items, result.totals)
+
+    # Heatmap data (variance by line item × vendor)
+    result.heatmap = build_heatmap_data(result.aligned_items, prop_ids)
+
+    # Rate analysis
+    result.rate_analysis = build_rate_analysis(proposals, prop_ids)
+
+    # Cost element breakdown (waterfall chart data)
+    result.cost_breakdown = build_cost_breakdown(result.category_summaries, prop_ids, result.totals)
+
+    # Vendor scoring
+    result.vendor_scores = compute_vendor_scores(
+        proposals, prop_ids, result.aligned_items,
+        result.red_flags, result.totals
+    )
+
+    # Executive summary
+    result.executive_summary = build_executive_summary(
+        proposals, prop_ids, result
+    )
+
     # Summary notes
     result.notes.append(f'Compared {len(proposals)} proposals')
     result.notes.append(f'{len(result.aligned_items)} line items aligned')
@@ -365,5 +404,516 @@ def compare_proposals(proposals: List[ProposalData]) -> ComparisonResult:
         )
     if result.total_variance_pct is not None:
         result.notes.append(f'Total cost variance: {result.total_variance_pct}%')
+    if result.red_flags:
+        total_flags = sum(len(flags) for flags in result.red_flags.values())
+        result.notes.append(f'{total_flags} red flags detected across all proposals')
 
     return result
+
+
+# ──────────────────────────────────────────────
+# Red Flag Detection Engine
+# ──────────────────────────────────────────────
+
+RED_FLAG_SEVERITY = {
+    'critical': 3,
+    'warning': 2,
+    'info': 1,
+}
+
+
+def detect_red_flags(
+    proposals: List[ProposalData],
+    prop_ids: List[str],
+    aligned_items: List[AlignedItem],
+    totals: Dict[str, Optional[float]]
+) -> Dict[str, List[Dict]]:
+    """Detect financial red flags in each proposal."""
+    flags: Dict[str, List[Dict]] = {pid: [] for pid in prop_ids}
+
+    for p_idx, (proposal, pid) in enumerate(zip(proposals, prop_ids)):
+        # ── 1. Unbalanced Pricing (buy-in risk) ──
+        for ai in aligned_items:
+            if pid not in ai.amounts or ai.amounts[pid] is None:
+                continue
+            amt = ai.amounts[pid]
+            other_amounts = [a for k, a in ai.amounts.items()
+                            if k != pid and a is not None and a > 0]
+            if other_amounts and amt > 0:
+                avg_others = sum(other_amounts) / len(other_amounts)
+                if avg_others > 0 and amt < avg_others * 0.5:
+                    flags[pid].append({
+                        'type': 'unbalanced_pricing',
+                        'severity': 'critical',
+                        'title': 'Potential Buy-In Pricing',
+                        'detail': f'"{ai.description}" at ${amt:,.0f} is {((avg_others - amt) / avg_others * 100):.0f}% below competitors\' average (${avg_others:,.0f})',
+                        'line_item': ai.description,
+                    })
+
+        # ── 2. Round Number Syndrome ──
+        round_count = 0
+        for li in proposal.line_items:
+            if li.amount and li.amount >= 1000 and li.amount % 1000 == 0:
+                round_count += 1
+        if round_count > 0 and len(proposal.line_items) > 0:
+            pct = round_count / len(proposal.line_items) * 100
+            if pct > 50:
+                flags[pid].append({
+                    'type': 'round_numbers',
+                    'severity': 'warning',
+                    'title': 'Round Number Pricing',
+                    'detail': f'{round_count} of {len(proposal.line_items)} line items ({pct:.0f}%) are round numbers — may indicate estimates rather than bottoms-up pricing',
+                })
+
+        # ── 3. Missing Line Items (scope gap) ──
+        total_aligned = len(aligned_items)
+        priced_by_vendor = sum(1 for ai in aligned_items
+                               if pid in ai.amounts and ai.amounts[pid] is not None)
+        missing = total_aligned - priced_by_vendor
+        if missing > 0 and total_aligned > 0:
+            flags[pid].append({
+                'type': 'missing_items',
+                'severity': 'critical' if missing > total_aligned * 0.3 else 'warning',
+                'title': f'{missing} Missing Line Items',
+                'detail': f'Vendor did not price {missing} of {total_aligned} line items — possible scope gap',
+            })
+
+        # ── 4. Fee/Profit Rate Check ──
+        fee_items = [li for li in proposal.line_items
+                     if li.category in ('Fee', 'Overhead')]
+        if fee_items and proposal.total_amount and proposal.total_amount > 0:
+            fee_total = sum(li.amount for li in fee_items if li.amount)
+            fee_pct = fee_total / proposal.total_amount * 100
+            if fee_pct > 20:
+                flags[pid].append({
+                    'type': 'high_fee',
+                    'severity': 'warning',
+                    'title': f'High Fee/Overhead Rate ({fee_pct:.1f}%)',
+                    'detail': f'Fee and overhead items total ${fee_total:,.0f} ({fee_pct:.1f}% of total) — industry norm is 8-15%',
+                })
+
+        # ── 5. Extreme Variance on Individual Items ──
+        for ai in aligned_items:
+            if pid not in ai.amounts or ai.amounts[pid] is None:
+                continue
+            if ai.variance_pct is not None and ai.variance_pct > 100:
+                amt = ai.amounts[pid]
+                if amt == ai.max_amount:
+                    flags[pid].append({
+                        'type': 'extreme_variance',
+                        'severity': 'warning',
+                        'title': f'Extreme Price Variance on "{ai.description}"',
+                        'detail': f'${amt:,.0f} is {ai.variance_pct:.0f}% above the lowest bid — significant cost risk',
+                        'line_item': ai.description,
+                    })
+
+        # ── 6. Low Line Item Count (sparse proposal) ──
+        if len(proposal.line_items) < 3 and len(proposal.tables) > 0:
+            flags[pid].append({
+                'type': 'sparse_data',
+                'severity': 'info',
+                'title': 'Limited Financial Detail',
+                'detail': f'Only {len(proposal.line_items)} line items extracted — proposal may lack detailed cost breakdown',
+            })
+
+        # ── 7. No Total Found (incomplete data) ──
+        if proposal.total_amount is None or proposal.total_amount == 0:
+            flags[pid].append({
+                'type': 'no_total',
+                'severity': 'warning',
+                'title': 'No Grand Total Detected',
+                'detail': 'Could not find an explicit total/grand total in the proposal — amounts may be incomplete',
+            })
+
+    return flags
+
+
+# ──────────────────────────────────────────────
+# Heatmap Data Builder
+# ──────────────────────────────────────────────
+
+def build_heatmap_data(
+    aligned_items: List[AlignedItem],
+    prop_ids: List[str]
+) -> Dict[str, Any]:
+    """Build heatmap data showing deviation from average per line item × vendor.
+
+    Returns:
+        {
+            'rows': [
+                {
+                    'description': 'Software Dev',
+                    'category': 'Labor',
+                    'cells': {
+                        'Vendor A': {'amount': 250000, 'deviation_pct': -5.2, 'level': 'low'},
+                        'Vendor B': {'amount': 275000, 'deviation_pct': 4.8, 'level': 'mid'},
+                    }
+                }
+            ],
+            'prop_ids': ['Vendor A', 'Vendor B']
+        }
+    """
+    rows = []
+    for ai in aligned_items:
+        valid_amounts = [a for a in ai.amounts.values() if a is not None and a > 0]
+        if not valid_amounts:
+            continue
+        avg = sum(valid_amounts) / len(valid_amounts)
+        if avg == 0:
+            continue
+
+        cells = {}
+        for pid in prop_ids:
+            amt = ai.amounts.get(pid)
+            if amt is not None and amt > 0:
+                dev = (amt - avg) / avg * 100
+                # Categorize deviation level for coloring
+                if abs(dev) < 5:
+                    level = 'neutral'
+                elif dev < -15:
+                    level = 'very_low'
+                elif dev < -5:
+                    level = 'low'
+                elif dev > 15:
+                    level = 'very_high'
+                else:
+                    level = 'high'
+                cells[pid] = {
+                    'amount': amt,
+                    'deviation_pct': round(dev, 1),
+                    'level': level,
+                }
+            else:
+                cells[pid] = {'amount': None, 'deviation_pct': None, 'level': 'missing'}
+
+        rows.append({
+            'description': ai.description,
+            'category': ai.category,
+            'avg': round(avg, 2),
+            'cells': cells,
+        })
+
+    return {'rows': rows, 'prop_ids': prop_ids}
+
+
+# ──────────────────────────────────────────────
+# Rate Analysis
+# ──────────────────────────────────────────────
+
+def build_rate_analysis(
+    proposals: List[ProposalData],
+    prop_ids: List[str]
+) -> Dict[str, Any]:
+    """Analyze unit prices/rates across proposals.
+
+    Extracts hourly rates, per-unit prices and compares them.
+    """
+    # Build rate table: description → {vendor: rate}
+    rate_items: Dict[str, Dict[str, Dict]] = {}
+
+    for p_idx, (proposal, pid) in enumerate(zip(proposals, prop_ids)):
+        for li in proposal.line_items:
+            if li.unit_price is not None and li.unit_price > 0:
+                key = _normalize_description(li.description)
+                if key not in rate_items:
+                    rate_items[key] = {
+                        'description': li.description,
+                        'category': li.category,
+                        'rates': {},
+                    }
+                rate_items[key]['rates'][pid] = {
+                    'rate': li.unit_price,
+                    'quantity': li.quantity,
+                    'total': li.amount,
+                }
+
+    # Calculate stats for each rate item
+    results = []
+    for key, item in rate_items.items():
+        rates = item['rates']
+        rate_values = [r['rate'] for r in rates.values() if r['rate'] > 0]
+        if not rate_values:
+            continue
+
+        min_rate = min(rate_values)
+        max_rate = max(rate_values)
+        avg_rate = sum(rate_values) / len(rate_values)
+        variance = round((max_rate - min_rate) / min_rate * 100, 1) if min_rate > 0 else 0
+
+        # Find lowest rate vendor
+        lowest_vendor = ''
+        for pid, r in rates.items():
+            if r['rate'] == min_rate:
+                lowest_vendor = pid
+                break
+
+        results.append({
+            'description': item['description'],
+            'category': item['category'],
+            'rates': {pid: r['rate'] for pid, r in rates.items()},
+            'quantities': {pid: r['quantity'] for pid, r in rates.items()},
+            'min_rate': min_rate,
+            'max_rate': max_rate,
+            'avg_rate': round(avg_rate, 2),
+            'variance_pct': variance,
+            'lowest_vendor': lowest_vendor,
+            'vendor_count': len(rates),
+        })
+
+    # Sort by variance (most contentious first)
+    results.sort(key=lambda x: x['variance_pct'], reverse=True)
+
+    return {
+        'items': results,
+        'summary': {
+            'total_rate_items': len(results),
+            'items_with_variance_over_20': sum(1 for r in results if r['variance_pct'] > 20),
+            'avg_rate_variance': round(
+                sum(r['variance_pct'] for r in results) / len(results), 1
+            ) if results else 0,
+        }
+    }
+
+
+# ──────────────────────────────────────────────
+# Cost Element Breakdown (Waterfall Chart Data)
+# ──────────────────────────────────────────────
+
+def build_cost_breakdown(
+    category_summaries: List[CategorySummary],
+    prop_ids: List[str],
+    totals: Dict[str, Optional[float]]
+) -> Dict[str, Any]:
+    """Build stacked cost breakdown data for waterfall/stacked bar charts."""
+    categories = []
+    for cs in category_summaries:
+        cat_data = {
+            'category': cs.category,
+            'amounts': {},
+            'percentages': {},
+        }
+        for pid in prop_ids:
+            amount = cs.totals.get(pid, 0)
+            total = totals.get(pid, 0) or 1  # prevent div/0
+            cat_data['amounts'][pid] = amount
+            cat_data['percentages'][pid] = round(amount / total * 100, 1) if total > 0 else 0
+        categories.append(cat_data)
+
+    return {
+        'categories': categories,
+        'prop_ids': prop_ids,
+        'totals': {pid: totals.get(pid, 0) for pid in prop_ids},
+    }
+
+
+# ──────────────────────────────────────────────
+# Vendor Scoring
+# ──────────────────────────────────────────────
+
+def compute_vendor_scores(
+    proposals: List[ProposalData],
+    prop_ids: List[str],
+    aligned_items: List[AlignedItem],
+    red_flags: Dict[str, List[Dict]],
+    totals: Dict[str, Optional[float]]
+) -> Dict[str, Dict]:
+    """Compute a multi-factor score for each vendor.
+
+    Scoring factors (all automated, no manual input):
+    - Price competitiveness (40%) — lower total = higher score
+    - Completeness (25%) — more line items priced = higher score
+    - Risk profile (25%) — fewer red flags = higher score
+    - Data quality (10%) — higher extraction confidence = higher score
+    """
+    scores: Dict[str, Dict] = {}
+    valid_totals = {pid: t for pid, t in totals.items() if t is not None and t > 0}
+
+    for p_idx, (proposal, pid) in enumerate(zip(proposals, prop_ids)):
+        # Price Score (0-100) — lowest gets 100, scaled linearly
+        price_score = 50  # default
+        if valid_totals and pid in valid_totals:
+            min_total = min(valid_totals.values())
+            max_total = max(valid_totals.values())
+            if max_total > min_total:
+                price_score = round(100 - (valid_totals[pid] - min_total) / (max_total - min_total) * 80)
+            elif len(valid_totals) > 1:
+                price_score = 100  # all equal
+
+        # Completeness Score (0-100)
+        total_items = len(aligned_items)
+        priced = sum(1 for ai in aligned_items
+                     if pid in ai.amounts and ai.amounts[pid] is not None)
+        completeness_score = round(priced / total_items * 100) if total_items > 0 else 0
+
+        # Risk Score (0-100) — fewer flags = higher score
+        vendor_flags = red_flags.get(pid, [])
+        severity_points = sum(
+            RED_FLAG_SEVERITY.get(f.get('severity', 'info'), 1)
+            for f in vendor_flags
+        )
+        risk_score = max(0, 100 - severity_points * 12)
+
+        # Data Quality Score (0-100)
+        avg_confidence = 1.0
+        if proposal.line_items:
+            avg_confidence = sum(li.confidence for li in proposal.line_items) / len(proposal.line_items)
+        has_total = 1 if proposal.total_amount and proposal.total_amount > 0 else 0
+        has_company = 1 if proposal.company_name else 0
+        data_quality = round(avg_confidence * 60 + has_total * 25 + has_company * 15)
+
+        # Weighted total
+        overall = round(
+            price_score * 0.40 +
+            completeness_score * 0.25 +
+            risk_score * 0.25 +
+            data_quality * 0.10
+        )
+
+        # Letter grade
+        if overall >= 90:
+            grade = 'A'
+        elif overall >= 80:
+            grade = 'B'
+        elif overall >= 70:
+            grade = 'C'
+        elif overall >= 60:
+            grade = 'D'
+        else:
+            grade = 'F'
+
+        scores[pid] = {
+            'overall': overall,
+            'grade': grade,
+            'price_score': price_score,
+            'completeness_score': completeness_score,
+            'risk_score': risk_score,
+            'data_quality_score': data_quality,
+            'red_flag_count': len(vendor_flags),
+            'critical_flags': sum(1 for f in vendor_flags if f.get('severity') == 'critical'),
+        }
+
+    return scores
+
+
+# ──────────────────────────────────────────────
+# Executive Summary Generator
+# ──────────────────────────────────────────────
+
+def build_executive_summary(
+    proposals: List[ProposalData],
+    prop_ids: List[str],
+    result  # ComparisonResult — avoid circular type hint
+) -> Dict[str, Any]:
+    """Generate a structured executive summary from the comparison data.
+
+    Template-based — no AI. Just structured data presentation.
+    """
+    summary = {
+        'proposal_count': len(proposals),
+        'total_line_items': len(result.aligned_items),
+    }
+
+    # Winner determination
+    valid_totals = {pid: t for pid, t in result.totals.items() if t is not None and t > 0}
+    if valid_totals:
+        sorted_by_price = sorted(valid_totals.items(), key=lambda x: x[1])
+        summary['price_ranking'] = [
+            {
+                'rank': i + 1,
+                'vendor': pid,
+                'total': total,
+                'total_formatted': f'${total:,.2f}',
+                'delta_from_lowest': round(total - sorted_by_price[0][1], 2),
+                'delta_pct': round((total - sorted_by_price[0][1]) / sorted_by_price[0][1] * 100, 1) if sorted_by_price[0][1] > 0 else 0,
+            }
+            for i, (pid, total) in enumerate(sorted_by_price)
+        ]
+
+    # Score ranking
+    if result.vendor_scores:
+        sorted_by_score = sorted(
+            result.vendor_scores.items(),
+            key=lambda x: x[1]['overall'],
+            reverse=True
+        )
+        summary['score_ranking'] = [
+            {
+                'rank': i + 1,
+                'vendor': pid,
+                'overall_score': scores['overall'],
+                'grade': scores['grade'],
+            }
+            for i, (pid, scores) in enumerate(sorted_by_score)
+        ]
+
+    # Key findings
+    findings = []
+
+    # Price spread
+    if result.total_variance_pct is not None:
+        findings.append({
+            'type': 'price_spread',
+            'text': f'Total price spread of {result.total_variance_pct}% between lowest and highest bidders',
+            'severity': 'info' if result.total_variance_pct < 20 else 'warning',
+        })
+
+    # Best value indicator
+    if result.vendor_scores:
+        best_score = max(result.vendor_scores.items(), key=lambda x: x[1]['overall'])
+        lowest_price = result.lowest_total_proposal
+        if best_score[0] != lowest_price:
+            findings.append({
+                'type': 'best_value_split',
+                'text': f'Lowest price ({lowest_price}) differs from highest-scored vendor ({best_score[0]}) — best value analysis recommended',
+                'severity': 'info',
+            })
+
+    # Red flag summary
+    for pid in prop_ids:
+        critical = sum(1 for f in result.red_flags.get(pid, [])
+                       if f.get('severity') == 'critical')
+        if critical > 0:
+            findings.append({
+                'type': 'critical_flags',
+                'text': f'{pid} has {critical} critical red flag{"s" if critical > 1 else ""}',
+                'severity': 'critical',
+            })
+
+    # Rate variance highlight
+    if result.rate_analysis and result.rate_analysis.get('summary', {}).get('items_with_variance_over_20', 0) > 0:
+        count = result.rate_analysis['summary']['items_with_variance_over_20']
+        findings.append({
+            'type': 'rate_variance',
+            'text': f'{count} labor/rate categories have >20% variance — negotiation opportunities',
+            'severity': 'info',
+        })
+
+    summary['key_findings'] = findings
+
+    # Negotiation opportunities (items with highest variance where vendor is highest)
+    negotiation_items = []
+    for ai in result.aligned_items:
+        if ai.variance_pct and ai.variance_pct > 15:
+            for pid, amt in ai.amounts.items():
+                if amt == ai.max_amount and ai.avg_amount:
+                    savings = amt - ai.avg_amount
+                    negotiation_items.append({
+                        'vendor': pid,
+                        'line_item': ai.description,
+                        'current_amount': amt,
+                        'avg_amount': ai.avg_amount,
+                        'potential_savings': round(savings, 2),
+                        'savings_formatted': f'${savings:,.0f}',
+                        'variance_pct': ai.variance_pct,
+                    })
+
+    negotiation_items.sort(key=lambda x: x['potential_savings'], reverse=True)
+    summary['negotiation_opportunities'] = negotiation_items[:10]  # Top 10
+
+    # Total potential savings
+    if negotiation_items:
+        total_savings = sum(n['potential_savings'] for n in negotiation_items)
+        summary['total_potential_savings'] = round(total_savings, 2)
+        summary['total_potential_savings_formatted'] = f'${total_savings:,.0f}'
+
+    return summary

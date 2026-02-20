@@ -150,12 +150,28 @@ TOTAL_KEYWORDS = re.compile(
 
 # Category keywords for classification
 CATEGORY_PATTERNS = {
-    'Labor': re.compile(r'\b(?:labor|labour|personnel|staffing|hours?|FTE|man-?hours?|salaries?|wages?)\b', re.IGNORECASE),
-    'Material': re.compile(r'\b(?:material|supplies|equipment|hardware|software|license|subscription)\b', re.IGNORECASE),
-    'Travel': re.compile(r'\b(?:travel|per\s*diem|airfare|lodging|mileage|transportation)\b', re.IGNORECASE),
-    'ODC': re.compile(r'\b(?:ODC|other\s*direct|subcontract|consultant|vendor)\b', re.IGNORECASE),
-    'Overhead': re.compile(r'\b(?:overhead|indirect|G&A|general\s*(?:and|&)\s*admin|fringe|burden|wrap\s*rate)\b', re.IGNORECASE),
-    'Fee': re.compile(r'\b(?:fee|profit|margin|markup)\b', re.IGNORECASE),
+    'Labor': re.compile(
+        r'\b(?:labor|labour|personnel|staffing|hours?|FTE|man-?hours?|salaries?|wages?|'
+        r'engineering|engineer|development|developer|software\s+dev|systems?\s+eng|'
+        r'program\s*management|project\s*management|management\s+labor|'
+        r'technical\s+(?:support|staff|writer|lead)|analyst|architect|designer|'
+        r'SME|subject\s+matter|test(?:ing|er)?|QA|quality\s+assurance)\b', re.IGNORECASE),
+    'Material': re.compile(
+        r'\b(?:material|supplies|equipment|hardware|procurement|license|subscription|'
+        r'tool(?:ing|s)?|parts?|component|inventory|COTS|GOTS)\b', re.IGNORECASE),
+    'Software': re.compile(
+        r'\b(?:software\s+license|COTS\s+software|software\s+(?:tool|package|suite|product)|'
+        r'SaaS|cloud\s+service|platform\s+license)\b', re.IGNORECASE),
+    'Travel': re.compile(
+        r'\b(?:travel|per\s*diem|airfare|lodging|mileage|transportation|trip)\b', re.IGNORECASE),
+    'Training': re.compile(
+        r'\b(?:training|course|certification|workshop|seminar|instruction)\b', re.IGNORECASE),
+    'ODC': re.compile(
+        r'\b(?:ODC|other\s*direct|subcontract|consultant|vendor|third.?party)\b', re.IGNORECASE),
+    'Overhead': re.compile(
+        r'\b(?:overhead|indirect|G&A|general\s*(?:and|&)\s*admin|fringe|burden|wrap\s*rate)\b', re.IGNORECASE),
+    'Fee': re.compile(
+        r'\b(?:fee|profit|margin|markup|award)\b', re.IGNORECASE),
 }
 
 # Company name patterns (found in headers/footers/cover)
@@ -204,12 +220,19 @@ def extract_company_from_text(text: str, max_chars: int = 2000) -> str:
         line = line.strip()
         if not line or len(line) > 120:
             continue
+        # Skip lines that look like table data (contain lots of numbers/dollar signs)
+        if DOLLAR_PATTERN.search(line):
+            continue
+        # Skip lines with too many numbers (likely data rows, not company names)
+        digit_ratio = sum(c.isdigit() for c in line) / max(len(line), 1)
+        if digit_ratio > 0.3:
+            continue
         if COMPANY_INDICATORS.search(line):
             # Clean up the line
             name = re.sub(r'^\W+|\W+$', '', line)
             # Remove common prefixes
             name = re.sub(r'^(?:prepared\s+by|submitted\s+by|from|proposal\s+by)\s*:?\s*', '', name, flags=re.IGNORECASE)
-            if 5 < len(name) < 100:
+            if 5 < len(name) < 80:
                 return name.strip()
 
     # Strategy 2: Look for "Prepared by: XXX" or "Submitted by: XXX"
@@ -219,7 +242,7 @@ def extract_company_from_text(text: str, max_chars: int = 2000) -> str:
     )
     if match:
         name = match.group(1).strip()
-        if 3 < len(name) < 100:
+        if 3 < len(name) < 80:
             return name
 
     return ''
@@ -245,19 +268,54 @@ def is_financial_table(headers: List[str], rows: List[List[str]]) -> bool:
     if any(kw in header_text for kw in financial_headers):
         return True
 
-    # Check if rows contain dollar amounts
-    dollar_count = 0
+    # Check if rows contain dollar amounts OR large numeric values
+    financial_cell_count = 0
     for row in rows[:10]:  # Check first 10 rows
         for cell in row:
-            if DOLLAR_PATTERN.search(str(cell)):
-                dollar_count += 1
+            cell_str = str(cell).strip()
+            # Dollar-formatted strings
+            if DOLLAR_PATTERN.search(cell_str):
+                financial_cell_count += 1
+            # Plain numeric values > 100 (likely financial, not just IDs/quantities)
+            elif _cell_to_float(cell) is not None:
+                val = _cell_to_float(cell)
+                if val is not None and val > 100:
+                    financial_cell_count += 1
 
-    # If more than 20% of checked cells have dollar amounts, it's financial
+    # If more than 15% of checked cells have financial values, it's financial
     total_cells = sum(len(row) for row in rows[:10])
-    if total_cells > 0 and dollar_count / total_cells > 0.15:
+    if total_cells > 0 and financial_cell_count / total_cells > 0.15:
         return True
 
     return False
+
+
+def _cell_to_float(cell_val) -> Optional[float]:
+    """Convert a cell value to float — handles both dollar-formatted strings and raw numbers.
+
+    openpyxl data_only=True returns raw floats/ints for number cells,
+    while DOCX/PDF tables return formatted strings like '$250,000.00'.
+    """
+    if cell_val is None:
+        return None
+    if isinstance(cell_val, (int, float)):
+        return float(cell_val) if cell_val != 0 else None
+    s = str(cell_val).strip()
+    if not s:
+        return None
+    # Try dollar pattern first
+    dollar_match = DOLLAR_PATTERN.search(s)
+    if dollar_match:
+        return parse_dollar_amount(dollar_match.group())
+    # Try plain numeric (with optional commas)
+    cleaned = s.replace(',', '').replace(' ', '')
+    if NUMERIC_PATTERN.match(cleaned):
+        try:
+            val = float(cleaned)
+            return val if val != 0 else None
+        except ValueError:
+            return None
+    return None
 
 
 def find_total_row(rows: List[List[str]]) -> Tuple[Optional[int], Optional[float]]:
@@ -265,13 +323,18 @@ def find_total_row(rows: List[List[str]]) -> Tuple[Optional[int], Optional[float
     for i, row in enumerate(rows):
         for j, cell in enumerate(row):
             if TOTAL_KEYWORDS.search(str(cell)):
-                # Look for dollar amount in the same row
+                # Look for the largest numeric value in the same row
+                # (the total is usually the rightmost/largest number)
+                best_amount = None
                 for k, val in enumerate(row):
-                    dollar_match = DOLLAR_PATTERN.search(str(val))
-                    if dollar_match:
-                        amount = parse_dollar_amount(dollar_match.group())
-                        if amount is not None:
-                            return i, amount
+                    if k == j:
+                        continue  # Skip the cell with "Total" text
+                    amount = _cell_to_float(val)
+                    if amount is not None and amount > 0:
+                        if best_amount is None or amount > best_amount:
+                            best_amount = amount
+                if best_amount is not None:
+                    return i, best_amount
     return None, None
 
 
@@ -281,7 +344,7 @@ def extract_line_items_from_table(table: ExtractedTable) -> List[LineItem]:
     if not table.rows or not table.headers:
         return items
 
-    # Identify column roles
+    # Identify column roles using tiered priority
     headers_lower = [h.lower().strip() for h in table.headers]
 
     desc_col = None
@@ -289,35 +352,103 @@ def extract_line_items_from_table(table: ExtractedTable) -> List[LineItem]:
     qty_col = None
     unit_price_col = None
 
-    for i, h in enumerate(headers_lower):
-        if not h:
-            continue
-        if any(kw in h for kw in ['description', 'item', 'task', 'clin', 'line item', 'wbs', 'name', 'service']):
-            if desc_col is None:
-                desc_col = i
-        if any(kw in h for kw in ['total', 'amount', 'extended', 'cost', 'price', 'value', 'sum']):
-            amount_col = i
-        if any(kw in h for kw in ['qty', 'quantity', 'hours', 'units', 'count']):
-            qty_col = i
-        if any(kw in h for kw in ['rate', 'unit price', 'unit cost', 'per unit', 'hourly']):
-            unit_price_col = i
+    # -- Description column: prioritize actual description keywords over identifiers --
+    # Tier 1: Strong description indicators
+    desc_priority_1 = ['description', 'task description', 'line item description',
+                        'service', 'deliverable', 'scope']
+    # Tier 2: Medium description indicators
+    desc_priority_2 = ['task', 'name', 'line item', 'wbs', 'wbs element', 'work']
+    # Tier 3: Weak — identifiers (only use if nothing better found)
+    desc_priority_3 = ['item', 'clin']
 
-    # If no description column found, use first non-empty text column
-    if desc_col is None:
+    for tier_keywords in [desc_priority_1, desc_priority_2, desc_priority_3]:
+        if desc_col is not None:
+            break
         for i, h in enumerate(headers_lower):
-            if h and not any(kw in h for kw in ['#', 'no', 'num', 'id']):
+            if not h:
+                continue
+            if any(kw in h for kw in tier_keywords):
                 desc_col = i
                 break
 
-    # If no amount column found, find the column with most dollar values
+    # -- Amount column: prefer 'total'/'extended' over generic 'cost'/'price' --
+    # This prevents picking 'Unit Price' when 'Total Cost' exists
+    amount_priority_1 = ['total cost', 'extended price', 'extended cost', 'total price',
+                          'total amount', 'extended amount', 'total value', 'subtotal']
+    amount_priority_2 = ['total', 'amount', 'extended', 'sum', 'value']
+    amount_priority_3 = ['cost', 'price', 'charge']
+
+    for tier_keywords in [amount_priority_1, amount_priority_2, amount_priority_3]:
+        if amount_col is not None:
+            break
+        for i, h in enumerate(headers_lower):
+            if not h:
+                continue
+            # Skip columns already assigned to other roles
+            if i == desc_col:
+                continue
+            if any(kw in h for kw in tier_keywords):
+                # Don't pick 'unit price' / 'unit cost' as the total amount column
+                if any(kw in h for kw in ['unit price', 'unit cost', 'rate', 'per unit', 'hourly']):
+                    continue
+                amount_col = i
+                break
+
+    # -- Quantity column --
+    for i, h in enumerate(headers_lower):
+        if not h or i == desc_col or i == amount_col:
+            continue
+        if any(kw in h for kw in ['qty', 'quantity', 'hours', 'units', 'count']):
+            qty_col = i
+            break
+
+    # -- Unit price column --
+    for i, h in enumerate(headers_lower):
+        if not h or i == desc_col or i == amount_col or i == qty_col:
+            continue
+        if any(kw in h for kw in ['rate', 'unit price', 'unit cost', 'per unit', 'hourly']):
+            unit_price_col = i
+            break
+
+    # -- Fallback: if desc_col is an identifier column (item #, CLIN), try to find a better one --
+    if desc_col is not None:
+        desc_header = headers_lower[desc_col]
+        is_id_col = any(kw == desc_header or (kw in desc_header and len(desc_header) < 12)
+                        for kw in ['item', 'clin', '#', 'no', 'num', 'id', 'line'])
+        if is_id_col:
+            # Check if the NEXT column looks more like a description
+            # (longer text values, more words)
+            candidate = desc_col + 1
+            if candidate < len(headers_lower) and candidate != amount_col and candidate != qty_col and candidate != unit_price_col:
+                # Check if candidate column has longer text values
+                sample_lengths = []
+                for row in table.rows[:5]:
+                    if candidate < len(row):
+                        sample_lengths.append(len(str(row[candidate]).strip()))
+                avg_len = sum(sample_lengths) / len(sample_lengths) if sample_lengths else 0
+                if avg_len > 3:
+                    desc_col = candidate
+
+    # -- Fallback: if no description column found, use first non-empty text column --
+    if desc_col is None:
+        for i, h in enumerate(headers_lower):
+            if h and i != amount_col and i != qty_col and i != unit_price_col:
+                if not any(kw in h for kw in ['#', 'no', 'num', 'id']):
+                    desc_col = i
+                    break
+
+    # -- Fallback: if no amount column, find column with most numeric values --
     if amount_col is None:
-        col_dollar_counts = {}
+        col_numeric_counts = {}
         for row in table.rows:
             for j, cell in enumerate(row):
-                if DOLLAR_PATTERN.search(str(cell)):
-                    col_dollar_counts[j] = col_dollar_counts.get(j, 0) + 1
-        if col_dollar_counts:
-            amount_col = max(col_dollar_counts, key=col_dollar_counts.get)
+                if j == desc_col or j == qty_col:
+                    continue
+                val = _cell_to_float(cell)
+                if val is not None and val > 0:
+                    col_numeric_counts[j] = col_numeric_counts.get(j, 0) + 1
+        if col_numeric_counts:
+            amount_col = max(col_numeric_counts, key=col_numeric_counts.get)
 
     if amount_col is None:
         return items
@@ -333,34 +464,27 @@ def extract_line_items_from_table(table: ExtractedTable) -> List[LineItem]:
         if not desc or len(desc) < 2:
             continue
 
-        # Get amount
-        amount_str = str(row[amount_col]).strip() if amount_col < len(row) else ''
-        dollar_match = DOLLAR_PATTERN.search(amount_str)
-        if dollar_match:
-            amount_raw = dollar_match.group()
-            amount = parse_dollar_amount(amount_raw)
-        elif NUMERIC_PATTERN.match(amount_str.replace(',', '').strip()):
-            amount_raw = amount_str
-            amount = parse_dollar_amount(amount_str)
-        else:
-            continue  # No financial value in this row
-
+        # Get amount — handle both dollar-formatted strings AND raw numbers
+        amount_val = row[amount_col] if amount_col < len(row) else None
+        amount = _cell_to_float(amount_val)
         if amount is None or amount == 0:
             continue
+
+        # Build raw string for display
+        amount_str = str(amount_val).strip() if amount_val is not None else ''
+        if DOLLAR_PATTERN.search(amount_str):
+            amount_raw = DOLLAR_PATTERN.search(amount_str).group()
+        else:
+            amount_raw = f'${amount:,.2f}'
 
         # Get optional fields
         qty = None
         if qty_col is not None and qty_col < len(row):
-            qty_str = str(row[qty_col]).strip().replace(',', '')
-            try:
-                qty = float(qty_str)
-            except ValueError:
-                pass
+            qty = _cell_to_float(row[qty_col])
 
         unit_price = None
         if unit_price_col is not None and unit_price_col < len(row):
-            up_str = str(row[unit_price_col]).strip()
-            unit_price = parse_dollar_amount(up_str)
+            unit_price = _cell_to_float(row[unit_price_col])
 
         item = LineItem(
             description=desc,
