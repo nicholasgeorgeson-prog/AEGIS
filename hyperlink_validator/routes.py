@@ -157,12 +157,18 @@ def handle_hv_errors(f):
                         'correlation_id': getattr(g, 'correlation_id', 'unknown')
                     }
                 }), 413
+            # v5.9.35: Include actual error message in response — AEGIS is localhost-only,
+            # so showing the full error helps the user report issues without needing server logs
+            import traceback
+            tb_str = traceback.format_exc()
             logger.exception(f"Unexpected error in {f.__name__}: {e}")
+            error_msg = str(e)[:500] if str(e) else 'Unknown error'
             return jsonify({
                 'success': False,
                 'error': {
                     'code': 'INTERNAL_ERROR',
-                    'message': f'Export failed due to an internal error. Please check the server log for details. ({error_name})',
+                    'message': f'{error_name}: {error_msg}',
+                    'detail': tb_str[-1000:] if tb_str else '',
                     'correlation_id': getattr(g, 'correlation_id', 'unknown')
                 }
             }), 500
@@ -1984,9 +1990,15 @@ def export_highlighted_excel_endpoint():
     logger.info(f"Export highlighted Excel: result status breakdown: {status_counts}")
 
     try:
+        # v5.9.35: Verify temp file was saved correctly
+        tmp_size = os.path.getsize(tmp_path)
+        logger.info(f"Export highlighted Excel: temp file saved, size={tmp_size} bytes")
+        if tmp_size == 0:
+            raise ProcessingError("Uploaded file is empty (0 bytes). Please re-upload the file.")
+
         # Create highlighted document — choose function by mode
         if export_mode == 'multicolor':
-            logger.info("Export highlighted Excel: using multicolor mode")
+            logger.info(f"Export highlighted Excel: using multicolor mode with {len(results)} results on {tmp_path}")
             success, message, file_bytes = export_highlighted_excel_multicolor(
                 tmp_path, results, link_column=link_column
             )
@@ -1997,6 +2009,8 @@ def export_highlighted_excel_endpoint():
             )
 
         if not success:
+            # v5.9.35: Return the actual error message from the export function
+            logger.error(f"Export highlighted Excel failed: {message}")
             return jsonify({
                 'success': False,
                 'error': {
@@ -2004,6 +2018,8 @@ def export_highlighted_excel_endpoint():
                     'message': message
                 }
             }), 400
+
+        logger.info(f"Export highlighted Excel: success, output={len(file_bytes)} bytes — {message}")
 
         # Generate output filename
         base_name = os.path.splitext(file.filename)[0]
@@ -2020,6 +2036,17 @@ def export_highlighted_excel_endpoint():
             }
         )
 
+    except (ProcessingError, ValidationError):
+        raise  # Let the decorator handle these
+    except Exception as export_err:
+        # v5.9.35: Catch and provide detailed error for debugging
+        import traceback
+        tb = traceback.format_exc()
+        logger.exception(f"Export highlighted Excel CRASHED: {type(export_err).__name__}: {export_err}")
+        raise ProcessingError(
+            f"Export failed: {type(export_err).__name__}: {str(export_err)[:300]}. "
+            f"File: {file.filename} ({tmp_size} bytes), Results: {len(results)}, Mode: {export_mode}"
+        )
     finally:
         # Clean up temp file
         try:

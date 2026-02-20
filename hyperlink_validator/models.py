@@ -91,13 +91,29 @@ class ExclusionRule:
             self.created_at = datetime.utcnow().isoformat() + "Z"
 
     def matches(self, url: str) -> bool:
-        """Check if URL matches this exclusion rule."""
+        """Check if URL matches this exclusion rule.
+
+        v5.9.35: 'exact' match now also checks trailing-slash and protocol variants
+        to handle common URL normalization differences.
+        """
         import re
-        url_lower = url.lower()
-        pattern_lower = self.pattern.lower()
+        url_lower = url.lower().strip()
+        pattern_lower = self.pattern.lower().strip()
 
         if self.match_type == "exact":
-            return url_lower == pattern_lower
+            # v5.9.35: Also match trailing-slash variants and protocol variants
+            url_norm = url_lower.rstrip('/')
+            pattern_norm = pattern_lower.rstrip('/')
+            if url_norm == pattern_norm:
+                return True
+            # Also check http↔https swap
+            if url_norm.startswith('http://'):
+                if url_norm.replace('http://', 'https://') == pattern_norm:
+                    return True
+            elif url_norm.startswith('https://'):
+                if url_norm.replace('https://', 'http://') == pattern_norm:
+                    return True
+            return False
         elif self.match_type == "prefix":
             return url_lower.startswith(pattern_lower)
         elif self.match_type == "suffix":

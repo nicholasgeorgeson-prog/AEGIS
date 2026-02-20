@@ -118,6 +118,18 @@ except ImportError:
     except ImportError:
         pass
 
+# SharePoint connector for REST API validation (v5.9.35)
+SHAREPOINT_CONNECTOR_AVAILABLE = False
+_SharePointConnector = None
+_parse_sharepoint_url = None
+try:
+    from sharepoint_connector import SharePointConnector as _SharePointConnector
+    from sharepoint_connector import parse_sharepoint_url as _parse_sharepoint_url
+    SHAREPOINT_CONNECTOR_AVAILABLE = True
+    logger.info('SharePoint connector available for REST API URL validation')
+except ImportError:
+    pass
+
 # Try to import JobManager
 JobManager = None
 try:
@@ -1188,10 +1200,11 @@ class StandaloneHyperlinkValidator:
 
         # Check exclusions first
         matched_exclusion = None
-        for exc in exclusions:
-            if exc.matches(url):
-                matched_exclusion = exc
-                break
+        if exclusions:
+            for exc in exclusions:
+                if exc.matches(url):
+                    matched_exclusion = exc
+                    break
 
         if matched_exclusion:
             result.excluded = True
@@ -1203,6 +1216,7 @@ class StandaloneHyperlinkValidator:
                 result.status = 'SKIPPED'
                 result.message = f'Excluded: {result.exclusion_reason}'
             result.response_time_ms = (time.time() - start_time) * 1000
+            logger.debug(f"URL excluded: {url} matched pattern '{matched_exclusion.pattern}' ({matched_exclusion.match_type})")
             return result
 
         # Check for suspicious URL (thorough mode)
@@ -1820,7 +1834,7 @@ class StandaloneHyperlinkValidator:
         detect_soft_404_flag = options.get('detect_soft_404', scan_depth == 'thorough')
         check_suspicious = options.get('check_suspicious', scan_depth == 'thorough')
 
-        # Exclusion rules
+        # Exclusion rules — from request options (sent by frontend)
         exclusion_dicts = options.get('exclusions', [])
         exclusions = []
         for exc in exclusion_dicts:
@@ -1828,6 +1842,35 @@ class StandaloneHyperlinkValidator:
                 exclusions.append(ExclusionRule.from_dict(exc))
             elif isinstance(exc, ExclusionRule):
                 exclusions.append(exc)
+
+        # v5.9.35: Also load exclusions from database (belt-and-suspenders)
+        # Frontend sends exclusions in options, but we also check the DB
+        # in case the frontend state is stale or incomplete
+        try:
+            from .storage import HyperlinkValidatorStorage
+            storage = HyperlinkValidatorStorage()
+            db_exclusions = storage.get_all_exclusions(active_only=True)
+            if db_exclusions:
+                # Merge DB exclusions with request exclusions, avoiding duplicates
+                existing_patterns = {(e.pattern.lower(), e.match_type) for e in exclusions}
+                for db_exc in db_exclusions:
+                    key = (db_exc.pattern.lower() if hasattr(db_exc, 'pattern') else str(db_exc.get('pattern', '')).lower(),
+                           db_exc.match_type if hasattr(db_exc, 'match_type') else db_exc.get('match_type', 'contains'))
+                    if key not in existing_patterns:
+                        if hasattr(db_exc, 'pattern'):
+                            exclusions.append(ExclusionRule(
+                                pattern=db_exc.pattern,
+                                match_type=db_exc.match_type,
+                                reason=db_exc.reason if hasattr(db_exc, 'reason') else '',
+                                treat_as_valid=db_exc.treat_as_valid if hasattr(db_exc, 'treat_as_valid') else True
+                            ))
+                        elif isinstance(db_exc, dict):
+                            exclusions.append(ExclusionRule.from_dict(db_exc))
+        except Exception as e:
+            logger.debug(f"Could not load exclusions from DB (non-critical): {e}")
+
+        if exclusions:
+            logger.info(f"Active exclusions: {len(exclusions)} rules — patterns: {[e.pattern for e in exclusions[:5]]}{'...' if len(exclusions) > 5 else ''}")
 
         # Set up session with authentication
         session = requests.Session()
@@ -2136,12 +2179,48 @@ class StandaloneHyperlinkValidator:
                 if is_internal and WINDOWS_AUTH_AVAILABLE and HttpNegotiateAuth:
                     strategies.append(('get_fresh_auth', {'verify': retest_session.verify, 'auth': 'fresh_sso'}))
 
+            # Strategy 3c: For SharePoint URLs, try REST API file existence check
+            if original.status in ('BLOCKED', 'AUTH_REQUIRED', 'BROKEN', 'SSLERROR', 'TIMEOUT'):
+                parsed_sp = urlparse(url)
+                if SHAREPOINT_CONNECTOR_AVAILABLE and _parse_sharepoint_url and (
+                    'sharepoint' in parsed_sp.netloc.lower() or
+                    'ngc.sharepoint' in parsed_sp.netloc.lower()
+                ):
+                    strategies.append(('sharepoint_api', {'url': url}))
+
             # Strategy 4: For timeouts, try with much longer timeout
             if original.status == 'TIMEOUT':
                 strategies.append(('get_ultra_timeout', {'verify': retest_session.verify, 'auth': retest_session.auth, 'timeout': (45, 90)}))
 
             for strategy_name, strategy_opts in strategies:
                 try:
+                    # v5.9.35: SharePoint REST API strategy
+                    if strategy_name == 'sharepoint_api':
+                        try:
+                            sp_parsed = _parse_sharepoint_url(url)
+                            sp_site = sp_parsed.get('site_url', '')
+                            if sp_site:
+                                connector = _SharePointConnector(sp_site)
+                                probe = connector.test_connection()
+                                if probe.get('success'):
+                                    result.status = 'WORKING'
+                                    site_title = probe.get('title', 'SharePoint')
+                                    result.message = f'SharePoint site accessible — "{site_title}" (REST API verified)'
+                                    if connector._ssl_fallback_used:
+                                        result.status = 'SSL_WARNING'
+                                        result.ssl_valid = False
+                                        result.message += ' [SSL bypass]'
+                                    result.status_code = probe.get('status_code', 200)
+                                    return result
+                                elif probe.get('status_code') == 401:
+                                    result.status = 'AUTH_REQUIRED'
+                                    result.message = 'SharePoint site exists — authentication required'
+                                    result.status_code = 401
+                                    return result
+                        except Exception as sp_err:
+                            logger.debug(f"SharePoint API strategy failed for {url}: {sp_err}")
+                            continue
+
                     s_verify = strategy_opts.get('verify', True)
                     s_auth = strategy_opts.get('auth', None)
                     s_timeout = strategy_opts.get('timeout', (connect_timeout, read_timeout))

@@ -1355,9 +1355,13 @@ TWR.StatementSourceViewer = (function() {
         console.log(LOG_PREFIX, `Setting review status to "${newStatus}" for statement:`, stmt.text?.substring(0, 40));
 
         try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+            const headers = { 'Content-Type': 'application/json' };
+            if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
             const resp = await fetch('/api/roles/bulk-update-statements', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({
                     statements: [{
                         role_name: stmt.role_name,
@@ -1401,9 +1405,13 @@ TWR.StatementSourceViewer = (function() {
         if (newNotes === (stmt.notes || '')) return; // No change
 
         try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+            const headers = { 'Content-Type': 'application/json' };
+            if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
             await fetch('/api/roles/bulk-update-statements', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({
                     statements: [{
                         role_name: stmt.role_name,
@@ -1515,14 +1523,31 @@ TWR.StatementSourceViewer = (function() {
     async function saveTextEdit() {
         const textEdit = State.modal.querySelector('.ssv-stmt-text-edit');
         const newText = textEdit?.value?.trim();
-        if (!newText || !State.currentStatement) return;
+        if (!newText || !State.currentStatement) {
+            console.warn(LOG_PREFIX, 'saveTextEdit: no text or no current statement',
+                { newText: !!newText, stmt: !!State.currentStatement });
+            if (typeof showToast === 'function') showToast('warning', 'No text to save or no statement selected');
+            return;
+        }
 
         const stmt = State.currentStatement;
+        // v5.9.35: Validate required fields before API call
+        if (!stmt.role_name || !stmt.document || stmt.statement_index == null) {
+            console.warn(LOG_PREFIX, 'saveTextEdit: missing required fields', {
+                role_name: stmt.role_name, document: stmt.document, statement_index: stmt.statement_index
+            });
+            if (typeof showToast === 'function') showToast('warning', 'Cannot save — missing statement context (role, document, or index)');
+            return;
+        }
 
         try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+            const headers = { 'Content-Type': 'application/json' };
+            if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
             const resp = await fetch('/api/roles/bulk-update-statements', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({
                     statements: [{
                         role_name: stmt.role_name,

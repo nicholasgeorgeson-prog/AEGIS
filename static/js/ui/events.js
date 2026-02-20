@@ -859,13 +859,22 @@ TWR.Events = (function() {
                 }
             });
 
-            // Also make the dropzone clickable
+            // Also make the dropzone clickable — but only the icon/button area, not the entire panel
             dropzone.style.cursor = 'pointer';
             dropzone.addEventListener('click', (e) => {
                 // Don't trigger if clicking on buttons inside
                 if (e.target.closest('.btn') || e.target.closest('button')) return;
                 // Don't trigger if file processing in progress
                 if (window._TWR_fileProcessing) return;
+                // v5.9.35: Only trigger file browse from the icon area or explicit click targets
+                // Don't auto-open file explorer when user just clicks the panel text/background
+                const clickTarget = e.target;
+                const isIconArea = clickTarget.closest('.empty-icon') || clickTarget.closest('#dropzone') ||
+                                   clickTarget.tagName === 'SVG' || clickTarget.tagName === 'svg' ||
+                                   clickTarget.closest('svg');
+                const isExplicitTrigger = clickTarget.closest('.empty-actions') ||
+                                          clickTarget.classList.contains('empty-browse');
+                if (!isIconArea && !isExplicitTrigger) return;
                 document.getElementById('file-input')?.click();
             });
         }

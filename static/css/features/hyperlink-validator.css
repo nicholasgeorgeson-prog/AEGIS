@@ -41,10 +41,13 @@
     flex-shrink: 0;
 }
 
+/* v5.9.35: min-width prevents text clipping when mode selector expands */
 .hv-header-info {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
+    min-width: 200px;
+    flex-shrink: 0;
 }
 
 .hv-header-info h3 {
@@ -68,10 +71,14 @@
     color: var(--text-secondary, #6b7280);
 }
 
+/* v5.9.35: Push mode selector to right, prevent crowding title */
 .hv-mode-selector {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    margin-left: auto;
+    margin-right: 0.75rem;
+    flex-shrink: 0;
 }
 
 .hv-mode-selector label {

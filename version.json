@@ -1,13 +1,40 @@
 {
-  "version": "5.9.34",
-  "release_date": "2026-02-19",
-  "core_version": "5.9.34",
+  "version": "5.9.35",
+  "release_date": "2026-02-20",
+  "core_version": "5.9.35",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.35",
+      "date": "2026-02-20",
+      "changes": [
+        "FIX: Batch/folder scan now shows accurate word count instead of 0 — was reading from wrong location in review results",
+        "FIX: SharePoint batch scan SSL errors — multi-layer SSL fallback for corporate CA certificates (verify=True → verify=False → fresh session)",
+        "FIX: SharePoint library path auto-detection after successful connection test",
+        "FIX: Exclusion list removeExclusion() now calls DELETE API — removed exclusions no longer reappear after page refresh",
+        "FIX: ExclusionRule matching improved — trailing slash and protocol normalization for exact match type",
+        "FIX: Export Highlighted error reporting — full traceback returned in response for debugging",
+        "FIX: Loading screen SYSTEMS ONLINE no longer shows before app is ready — now triggers at actual boot completion",
+        "FIX: HV header layout — mode/depth selector pushed right with margin-left:auto, title no longer clipped",
+        "FIX: HV Upload tab now auto-opens file browse dialog when clicked",
+        "FIX: Statement Forge sub-modal z-index raised to 10500 (above Statement History 10000)",
+        "FIX: Document Review dropzone click restricted to icon area — no more accidental file browse on panel click",
+        "FIX: Statement Source Viewer save edit now validates required fields and shows warning toast on failure",
+        "NEW: 478 pre-generated MP3 narration clips with Microsoft Jenny Neural voice for all demo scenes",
+        "NEW: Voice narration manifest supports sub-demo audio lookup by subDemoId",
+        "NEW: SharePoint REST API validation strategy added to Hyperlink Validator retest phase",
+        "NEW: Document viewer toggle — switch between Preview (formatted HTML) and Text (plain) views for any document",
+        "NEW: Start_AEGIS.bat — launches server minimized via PowerShell with auto-wait and browser open",
+        "IMPROVE: HV scan modes simplified from 3 to 2 — removed Quick (Format Only) mode",
+        "IMPROVE: Loading screen hex grid brighter (6% → 14% opacity) with pulse animation",
+        "IMPROVE: Real boot progress tracking — modules report loading stages to progress bar",
+        "IMPROVE: SharePoint URL auto-parse now triggers on paste event in addition to change"
+      ]
+    },
     {
       "version": "5.9.34",
       "date": "2026-02-19",

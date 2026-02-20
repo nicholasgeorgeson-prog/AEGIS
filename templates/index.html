@@ -261,11 +261,12 @@ if (document.documentElement.classList.contains('dark-mode')) {
 .ail-scanline{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:.04;
   background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(214,168,74,.15) 2px,rgba(214,168,74,.15) 4px)}
 
-/* Hex grid overlay */
+/* Hex grid overlay — v5.9.35: brighter hex (0.06 → 0.14) + subtle pulse animation */
 .ail-hex-grid{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52'%3E%3Cpath d='M30 0L60 15V37L30 52L0 37V15Z' fill='none' stroke='rgba(214,168,74,0.06)' stroke-width='0.5'/%3E%3C/svg%3E");
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52'%3E%3Cpath d='M30 0L60 15V37L30 52L0 37V15Z' fill='none' stroke='rgba(214,168,74,0.14)' stroke-width='0.5'/%3E%3C/svg%3E");
   background-size:60px 52px;animation:ail-hexIn 1.5s ease 0.3s forwards}
-@keyframes ail-hexIn{to{opacity:1}}
+@keyframes ail-hexIn{to{opacity:1;animation:ail-hexPulse 3s ease-in-out infinite}}
+@keyframes ail-hexPulse{0%,100%{opacity:.85}50%{opacity:1}}
 
 /* Center content */
 .ail-center{position:relative;z-index:5;display:flex;flex-direction:column;align-items:center;width:min(480px,90vw)}
@@ -417,6 +418,7 @@ if (document.documentElement.classList.contains('dark-mode')) {
   var verEl=document.getElementById('ail-hud-ver');
   var sysEl=document.getElementById('ail-hud-sys');
 
+  // v5.9.35: Boot lines — cosmetic sequence plays during real module loading
   var lines=[
     {t:'> sys.boot()',c:'info',d:200},
     {t:'  [OK] Kernel initialized',c:'ok',d:150},
@@ -429,21 +431,41 @@ if (document.documentElement.classList.contains('dark-mode')) {
     {t:'> aegis.launch()',c:'info',d:200}
   ];
 
+  // v5.9.35: Real progress tracking — modules call _aegisBootProgress() as they load
+  var bootSteps={total:6,done:0,cosmetic:0};
+  var BOOT_STEPS=['dom','core','features','state','landing','ready'];
+
   function setProgress(p){
-    var pct=Math.round(p*100)+'%';
+    var pct=Math.min(100,Math.round(p*100))+'%';
     if(prog){prog.style.width=pct;}
     if(progGlow){progGlow.style.width=pct;}
   }
+
+  // Real progress: modules report in as they load
+  window._aegisBootProgress=function(step,msg){
+    bootSteps.done++;
+    var real=bootSteps.done/bootSteps.total;
+    var cosmetic=bootSteps.cosmetic/lines.length;
+    // Progress = max of real and cosmetic (whichever is ahead)
+    setProgress(Math.max(real*.9,cosmetic));
+    if(statusEl&&msg)statusEl.textContent=msg.toUpperCase();
+    // Add a real boot line to terminal
+    if(term&&step!=='ready'){
+      var el=document.createElement('div');el.className='ail-line';
+      var sp=document.createElement('span');sp.className='ail-ok';
+      sp.textContent='  [✓] '+(msg||step);
+      el.appendChild(sp);term.appendChild(el);term.scrollTop=term.scrollHeight;
+    }
+  };
 
   function runBoot(){
     if(!term)return;var idx=0;
     function next(){
       if(idx>=lines.length){
-        // Complete
-        setProgress(1);
-        if(statusEl)statusEl.textContent='SYSTEMS ONLINE';
-        if(sysEl)sysEl.textContent='READY';
-        if(statusEl)statusEl.style.color='#3fb950';
+        // v5.9.35: Don't show SYSTEMS ONLINE here — wait for _aegisBootDismiss
+        // Just set cosmetic progress to "almost done"
+        setProgress(.9);
+        if(statusEl)statusEl.textContent='AWAITING LAUNCH';
         return;
       }
       var ln=lines[idx];
@@ -451,7 +473,11 @@ if (document.documentElement.classList.contains('dark-mode')) {
       var sp=document.createElement('span');sp.className='ail-'+ln.c;sp.textContent=ln.t;
       el.appendChild(sp);term.appendChild(el);
       term.scrollTop=term.scrollHeight;
-      setProgress((idx+1)/lines.length);
+      bootSteps.cosmetic=idx+1;
+      // Progress: blend cosmetic + real
+      var real=bootSteps.done/bootSteps.total;
+      var cosmetic=(idx+1)/lines.length;
+      setProgress(Math.max(real*.9,cosmetic*.85));
       if(statusEl){
         var msgs=['INITIALIZING','LOADING CORE','SECURITY CHECK','NLP ENGINE','QUALITY CHECKS','EXTRACTORS','ROLE ENGINE','VALIDATORS','LAUNCHING'];
         statusEl.textContent=msgs[idx]||'LOADING';
@@ -471,15 +497,28 @@ if (document.documentElement.classList.contains('dark-mode')) {
 
   runBoot();
 
-  // Expose dismiss function
+  // v5.9.35: Dismiss function — NOW shows SYSTEMS ONLINE + flash
   window._aegisBootDismiss=function(){
     if(!alive)return;alive=false;
-    ol.classList.add('ail-flash');
+    // Show SYSTEMS ONLINE at dismiss time (not before)
+    setProgress(1);
+    if(statusEl){statusEl.textContent='SYSTEMS ONLINE';statusEl.style.color='#3fb950';}
+    if(sysEl)sysEl.textContent='READY';
+    // Add final boot line
+    if(term){
+      var el=document.createElement('div');el.className='ail-line';
+      var sp=document.createElement('span');sp.className='ail-ok';sp.textContent='  [✓] ALL SYSTEMS ONLINE';
+      el.appendChild(sp);term.appendChild(el);term.scrollTop=term.scrollHeight;
+    }
+    // Brief pause to show SYSTEMS ONLINE, then flash + dismiss
     setTimeout(function(){
-      ol.classList.add('ail-done');
-      cancelAnimationFrame(raf);
-      setTimeout(function(){ol.remove();},700);
-    },400);
+      ol.classList.add('ail-flash');
+      setTimeout(function(){
+        ol.classList.add('ail-done');
+        cancelAnimationFrame(raf);
+        setTimeout(function(){ol.remove();},700);
+      },400);
+    },300);
   };
 })();
 </script>
@@ -6144,15 +6183,10 @@ if (document.documentElement.classList.contains('dark-mode')) {
                 <span class="hv-subtitle">Standalone URL validation tool</span>
             </div>
 
+            <!-- v5.9.35: Simplified to 2 modes (removed Quick/Format) -->
             <div class="hv-mode-selector">
-                <label>Mode:</label>
-                <select id="hv-mode">
-                    <option value="offline">Offline (Format Only)</option>
-                    <option value="validator" selected>Full Validation (Windows Auth)</option>
-                </select>
-                <label style="margin-left: 1rem;">Depth:</label>
+                <label>Depth:</label>
                 <select id="hv-scan-depth">
-                    <option value="quick">Quick (Format)</option>
                     <option value="standard" selected>Standard</option>
                     <option value="thorough">Thorough (DNS+SSL)</option>
                 </select>

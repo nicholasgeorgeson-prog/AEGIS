@@ -5,7 +5,14 @@ Connects to SharePoint document libraries via REST API using Windows SSO
 (Negotiate/NTLM authentication). Zero external dependencies beyond requests
 and requests-negotiate-sspi (both already installed).
 
-v5.9.29 — Nicholas Georgeson
+v5.9.35 — Nicholas Georgeson
+
+Features:
+    - Windows SSO (Negotiate/NTLM) authentication
+    - Multi-layer SSL fallback for corporate CA certificates
+    - Auto-detection of default document library path
+    - Recursive folder traversal with depth limit
+    - SharePoint REST API throttle handling (429)
 
 Usage:
     connector = SharePointConnector('https://ngc.sharepoint.us/sites/MyTeam')
@@ -29,6 +36,13 @@ try:
     REQUESTS_AVAILABLE = True
 except ImportError:
     REQUESTS_AVAILABLE = False
+
+# Suppress urllib3 InsecureRequestWarning when using verify=False for corporate CAs
+try:
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+except (ImportError, AttributeError):
+    pass
 
 # Windows SSO auth — same pattern as hyperlink_validator/validator.py
 WINDOWS_AUTH_AVAILABLE = False
@@ -120,6 +134,13 @@ class SharePointConnector:
     MAX_RETRIES = 3
     RETRY_DELAY = 2.0  # seconds between retries
 
+    # v5.9.35: Default document library names to try when auto-detecting
+    DEFAULT_LIBRARIES = [
+        'Shared Documents',
+        'Documents',
+        'Shared%20Documents',
+    ]
+
     def __init__(self, site_url: str, timeout: int = 30):
         """
         Initialize SharePoint connector.
@@ -133,6 +154,8 @@ class SharePointConnector:
 
         self.site_url = site_url.rstrip('/')
         self.timeout = timeout
+        self.ssl_verify = True  # Start with SSL verification enabled
+        self._ssl_fallback_used = False
         self.session = requests.Session()
 
         # Configure Windows SSO auth
@@ -152,12 +175,17 @@ class SharePointConnector:
         self.session.headers.update({
             'Accept': 'application/json;odata=verbose',
             'Content-Type': 'application/json;odata=verbose',
-            'User-Agent': 'AEGIS/5.9.29 SharePointConnector',
+            'User-Agent': 'AEGIS/5.9.35 SharePointConnector',
         })
 
     def _api_get(self, endpoint: str, stream: bool = False) -> requests.Response:
         """
         Make a GET request to the SharePoint REST API with retry logic.
+
+        v5.9.35: Added multi-layer SSL fallback for corporate CA certificates.
+        Python's requests/certifi doesn't trust corporate CAs (same as Lesson 81).
+        Strategy: try with SSL verification → retry with verify=False → retry with
+        fresh session + verify=False + SSO auth.
 
         Args:
             endpoint: API endpoint (appended to site_url)
@@ -170,14 +198,17 @@ class SharePointConnector:
             requests.RequestException on persistent failure
         """
         url = f"{self.site_url}{endpoint}"
+        ssl_retried = False  # Track if we already tried SSL fallback (doesn't count as a retry)
 
-        for attempt in range(self.MAX_RETRIES):
+        attempt = 0
+        while attempt < self.MAX_RETRIES:
             try:
                 resp = self.session.get(
                     url,
                     timeout=self.timeout,
                     stream=stream,
                     allow_redirects=True,
+                    verify=self.ssl_verify,
                 )
 
                 # Handle SharePoint throttling
@@ -185,20 +216,83 @@ class SharePointConnector:
                     retry_after = int(resp.headers.get('Retry-After', self.RETRY_DELAY * (attempt + 1)))
                     logger.warning(f"SharePoint throttled (429) — waiting {retry_after}s")
                     time.sleep(retry_after)
+                    attempt += 1
                     continue
 
                 return resp
+
+            except requests.exceptions.SSLError as ssl_err:
+                # v5.9.35: Corporate CA cert not trusted by Python's certifi bundle
+                # Fallback: disable SSL verification (same pattern as hyperlink_validator)
+                if self.ssl_verify and not ssl_retried:
+                    logger.warning(f"SharePoint SSL error (corporate CA?) — retrying with verify=False: {ssl_err}")
+                    self.ssl_verify = False
+                    self._ssl_fallback_used = True
+                    ssl_retried = True
+                    continue  # Retry immediately — does NOT increment attempt
+                elif attempt < self.MAX_RETRIES - 1:
+                    # Already using verify=False but still SSL error — try fresh session
+                    logger.warning(f"SharePoint SSL error even with verify=False — trying fresh session")
+                    self._create_fresh_session()
+                    wait = self.RETRY_DELAY * (attempt + 1)
+                    time.sleep(wait)
+                    attempt += 1
+                else:
+                    raise
+
+            except requests.exceptions.ConnectionError as conn_err:
+                # v5.9.35: ConnectionError can wrap SSL errors on some platforms
+                err_str = str(conn_err).lower()
+                is_ssl = any(kw in err_str for kw in ['ssl', 'certificate', 'handshake', 'tls', 'cert'])
+
+                if is_ssl and self.ssl_verify and not ssl_retried:
+                    logger.warning(f"SharePoint connection error (SSL-related) — retrying with verify=False: {conn_err}")
+                    self.ssl_verify = False
+                    self._ssl_fallback_used = True
+                    ssl_retried = True
+                    continue  # Retry immediately — does NOT increment attempt
+                elif attempt < self.MAX_RETRIES - 1:
+                    wait = self.RETRY_DELAY * (attempt + 1)
+                    logger.warning(f"SharePoint request failed (attempt {attempt + 1}): {conn_err} — retrying in {wait}s")
+                    time.sleep(wait)
+                    attempt += 1
+                else:
+                    raise
 
             except requests.exceptions.RequestException as e:
                 if attempt < self.MAX_RETRIES - 1:
                     wait = self.RETRY_DELAY * (attempt + 1)
                     logger.warning(f"SharePoint request failed (attempt {attempt + 1}): {e} — retrying in {wait}s")
                     time.sleep(wait)
+                    attempt += 1
                 else:
                     raise
 
         # Should not reach here, but just in case
         raise requests.exceptions.RequestException(f"Failed after {self.MAX_RETRIES} retries")
+
+    def _create_fresh_session(self):
+        """Create a fresh requests session with SSL bypass + Windows SSO auth."""
+        try:
+            self.session.close()
+        except Exception:
+            pass
+
+        self.session = requests.Session()
+        self.ssl_verify = False
+        self._ssl_fallback_used = True
+
+        if WINDOWS_AUTH_AVAILABLE and HttpNegotiateAuth:
+            try:
+                self.session.auth = HttpNegotiateAuth()
+            except Exception as e:
+                logger.warning(f"SharePoint: Fresh session SSO setup failed: {e}")
+
+        self.session.headers.update({
+            'Accept': 'application/json;odata=verbose',
+            'Content-Type': 'application/json;odata=verbose',
+            'User-Agent': 'AEGIS/5.9.35 SharePointConnector',
+        })
 
     def test_connection(self) -> Dict[str, Any]:
         """
@@ -226,12 +320,13 @@ class SharePointConnector:
                     d = data.get('d', data)
                     title = d.get('Title', 'Unknown')
                     url = d.get('Url', self.site_url)
+                    ssl_note = ' (SSL bypass: corporate CA)' if self._ssl_fallback_used else ''
                     return {
                         'success': True,
                         'title': title,
                         'url': url,
                         'auth_method': self.auth_method,
-                        'message': f'Connected to "{title}" via {self.auth_method}',
+                        'message': f'Connected to "{title}" via {self.auth_method}{ssl_note}',
                         'status_code': 200,
                     }
                 except (ValueError, KeyError) as e:
@@ -274,13 +369,33 @@ class SharePointConnector:
                     'status_code': resp.status_code,
                 }
 
-        except requests.exceptions.ConnectionError as e:
+        except requests.exceptions.SSLError as e:
+            # v5.9.35: SSL error that persisted even after verify=False fallback
             return {
                 'success': False,
                 'title': '',
                 'url': self.site_url,
                 'auth_method': self.auth_method,
-                'message': f'Cannot reach SharePoint server — check VPN/network connection',
+                'message': f'SSL certificate error — corporate CA not trusted. Details: {str(e)[:150]}',
+                'status_code': 0,
+            }
+        except requests.exceptions.ConnectionError as e:
+            # v5.9.35: Improved error message with more detail
+            err_str = str(e).lower()
+            if any(kw in err_str for kw in ['ssl', 'certificate', 'handshake', 'tls']):
+                detail = 'SSL/certificate issue — corporate CA certificate may not be trusted by Python'
+            elif 'name or service not known' in err_str or 'getaddrinfo' in err_str:
+                detail = 'DNS resolution failed — check if VPN is connected and SharePoint URL is correct'
+            elif 'connection refused' in err_str:
+                detail = 'Connection refused — SharePoint server may be blocking this connection'
+            else:
+                detail = 'Cannot reach server — check VPN/network connection and URL'
+            return {
+                'success': False,
+                'title': '',
+                'url': self.site_url,
+                'auth_method': self.auth_method,
+                'message': f'{detail}. Error: {str(e)[:100]}',
                 'status_code': 0,
             }
         except requests.exceptions.Timeout:
@@ -289,7 +404,7 @@ class SharePointConnector:
                 'title': '',
                 'url': self.site_url,
                 'auth_method': self.auth_method,
-                'message': f'Connection timed out after {self.timeout}s',
+                'message': f'Connection timed out after {self.timeout}s — server may be slow or blocked',
                 'status_code': 0,
             }
         except Exception as e:
@@ -298,9 +413,39 @@ class SharePointConnector:
                 'title': '',
                 'url': self.site_url,
                 'auth_method': self.auth_method,
-                'message': f'Connection error: {str(e)[:200]}',
+                'message': f'Connection error ({type(e).__name__}): {str(e)[:200]}',
                 'status_code': 0,
             }
+
+    def auto_detect_library_path(self) -> Optional[str]:
+        """
+        v5.9.35: Auto-detect the default document library path for this SharePoint site.
+
+        Tries common library names: "Shared Documents", "Documents".
+        Returns the server-relative path if found, or None.
+        """
+        parsed = urlparse(self.site_url)
+        site_path = parsed.path.rstrip('/')  # e.g., /sites/MyTeam
+
+        for lib_name in self.DEFAULT_LIBRARIES:
+            test_path = f"{site_path}/{lib_name}"
+            encoded = quote(test_path, safe='/:')
+
+            try:
+                resp = self.session.get(
+                    f"{self.site_url}/_api/web/GetFolderByServerRelativeUrl('{encoded}')",
+                    timeout=self.timeout,
+                    verify=self.ssl_verify,
+                )
+                if resp.status_code == 200:
+                    logger.info(f"SharePoint auto-detected library: {test_path}")
+                    return test_path
+            except Exception as e:
+                logger.debug(f"SharePoint library probe failed for {lib_name}: {e}")
+                continue
+
+        logger.info(f"SharePoint: No default library found — user must specify path")
+        return None
 
     def list_files(
         self,

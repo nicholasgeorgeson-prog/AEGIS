@@ -1482,13 +1482,17 @@
     }
 }
 
-/* Statement Forge Sub-Modals - higher z-index to appear above fullscreen modal */
+/* v5.9.35: Statement Forge Sub-Modals — z-index 10500 to appear above:
+   - Statement Forge main modal (1001)
+   - Statement History overlay (10000)
+   - Fix Assistant (10000)
+   Must be below: guide panel (149500), demo bar (149800), toast (200000) */
 #modal-sf-add.active,
 #modal-sf-renumber.active,
 #modal-sf-merge.active,
 #modal-sf-split.active,
 #modal-sf-help.active {
-    z-index: 2100;
+    z-index: 10500;
 }
 
 /* =============================================================================

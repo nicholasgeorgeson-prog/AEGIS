@@ -1391,9 +1391,50 @@ filterTable();
 
     function removeExclusion(index) {
         if (index >= 0 && index < state.exclusions.length) {
+            const removed = state.exclusions[index];
             state.exclusions.splice(index, 1);
             saveExclusionsToStorage();
             emit('onChange', { ...state });
+
+            // v5.9.35: Also delete from server database (Bug fix: was localStorage-only)
+            if (removed && removed.pattern) {
+                deleteExclusionFromServer(removed);
+            }
+        }
+    }
+
+    /**
+     * v5.9.35: Delete exclusion from server database.
+     * Fire-and-forget — localStorage is the primary store.
+     */
+    async function deleteExclusionFromServer(exclusion) {
+        try {
+            const csrfToken = window.State?.csrfToken ||
+                document.querySelector('meta[name="csrf-token"]')?.content;
+
+            // Find the exclusion by pattern to get its server ID
+            const response = await fetch('/api/hyperlink-validator/exclusions?active_only=false', {
+                credentials: 'same-origin'
+            });
+            const data = await response.json();
+
+            if (data.success && data.exclusions) {
+                const match = data.exclusions.find(e =>
+                    e.pattern === exclusion.pattern && e.match_type === exclusion.match_type
+                );
+                if (match && match.id) {
+                    await fetch(`/api/hyperlink-validator/exclusions/${match.id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {})
+                        },
+                        credentials: 'same-origin'
+                    });
+                    console.log('[TWR HVState] Exclusion deleted from server:', exclusion.pattern);
+                }
+            }
+        } catch (e) {
+            console.warn('[TWR HVState] Failed to delete exclusion from server:', e);
         }
     }
 

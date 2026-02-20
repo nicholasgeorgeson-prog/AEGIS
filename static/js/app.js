@@ -560,9 +560,13 @@ function resetStateForNewDocument() {
 
 // v3.1.9: Simplified initialization (removed initial AEGIS loader - app loads fast enough)
 document.addEventListener('DOMContentLoaded', async () => {
+    // v5.9.35: Report real boot progress to loading screen
+    if (window._aegisBootProgress) window._aegisBootProgress('dom', 'DOM ready');
+
     await initCSRF();
     await checkCapabilities();
     await loadVersionLabel();
+    if (window._aegisBootProgress) window._aegisBootProgress('core', 'Core systems loaded');
 
     initUI();
     initDragDrop();
@@ -570,10 +574,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     initTopNav();  // v3.0.32: Initialize top nav bar
     initSidebarState();  // v3.0.44: Restore sidebar collapse state
     initScanHistoryEventDelegation();
+    if (window._aegisBootProgress) window._aegisBootProgress('features', 'UI initialized');
 
     initKeyboardShortcuts();
     initThemeToggle();
     loadSettings();
+    if (window._aegisBootProgress) window._aegisBootProgress('state', 'Settings loaded');
 
     // Try to restore previous session (for back button support)
     const sessionRestored = restoreSessionState();
@@ -608,6 +614,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             TWR.LandingPage.init();
         }
     }
+    if (window._aegisBootProgress) window._aegisBootProgress('landing', 'Dashboard ready');
+
+    // v5.9.35: Final boot progress + dismiss cinematic boot sequence
+    if (window._aegisBootProgress) window._aegisBootProgress('ready', 'All systems online');
 
     // v5.9.30: Failsafe dismiss of cinematic boot sequence
     if (window._aegisBootDismiss) {
@@ -11569,28 +11579,35 @@ STEPS TO REPRODUCE
         const spConnectionStatus = document.getElementById('sp-connection-status');
         const spFilePreview = document.getElementById('sp-file-preview');
 
-        // Auto-parse library path from site URL when user pastes full URL
+        // v5.9.35: Auto-parse library path from site URL when user pastes/types full URL
+        // Listen on input, change, AND paste events for immediate feedback
         if (spSiteUrl) {
-            spSiteUrl.addEventListener('change', () => {
+            const _spAutoParseUrl = () => {
                 const url = spSiteUrl.value.trim();
                 if (!url) return;
-                // Simple heuristic: if URL contains Shared Documents or a deep path, extract library
-                const patterns = ['/Shared Documents', '/Shared%20Documents', '/Documents/'];
-                for (const p of patterns) {
-                    const idx = url.indexOf(p);
-                    if (idx > 0) {
-                        // Extract site URL (everything before the library path)
-                        const parsed = new URL(url);
-                        const pathParts = parsed.pathname.split(p);
-                        if (pathParts.length > 1) {
-                            const sitePath = pathParts[0];
-                            spSiteUrl.value = `${parsed.protocol}//${parsed.host}${sitePath}`;
-                            spLibraryPath.value = `${sitePath}${p}${pathParts[1] || ''}`.replace(/\/$/, '');
+                try {
+                    // Simple heuristic: if URL contains Shared Documents or a deep path, extract library
+                    const patterns = ['/Shared Documents', '/Shared%20Documents', '/Documents/'];
+                    for (const p of patterns) {
+                        const idx = url.indexOf(p);
+                        if (idx > 0) {
+                            const parsed = new URL(url);
+                            const decodedPath = decodeURIComponent(parsed.pathname);
+                            const pathParts = decodedPath.split(p.replace('%20', ' '));
+                            if (pathParts.length > 1) {
+                                const sitePath = pathParts[0];
+                                spSiteUrl.value = `${parsed.protocol}//${parsed.host}${sitePath}`;
+                                spLibraryPath.value = `${sitePath}${p.replace('%20', ' ')}${pathParts[1] || ''}`.replace(/\/$/, '');
+                            }
+                            break;
                         }
-                        break;
                     }
+                } catch (e) {
+                    // Not a valid URL yet — that's fine
                 }
-            });
+            };
+            spSiteUrl.addEventListener('change', _spAutoParseUrl);
+            spSiteUrl.addEventListener('paste', () => setTimeout(_spAutoParseUrl, 100)); // Delay for paste to populate
         }
 
         // Test Connection button
@@ -11619,9 +11636,11 @@ STEPS TO REPRODUCE
                             spConnectionStatus.style.background = 'rgba(34,197,94,0.1)';
                             spConnectionStatus.style.border = '1px solid rgba(34,197,94,0.3)';
                             spConnectionStatus.style.color = 'var(--success, #22c55e)';
-                            spConnectionStatus.innerHTML = `<strong>✓ Connected</strong> — ${escapeHtml(json.data.title || 'SharePoint site')} (${json.data.auth_method})`;
-                            // Auto-fill library path if parsed from URL
-                            if (json.data.parsed_library_path && !spLibraryPath?.value?.trim()) {
+                            let connMsg = `<strong>✓ Connected</strong> — ${escapeHtml(json.data.title || 'SharePoint site')} (${json.data.auth_method})`;
+                            if (json.data.ssl_fallback) connMsg += ' <span style="opacity:0.7;font-size:11px">[SSL bypass active]</span>';
+                            spConnectionStatus.innerHTML = connMsg;
+                            // v5.9.35: Auto-fill library path from server auto-detection or URL parsing
+                            if (json.data.parsed_library_path) {
                                 spLibraryPath.value = json.data.parsed_library_path;
                             }
                             if (btnSpDiscover) btnSpDiscover.disabled = false;

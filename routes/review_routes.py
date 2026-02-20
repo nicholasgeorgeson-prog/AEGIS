@@ -264,8 +264,11 @@ def review_batch():
             if not isinstance(doc_roles, dict):
                 doc_roles = {}
             actual_roles = {k: v for k, v in doc_roles.items() if not isinstance(v, dict) or k not in ['success', 'error']}
-            doc_info = doc_results.get('document_info', {})
-            word_count = doc_info.get('word_count', 0) if isinstance(doc_info, dict) else 0
+            # v5.9.35: word_count is at top level of review_document() return, not in document_info
+            word_count = doc_results.get('word_count', 0)
+            if not word_count:
+                doc_info = doc_results.get('document_info', {})
+                word_count = doc_info.get('word_count', 0) if isinstance(doc_info, dict) else 0
 
             # v5.9.22: Statement Forge extraction during batch scan
             sf_summary = None
@@ -598,8 +601,11 @@ def folder_scan():
                 doc_roles = {}
             actual_roles = {k: v for k, v in doc_roles.items()
                           if not isinstance(v, dict) or k not in ['success', 'error']}
-            doc_info = doc_results.get('document_info', {})
-            word_count = doc_info.get('word_count', 0) if isinstance(doc_info, dict) else 0
+            # v5.9.35: word_count is at top level, not in document_info
+            word_count = doc_results.get('word_count', 0)
+            if not word_count:
+                doc_info = doc_results.get('document_info', {})
+                word_count = doc_info.get('word_count', 0) if isinstance(doc_info, dict) else 0
 
             return {
                 'filename': file_info['filename'],
@@ -1154,8 +1160,11 @@ def _process_folder_scan_async(scan_id, discovered, options):
                 doc_roles = {}
             actual_roles = {k: v for k, v in doc_roles.items()
                           if not isinstance(v, dict) or k not in ['success', 'error']}
-            doc_info = doc_results.get('document_info', {})
-            word_count = doc_info.get('word_count', 0) if isinstance(doc_info, dict) else 0
+            # v5.9.35: word_count is at top level, not in document_info
+            word_count = doc_results.get('word_count', 0)
+            if not word_count:
+                doc_info = doc_results.get('document_info', {})
+                word_count = doc_info.get('word_count', 0) if isinstance(doc_info, dict) else 0
 
             return {
                 'filename': file_info['filename'],
@@ -1403,6 +1412,18 @@ def sharepoint_test():
     connector = SPConnector(actual_site_url)
     try:
         probe = connector.test_connection()
+
+        # v5.9.35: Auto-detect library path if connection succeeds and none was parsed from URL
+        library_path = parsed.get('library_path', '')
+        if probe['success'] and not library_path:
+            try:
+                detected = connector.auto_detect_library_path()
+                if detected:
+                    library_path = detected
+                    logger.info(f"SharePoint auto-detected library: {library_path}")
+            except Exception as e:
+                logger.debug(f"SharePoint library auto-detect failed (non-critical): {e}")
+
         return jsonify({
             'success': probe['success'],
             'data': {
@@ -1412,7 +1433,8 @@ def sharepoint_test():
                 'message': probe.get('message', ''),
                 'status_code': probe.get('status_code', 0),
                 'parsed_site_url': actual_site_url,
-                'parsed_library_path': parsed.get('library_path', ''),
+                'parsed_library_path': library_path,
+                'ssl_fallback': getattr(connector, '_ssl_fallback_used', False),
             }
         })
     finally:
@@ -1459,15 +1481,6 @@ def sharepoint_scan_start():
     if not library_path:
         library_path = parsed.get('library_path', '')
 
-    if not library_path:
-        return jsonify({
-            'success': False,
-            'error': {
-                'message': 'Document library path is required (e.g., /sites/MyTeam/Shared Documents)',
-                'code': 'MISSING_LIBRARY'
-            }
-        }), 400
-
     # Phase 1: Connect + discover
     connector = SPConnector(actual_site_url)
 
@@ -1480,6 +1493,27 @@ def sharepoint_scan_start():
             'error': {
                 'message': f'Cannot connect to SharePoint: {probe["message"]}',
                 'code': 'SP_AUTH_FAILED'
+            }
+        }), 400
+
+    # v5.9.35: Auto-detect library path if not provided
+    if not library_path:
+        try:
+            detected = connector.auto_detect_library_path()
+            if detected:
+                library_path = detected
+                logger.info(f"SharePoint scan auto-detected library: {library_path}")
+        except Exception as e:
+            logger.debug(f"SharePoint library auto-detect failed: {e}")
+
+    if not library_path:
+        connector.close()
+        return jsonify({
+            'success': False,
+            'error': {
+                'message': 'Could not detect document library. Please enter the library path '
+                           '(e.g., /sites/MyTeam/Shared Documents)',
+                'code': 'MISSING_LIBRARY'
             }
         }), 400
 

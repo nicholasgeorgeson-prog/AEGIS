@@ -3981,12 +3981,12 @@ const AEGISGuide = {
      * Provider chain: Pre-generated MP3 → Web Speech API → Silent (timer)
      * Returns a Promise that resolves when narration completes.
      */
-    async _playNarration(text, sectionId, stepIndex) {
+    async _playNarration(text, sectionId, stepIndex, subDemoId) {
         if (!this.narration.enabled || !text) return false;
 
         // Try pre-generated audio first
         if (this.narration.manifestLoaded && this.narration.manifest) {
-            const audioFile = this._getPregenAudioFile(sectionId, stepIndex);
+            const audioFile = this._getPregenAudioFile(sectionId, stepIndex, subDemoId);
             if (audioFile) {
                 try {
                     const played = await this._playAudioClip(audioFile);
@@ -4010,8 +4010,16 @@ const AEGISGuide = {
         return false; // No audio provider available
     },
 
-    _getPregenAudioFile(sectionId, stepIndex) {
+    _getPregenAudioFile(sectionId, stepIndex, subDemoId) {
         if (!this.narration.manifest || !this.narration.manifest.sections) return null;
+        // v5.9.35: Sub-demos have their own section in the manifest keyed by subDemoId
+        // Check sub-demo ID first, then fall back to parent section ID
+        if (subDemoId) {
+            const subSection = this.narration.manifest.sections[subDemoId];
+            if (subSection && subSection.steps && subSection.steps[stepIndex]) {
+                return '/static/audio/demo/' + subSection.steps[stepIndex].file;
+            }
+        }
         const section = this.narration.manifest.sections[sectionId];
         if (!section || !section.steps || !section.steps[stepIndex]) return null;
         return '/static/audio/demo/' + section.steps[stepIndex].file;
@@ -4481,8 +4489,9 @@ const AEGISGuide = {
 
         // v2.1.0: Start voice narration (parallel with typewriter)
         const sectionId = scene._sectionId || this.demo.currentSection;
+        const subDemoId = scene._subDemoId || this.demo.currentSubDemo || null;
         const stepIdx = scene._stepIndex ?? index;
-        const narrationPromise = this._playNarration(scene.narration, sectionId, stepIdx);
+        const narrationPromise = this._playNarration(scene.narration, sectionId, stepIdx, subDemoId);
 
         // Spotlight target if present
         if (scene.target) {

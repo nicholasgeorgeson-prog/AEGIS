@@ -992,15 +992,19 @@ TWR.StatementHistory = (function() {
                     <div class="sfh-viewer-doc-panel">
                         <div class="sfh-viewer-doc-header">
                             <h4><i data-lucide="file-text" style="width:16px;height:16px"></i> ${escapeHtml(State.documentName)}</h4>
-                            ${(State.documentName || '').toLowerCase().endsWith('.pdf') ? `
                             <div class="sfh-view-toggle" id="sfh-view-toggle">
-                                <button class="sfh-toggle-btn sfh-toggle-active" data-view="html">
-                                    <i data-lucide="code" style="width:14px;height:14px"></i> HTML
+                                ${State.htmlPreview ? `
+                                <button class="sfh-toggle-btn sfh-toggle-active" data-view="preview">
+                                    <i data-lucide="eye" style="width:14px;height:14px"></i> Preview
                                 </button>
+                                <button class="sfh-toggle-btn" data-view="text">
+                                    <i data-lucide="align-left" style="width:14px;height:14px"></i> Text
+                                </button>` : ''}
+                                ${(State.documentName || '').toLowerCase().endsWith('.pdf') ? `
                                 <button class="sfh-toggle-btn" data-view="pdf">
                                     <i data-lucide="file" style="width:14px;height:14px"></i> PDF
-                                </button>
-                            </div>` : ''}
+                                </button>` : ''}
+                            </div>
                             <span class="sfh-viewer-hint">Click a highlight to see statement details. Select text to create a new statement.</span>
                         </div>
                         <div class="sfh-viewer-doc-content" id="sfh-doc-content">
@@ -1067,7 +1071,7 @@ TWR.StatementHistory = (function() {
             });
         });
 
-        // v4.4.0: PDF.js view toggle
+        // v5.9.35: Document view toggle — Preview (HTML) / Text / PDF
         const toggle = content.querySelector('#sfh-view-toggle');
         if (toggle) {
             toggle.querySelectorAll('.sfh-toggle-btn').forEach(btn => {
@@ -1076,6 +1080,10 @@ TWR.StatementHistory = (function() {
                     btn.classList.add('sfh-toggle-active');
 
                     const docContent = content.querySelector('#sfh-doc-content');
+                    const filter = State.activeFilter;
+                    const filtered = filter === 'all' ? statements :
+                        statements.filter(s => s.directive === filter);
+
                     if (btn.dataset.view === 'pdf') {
                         if (typeof TWR !== 'undefined' && TWR.PDFViewer) {
                             await TWR.PDFViewer.render(
@@ -1085,15 +1093,20 @@ TWR.StatementHistory = (function() {
                         } else {
                             docContent.innerHTML = '<div class="pdfv-error">PDF viewer not available.</div>';
                         }
+                    } else if (btn.dataset.view === 'text') {
+                        // v5.9.35: Force plain text rendering (no HTML preview)
+                        docContent.innerHTML = renderDocument(docText, filtered, { forceText: true });
+                        buildMarkIndexMap(docContent);
+                        _activeMarkEl = null;
                     } else {
-                        // Switch back to HTML view
-                        const filter = State.activeFilter;
-                        const filtered = filter === 'all' ? statements :
-                            statements.filter(s => s.directive === filter);
+                        // preview or html — use normal rendering (HTML preview if available)
                         docContent.innerHTML = renderDocument(docText, filtered);
-                        buildMarkIndexMap(docContent); // v4.5.1
+                        buildMarkIndexMap(docContent);
                         _activeMarkEl = null;
                     }
+
+                    // Refresh Lucide icons in new content
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
                 });
             });
         }
@@ -1664,6 +1677,13 @@ TWR.StatementHistory = (function() {
      * Uses HTML preview when available, falls back to plain text highlighting.
      */
     function renderDocument(docText, statements, options = {}) {
+        // v5.9.35: forceText option bypasses HTML preview for text toggle
+        if (options.forceText) {
+            if (options.isCompare) {
+                return renderCompareHighlightedDocument(docText, statements);
+            }
+            return renderHighlightedDocument(docText, statements);
+        }
         if (State.htmlPreview && State.docFormat === 'html') {
             return renderHTMLDocument(State.htmlPreview, statements, options);
         }

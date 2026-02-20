@@ -1073,7 +1073,10 @@ window.HyperlinkValidator = (function() {
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error?.message || `Server error: ${response.status}`);
+                const errMsg = errorData.error?.message || `Server error: ${response.status}`;
+                const errDetail = errorData.error?.detail || '';
+                console.error('[HyperlinkValidator] Export error:', errMsg, errDetail);
+                throw new Error(errMsg);
             }
 
             // Get the filename from the Content-Disposition header
@@ -1998,6 +2001,14 @@ window.HyperlinkValidator = (function() {
         }
         if (el.tabContentUpload) {
             el.tabContentUpload.style.display = tab === 'upload' ? 'block' : 'none';
+        }
+
+        // v5.9.35: Auto-open file browse dialog when switching to upload tab
+        if (tab === 'upload' && el.fileInput) {
+            // Small delay so the tab switch animation completes first
+            setTimeout(() => {
+                el.fileInput.click();
+            }, 150);
         }
     }
 
