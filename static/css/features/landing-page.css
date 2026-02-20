@@ -32,7 +32,8 @@ body:not(.landing-active) #aegis-landing-page {
 
 /* v4.6.2-fix: Ensure modals opened from landing page tiles appear ABOVE the landing page overlay */
 body.landing-active .modal.active,
-body.landing-active .modal.show {
+body.landing-active .modal.show,
+body.landing-active .pc-modal.active {
     z-index: 10001;
 }
 body.landing-active #modal-hyperlink-validator.active {
