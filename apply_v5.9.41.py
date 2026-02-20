@@ -40,6 +40,7 @@ FILES = [
 
     # JavaScript
     "static/js/features/proposal-compare.js",
+    "static/js/features/guide-system.js",
     "static/js/help-docs.js",
 
     # CSS
