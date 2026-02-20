@@ -1834,6 +1834,128 @@ const AEGISGuide = {
             }
         },
 
+        // ─── Proposal Compare ──────────────────────────────────────────
+        'proposal-compare': {
+            id: 'proposal-compare',
+            title: 'Proposal Compare',
+            icon: 'git-compare-arrows',
+            whatIsThis: 'Compare vendor proposals side-by-side with automated financial extraction. Upload two or more proposal documents in DOCX, PDF, or Excel format. AEGIS extracts tables, dollar amounts, line items, and company information, then aligns items across proposals for direct cost comparison. Export the comparison matrix as XLSX.',
+            keyActions: [
+                { icon: 'upload', text: 'Upload 2-10 proposal documents (DOCX, PDF, XLSX)' },
+                { icon: 'scan-search', text: 'Extract financial data — tables, line items, totals, company names' },
+                { icon: 'git-compare-arrows', text: 'Compare aligned line items side-by-side across all proposals' },
+                { icon: 'download', text: 'Export the comparison matrix as a formatted Excel spreadsheet' }
+            ],
+            proTips: [
+                'Supports mixed file types — compare an Excel cost estimate against a PDF proposal',
+                'Company names are auto-detected but editable before comparison',
+                'Line items are matched by description similarity — even with different wording',
+                'The Variance column shows percentage difference between highest and lowest bids',
+                'Green highlighting marks the lowest cost, red marks the highest for each line item',
+                'Category summaries group costs by Labor, Material, Travel, ODC, Overhead, and Fee'
+            ],
+            tourSteps: [
+                {
+                    target: '#pc-modal',
+                    title: 'Proposal Compare',
+                    description: 'Upload, extract, and compare vendor proposals with side-by-side financial analysis.',
+                    position: 'center'
+                }
+            ],
+            demoScenes: [
+                {
+                    target: '#pc-modal',
+                    narration: 'Proposal Compare lets you upload two or more vendor proposal documents and compare their financial data side by side. It supports mixed file types — you can compare an Excel spreadsheet from one vendor against a Word document from another.',
+                    duration: 9000,
+                    navigate: 'proposal-compare'
+                },
+                {
+                    target: '#pc-modal',
+                    narration: 'The process has three steps. First, upload your proposal files by dropping them onto the dropzone or clicking to browse. AEGIS accepts DOCX, PDF, and Excel formats. You can upload up to ten proposals at once.',
+                    duration: 8500,
+                    navigate: 'proposal-compare'
+                },
+                {
+                    target: '#pc-modal',
+                    narration: 'During extraction, AEGIS scans each document for tables, dollar amounts, and financial line items. It identifies company names from headers and cover pages, and detects total rows automatically. Each file gets a summary card showing what was found.',
+                    duration: 9000,
+                    navigate: 'proposal-compare'
+                },
+                {
+                    target: '#pc-modal',
+                    narration: 'Before comparing, you can review and edit the company names. This is useful when auto-detection finds an incomplete name or when two proposals come from the same vendor but with different document titles.',
+                    duration: 8000,
+                    navigate: 'proposal-compare'
+                },
+                {
+                    target: '#pc-modal',
+                    narration: 'The comparison table aligns line items across proposals using text similarity matching. Each row shows the amounts from every vendor, with green highlighting on the lowest cost and red on the highest. The variance column shows the percentage spread between bids.',
+                    duration: 9500,
+                    navigate: 'proposal-compare'
+                },
+                {
+                    target: '#pc-modal',
+                    narration: 'Category summaries group costs by type — Labor, Material, Travel, Other Direct Costs, Overhead, and Fee. The Raw Tables tab shows every extracted table for full transparency. Export the comparison as a formatted Excel spreadsheet for stakeholder review.',
+                    duration: 9000,
+                    navigate: 'proposal-compare'
+                }
+            ],
+            subDemos: {
+                upload_extract: {
+                    id: 'upload_extract',
+                    title: 'Upload and Extract',
+                    icon: 'upload',
+                    description: 'Upload files and extract financial data',
+                    preAction: async () => {
+                        try {
+                            if (window.ProposalCompare) ProposalCompare.open();
+                            await AEGISGuide._wait(600);
+                        } catch(e) { console.warn('[AEGIS Guide] preAction error:', e); }
+                    },
+                    scenes: [
+                        { target: '#pc-modal', narration: 'The upload phase accepts DOCX, PDF, and Excel files. Drop files directly onto the dropzone or click to open a file browser. You need at least two files to run a comparison, and you can upload up to ten.', duration: 8000, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'Supported Excel formats include XLSX with multiple sheets. Each sheet is treated as a separate table. The parser identifies financial tables by checking column headers for cost-related keywords and scanning for dollar amounts.', duration: 8500, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'PDF extraction uses the PyMuPDF library for table detection and markdown conversion. Tables embedded in complex PDF layouts are extracted using page-level table finding with fallback to text-based extraction.', duration: 8500, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'After upload, each file shows its extraction status. Ready files display the number of line items found, table count, and detected total. Any extraction errors are shown with details so you know which files need attention.', duration: 8000, navigate: 'proposal-compare' }
+                    ]
+                },
+                comparison_view: {
+                    id: 'comparison_view',
+                    title: 'Comparison Matrix',
+                    icon: 'table-2',
+                    description: 'Side-by-side line item comparison',
+                    preAction: async () => {
+                        try {
+                            if (window.ProposalCompare) ProposalCompare.open();
+                            await AEGISGuide._wait(600);
+                        } catch(e) { console.warn('[AEGIS Guide] preAction error:', e); }
+                    },
+                    scenes: [
+                        { target: '#pc-modal', narration: 'The comparison matrix is the core output. Line items are grouped by category and sorted alphabetically. Each row shows the description, category, amounts from each vendor, and the variance percentage between the lowest and highest bids.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'Line item alignment uses text similarity matching. Even if two vendors describe the same service differently, AEGIS will match items with at least fifty-five percent description similarity and boost matches in the same cost category.', duration: 8500, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'The Grand Total row at the bottom sums each vendor column. The total variance percentage shows how much the overall bids diverge. Notes below the table summarize the comparison — number of proposals, items aligned, and the lowest bidder.', duration: 8500, navigate: 'proposal-compare' }
+                    ]
+                },
+                export_results: {
+                    id: 'export_results',
+                    title: 'Export to Excel',
+                    icon: 'download',
+                    description: 'Export comparison as formatted XLSX',
+                    preAction: async () => {
+                        try {
+                            if (window.ProposalCompare) ProposalCompare.open();
+                            await AEGISGuide._wait(600);
+                        } catch(e) { console.warn('[AEGIS Guide] preAction error:', e); }
+                    },
+                    scenes: [
+                        { target: '#pc-modal', narration: 'The Export button generates a formatted Excel workbook with three sheets. The Proposal Comparison sheet contains the full side-by-side matrix with AEGIS gold branding, color coding for lowest and highest amounts, and a variance column.', duration: 8500, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'The Category Summary sheet breaks down costs by type for each vendor. The Proposal Details sheet lists metadata for each proposal — company name, file type, date, number of tables and line items, and the grand total.', duration: 8000, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'The exported file uses dollar formatting, percentage formatting, and conditional coloring. It is ready for immediate distribution to stakeholders, contract officers, or evaluation boards without additional formatting.', duration: 8000, navigate: 'proposal-compare' }
+                    ]
+                }
+            }
+        },
+
         // ─── Hyperlink Validator ─────────────────────────────────────
         validator: {
             id: 'validator',
@@ -4726,6 +4848,9 @@ const AEGISGuide = {
             'sow': () => {
                 if (window.SowGenerator?.open) window.SowGenerator.open();
                 else if (_showModal) _showModal('modal-sow-generator');
+            },
+            'proposal-compare': () => {
+                if (window.ProposalCompare?.open) window.ProposalCompare.open();
             },
             'validator': () => {
                 if (window.HyperlinkValidator && typeof window.HyperlinkValidator.open === 'function') {

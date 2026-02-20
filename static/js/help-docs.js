@@ -135,6 +135,12 @@ const HelpDocs = {
             { id: 'batch-queue', title: 'Queue Management', icon: 'list' },
             { id: 'batch-results', title: 'Consolidated Results', icon: 'bar-chart-2' }
         ]},
+        { id: 'proposal-compare', title: 'Proposal Compare', icon: 'git-compare-arrows', subsections: [
+            { id: 'pc-overview', title: 'Overview', icon: 'info' },
+            { id: 'pc-uploading', title: 'Uploading Proposals', icon: 'upload' },
+            { id: 'pc-comparison', title: 'Comparison View', icon: 'columns' },
+            { id: 'pc-export', title: 'Exporting Results', icon: 'download' }
+        ]},
         { id: 'exporting', title: 'Exporting Results', icon: 'download', subsections: [
             { id: 'export-overview', title: 'Export Options', icon: 'info' },
             { id: 'export-word', title: 'Word Document', icon: 'file-text' },
@@ -5075,6 +5081,182 @@ HelpDocs.content['batch-results'] = {
     <li>Use the Document Filter to compare specific documents</li>
     <li>View the Role-Document Matrix for cross-reference</li>
 </ul>
+`
+};
+
+// ============================================================================
+// PROPOSAL COMPARE - OVERVIEW
+// ============================================================================
+HelpDocs.content['pc-overview'] = {
+    title: 'Proposal Compare',
+    subtitle: 'Compare vendor proposals side-by-side',
+    html: `
+<div class="help-hero help-hero-compact">
+    <div class="help-hero-icon"><i data-lucide="git-compare-arrows" class="hero-icon-main"></i></div>
+    <div class="help-hero-content">
+        <p>Proposal Compare extracts financial data from vendor proposals and displays them in a side-by-side comparison matrix. Upload 2 to 10 proposals in any mix of DOCX, PDF, or Excel formats and instantly see cost breakdowns, line-item variances, and category totals.</p>
+    </div>
+</div>
+
+<h2><i data-lucide="shield-check"></i> Pure Extraction — No AI</h2>
+<p>Proposal Compare uses <strong>deterministic extraction only</strong>. Every number, line item, and total displayed comes directly from your documents. There is no AI summarization, no LLM interpretation, and no generated content. What you see is exactly what was found in the files.</p>
+
+<h2><i data-lucide="file-type"></i> Supported Formats</h2>
+<div class="help-formats" style="margin-bottom: 16px;">
+    <span class="format-badge format-primary">.xlsx / .xls (Excel)</span>
+    <span class="format-badge format-primary">.docx (Word)</span>
+    <span class="format-badge format-primary">.pdf</span>
+</div>
+<p>Excel files provide the richest extraction since financial data is already in structured tables. Word and PDF files are parsed for embedded tables and dollar amounts.</p>
+
+<h2><i data-lucide="list-checks"></i> What Gets Extracted</h2>
+<ul>
+    <li><strong>Company name</strong> — Detected from headers, cover pages, and metadata</li>
+    <li><strong>Dollar amounts</strong> — All currency values found in the document</li>
+    <li><strong>Line items</strong> — Description, amount, quantity, unit price from financial tables</li>
+    <li><strong>Tables</strong> — All tables with financial data are detected and preserved</li>
+    <li><strong>Grand total</strong> — Identified from total/sum rows or computed from line items</li>
+    <li><strong>Categories</strong> — Line items classified as Labor, Material, Travel, ODC, Overhead, or Fee</li>
+</ul>
+
+<h2><i data-lucide="target"></i> Quick Start</h2>
+<ol>
+    <li>Click <strong>Proposal Compare</strong> on the dashboard or sidebar</li>
+    <li>Drag and drop 2+ proposal files (or click Browse)</li>
+    <li>Click <strong>Extract Data</strong> to parse all files</li>
+    <li>Review extracted data and edit company names if needed</li>
+    <li>Click <strong>Compare Proposals</strong> to generate the comparison</li>
+    <li>Use tabs to view comparison matrix, category summaries, or raw details</li>
+    <li>Click <strong>Export XLSX</strong> to download a formatted spreadsheet</li>
+</ol>
+`
+};
+
+// ============================================================================
+// PROPOSAL COMPARE - UPLOADING
+// ============================================================================
+HelpDocs.content['pc-uploading'] = {
+    title: 'Uploading Proposals',
+    subtitle: 'Preparing files for comparison',
+    html: `
+<h2><i data-lucide="upload"></i> Upload Methods</h2>
+<ul>
+    <li><strong>Drag & Drop</strong> — Drop files directly onto the upload zone</li>
+    <li><strong>Browse Files</strong> — Click the browse button to select files</li>
+</ul>
+
+<h2><i data-lucide="info"></i> Upload Limits</h2>
+<table class="help-table">
+    <thead><tr><th>Limit</th><th>Value</th></tr></thead>
+    <tbody>
+        <tr><td>Minimum files</td><td>2 (need at least 2 to compare)</td></tr>
+        <tr><td>Maximum files</td><td>10 per upload</td></tr>
+        <tr><td>Supported types</td><td>.docx, .pdf, .xlsx, .xls</td></tr>
+    </tbody>
+</table>
+
+<h2><i data-lucide="cpu"></i> Extraction Process</h2>
+<p>After uploading, click <strong>Extract Data</strong>. Each file is processed:</p>
+<ol>
+    <li><strong>Excel files</strong> — All sheets scanned for tables with financial data (dollar amounts, quantity columns)</li>
+    <li><strong>Word files</strong> — Tables extracted via python-docx, text scanned for dollar amounts and company names</li>
+    <li><strong>PDF files</strong> — Tables extracted via markdown conversion, text scanned for financial patterns</li>
+</ol>
+<p>Per-file status indicators show success or failure. Files that fail extraction can be removed and re-uploaded.</p>
+
+<h2><i data-lucide="edit-3"></i> Review & Edit</h2>
+<p>After extraction, each proposal is shown as a card with:</p>
+<ul>
+    <li><strong>Company name</strong> — Editable if auto-detection was incorrect</li>
+    <li><strong>File type and table count</strong></li>
+    <li><strong>Line items found</strong></li>
+    <li><strong>Detected grand total</strong></li>
+    <li><strong>Extraction notes</strong> — Any warnings or observations</li>
+</ul>
+<p>Edit company names before comparing to ensure clear labeling in the comparison matrix.</p>
+`
+};
+
+// ============================================================================
+// PROPOSAL COMPARE - COMPARISON VIEW
+// ============================================================================
+HelpDocs.content['pc-comparison'] = {
+    title: 'Comparison View',
+    subtitle: 'Reading the side-by-side matrix',
+    html: `
+<h2><i data-lucide="columns"></i> Comparison Matrix</h2>
+<p>The main comparison view shows a table with:</p>
+<ul>
+    <li><strong>Rows</strong> — One per aligned line item across proposals</li>
+    <li><strong>Columns</strong> — One per vendor/proposal, plus Description and Variance</li>
+    <li><strong>Green cells</strong> — Lowest cost for that line item</li>
+    <li><strong>Red cells</strong> — Highest cost for that line item</li>
+    <li><strong>Dash (—)</strong> — Item not found in that proposal</li>
+</ul>
+
+<h2><i data-lucide="git-merge"></i> Line Item Alignment</h2>
+<p>The comparison engine uses text similarity matching to align line items across different proposals. Items with similar descriptions are placed on the same row, even if wording differs slightly between vendors. The matching considers:</p>
+<ul>
+    <li>Description text similarity (fuzzy matching)</li>
+    <li>Word overlap between descriptions</li>
+    <li>Category matching (Labor, Material, etc.)</li>
+</ul>
+<p>Unmatched items appear as separate rows with dashes for proposals that don't have them.</p>
+
+<h2><i data-lucide="percent"></i> Variance Column</h2>
+<p>The rightmost column shows variance percentage — the spread between the lowest and highest amounts for each line item. Higher variance indicates greater disagreement between vendors on that cost.</p>
+
+<h2><i data-lucide="layout-grid"></i> Additional Tabs</h2>
+<table class="help-table">
+    <thead><tr><th>Tab</th><th>Shows</th></tr></thead>
+    <tbody>
+        <tr><td><strong>Comparison</strong></td><td>Side-by-side line item matrix with color coding</td></tr>
+        <tr><td><strong>Categories</strong></td><td>Cost summaries grouped by Labor, Material, Travel, ODC, Overhead, Fee</td></tr>
+        <tr><td><strong>Details</strong></td><td>Per-proposal metadata — company, date, file type, totals</td></tr>
+        <tr><td><strong>Raw Tables</strong></td><td>Original extracted tables from each document</td></tr>
+    </tbody>
+</table>
+`
+};
+
+// ============================================================================
+// PROPOSAL COMPARE - EXPORT
+// ============================================================================
+HelpDocs.content['pc-export'] = {
+    title: 'Exporting Results',
+    subtitle: 'Download comparison as spreadsheet',
+    html: `
+<h2><i data-lucide="download"></i> Excel Export</h2>
+<p>Click <strong>Export XLSX</strong> in the results toolbar to download a formatted Excel workbook with three sheets:</p>
+
+<h3>Sheet 1: Proposal Comparison</h3>
+<ul>
+    <li>Full side-by-side line item matrix</li>
+    <li>Green fill on lowest-cost cells, red fill on highest-cost cells</li>
+    <li>Variance percentage column</li>
+    <li>Grand total row with AEGIS gold branding</li>
+    <li>Proper currency formatting ($#,##0.00)</li>
+</ul>
+
+<h3>Sheet 2: Category Summary</h3>
+<ul>
+    <li>Costs grouped by category (Labor, Material, Travel, etc.)</li>
+    <li>Item count per category</li>
+    <li>Per-vendor totals</li>
+</ul>
+
+<h3>Sheet 3: Proposal Details</h3>
+<ul>
+    <li>Company name, title, date for each proposal</li>
+    <li>File type and filename</li>
+    <li>Tables found and line items extracted</li>
+    <li>Grand total amounts</li>
+</ul>
+
+<div class="help-tip">
+    <i data-lucide="lightbulb"></i>
+    <span>The exported workbook uses AEGIS dark-navy and gold branding. Colors and formatting are preserved when opening in Excel or Google Sheets.</span>
+</div>
 `
 };
 

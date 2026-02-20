@@ -3299,6 +3299,102 @@
           "size": 146736
         }
       ]
+    },
+    "proposal-compare": {
+      "steps": [
+        {
+          "file": "proposal-compare_overview_step_0.mp3",
+          "text": "Proposal Compare lets you upload two or more vendor proposal documents and compare their financial data side by side. It supports mixed file types \u2014 you can compare an Excel spreadsheet from one vendor against a Word document from another.",
+          "duration_ms": 0
+        },
+        {
+          "file": "proposal-compare_overview_step_1.mp3",
+          "text": "The process has three steps. First, upload your proposal files by dropping them onto the dropzone or clicking to browse. AEGIS accepts DOCX, PDF, and Excel formats. You can upload up to ten proposals at once.",
+          "duration_ms": 0
+        },
+        {
+          "file": "proposal-compare_overview_step_2.mp3",
+          "text": "During extraction, AEGIS scans each document for tables, dollar amounts, and financial line items. It identifies company names from headers and cover pages, and detects total rows automatically. Each file gets a summary card showing what was found.",
+          "duration_ms": 0
+        },
+        {
+          "file": "proposal-compare_overview_step_3.mp3",
+          "text": "Before comparing, you can review and edit the company names. This is useful when auto-detection finds an incomplete name or when two proposals come from the same vendor but with different document titles.",
+          "duration_ms": 0
+        },
+        {
+          "file": "proposal-compare_overview_step_4.mp3",
+          "text": "The comparison table aligns line items across proposals using text similarity matching. Each row shows the amounts from every vendor, with green highlighting on the lowest cost and red on the highest. The variance column shows the percentage spread between bids.",
+          "duration_ms": 0
+        },
+        {
+          "file": "proposal-compare_overview_step_5.mp3",
+          "text": "Category summaries group costs by type \u2014 Labor, Material, Travel, Other Direct Costs, Overhead, and Fee. The Raw Tables tab shows every extracted table for full transparency. Export the comparison as a formatted Excel spreadsheet for stakeholder review.",
+          "duration_ms": 0
+        }
+      ]
+    },
+    "upload_extract": {
+      "steps": [
+        {
+          "file": "upload_extract_step_0.mp3",
+          "text": "The upload phase accepts DOCX, PDF, and Excel files. Drop files directly onto the dropzone or click to open a file browser. You need at least two files to run a comparison, and you can upload up to ten.",
+          "duration_ms": 0
+        },
+        {
+          "file": "upload_extract_step_1.mp3",
+          "text": "Supported Excel formats include XLSX with multiple sheets. Each sheet is treated as a separate table. The parser identifies financial tables by checking column headers for cost-related keywords and scanning for dollar amounts.",
+          "duration_ms": 0
+        },
+        {
+          "file": "upload_extract_step_2.mp3",
+          "text": "PDF extraction uses the PyMuPDF library for table detection and markdown conversion. Tables embedded in complex PDF layouts are extracted using page-level table finding with fallback to text-based extraction.",
+          "duration_ms": 0
+        },
+        {
+          "file": "upload_extract_step_3.mp3",
+          "text": "After upload, each file shows its extraction status. Ready files display the number of line items found, table count, and detected total. Any extraction errors are shown with details so you know which files need attention.",
+          "duration_ms": 0
+        }
+      ]
+    },
+    "comparison_view": {
+      "steps": [
+        {
+          "file": "comparison_view_step_0.mp3",
+          "text": "The comparison matrix is the core output. Line items are grouped by category and sorted alphabetically. Each row shows the description, category, amounts from each vendor, and the variance percentage between the lowest and highest bids.",
+          "duration_ms": 0
+        },
+        {
+          "file": "comparison_view_step_1.mp3",
+          "text": "Line item alignment uses text similarity matching. Even if two vendors describe the same service differently, AEGIS will match items with at least fifty-five percent description similarity and boost matches in the same cost category.",
+          "duration_ms": 0
+        },
+        {
+          "file": "comparison_view_step_2.mp3",
+          "text": "The Grand Total row at the bottom sums each vendor column. The total variance percentage shows how much the overall bids diverge. Notes below the table summarize the comparison \u2014 number of proposals, items aligned, and the lowest bidder.",
+          "duration_ms": 0
+        }
+      ]
+    },
+    "export_results": {
+      "steps": [
+        {
+          "file": "export_results_step_0.mp3",
+          "text": "The Export button generates a formatted Excel workbook with three sheets. The Proposal Comparison sheet contains the full side-by-side matrix with AEGIS gold branding, color coding for lowest and highest amounts, and a variance column.",
+          "duration_ms": 0
+        },
+        {
+          "file": "export_results_step_1.mp3",
+          "text": "The Category Summary sheet breaks down costs by type for each vendor. The Proposal Details sheet lists metadata for each proposal \u2014 company name, file type, date, number of tables and line items, and the grand total.",
+          "duration_ms": 0
+        },
+        {
+          "file": "export_results_step_2.mp3",
+          "text": "The exported file uses dollar formatting, percentage formatting, and conditional coloring. It is ready for immediate distribution to stakeholders, contract officers, or evaluation boards without additional formatting.",
+          "duration_ms": 0
+        }
+      ]
     }
   }
 }

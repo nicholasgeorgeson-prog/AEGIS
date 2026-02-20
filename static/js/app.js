@@ -11494,7 +11494,7 @@ STEPS TO REPRODUCE
                                         _updateFSDocRow(idx, 'error', `Error: ${doc.error || 'Unknown'}`);
                                     } else {
                                         _updateFSDocRow(idx, 'complete',
-                                            `Grade ${doc.grade} — Score ${doc.score} — ${doc.issue_count} issues — ${(doc.word_count || 0).toLocaleString()} words`,
+                                            `${(doc.word_count || 0).toLocaleString()} words • ${doc.issue_count} issues • ${doc.role_count || 0} roles • Score: ${doc.score}%`,
                                             doc.grade, doc.score, doc.issue_count);
                                     }
                                 });
@@ -11918,7 +11918,7 @@ STEPS TO REPRODUCE
                                     _updateSPDocRow(idx, 'error', `Error: ${doc.error || 'Unknown'}`);
                                 } else {
                                     _updateSPDocRow(idx, 'complete',
-                                        `Grade ${doc.grade} — Score ${doc.score} — ${doc.issue_count} issues — ${(doc.word_count || 0).toLocaleString()} words`);
+                                        `${(doc.word_count || 0).toLocaleString()} words • ${doc.issue_count} issues • ${doc.role_count || 0} roles • Score: ${doc.score}%`);
                                 }
                             });
                             spLastDocCount = data.total_documents_ready;
@@ -12007,6 +12007,11 @@ STEPS TO REPRODUCE
         if (glowEl) glowEl.style.width = '0%';
         const docList = document.getElementById('batch-doc-list');
         if (docList) docList.innerHTML = '';
+        // v5.9.35: Reset issues and roles counters
+        const issuesEl = document.getElementById('batch-issues-count');
+        const rolesEl = document.getElementById('batch-roles-count');
+        if (issuesEl) issuesEl.textContent = '0';
+        if (rolesEl) rolesEl.textContent = '0';
         document.getElementById('batch-upload-modal').style.display = 'flex';
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
@@ -12205,6 +12210,12 @@ STEPS TO REPRODUCE
         const remainingTimeEl = document.getElementById('batch-remaining-time');
         const speedEl = document.getElementById('batch-speed');
         const soundToggle = document.getElementById('cinematic-sound-toggle');
+        const issuesCountEl = document.getElementById('batch-issues-count');
+        const rolesCountEl = document.getElementById('batch-roles-count');
+
+        // Running totals for issues and roles
+        let runningIssues = 0;
+        let runningRoles = 0;
 
         // Time tracking
         const startTime = Date.now();
@@ -12377,7 +12388,8 @@ STEPS TO REPRODUCE
             }
             if (metaEl) {
                 if (status === 'complete' && issues !== null) {
-                    metaEl.textContent = `Complete — ${issues} issues found`;
+                    // v5.9.35: Show word count, roles, issues, and score in completion line
+                    metaEl.textContent = meta || `Complete — ${issues} issues found`;
                 } else {
                     metaEl.textContent = meta;
                 }
@@ -12495,9 +12507,19 @@ STEPS TO REPRODUCE
                         if (doc.error) {
                             updateDocRow(globalIdx, 'error', `Error: ${doc.error}`, null, 100);
                         } else {
-                            updateDocRow(globalIdx, 'complete',
-                                `${doc.word_count?.toLocaleString() || 0} words • Score: ${doc.score || 0}%`,
-                                doc.issue_count || 0, 100);
+                            // v5.9.35: Rich completion line with word count, issues, roles, and score
+                            const words = (doc.word_count || 0).toLocaleString();
+                            const issues = doc.issue_count || 0;
+                            const roles = doc.role_count || 0;
+                            const score = doc.score || 0;
+                            const metaLine = `${words} words • ${issues} issues • ${roles} roles • Score: ${score}%`;
+                            updateDocRow(globalIdx, 'complete', metaLine, issues, 100);
+
+                            // v5.9.35: Update running totals in stats row
+                            runningIssues += issues;
+                            runningRoles += roles;
+                            if (issuesCountEl) issuesCountEl.textContent = runningIssues.toLocaleString();
+                            if (rolesCountEl) rolesCountEl.textContent = runningRoles.toLocaleString();
                         }
 
                         // Merge into allResults

@@ -264,6 +264,15 @@ try:
 except (ImportError, Exception) as e:
     logger.info(f'Hyperlink Validator not available: {e}')
 
+PROPOSAL_COMPARE_AVAILABLE = False
+try:
+    from proposal_compare.routes import pc_blueprint
+    app.register_blueprint(pc_blueprint)
+    PROPOSAL_COMPARE_AVAILABLE = True
+    logger.info('Proposal Compare routes loaded')
+except (ImportError, Exception) as e:
+    logger.info(f'Proposal Compare not available: {e}')
+
 HYPERLINK_HEALTH_AVAILABLE = False
 try:
     from hyperlink_health import (

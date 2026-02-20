@@ -94,6 +94,7 @@
     <link rel="stylesheet" href="/static/css/features/landing-page.css">
     <!-- v5.4.0: Feature CSS loaded asynchronously — not needed for initial paint -->
     <link rel="stylesheet" href="/static/css/features/portfolio.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/static/css/features/proposal-compare.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/static/css/features/hyperlink-validator.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/static/css/features/hv-cinematic-progress.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/static/css/features/hyperlink-enhanced.css" media="print" onload="this.media='all'">
@@ -1312,6 +1313,16 @@ if (document.documentElement.classList.contains('dark-mode')) {
                                 <div class="bpd-stat">
                                     <div class="bpd-stat-value" id="batch-percent-animated">0%</div>
                                     <div class="bpd-stat-label">Progress</div>
+                                </div>
+                                <div class="bpd-stat-divider"></div>
+                                <div class="bpd-stat">
+                                    <div class="bpd-stat-value" id="batch-issues-count">0</div>
+                                    <div class="bpd-stat-label">Issues</div>
+                                </div>
+                                <div class="bpd-stat-divider"></div>
+                                <div class="bpd-stat">
+                                    <div class="bpd-stat-value" id="batch-roles-count">0</div>
+                                    <div class="bpd-stat-label">Roles</div>
                                 </div>
                             </div>
 
@@ -6169,6 +6180,28 @@ if (document.documentElement.classList.contains('dark-mode')) {
     </div>
 </div>
 
+<!-- Proposal Compare Modal (v1.0.0) -->
+<div class="pc-modal" id="pc-modal" role="dialog" aria-modal="true" aria-label="Proposal Compare">
+    <div class="pc-modal-overlay" onclick="ProposalCompare.close()"></div>
+    <div class="pc-modal-container">
+        <div class="pc-header">
+            <div class="pc-header-icon">
+                <i data-lucide="git-compare-arrows"></i>
+            </div>
+            <div class="pc-header-text">
+                <h2>Proposal Compare</h2>
+                <div class="pc-subtitle">Side-by-side financial comparison of proposal documents</div>
+            </div>
+            <button class="pc-close" onclick="ProposalCompare.close()" aria-label="Close">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="pc-body" id="pc-body">
+            <!-- Content rendered dynamically by proposal-compare.js -->
+        </div>
+    </div>
+</div>
+
 <!-- Hyperlink Validator Modal (v1.0.0) -->
 <div class="modal modal-fullscreen" id="modal-hyperlink-validator" role="dialog" aria-modal="true" aria-labelledby="modal-hv-title">
     <div class="modal-content hv-modal-content">
@@ -6856,6 +6889,8 @@ if (document.documentElement.classList.contains('dark-mode')) {
 <script src="/static/js/features/hv-cinematic-progress.js" defer></script>
 <script src="/static/js/features/hyperlink-validator.js" defer></script>
 <script src="/static/js/features/hyperlink-visualizations.js" defer></script>
+<!-- Proposal Compare Module (v1.0.0) -->
+<script src="/static/js/features/proposal-compare.js" defer></script>
 <!-- Link History Module (v1.0.0) -->
 <script src="/static/js/features/link-history.js" defer></script>
 <!-- Graph Export Module (v1.0.0) - ENH-003 -->

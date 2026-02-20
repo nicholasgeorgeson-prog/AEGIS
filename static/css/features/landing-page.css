@@ -598,6 +598,7 @@ body:not(.landing-active) .lp-bg-canvas {
 .lp-tile-icon.lp-ic-link-history { background: rgba(249, 115, 22, 0.12); color: #f97316; }
 .lp-tile-icon.lp-ic-portfolio { background: rgba(6, 182, 212, 0.12); color: #06b6d4; }
 .lp-tile-icon.lp-ic-sow { background: rgba(214, 168, 74, 0.12); color: #D6A84A; }
+.lp-tile-icon.lp-ic-proposal { background: rgba(139, 92, 246, 0.12); color: #8B5CF6; }
 
 .lp-tile-info {
     flex: 1;

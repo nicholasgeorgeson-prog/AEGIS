@@ -1,13 +1,30 @@
 {
-  "version": "5.9.35",
+  "version": "5.9.36",
   "release_date": "2026-02-20",
-  "core_version": "5.9.35",
+  "core_version": "5.9.36",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.36",
+      "date": "2026-02-20",
+      "changes": [
+        "NEW: Proposal Compare tool — upload 2-10 vendor proposals (DOCX/PDF/XLSX) and compare financial data side-by-side",
+        "NEW: Proposal parser extracts tables, dollar amounts, line items, company names, and totals from mixed document types",
+        "NEW: Comparison engine aligns line items across proposals using text similarity matching with category-aware scoring",
+        "NEW: Side-by-side matrix with green/red highlighting for lowest/highest costs and variance percentage column",
+        "NEW: Category summaries group costs by Labor, Material, Travel, ODC, Overhead, and Fee across all vendors",
+        "NEW: Export comparison to formatted XLSX with 3 sheets — Comparison, Category Summary, and Proposal Details",
+        "NEW: Proposal Compare landing page tile with purple accent color (#8B5CF6)",
+        "NEW: Proposal Compare demo scenes — 6 overview + 10 sub-demo narrated walkthroughs with pre-generated audio",
+        "NEW: Batch scan progress dashboard now shows running Issues and Roles counters alongside document count",
+        "ENH: Batch/folder/SharePoint scan completion lines now show: words • issues • roles • Score format",
+        "ENH: Guide system _navigateToSection() support for proposal-compare modal"
+      ]
+    },
     {
       "version": "5.9.35",
       "date": "2026-02-20",

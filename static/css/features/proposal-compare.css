@@ -1,0 +1,725 @@
+/* ============================================
+   AEGIS Proposal Compare - Styles
+   v5.9.36
+   ============================================ */
+
+/* ── Modal ─────────────────────────────── */
+
+.pc-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9100;
+    align-items: center;
+    justify-content: center;
+}
+
+.pc-modal.active {
+    display: flex !important;
+}
+
+.pc-modal-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+}
+
+.pc-modal-container {
+    position: relative;
+    width: 95vw;
+    max-width: 1400px;
+    height: 90vh;
+    background: var(--bg-surface, #fff);
+    border-radius: 16px;
+    border: 1px solid var(--border-color, #e0e0e0);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Header ────────────────────────────── */
+
+.pc-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+    background: var(--bg-deep, #f8f9fa);
+    flex-shrink: 0;
+}
+
+.pc-header-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #D6A84A 0%, #B8743A 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1B2838;
+}
+
+.pc-header-icon i {
+    width: 22px;
+    height: 22px;
+}
+
+.pc-header-text h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary, #1a1a2e);
+}
+
+.pc-header-text .pc-subtitle {
+    font-size: 12px;
+    color: var(--text-secondary, #666);
+    margin-top: 2px;
+}
+
+.pc-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 8px;
+    color: var(--text-secondary, #666);
+    transition: background 0.15s;
+}
+
+.pc-close:hover {
+    background: var(--bg-hover, rgba(0,0,0,0.06));
+}
+
+.pc-close i {
+    width: 20px;
+    height: 20px;
+}
+
+/* ── Body ──────────────────────────────── */
+
+.pc-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+}
+
+/* ── Upload Phase ──────────────────────── */
+
+.pc-upload-area {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.pc-dropzone {
+    border: 2px dashed var(--border-color, #ccc);
+    border-radius: 12px;
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--bg-primary, #fff);
+}
+
+.pc-dropzone:hover,
+.pc-dropzone.dragover {
+    border-color: #D6A84A;
+    background: rgba(214, 168, 74, 0.05);
+}
+
+.pc-dropzone-icon {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 12px;
+    color: var(--text-secondary, #999);
+}
+
+.pc-dropzone-icon i {
+    width: 48px;
+    height: 48px;
+}
+
+.pc-dropzone h3 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    color: var(--text-primary, #333);
+}
+
+.pc-dropzone p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-secondary, #666);
+}
+
+.pc-file-input {
+    display: none;
+}
+
+/* File list */
+.pc-file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.pc-file-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg-primary, #fff);
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 10px;
+}
+
+.pc-file-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.pc-file-icon.xlsx { background: rgba(33, 150, 83, 0.12); color: #219653; }
+.pc-file-icon.docx { background: rgba(47, 128, 237, 0.12); color: #2F80ED; }
+.pc-file-icon.pdf  { background: rgba(235, 87, 87, 0.12);  color: #EB5757; }
+
+.pc-file-icon i {
+    width: 20px;
+    height: 20px;
+}
+
+.pc-file-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.pc-file-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary, #333);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pc-file-meta {
+    font-size: 12px;
+    color: var(--text-secondary, #666);
+    margin-top: 2px;
+}
+
+.pc-file-status {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 6px;
+}
+
+.pc-file-status.extracting {
+    background: rgba(214, 168, 74, 0.15);
+    color: #D6A84A;
+}
+
+.pc-file-status.ready {
+    background: rgba(33, 150, 83, 0.12);
+    color: #219653;
+}
+
+.pc-file-status.error {
+    background: rgba(235, 87, 87, 0.12);
+    color: #EB5757;
+}
+
+.pc-file-remove {
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    color: var(--text-secondary, #999);
+    border-radius: 4px;
+}
+
+.pc-file-remove:hover {
+    color: #EB5757;
+    background: rgba(235, 87, 87, 0.08);
+}
+
+/* Upload actions */
+.pc-upload-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    padding-top: 8px;
+}
+
+.pc-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 24px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+}
+
+.pc-btn i {
+    width: 18px;
+    height: 18px;
+}
+
+.pc-btn-primary {
+    background: linear-gradient(135deg, #D6A84A 0%, #B8743A 100%);
+    color: #1B2838;
+}
+
+.pc-btn-primary:hover:not(:disabled) {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+}
+
+.pc-btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pc-btn-secondary {
+    background: var(--bg-primary, #f0f0f0);
+    color: var(--text-primary, #333);
+    border: 1px solid var(--border-color, #ddd);
+}
+
+.pc-btn-secondary:hover {
+    background: var(--bg-hover, #e8e8e8);
+}
+
+/* ── Extraction Summary ────────────────── */
+
+.pc-extraction-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.pc-proposal-card {
+    padding: 16px;
+    background: var(--bg-primary, #fff);
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 12px;
+}
+
+.pc-proposal-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.pc-proposal-card-header .pc-card-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(214, 168, 74, 0.12);
+    color: #D6A84A;
+}
+
+.pc-proposal-card-header .pc-card-icon i {
+    width: 18px;
+    height: 18px;
+}
+
+.pc-proposal-card-header h4 {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-primary, #333);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pc-card-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.pc-card-stat {
+    padding: 8px 10px;
+    background: var(--bg-deep, #f8f9fa);
+    border-radius: 8px;
+}
+
+.pc-card-stat-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary, #333);
+}
+
+.pc-card-stat-label {
+    font-size: 11px;
+    color: var(--text-secondary, #666);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.pc-company-name {
+    font-size: 13px;
+    color: #D6A84A;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.pc-editable {
+    cursor: text;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    transition: border-color 0.15s;
+}
+
+.pc-editable:hover {
+    border-color: var(--border-color, #ccc);
+}
+
+.pc-editable:focus {
+    outline: none;
+    border-color: #D6A84A;
+    background: var(--bg-primary, #fff);
+}
+
+/* ── Comparison Results ────────────────── */
+
+.pc-results {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.pc-results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+}
+
+.pc-results-header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: var(--text-primary, #333);
+}
+
+/* Comparison table */
+.pc-table-wrap {
+    overflow-x: auto;
+    border-radius: 10px;
+    border: 1px solid var(--border-color, #e0e0e0);
+}
+
+.pc-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.pc-table th {
+    padding: 10px 14px;
+    background: var(--bg-deep, #1B2838);
+    color: #D6A84A;
+    font-weight: 600;
+    text-align: left;
+    white-space: nowrap;
+    border-bottom: 2px solid #D6A84A;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.pc-table td {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border-color, #eee);
+    color: var(--text-primary, #333);
+}
+
+.pc-table tr:hover td {
+    background: rgba(214, 168, 74, 0.04);
+}
+
+.pc-table .pc-amount {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+.pc-table .pc-amount-lowest {
+    color: #219653;
+    font-weight: 600;
+    background: rgba(33, 150, 83, 0.06);
+}
+
+.pc-table .pc-amount-highest {
+    color: #EB5757;
+    font-weight: 600;
+    background: rgba(235, 87, 87, 0.06);
+}
+
+.pc-table .pc-amount-missing {
+    text-align: center;
+    color: var(--text-tertiary, #aaa);
+    font-style: italic;
+}
+
+.pc-table .pc-variance {
+    text-align: right;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.pc-table .pc-variance-low { color: #219653; }
+.pc-table .pc-variance-mid { color: #F2994A; }
+.pc-table .pc-variance-high { color: #EB5757; }
+
+.pc-table .pc-total-row td {
+    background: linear-gradient(135deg, rgba(214, 168, 74, 0.15) 0%, rgba(184, 116, 58, 0.15) 100%);
+    font-weight: 700;
+    font-size: 14px;
+    border-top: 2px solid #D6A84A;
+    border-bottom: none;
+}
+
+.pc-table .pc-category-header td {
+    background: var(--bg-deep, #f0f1f3);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary, #666);
+    border-bottom: 1px solid var(--border-color, #ddd);
+}
+
+/* ── Tabs ──────────────────────────────── */
+
+.pc-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 2px solid var(--border-color, #e0e0e0);
+    margin-bottom: 16px;
+}
+
+.pc-tab {
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary, #666);
+    background: none;
+    border: none;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.15s;
+}
+
+.pc-tab:hover {
+    color: var(--text-primary, #333);
+    background: rgba(214, 168, 74, 0.05);
+}
+
+.pc-tab.active {
+    color: #D6A84A;
+    border-bottom-color: #D6A84A;
+    font-weight: 600;
+}
+
+.pc-tab-panel {
+    display: none;
+}
+
+.pc-tab-panel.active {
+    display: block;
+}
+
+/* ── Phases / Steps ────────────────────── */
+
+.pc-phase-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 0;
+    margin-bottom: 16px;
+}
+
+.pc-phase-step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-secondary, #999);
+}
+
+.pc-phase-step.active {
+    color: #D6A84A;
+    font-weight: 600;
+}
+
+.pc-phase-step.done {
+    color: #219653;
+}
+
+.pc-phase-step .pc-step-num {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    border: 2px solid currentColor;
+}
+
+.pc-phase-step.active .pc-step-num {
+    background: #D6A84A;
+    color: #1B2838;
+    border-color: #D6A84A;
+}
+
+.pc-phase-step.done .pc-step-num {
+    background: #219653;
+    color: #fff;
+    border-color: #219653;
+}
+
+.pc-phase-connector {
+    flex: 1;
+    height: 2px;
+    background: var(--border-color, #ddd);
+    max-width: 80px;
+}
+
+.pc-phase-connector.done {
+    background: #219653;
+}
+
+/* ── Loading ───────────────────────────── */
+
+.pc-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px;
+    gap: 16px;
+}
+
+.pc-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border-color, #eee);
+    border-top-color: #D6A84A;
+    border-radius: 50%;
+    animation: pc-spin 0.8s linear infinite;
+}
+
+@keyframes pc-spin {
+    to { transform: rotate(360deg); }
+}
+
+.pc-loading-text {
+    font-size: 14px;
+    color: var(--text-secondary, #666);
+}
+
+/* ── Empty state ───────────────────────── */
+
+.pc-empty {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--text-secondary, #999);
+}
+
+.pc-empty i {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 12px;
+    opacity: 0.4;
+}
+
+.pc-empty h4 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    color: var(--text-primary, #333);
+}
+
+.pc-empty p {
+    margin: 0;
+    font-size: 13px;
+}
+
+/* ── Dark mode ─────────────────────────── */
+
+[data-theme="dark"] .pc-modal-container,
+.dark-mode .pc-modal-container {
+    background: var(--bg-surface, #161b22);
+}
+
+[data-theme="dark"] .pc-header,
+.dark-mode .pc-header {
+    background: var(--bg-deep, #0d1117);
+}
+
+[data-theme="dark"] .pc-dropzone,
+.dark-mode .pc-dropzone {
+    border-color: #30363d;
+    background: var(--bg-primary, #0d1117);
+}
+
+[data-theme="dark"] .pc-dropzone:hover,
+[data-theme="dark"] .pc-dropzone.dragover,
+.dark-mode .pc-dropzone:hover,
+.dark-mode .pc-dropzone.dragover {
+    border-color: #D6A84A;
+    background: rgba(214, 168, 74, 0.08);
+}
+
+[data-theme="dark"] .pc-file-item,
+.dark-mode .pc-file-item {
+    background: var(--bg-primary, #0d1117);
+    border-color: #30363d;
+}
+
+[data-theme="dark"] .pc-proposal-card,
+.dark-mode .pc-proposal-card {
+    background: var(--bg-primary, #0d1117);
+    border-color: #30363d;
+}
+
+[data-theme="dark"] .pc-table th,
+.dark-mode .pc-table th {
+    background: #0d1117;
+}
+
+[data-theme="dark"] .pc-table td,
+.dark-mode .pc-table td {
+    border-bottom-color: #21262d;
+}
+
+[data-theme="dark"] .pc-table tr:hover td,
+.dark-mode .pc-table tr:hover td {
+    background: rgba(214, 168, 74, 0.06);
+}

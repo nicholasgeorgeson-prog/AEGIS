@@ -118,6 +118,17 @@ TWR.LandingPage = (function() {
             navId: null, // special: opens SOW modal
             metricKey: null,
             metricLabel: null
+        },
+        {
+            id: 'proposal-compare',
+            name: 'Proposal Compare',
+            desc: 'Upload and compare vendor proposals side-by-side with financial extraction and cost variance analysis',
+            icon: 'git-compare-arrows',
+            iconClass: 'lp-ic-proposal',
+            color: '#8B5CF6',
+            navId: null, // special: opens Proposal Compare modal
+            metricKey: null,
+            metricLabel: null
         }
     ];
 
@@ -442,6 +453,12 @@ TWR.LandingPage = (function() {
         if (tool.id === 'sow') {
             // SOW Generator is a windowed modal — keep dashboard visible
             if (window.SowGenerator) SowGenerator.open();
+            return;
+        }
+
+        if (tool.id === 'proposal-compare') {
+            // Proposal Compare is a windowed modal — keep dashboard visible
+            if (window.ProposalCompare) ProposalCompare.open();
             return;
         }
 
