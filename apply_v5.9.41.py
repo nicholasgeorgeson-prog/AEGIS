@@ -34,9 +34,11 @@ FILES = [
     "static/version.json",
 
     # Proposal Compare backend
+    "proposal_compare/__init__.py",
     "proposal_compare/parser.py",
     "proposal_compare/analyzer.py",
     "proposal_compare/routes.py",
+    "proposal_compare/projects.py",
 
     # JavaScript
     "static/js/features/proposal-compare.js",
@@ -45,6 +47,59 @@ FILES = [
 
     # CSS
     "static/css/features/proposal-compare.css",
+]
+
+# Demo voice narration audio files (34 MP3s)
+AUDIO_FILES = [
+    # Overview demo (8 scenes)
+    "static/audio/demo/proposal-compare__step0.mp3",
+    "static/audio/demo/proposal-compare__step1.mp3",
+    "static/audio/demo/proposal-compare__step2.mp3",
+    "static/audio/demo/proposal-compare__step3.mp3",
+    "static/audio/demo/proposal-compare__step4.mp3",
+    "static/audio/demo/proposal-compare__step5.mp3",
+    "static/audio/demo/proposal-compare__step6.mp3",
+    "static/audio/demo/proposal-compare__step7.mp3",
+
+    # Upload & Extract sub-demo (4 scenes)
+    "static/audio/demo/upload_extract__step0.mp3",
+    "static/audio/demo/upload_extract__step1.mp3",
+    "static/audio/demo/upload_extract__step2.mp3",
+    "static/audio/demo/upload_extract__step3.mp3",
+
+    # Executive Summary sub-demo (4 scenes)
+    "static/audio/demo/exec_summary__step0.mp3",
+    "static/audio/demo/exec_summary__step1.mp3",
+    "static/audio/demo/exec_summary__step2.mp3",
+    "static/audio/demo/exec_summary__step3.mp3",
+
+    # Red Flags sub-demo (4 scenes)
+    "static/audio/demo/red_flags__step0.mp3",
+    "static/audio/demo/red_flags__step1.mp3",
+    "static/audio/demo/red_flags__step2.mp3",
+    "static/audio/demo/red_flags__step3.mp3",
+
+    # Heatmap View sub-demo (4 scenes)
+    "static/audio/demo/heatmap_view__step0.mp3",
+    "static/audio/demo/heatmap_view__step1.mp3",
+    "static/audio/demo/heatmap_view__step2.mp3",
+    "static/audio/demo/heatmap_view__step3.mp3",
+
+    # Vendor Scores sub-demo (4 scenes)
+    "static/audio/demo/vendor_scores__step0.mp3",
+    "static/audio/demo/vendor_scores__step1.mp3",
+    "static/audio/demo/vendor_scores__step2.mp3",
+    "static/audio/demo/vendor_scores__step3.mp3",
+
+    # Comparison View sub-demo (3 scenes)
+    "static/audio/demo/comparison_view__step0.mp3",
+    "static/audio/demo/comparison_view__step1.mp3",
+    "static/audio/demo/comparison_view__step2.mp3",
+
+    # Export Results sub-demo (3 scenes)
+    "static/audio/demo/export_results__step0.mp3",
+    "static/audio/demo/export_results__step1.mp3",
+    "static/audio/demo/export_results__step2.mp3",
 ]
 
 
@@ -135,6 +190,8 @@ def main():
     print()
     print(f"  Install dir: {install_dir}")
     print(f"  Code files:  {len(FILES)}")
+    print(f"  Audio files: {len(AUDIO_FILES)}")
+    print(f"  Total:       {len(FILES) + len(AUDIO_FILES)}")
     print()
 
     # Ensure proposal_compare directory exists
@@ -205,12 +262,48 @@ def main():
             failed += 1
 
     print()
-    print("  " + "=" * 50)
     print(f"  Code:  {success} applied, {failed} failed, {backed_up} backed up")
+
+    # Download and apply audio files
+    print()
+    print("  Downloading demo voice narration audio files...")
+    print("  " + "-" * 50)
+    audio_success = 0
+    audio_failed = 0
+
+    # Ensure audio directory exists
+    audio_dir = os.path.join(install_dir, "static", "audio", "demo")
+    os.makedirs(audio_dir, exist_ok=True)
+
+    for filepath in AUDIO_FILES:
+        data = download_file(filepath, ssl_ctx)
+        if data is None:
+            audio_failed += 1
+            continue
+
+        dest = os.path.join(install_dir, filepath)
+
+        # No backup for audio files (they're new)
+        try:
+            with open(dest, "wb") as f:
+                f.write(data)
+            size_kb = len(data) / 1024
+            print(f"  OK    {os.path.basename(filepath)} ({size_kb:.1f} KB)")
+            audio_success += 1
+        except Exception as e:
+            print(f"  FAIL  {filepath} -- write error: {e}")
+            audio_failed += 1
+
+    total_failed = failed + audio_failed
+    print()
+    print("  " + "=" * 50)
+    print(f"  Code:   {success} applied, {failed} failed, {backed_up} backed up")
+    print(f"  Audio:  {audio_success} applied, {audio_failed} failed")
+    print(f"  Total:  {success + audio_success} / {len(FILES) + len(AUDIO_FILES)}")
     print()
 
-    if failed == 0:
-        print("  All code files applied successfully!")
+    if total_failed == 0:
+        print("  All files applied successfully!")
         print()
         print("  IMPORTANT: This update changes Python backend code.")
         print("  You MUST restart AEGIS for changes to take effect.")
@@ -221,17 +314,22 @@ def main():
         print("    3. Open AEGIS in your browser")
         print("    4. Open Proposal Compare and upload vendor proposals")
         print("    5. Try the new weight sliders, tornado chart, and sort/filter!")
+        print("    6. Open Help > Proposal Compare > Watch Demo for narrated walkthrough!")
         print()
         print(f"  If something went wrong, your old files are in:")
         print(f"    {backup_dir}")
     else:
-        print(f"  WARNING: {failed} file(s) failed.")
+        print(f"  WARNING: {total_failed} file(s) failed.")
         print("  Check your internet connection and try again.")
+        if audio_failed > 0 and failed == 0:
+            print()
+            print("  NOTE: All code files succeeded. Audio failures only affect")
+            print("  demo narration - the tool works fine without them.")
         print()
         print(f"  Successfully applied files are already in place.")
         print(f"  Old versions backed up to: {backup_dir}")
 
-    return 0 if failed == 0 else 1
+    return 0 if total_failed == 0 else 1
 
 
 if __name__ == "__main__":
