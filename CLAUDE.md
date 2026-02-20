@@ -829,6 +829,38 @@ The actual logic lives in `repair_aegis.py` (500 lines) where Python's error han
 **Files**: `apply_v5.9.40.py` (this version), prior examples: `apply_v5.9.33.py` through `apply_v5.9.38.py`
 **Lesson**: Always provide BOTH `pull_updates.py` (for AEGIS built-in updater) AND `apply_v{VERSION}.py` (direct updater) for each release. The `apply_v{VERSION}.py` script is more reliable because it places files directly without requiring the AEGIS app to be running.
 
+### 95. Update Button Never Shown — display:none Without Toggle (v5.9.40)
+**Problem**: In Settings > Updates, clicking "Check for Updates" found updates and showed the list, but the "Apply Updates" button never appeared. Users could see updates were available but had no way to apply them from the UI.
+**Root Cause**: `#btn-apply-updates` in index.html starts with `style="display:none;"`. The `checkForUpdates()` function in `update-functions.js` showed the `#updates-available` div and populated the file list, but **never toggled the button visible**. The button's display was never changed from `none` to anything visible.
+**Fix**: Added `document.getElementById('btn-apply-updates').style.display = 'inline-flex'` when updates are found (line 63), and `display = 'none'` when no updates found (line 102).
+**Files**: `static/js/update-functions.js`
+**Lesson**: When an HTML element starts with `display:none`, EVERY code path that should show it must explicitly set display. Search for ALL references to the element ID to confirm at least one code path makes it visible. A hidden button that's never shown is invisible to the user but invisible to code reviewers too — always test the full UI flow (check → show list → show button → click apply).
+
+### 96. Proposal Compare Module Architecture (v5.9.40 / v2.0)
+**Pattern**: The Proposal Compare module is a new multi-file feature:
+**Backend** (`proposal_compare/`):
+- `parser.py` — `ProposalParser` class extracts financial data from DOCX/PDF/XLSX using openpyxl, mammoth/lxml, pymupdf4llm. Regex-based dollar amount detection (`\$[\d,]+\.?\d*`), table structure analysis.
+- `analyzer.py` — `ProposalAnalyzer` class computes: executive summary (stats, rankings, findings), red flags (rate anomalies, missing data, outliers), cost heatmap (deviation from mean), vendor scores (letter grades A-F, weighted: Price 40%, Completeness 25%, Risk 25%, Data Quality 10%).
+- `routes.py` — 13 API endpoints under `/api/proposal-compare/*` including upload, extract, compare, projects CRUD, metrics.
+- `projects.py` — SQLite-based project management (create/list/get/delete projects, add proposals to projects).
+**Frontend**:
+- `static/js/features/proposal-compare.js` (~1740 lines) — `window.ProposalCompare` IIFE with State management, 8-tab rendering, Chart.js integration.
+- `static/css/features/proposal-compare.css` (~680 lines) — Full styling with dark mode support.
+**8 Result Tabs**: executive (summary), comparison (matrix), categories (grouped), red_flags (risk), heatmap (deviation grid), vendor_scores (letter grades), details (per-vendor), raw_tables.
+**Modal**: Uses custom `.pc-modal` class (not standard `.modal`), z-index 15000 to clear landing page stacking contexts.
+**Key pattern**: Pure extraction, NO AI/LLM — displays only what's found in documents. Prevents hallucination.
+
+### 97. Metrics & Analytics Cross-Module Integration Pattern (v5.9.40)
+**Pattern**: When adding a new tool/module to AEGIS, it must be reflected in the Metrics & Analytics dashboard:
+1. Add a new tab to the M&A IIFE (`metrics-analytics.js`) with `renderXxxTab()` function
+2. Use lazy loading — fetch data from the module's own metrics endpoint only when tab is clicked
+3. Cache with separate timestamp (e.g., `proposalData`, `proposalDataTimestamp`) independent of main metrics
+4. Provide graceful empty state when module has no data or isn't installed
+5. Add tab button in `index.html` M&A modal, tab panel with chart canvases
+6. Add CSS for any new grid layouts (e.g., `.ma-grid-2col`)
+**API pattern**: Module provides `/api/{module}/metrics` endpoint returning aggregated stats. M&A fetches from it, not from the module's regular data endpoints.
+**Lesson**: Keep M&A in lockstep with feature additions. When adding a new feature, always add a corresponding M&A tab. The user has explicitly requested this pattern be maintained.
+
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
 1. **Changelog update** in `version.json` (and copy to `static/version.json`)

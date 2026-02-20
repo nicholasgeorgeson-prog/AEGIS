@@ -29,7 +29,8 @@
         "FIX: Export Highlighted crash on Windows — request.max_content_length is read-only on some Werkzeug versions (wrapped in try/except at 3 locations)",
         "FIX: Boot error — added missing /api/capabilities endpoint (checkCapabilities() was silently failing, export buttons showed disabled)",
         "FIX: Proposal Compare z-index bumped from 10001 to 15000 — modal was behind landing page tiles on Windows Chrome with backdrop-filter",
-        "ENH: Guide system updated with comprehensive Proposal Compare v2.0 demos — 8 overview scenes + 7 sub-demos covering all new tabs"
+        "ENH: Guide system updated with comprehensive Proposal Compare v2.0 demos — 8 overview scenes + 7 sub-demos covering all new tabs",
+        "FIX: Apply Updates button in Settings never appeared — update-functions.js now toggles #btn-apply-updates visible when updates detected"
       ]
     },
     {
