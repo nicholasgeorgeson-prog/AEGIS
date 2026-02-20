@@ -166,7 +166,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.9.40
+- **Current version**: 5.9.41
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -839,16 +839,18 @@ The actual logic lives in `repair_aegis.py` (500 lines) where Python's error han
 ### 96. Proposal Compare Module Architecture (v5.9.40 / v2.0)
 **Pattern**: The Proposal Compare module is a new multi-file feature:
 **Backend** (`proposal_compare/`):
-- `parser.py` — `ProposalParser` class extracts financial data from DOCX/PDF/XLSX using openpyxl, mammoth/lxml, pymupdf4llm. Regex-based dollar amount detection (`\$[\d,]+\.?\d*`), table structure analysis.
-- `analyzer.py` — `ProposalAnalyzer` class computes: executive summary (stats, rankings, findings), red flags (rate anomalies, missing data, outliers), cost heatmap (deviation from mean), vendor scores (letter grades A-F, weighted: Price 40%, Completeness 25%, Risk 25%, Data Quality 10%).
+- `parser.py` — `ProposalParser` class extracts financial data from DOCX/PDF/XLSX. PDF uses EnhancedTableExtractor (camelot/pdfplumber/tabula) as primary with pymupdf4llm/fitz fallback. Data-pattern column inference for headerless tables. Regex-based dollar amount detection (`\$[\d,]+\.?\d*`).
+- `analyzer.py` — `ProposalAnalyzer` class computes: executive summary (stats, rankings, findings), red flags (rate anomalies, missing data, outliers, identical pricing, missing categories, FAR 15.404 z-score reasonableness), cost heatmap (deviation from mean), vendor scores (letter grades A-F, weighted: Price 40%, Completeness 25%, Risk 25%, Data Quality 10%).
 - `routes.py` — 13 API endpoints under `/api/proposal-compare/*` including upload, extract, compare, projects CRUD, metrics.
 - `projects.py` — SQLite-based project management (create/list/get/delete projects, add proposals to projects).
 **Frontend**:
-- `static/js/features/proposal-compare.js` (~1740 lines) — `window.ProposalCompare` IIFE with State management, 8-tab rendering, Chart.js integration.
-- `static/css/features/proposal-compare.css` (~680 lines) — Full styling with dark mode support.
-**8 Result Tabs**: executive (summary), comparison (matrix), categories (grouped), red_flags (risk), heatmap (deviation grid), vendor_scores (letter grades), details (per-vendor), raw_tables.
+- `static/js/features/proposal-compare.js` (~2300 lines) — `window.ProposalCompare` IIFE with State management, 8-tab rendering, Chart.js integration (radar, tornado, stacked bar), weight sliders, sortable/filterable comparison table.
+- `static/css/features/proposal-compare.css` (~1800 lines) — Full styling with dark mode support, weight panel, sort/filter UI, print CSS.
+**8 Result Tabs**: executive (summary + tornado chart), comparison (sortable/filterable matrix), categories (stacked bar), red_flags (risk), heatmap (deviation grid), vendor_scores (letter grades + radar chart + weight sliders), details (per-vendor), raw_tables.
 **Modal**: Uses custom `.pc-modal` class (not standard `.modal`), z-index 15000 to clear landing page stacking contexts.
 **Key pattern**: Pure extraction, NO AI/LLM — displays only what's found in documents. Prevents hallucination.
+**Weight sliders**: `State._weights` stores {price, completeness, risk, data_quality}. `wireWeightSliders()` attaches debounced input handlers that recalculate scores client-side (no API call). `destroyChartById()` helper properly destroys Chart.js instances before re-render.
+**Sort/filter**: `State._compSort` (col, dir) and `State._compFilter` (category, variance). `_renderComparisonInner()` re-renders table body without recreating filter bar. Category dropdown + variance threshold dropdown + item count display.
 
 ### 97. Metrics & Analytics Cross-Module Integration Pattern (v5.9.40)
 **Pattern**: When adding a new tool/module to AEGIS, it must be reflected in the Metrics & Analytics dashboard:

@@ -4,7 +4,9 @@ AEGIS Proposal Parser — Extracts financial data from DOCX, PDF, and XLSX files
 Pure extraction — NO AI/LLM involvement. Uses:
 - openpyxl for Excel spreadsheets
 - python-docx + lxml for DOCX tables
-- pymupdf4llm / fitz for PDF tables
+- EnhancedTableExtractor (camelot → tabula → pdfplumber) for PDF tables (primary)
+- pymupdf4llm / fitz for PDF tables (fallback)
+- Data-pattern column inference for headerless tables
 - Regex patterns for dollar amounts, percentages, dates
 
 Returns structured ProposalData objects with company info, tables, and financial items.
@@ -144,7 +146,9 @@ NUMERIC_PATTERN = re.compile(
 
 # Total / subtotal / grand total row indicators
 TOTAL_KEYWORDS = re.compile(
-    r'\b(?:total|subtotal|sub-total|grand\s*total|sum|net|gross|overall)\b',
+    r'\b(?:total|subtotal|sub-total|sub\s*total|grand\s*total|sum|net|gross|overall|'
+    r'year\s*total|annual\s*total|contract\s*total|program\s*total|'
+    r'total\s*price|total\s*cost|total\s*amount|total\s*value)\b',
     re.IGNORECASE
 )
 
@@ -338,11 +342,189 @@ def find_total_row(rows: List[List[str]]) -> Tuple[Optional[int], Optional[float
     return None, None
 
 
+def _infer_columns_from_data(headers: List[str], rows: List[List[str]]) -> Dict[str, Optional[int]]:
+    """Infer column roles from data patterns when headers are generic or missing.
+
+    Analyzes the first N data rows to determine which columns contain:
+    - Dollar amounts (description vs unit price vs extended/total)
+    - Quantities (small integers)
+    - Descriptions (long text strings)
+    - Item numbers / IDs (short numeric or alphanumeric)
+
+    Returns dict with keys: desc_col, amount_col, qty_col, unit_price_col
+    """
+    if not rows:
+        return {'desc_col': None, 'amount_col': None, 'qty_col': None, 'unit_price_col': None}
+
+    num_cols = max(len(r) for r in rows) if rows else 0
+    if num_cols == 0:
+        return {'desc_col': None, 'amount_col': None, 'qty_col': None, 'unit_price_col': None}
+
+    sample_rows = rows[:min(10, len(rows))]
+
+    # Per-column stats
+    col_stats = []
+    for col_idx in range(num_cols):
+        stats = {
+            'dollar_count': 0,      # Cells with $ prefix
+            'numeric_count': 0,     # Pure numeric cells (no $)
+            'text_count': 0,        # Cells with alphabetic content
+            'small_int_count': 0,   # Integers 1-999 (likely qty)
+            'large_num_count': 0,   # Numbers > 100 (likely amounts)
+            'avg_text_len': 0,      # Average text length
+            'total_cells': 0,
+            'sample_values': [],
+            'numeric_sum': 0,       # Sum of numeric values (larger = more likely total col)
+        }
+
+        for row in sample_rows:
+            if col_idx >= len(row):
+                continue
+            cell = str(row[col_idx]).strip()
+            if not cell:
+                continue
+
+            stats['total_cells'] += 1
+            stats['sample_values'].append(cell)
+
+            # Check for dollar amount
+            if DOLLAR_PATTERN.search(cell):
+                stats['dollar_count'] += 1
+                val = parse_dollar_amount(DOLLAR_PATTERN.search(cell).group())
+                if val is not None:
+                    stats['numeric_sum'] += val
+                    if val > 100:
+                        stats['large_num_count'] += 1
+
+            # Check for plain numeric
+            cleaned = cell.replace(',', '').replace(' ', '')
+            try:
+                num_val = float(cleaned)
+                stats['numeric_count'] += 1
+                stats['numeric_sum'] += num_val
+                if 1 <= num_val <= 999 and num_val == int(num_val):
+                    stats['small_int_count'] += 1
+                if num_val > 100:
+                    stats['large_num_count'] += 1
+            except ValueError:
+                pass
+
+            # Check for text content
+            alpha_chars = sum(1 for c in cell if c.isalpha())
+            if alpha_chars > 3:
+                stats['text_count'] += 1
+
+            stats['avg_text_len'] += len(cell)
+
+        if stats['total_cells'] > 0:
+            stats['avg_text_len'] /= stats['total_cells']
+
+        col_stats.append(stats)
+
+    total_sample = len(sample_rows)
+    if total_sample == 0:
+        return {'desc_col': None, 'amount_col': None, 'qty_col': None, 'unit_price_col': None}
+
+    # Identify column roles
+    desc_col = None
+    amount_col = None
+    qty_col = None
+    unit_price_col = None
+
+    # Step 1: Find description column (longest average text, mostly alpha)
+    best_desc_score = -1
+    for i, s in enumerate(col_stats):
+        if s['total_cells'] == 0:
+            continue
+        text_ratio = s['text_count'] / s['total_cells']
+        # Description columns have high text ratio AND long average text
+        score = text_ratio * s['avg_text_len']
+        if text_ratio > 0.5 and s['avg_text_len'] > 5 and score > best_desc_score:
+            best_desc_score = score
+            desc_col = i
+
+    # Step 2: Find dollar/amount columns (cells with $ or large numbers)
+    dollar_cols = []
+    for i, s in enumerate(col_stats):
+        if i == desc_col:
+            continue
+        if s['total_cells'] == 0:
+            continue
+        dollar_ratio = s['dollar_count'] / s['total_cells']
+        large_num_ratio = s['large_num_count'] / s['total_cells']
+        if dollar_ratio > 0.4 or large_num_ratio > 0.5:
+            dollar_cols.append((i, s['numeric_sum'], dollar_ratio + large_num_ratio))
+
+    # Sort dollar columns by position (rightmost is usually total/extended)
+    dollar_cols.sort(key=lambda x: x[0])
+
+    if len(dollar_cols) >= 3:
+        # 3+ dollar cols: likely retail, your price, total
+        # Last = total/extended (amount), second-to-last = your price, first = retail/list
+        amount_col = dollar_cols[-1][0]
+        unit_price_col = dollar_cols[0][0]
+    elif len(dollar_cols) == 2:
+        # 2 dollar cols: unit price + extended/total
+        # The one with larger values is the total
+        if dollar_cols[1][1] >= dollar_cols[0][1]:
+            amount_col = dollar_cols[1][0]
+            unit_price_col = dollar_cols[0][0]
+        else:
+            amount_col = dollar_cols[0][0]
+            unit_price_col = dollar_cols[1][0]
+    elif len(dollar_cols) == 1:
+        amount_col = dollar_cols[0][0]
+
+    # Step 3: Find quantity column (small integers)
+    for i, s in enumerate(col_stats):
+        if i == desc_col or i == amount_col or i == unit_price_col:
+            continue
+        if s['total_cells'] == 0:
+            continue
+        small_int_ratio = s['small_int_count'] / s['total_cells']
+        if small_int_ratio > 0.5:
+            qty_col = i
+            break
+
+    logger.debug(f'[AEGIS ProposalParser] Column inference: desc={desc_col}, amount={amount_col}, '
+                 f'qty={qty_col}, unit_price={unit_price_col} '
+                 f'(from {num_cols} cols, {total_sample} sample rows)')
+
+    return {
+        'desc_col': desc_col,
+        'amount_col': amount_col,
+        'qty_col': qty_col,
+        'unit_price_col': unit_price_col,
+    }
+
+
+def _headers_are_generic(headers: List[str]) -> bool:
+    """Check if headers are generic auto-generated names (Col1, Col2, etc.)."""
+    if not headers:
+        return True
+    generic_patterns = re.compile(r'^(col\s*\d+|column\s*\d+|\d+|unnamed.*|)$', re.IGNORECASE)
+    generic_count = sum(1 for h in headers if generic_patterns.match(h.strip()))
+    return generic_count > len(headers) * 0.6
+
+
 def extract_line_items_from_table(table: ExtractedTable) -> List[LineItem]:
     """Extract financial line items from a table."""
     items = []
-    if not table.rows or not table.headers:
+    if not table.rows:
         return items
+    if not table.headers:
+        # No headers at all — try data-pattern inference
+        inferred = _infer_columns_from_data([], table.rows)
+        if inferred['amount_col'] is not None:
+            return _extract_with_inferred_columns(table, inferred)
+        return items
+
+    # Check if headers are generic (Col1, Col2...) — use data inference instead
+    if _headers_are_generic(table.headers):
+        inferred = _infer_columns_from_data(table.headers, table.rows)
+        if inferred['amount_col'] is not None:
+            logger.debug(f'[AEGIS ProposalParser] Using data-pattern inference for generic headers')
+            return _extract_with_inferred_columns(table, inferred)
 
     # Identify column roles using tiered priority
     headers_lower = [h.lower().strip() for h in table.headers]
@@ -355,9 +537,11 @@ def extract_line_items_from_table(table: ExtractedTable) -> List[LineItem]:
     # -- Description column: prioritize actual description keywords over identifiers --
     # Tier 1: Strong description indicators
     desc_priority_1 = ['description', 'task description', 'line item description',
-                        'service', 'deliverable', 'scope']
+                        'product description', 'description of services',
+                        'service', 'deliverable', 'scope', 'product']
     # Tier 2: Medium description indicators
-    desc_priority_2 = ['task', 'name', 'line item', 'wbs', 'wbs element', 'work']
+    desc_priority_2 = ['task', 'name', 'line item', 'wbs', 'wbs element', 'work',
+                        'part description', 'item description']
     # Tier 3: Weak — identifiers (only use if nothing better found)
     desc_priority_3 = ['item', 'clin']
 
@@ -374,7 +558,9 @@ def extract_line_items_from_table(table: ExtractedTable) -> List[LineItem]:
     # -- Amount column: prefer 'total'/'extended' over generic 'cost'/'price' --
     # This prevents picking 'Unit Price' when 'Total Cost' exists
     amount_priority_1 = ['total cost', 'extended price', 'extended cost', 'total price',
-                          'total amount', 'extended amount', 'total value', 'subtotal']
+                          'total amount', 'extended amount', 'total value', 'subtotal',
+                          'your price', 'our price', 'proposed price', 'bid price',
+                          'your cost', 'net price', 'net cost']
     amount_priority_2 = ['total', 'amount', 'extended', 'sum', 'value']
     amount_priority_3 = ['cost', 'price', 'charge']
 
@@ -398,7 +584,7 @@ def extract_line_items_from_table(table: ExtractedTable) -> List[LineItem]:
     for i, h in enumerate(headers_lower):
         if not h or i == desc_col or i == amount_col:
             continue
-        if any(kw in h for kw in ['qty', 'quantity', 'hours', 'units', 'count']):
+        if any(kw in h for kw in ['qty', 'quantity', 'hours', 'units', 'count', 'each', 'ea']):
             qty_col = i
             break
 
@@ -406,7 +592,9 @@ def extract_line_items_from_table(table: ExtractedTable) -> List[LineItem]:
     for i, h in enumerate(headers_lower):
         if not h or i == desc_col or i == amount_col or i == qty_col:
             continue
-        if any(kw in h for kw in ['rate', 'unit price', 'unit cost', 'per unit', 'hourly']):
+        if any(kw in h for kw in ['rate', 'unit price', 'unit cost', 'per unit', 'hourly',
+                                   'retail price', 'retail', 'list price', 'list', 'msrp',
+                                   'each price']):
             unit_price_col = i
             break
 
@@ -450,7 +638,12 @@ def extract_line_items_from_table(table: ExtractedTable) -> List[LineItem]:
         if col_numeric_counts:
             amount_col = max(col_numeric_counts, key=col_numeric_counts.get)
 
+    # -- Ultimate fallback: if keyword matching found nothing, try data-pattern inference --
     if amount_col is None:
+        inferred = _infer_columns_from_data(table.headers, table.rows)
+        if inferred['amount_col'] is not None:
+            logger.debug('[AEGIS ProposalParser] Keyword matching failed, falling back to data-pattern inference')
+            return _extract_with_inferred_columns(table, inferred)
         return items
 
     for row_idx, row in enumerate(table.rows):
@@ -496,6 +689,83 @@ def extract_line_items_from_table(table: ExtractedTable) -> List[LineItem]:
             row_index=row_idx,
             table_index=table.table_index,
             source_sheet=table.source,
+        )
+        items.append(item)
+
+    return items
+
+
+def _extract_with_inferred_columns(table: ExtractedTable, inferred: Dict[str, Optional[int]]) -> List[LineItem]:
+    """Extract line items using data-pattern inferred column roles."""
+    items = []
+    desc_col = inferred.get('desc_col')
+    amount_col = inferred.get('amount_col')
+    qty_col = inferred.get('qty_col')
+    unit_price_col = inferred.get('unit_price_col')
+
+    if amount_col is None:
+        return items
+
+    for row_idx, row in enumerate(table.rows):
+        # Skip total/subtotal rows in bottom half
+        row_text = ' '.join(str(c) for c in row)
+        if TOTAL_KEYWORDS.search(row_text) and row_idx > len(table.rows) * 0.5:
+            continue
+
+        # Skip rows that are all empty or all dashes (separator rows)
+        non_empty = [c for c in row if str(c).strip() and str(c).strip() not in ('-', '—', '–', '---')]
+        if len(non_empty) < 2:
+            continue
+
+        # Get description
+        desc = ''
+        if desc_col is not None and desc_col < len(row):
+            desc = str(row[desc_col]).strip()
+        if not desc or len(desc) < 2:
+            # Try to find the longest text cell in the row as fallback
+            best_text = ''
+            for ci, cell in enumerate(row):
+                cell_str = str(cell).strip()
+                if ci != amount_col and ci != qty_col and ci != unit_price_col:
+                    if len(cell_str) > len(best_text) and sum(1 for c in cell_str if c.isalpha()) > 2:
+                        best_text = cell_str
+            desc = best_text
+        if not desc or len(desc) < 2:
+            continue
+
+        # Get amount
+        amount_val = row[amount_col] if amount_col < len(row) else None
+        amount = _cell_to_float(amount_val)
+        if amount is None or amount == 0:
+            continue
+
+        # Build raw string
+        amount_str = str(amount_val).strip() if amount_val is not None else ''
+        if DOLLAR_PATTERN.search(amount_str):
+            amount_raw = DOLLAR_PATTERN.search(amount_str).group()
+        else:
+            amount_raw = f'${amount:,.2f}'
+
+        # Optional fields
+        qty = None
+        if qty_col is not None and qty_col < len(row):
+            qty = _cell_to_float(row[qty_col])
+
+        unit_price = None
+        if unit_price_col is not None and unit_price_col < len(row):
+            unit_price = _cell_to_float(row[unit_price_col])
+
+        item = LineItem(
+            description=desc,
+            amount=amount,
+            amount_raw=amount_raw,
+            quantity=qty,
+            unit_price=unit_price,
+            category=classify_line_item(desc),
+            row_index=row_idx,
+            table_index=table.table_index,
+            source_sheet=table.source,
+            confidence=0.8,  # Lower confidence for inferred columns
         )
         items.append(item)
 
@@ -717,149 +987,245 @@ def parse_docx(filepath: str) -> ProposalData:
 # ──────────────────────────────────────────────
 
 def parse_pdf(filepath: str) -> ProposalData:
-    """Parse a PDF file for proposal financial data."""
+    """Parse a PDF file for proposal financial data.
+
+    Extraction strategy (best to worst):
+    1. EnhancedTableExtractor (camelot lattice → camelot stream → tabula → pdfplumber)
+    2. pymupdf4llm Markdown tables + fitz find_tables() (legacy fallback)
+    3. pdfplumber text + inline dollar extraction (final fallback)
+    """
     proposal = ProposalData(
         filename=os.path.basename(filepath),
         filepath=filepath,
         file_type='pdf',
     )
 
-    # Try pymupdf4llm first (better table extraction)
+    full_text = ''  # For company/date extraction
+
+    # ── Strategy 1: EnhancedTableExtractor (primary — best accuracy) ──
+    enhanced_success = False
     try:
-        import pymupdf4llm
-        import fitz
+        import sys
+        # enhanced_table_extractor.py lives in the project root
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if project_root not in sys.path:
+            sys.path.insert(0, project_root)
 
-        doc = fitz.open(filepath)
-        proposal.page_count = len(doc)
+        from enhanced_table_extractor import EnhancedTableExtractor, ExtractionResult as ETResult
 
-        # Get full text via pymupdf4llm (Markdown with tables)
-        md_text = pymupdf4llm.to_markdown(filepath)
+        logger.debug(f'[AEGIS ProposalParser] Trying EnhancedTableExtractor for {os.path.basename(filepath)}')
+        extractor = EnhancedTableExtractor(prefer_accuracy=True)
+        et_result = extractor.extract_tables(filepath)
 
-        # Extract tables from Markdown
-        tables = _extract_tables_from_markdown(md_text)
+        proposal.page_count = et_result.total_pages
 
-        for tbl_idx, (headers, rows) in enumerate(tables):
-            ext_table = ExtractedTable(
-                headers=headers,
-                rows=rows,
-                source=f'Page (Markdown)',
-                table_index=tbl_idx,
+        if et_result.tables:
+            enhanced_success = True
+            extraction_method = et_result.extraction_method
+            proposal.extraction_notes.append(
+                f'EnhancedTableExtractor: {len(et_result.tables)} tables via {extraction_method} '
+                f'({et_result.extraction_time_ms:.0f}ms)'
             )
-            ext_table.has_financial_data = is_financial_table(headers, rows)
-            total_idx, total_amount = find_total_row(rows)
-            ext_table.total_row_index = total_idx
 
-            proposal.tables.append(ext_table)
+            for et in et_result.tables:
+                ext_table = ExtractedTable(
+                    headers=et.headers,
+                    rows=et.rows,
+                    source=f'Page {et.page} ({et.source})',
+                    table_index=et.index,
+                )
 
-            if ext_table.has_financial_data:
-                items = extract_line_items_from_table(ext_table)
-                proposal.line_items.extend(items)
+                # Check if financial
+                ext_table.has_financial_data = is_financial_table(et.headers, et.rows)
 
-                if total_amount is not None and (proposal.total_amount is None or total_amount > (proposal.total_amount or 0)):
-                    proposal.total_amount = total_amount
-                    proposal.total_raw = f'${total_amount:,.2f}'
+                # Also check via data patterns for headerless tables
+                if not ext_table.has_financial_data and _headers_are_generic(et.headers):
+                    # Check if rows contain dollar amounts
+                    dollar_cell_count = 0
+                    total_cells = 0
+                    for row in et.rows[:10]:
+                        for cell in row:
+                            total_cells += 1
+                            if DOLLAR_PATTERN.search(str(cell)):
+                                dollar_cell_count += 1
+                    if total_cells > 0 and dollar_cell_count / total_cells > 0.1:
+                        ext_table.has_financial_data = True
 
-        # Also try fitz table extraction for better accuracy
-        for page_num in range(len(doc)):
-            page = doc[page_num]
-            page_tables = page.find_tables()
-            if page_tables and page_tables.tables:
-                for ft_idx, ft in enumerate(page_tables.tables):
-                    try:
-                        extracted = ft.extract()
-                        if not extracted or len(extracted) < 2:
-                            continue
+                # Find total row
+                total_idx, total_amount = find_total_row(et.rows)
+                ext_table.total_row_index = total_idx
 
-                        headers = [str(c) if c else '' for c in extracted[0]]
-                        rows = [[str(c) if c else '' for c in r] for r in extracted[1:]]
-                        rows = [r for r in rows if any(c.strip() for c in r)]
+                proposal.tables.append(ext_table)
 
-                        if not rows:
-                            continue
+                if ext_table.has_financial_data:
+                    items = extract_line_items_from_table(ext_table)
+                    proposal.line_items.extend(items)
+                    logger.debug(f'[AEGIS ProposalParser] Table {et.index} ({et.source}): '
+                                 f'{len(items)} line items, headers_generic={_headers_are_generic(et.headers)}')
 
-                        # Check if we already have this table (from markdown)
-                        # Simple dedup: skip if headers match an existing table
-                        h_key = '|'.join(h.strip().lower() for h in headers if h.strip())
-                        existing_keys = set()
-                        for et in proposal.tables:
-                            existing_keys.add('|'.join(h.strip().lower() for h in et.headers if h.strip()))
+                    if total_amount is not None and (proposal.total_amount is None or total_amount > (proposal.total_amount or 0)):
+                        proposal.total_amount = total_amount
+                        proposal.total_raw = f'${total_amount:,.2f}'
 
-                        if h_key in existing_keys:
-                            continue
+            if et_result.warnings:
+                for w in et_result.warnings:
+                    proposal.extraction_notes.append(f'Warning: {w}')
 
-                        tbl_index = len(proposal.tables)
-                        ext_table = ExtractedTable(
-                            headers=headers,
-                            rows=rows,
-                            source=f'Page {page_num + 1}',
-                            table_index=tbl_index,
-                        )
-                        ext_table.has_financial_data = is_financial_table(headers, rows)
-                        total_idx, total_amount = find_total_row(rows)
-                        ext_table.total_row_index = total_idx
+        else:
+            proposal.extraction_notes.append('EnhancedTableExtractor found no tables')
 
-                        proposal.tables.append(ext_table)
+    except ImportError as ie:
+        proposal.extraction_notes.append(f'EnhancedTableExtractor not available: {ie}')
+        logger.debug(f'[AEGIS ProposalParser] EnhancedTableExtractor import failed: {ie}')
+    except Exception as e:
+        proposal.extraction_notes.append(f'EnhancedTableExtractor error: {e}')
+        logger.warning(f'[AEGIS ProposalParser] EnhancedTableExtractor failed: {e}', exc_info=True)
 
-                        if ext_table.has_financial_data:
-                            items = extract_line_items_from_table(ext_table)
-                            proposal.line_items.extend(items)
-
-                            if total_amount is not None and (proposal.total_amount is None or total_amount > (proposal.total_amount or 0)):
-                                proposal.total_amount = total_amount
-                                proposal.total_raw = f'${total_amount:,.2f}'
-                    except Exception:
-                        continue
-
-        doc.close()
-
-        # Company and date from text
-        plain_text = re.sub(r'[#*|_\-]+', ' ', md_text)
-        if not proposal.company_name:
-            proposal.company_name = extract_company_from_text(plain_text)
-        if not proposal.date:
-            proposal.date = extract_dates_from_text(plain_text)
-
-    except ImportError:
-        proposal.extraction_notes.append('pymupdf4llm not available — limited PDF extraction')
-        # Fallback to basic fitz text extraction
+    # ── Strategy 2: pymupdf4llm + fitz (fallback if enhanced found nothing) ──
+    if not proposal.line_items:
         try:
+            import pymupdf4llm
             import fitz
-            doc = fitz.open(filepath)
-            proposal.page_count = len(doc)
 
-            full_text = ''
-            for page in doc:
-                full_text += page.get_text() + '\n'
+            doc = fitz.open(filepath)
+            if not proposal.page_count:
+                proposal.page_count = len(doc)
+
+            # Get full text via pymupdf4llm (Markdown with tables)
+            md_text = pymupdf4llm.to_markdown(filepath)
+            full_text = re.sub(r'[#*|_\-]+', ' ', md_text)
+
+            # Extract tables from Markdown
+            tables = _extract_tables_from_markdown(md_text)
+
+            if tables:
+                proposal.extraction_notes.append(f'pymupdf4llm fallback: {len(tables)} Markdown tables')
+
+            for tbl_idx, (headers, rows) in enumerate(tables):
+                tbl_index = len(proposal.tables)
+                ext_table = ExtractedTable(
+                    headers=headers,
+                    rows=rows,
+                    source=f'Page (Markdown)',
+                    table_index=tbl_index,
+                )
+                ext_table.has_financial_data = is_financial_table(headers, rows)
+                total_idx, total_amount = find_total_row(rows)
+                ext_table.total_row_index = total_idx
+
+                proposal.tables.append(ext_table)
+
+                if ext_table.has_financial_data:
+                    items = extract_line_items_from_table(ext_table)
+                    proposal.line_items.extend(items)
+
+                    if total_amount is not None and (proposal.total_amount is None or total_amount > (proposal.total_amount or 0)):
+                        proposal.total_amount = total_amount
+                        proposal.total_raw = f'${total_amount:,.2f}'
+
+            # Also try fitz table extraction
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+                page_tables = page.find_tables()
+                if page_tables and page_tables.tables:
+                    for ft_idx, ft in enumerate(page_tables.tables):
+                        try:
+                            extracted = ft.extract()
+                            if not extracted or len(extracted) < 2:
+                                continue
+
+                            headers = [str(c) if c else '' for c in extracted[0]]
+                            rows = [[str(c) if c else '' for c in r] for r in extracted[1:]]
+                            rows = [r for r in rows if any(c.strip() for c in r)]
+
+                            if not rows:
+                                continue
+
+                            # Dedup check
+                            h_key = '|'.join(h.strip().lower() for h in headers if h.strip())
+                            existing_keys = set()
+                            for et in proposal.tables:
+                                existing_keys.add('|'.join(h.strip().lower() for h in et.headers if h.strip()))
+                            if h_key in existing_keys:
+                                continue
+
+                            tbl_index = len(proposal.tables)
+                            ext_table = ExtractedTable(
+                                headers=headers,
+                                rows=rows,
+                                source=f'Page {page_num + 1}',
+                                table_index=tbl_index,
+                            )
+                            ext_table.has_financial_data = is_financial_table(headers, rows)
+                            total_idx, total_amount = find_total_row(rows)
+                            ext_table.total_row_index = total_idx
+
+                            proposal.tables.append(ext_table)
+
+                            if ext_table.has_financial_data:
+                                items = extract_line_items_from_table(ext_table)
+                                proposal.line_items.extend(items)
+
+                                if total_amount is not None and (proposal.total_amount is None or total_amount > (proposal.total_amount or 0)):
+                                    proposal.total_amount = total_amount
+                                    proposal.total_raw = f'${total_amount:,.2f}'
+                        except Exception:
+                            continue
+
             doc.close()
 
-            # Extract inline dollar amounts
-            for match in DOLLAR_PATTERN.finditer(full_text):
-                amount = parse_dollar_amount(match.group())
-                if amount and amount > 100:
-                    start = max(0, match.start() - 80)
-                    end = min(len(full_text), match.end() + 40)
-                    context = full_text[start:end].replace('\n', ' ').strip()
-                    proposal.line_items.append(LineItem(
-                        description=context,
-                        amount=amount,
-                        amount_raw=match.group(),
-                        category=classify_line_item(context),
-                        source_sheet='PDF Text',
-                        confidence=0.5,
-                    ))
-
-            if not proposal.company_name:
-                proposal.company_name = extract_company_from_text(full_text)
-            if not proposal.date:
-                proposal.date = extract_dates_from_text(full_text)
-
         except ImportError:
-            proposal.extraction_notes.append('No PDF library available')
-    except Exception as e:
-        proposal.extraction_notes.append(f'PDF parsing error: {e}')
-        logger.error(f'PDF parsing error for {filepath}: {e}', exc_info=True)
+            proposal.extraction_notes.append('pymupdf4llm not available')
+        except Exception as e:
+            proposal.extraction_notes.append(f'pymupdf4llm fallback error: {e}')
+            logger.warning(f'[AEGIS ProposalParser] pymupdf4llm fallback failed: {e}')
 
-    # Total
+    # ── Strategy 3: pdfplumber text extraction (for company/date + inline amounts) ──
+    if not full_text:
+        try:
+            import pdfplumber
+            with pdfplumber.open(filepath) as pdf:
+                if not proposal.page_count:
+                    proposal.page_count = len(pdf.pages)
+                text_parts = []
+                for page in pdf.pages[:10]:
+                    text = page.extract_text()
+                    if text:
+                        text_parts.append(text)
+                full_text = '\n'.join(text_parts)
+                if full_text:
+                    proposal.extraction_notes.append('pdfplumber text extraction for metadata')
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.debug(f'[AEGIS ProposalParser] pdfplumber text extraction failed: {e}')
+
+    # ── Final fallback: inline dollar amounts from text if no tables extracted ──
+    if not proposal.line_items and full_text:
+        proposal.extraction_notes.append('No tables found — extracting inline dollar amounts from text')
+        for match in DOLLAR_PATTERN.finditer(full_text):
+            amount = parse_dollar_amount(match.group())
+            if amount and amount > 100:
+                start = max(0, match.start() - 80)
+                end = min(len(full_text), match.end() + 40)
+                context = full_text[start:end].replace('\n', ' ').strip()
+                proposal.line_items.append(LineItem(
+                    description=context,
+                    amount=amount,
+                    amount_raw=match.group(),
+                    category=classify_line_item(context),
+                    source_sheet='PDF Text',
+                    confidence=0.4,
+                ))
+
+    # ── Extract company name and date ──
+    if full_text:
+        if not proposal.company_name:
+            proposal.company_name = extract_company_from_text(full_text)
+        if not proposal.date:
+            proposal.date = extract_dates_from_text(full_text)
+
+    # ── Compute total ──
     if proposal.total_amount is None and proposal.line_items:
         proposal.total_amount = sum(li.amount for li in proposal.line_items if li.amount)
         proposal.total_raw = f'${proposal.total_amount:,.2f}'

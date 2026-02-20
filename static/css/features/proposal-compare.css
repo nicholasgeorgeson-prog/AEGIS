@@ -844,18 +844,23 @@
 .pc-project-prop-item {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 8px;
     padding: 5px 0;
     border-bottom: 1px solid rgba(33, 150, 83, 0.1);
 }
 
-.pc-project-prop-item:last-child {
-    border-bottom: none;
-}
-
 .pc-project-prop-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-size: 13px;
     color: var(--text-primary, #333);
+}
+
+.pc-project-prop-item:last-child {
+    border-bottom: none;
 }
 
 .pc-project-prop-total {
@@ -863,6 +868,30 @@
     font-weight: 600;
     color: var(--text-secondary, #666);
     font-variant-numeric: tabular-nums;
+}
+
+.pc-prop-delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    color: var(--text-tertiary, #999);
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s, background 0.15s;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    margin-left: 8px;
+}
+
+.pc-project-prop-item:hover .pc-prop-delete-btn {
+    opacity: 1;
+}
+
+.pc-prop-delete-btn:hover {
+    color: #E53E3E;
+    background: rgba(229, 62, 62, 0.1);
 }
 
 /* ── Executive Summary ────────────────── */
@@ -1349,6 +1378,165 @@
     width: 100% !important;
 }
 
+/* ── Comparison Filters & Sort ────────── */
+
+.pc-comp-filters {
+    margin-bottom: 12px;
+}
+
+.pc-comp-filter-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.pc-comp-filter-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary, #666);
+}
+
+.pc-comp-filter-cat,
+.pc-comp-filter-var {
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color, #ddd);
+    background: var(--bg-primary, #fff);
+    color: var(--text-primary, #333);
+    cursor: pointer;
+}
+
+.pc-comp-count {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--text-secondary, #666);
+    font-variant-numeric: tabular-nums;
+}
+
+.pc-sortable {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.pc-sortable:hover {
+    background: var(--bg-surface, #f5f5f5);
+}
+
+.pc-sort-icon {
+    font-size: 10px;
+    opacity: 0.3;
+    margin-left: 2px;
+}
+
+.pc-sort-icon.pc-sort-active {
+    opacity: 1;
+    color: #D6A84A;
+}
+
+/* ── Weight Sliders ──────────────────── */
+
+.pc-weight-panel {
+    background: var(--bg-primary, #fff);
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.pc-weight-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary, #333);
+}
+
+.pc-weight-total {
+    margin-left: auto;
+    font-weight: 700;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+
+.pc-weight-reset {
+    background: transparent;
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-size: 11px;
+    color: var(--text-secondary, #666);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.pc-weight-reset:hover {
+    background: var(--bg-surface, #f5f5f5);
+    color: var(--text-primary, #333);
+}
+
+.pc-weight-sliders {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 24px;
+}
+
+@media (max-width: 700px) {
+    .pc-weight-sliders { grid-template-columns: 1fr; }
+}
+
+.pc-weight-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pc-weight-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary, #333);
+    min-width: 90px;
+}
+
+.pc-weight-slider {
+    flex: 1;
+    height: 6px;
+    cursor: pointer;
+}
+
+.pc-weight-value {
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    min-width: 36px;
+    text-align: right;
+    color: var(--text-primary, #333);
+}
+
+/* ── Chart Grid ─────────────────────── */
+
+.pc-scores-charts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.pc-scores-charts .pc-chart-container {
+    margin-bottom: 0;
+    min-height: 320px;
+}
+
+@media (max-width: 960px) {
+    .pc-scores-charts {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* ── Raw Tables ───────────────────────── */
 
 .pc-raw-table-title {
@@ -1532,7 +1720,91 @@
     border-color: #30363d;
 }
 
+[data-theme="dark"] .pc-comp-filter-cat,
+.dark-mode .pc-comp-filter-cat,
+[data-theme="dark"] .pc-comp-filter-var,
+.dark-mode .pc-comp-filter-var {
+    background: #161b22;
+    border-color: #30363d;
+    color: var(--text-primary, #e6edf3);
+}
+
+[data-theme="dark"] .pc-sortable:hover,
+.dark-mode .pc-sortable:hover {
+    background: #161b22;
+}
+
+[data-theme="dark"] .pc-weight-panel,
+.dark-mode .pc-weight-panel {
+    background: var(--bg-primary, #0d1117);
+    border-color: #30363d;
+}
+
+[data-theme="dark"] .pc-weight-reset,
+.dark-mode .pc-weight-reset {
+    border-color: #30363d;
+    color: var(--text-secondary, #8b949e);
+}
+
+[data-theme="dark"] .pc-weight-reset:hover,
+.dark-mode .pc-weight-reset:hover {
+    background: #21262d;
+    color: var(--text-primary, #e6edf3);
+}
+
 [data-theme="dark"] .pc-notes,
 .dark-mode .pc-notes {
     background: rgba(214, 168, 74, 0.08);
+}
+
+/* ── Print Styles ────────────────────── */
+
+@media print {
+    .pc-modal {
+        position: static !important;
+        overflow: visible !important;
+        height: auto !important;
+        z-index: auto !important;
+        background: #fff !important;
+    }
+
+    .pc-modal-body {
+        overflow: visible !important;
+        max-height: none !important;
+    }
+
+    .pc-modal-header,
+    .pc-weight-panel,
+    .pc-comp-filters,
+    .pc-chart-container,
+    .pc-upload-area,
+    .pc-project-selector,
+    .pc-tab-button,
+    .pc-tabs,
+    .pc-prop-delete-btn {
+        display: none !important;
+    }
+
+    .pc-tab-panel.active {
+        display: block !important;
+    }
+
+    .pc-table {
+        font-size: 10px;
+        break-inside: avoid;
+    }
+
+    .pc-table th,
+    .pc-table td {
+        padding: 3px 6px !important;
+        border: 1px solid #666 !important;
+    }
+
+    .pc-score-card {
+        break-inside: avoid;
+    }
+
+    .pc-exec-heroes {
+        break-after: avoid;
+    }
 }

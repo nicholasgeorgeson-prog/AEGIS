@@ -1,13 +1,32 @@
 {
-  "version": "5.9.40",
+  "version": "5.9.41",
   "release_date": "2026-02-20",
-  "core_version": "5.9.40",
+  "core_version": "5.9.41",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.41",
+      "date": "2026-02-20",
+      "changes": [
+        "ENH: PDF extraction overhaul — wired EnhancedTableExtractor (camelot/pdfplumber/tabula) as primary strategy with 3-tier fallback",
+        "ENH: Data-pattern column inference — automatically detects description/amount/qty columns when headers are missing or generic (Col1, Col2)",
+        "ENH: Expanded header keyword matching — recognizes 'Product Description', 'Your Price', 'Retail Price', 'MSRP', etc.",
+        "ENH: Radar chart in Vendor Scores tab — overlays all vendors on spider plot for at-a-glance comparison",
+        "ENH: Tornado chart in Executive Summary — horizontal bar chart showing biggest price spreads for negotiation focus",
+        "ENH: Stacked bar chart in Categories tab — shows cost structure breakdown per vendor with tooltip totals",
+        "ENH: Configurable evaluation weight sliders — drag Price/Completeness/Risk/Data Quality weights, scores recalculate in real-time",
+        "ENH: Sortable comparison table — click any column header to sort, category/variance dropdown filters, item count display",
+        "ENH: Delete proposal from project — trash icon on each proposal in project list with confirmation dialog",
+        "ENH: Enhanced red flags — identical pricing detection, missing category gaps, FAR 15.404 price reasonableness (z-score outliers)",
+        "ENH: XLSX export freeze panes + auto-filter on comparison sheet for professional Excel usability",
+        "ENH: Print CSS for Proposal Compare — hides interactive controls, optimizes table layout for paper",
+        "FIX: PDF proposals with no header rows now extract line items via data-pattern analysis"
+      ]
+    },
     {
       "version": "5.9.40",
       "date": "2026-02-20",

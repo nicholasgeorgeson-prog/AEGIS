@@ -525,6 +525,83 @@ def detect_red_flags(
                 'detail': 'Could not find an explicit total/grand total in the proposal — amounts may be incomplete',
             })
 
+    # ── Cross-vendor flags (need all vendors processed) ──
+
+    # 8. Identical Pricing (possible collusion indicator)
+    if len(prop_ids) >= 2:
+        for i in range(len(prop_ids)):
+            for j in range(i + 1, len(prop_ids)):
+                pid_a, pid_b = prop_ids[i], prop_ids[j]
+                matching_items = 0
+                total_comparable = 0
+                for ai in aligned_items:
+                    amt_a = ai.amounts.get(pid_a)
+                    amt_b = ai.amounts.get(pid_b)
+                    if amt_a is not None and amt_b is not None and amt_a > 0 and amt_b > 0:
+                        total_comparable += 1
+                        if abs(amt_a - amt_b) < 0.01:
+                            matching_items += 1
+                if total_comparable >= 3 and matching_items / total_comparable > 0.6:
+                    detail = f'{matching_items} of {total_comparable} comparable line items have identical pricing between {pid_a} and {pid_b}'
+                    flags[pid_a].append({
+                        'type': 'identical_pricing',
+                        'severity': 'warning',
+                        'title': f'Identical Pricing with {pid_b}',
+                        'detail': detail,
+                    })
+                    flags[pid_b].append({
+                        'type': 'identical_pricing',
+                        'severity': 'warning',
+                        'title': f'Identical Pricing with {pid_a}',
+                        'detail': detail,
+                    })
+
+    # 9. Missing Categories (scope gap across vendors)
+    all_categories = set()
+    vendor_categories: Dict[str, set] = {pid: set() for pid in prop_ids}
+    for ai in aligned_items:
+        cat = ai.category or 'Uncategorized'
+        all_categories.add(cat)
+        for pid in prop_ids:
+            if pid in ai.amounts and ai.amounts[pid] is not None:
+                vendor_categories[pid].add(cat)
+
+    if len(all_categories) >= 2:
+        for pid in prop_ids:
+            missing_cats = all_categories - vendor_categories[pid]
+            if missing_cats and len(missing_cats) < len(all_categories):
+                flags[pid].append({
+                    'type': 'missing_categories',
+                    'severity': 'warning' if len(missing_cats) >= 2 else 'info',
+                    'title': f'Missing {len(missing_cats)} Cost {"Categories" if len(missing_cats) > 1 else "Category"}',
+                    'detail': f'No pricing in: {", ".join(sorted(missing_cats))} — other vendors include these categories',
+                })
+
+    # 10. Price Reasonableness (FAR 15.404 inspired — statistical outlier detection)
+    import statistics
+    for ai in aligned_items:
+        valid_amounts = [a for a in ai.amounts.values() if a is not None and a > 0]
+        if len(valid_amounts) < 3:
+            continue
+        mean = statistics.mean(valid_amounts)
+        stdev = statistics.stdev(valid_amounts)
+        if stdev == 0:
+            continue
+        for pid in prop_ids:
+            amt = ai.amounts.get(pid)
+            if amt is None or amt <= 0:
+                continue
+            z_score = (amt - mean) / stdev
+            if abs(z_score) > 2.0:
+                direction = 'above' if z_score > 0 else 'below'
+                flags[pid].append({
+                    'type': 'price_reasonableness',
+                    'severity': 'warning',
+                    'title': f'Price Outlier on "{ai.description}"',
+                    'detail': f'${amt:,.0f} is {abs(z_score):.1f} standard deviations {direction} the mean (${mean:,.0f}) — requires justification per FAR 15.404',
+                    'line_item': ai.description,
+                })
+
     return flags
 
 

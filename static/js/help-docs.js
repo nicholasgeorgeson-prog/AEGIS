@@ -5161,7 +5161,7 @@ HelpDocs.content['pc-uploading'] = {
 <ol>
     <li><strong>Excel files</strong> — All sheets scanned for tables with financial data (dollar amounts, quantity columns)</li>
     <li><strong>Word files</strong> — Tables extracted via python-docx, text scanned for dollar amounts and company names</li>
-    <li><strong>PDF files</strong> — Tables extracted via markdown conversion, text scanned for financial patterns</li>
+    <li><strong>PDF files</strong> — Multi-strategy table extraction via EnhancedTableExtractor (camelot, pdfplumber, tabula) with data-pattern column inference for headerless tables</li>
 </ol>
 <p>Per-file status indicators show success or failure. Files that fail extraction can be removed and re-uploaded.</p>
 
@@ -5207,6 +5207,15 @@ HelpDocs.content['pc-comparison'] = {
 <h2><i data-lucide="percent"></i> Variance Column</h2>
 <p>The rightmost column shows variance percentage — the spread between the lowest and highest amounts for each line item. Higher variance indicates greater disagreement between vendors on that cost.</p>
 
+<h2><i data-lucide="arrow-up-down"></i> Sort & Filter</h2>
+<p>The comparison table is fully interactive:</p>
+<ul>
+    <li><strong>Sort by any column</strong> — Click any column header to sort ascending/descending. Sort by description, any vendor's amounts, or variance percentage</li>
+    <li><strong>Filter by category</strong> — Use the category dropdown to show only Labor, Material, Travel, etc.</li>
+    <li><strong>Filter by variance</strong> — Show only items with variance above a threshold (10%, 20%, or 50%) to focus on biggest price differences</li>
+    <li><strong>Item count</strong> — The filter bar shows how many items match the current filters</li>
+</ul>
+
 <h2><i data-lucide="layout-grid"></i> Result Tabs</h2>
 <table class="help-table">
     <thead><tr><th>Tab</th><th>Shows</th></tr></thead>
@@ -5233,6 +5242,7 @@ HelpDocs.content['pc-analytics'] = {
     html: `
 <h2><i data-lucide="trophy"></i> Executive Summary</h2>
 <p>The first tab shown after comparison. Displays hero stat cards (line items compared, vendor count, red flags, potential savings), price ranking with gold/silver/bronze medals, overall score ranking, key findings with severity badges, and a negotiation opportunities table.</p>
+<p>A <strong>tornado chart</strong> visualizes the biggest price spreads across vendors — horizontal bars sorted by spread, colored by variance intensity (red &gt;50%, orange &gt;25%, gold default). This highlights where negotiation effort will have the greatest financial impact.</p>
 
 <h2><i data-lucide="shield-alert"></i> Red Flags</h2>
 <p>Automated risk checks run on each vendor's data. Flags are categorized by severity:</p>
@@ -5244,6 +5254,7 @@ HelpDocs.content['pc-analytics'] = {
         <tr><td><span style="color:#2196f3;font-weight:700">INFO</span></td><td>Observations and data quality notes for awareness</td></tr>
     </tbody>
 </table>
+<p>Red flag checks include: rate anomalies, missing data, cost outliers, <strong>identical pricing</strong> between vendors (possible collusion indicator), <strong>missing categories</strong> (scope gaps where a vendor omits entire cost categories others include), and <strong>FAR 15.404 price reasonableness</strong> (statistical z-score outliers more than 2 standard deviations from the group mean).</p>
 
 <h2><i data-lucide="grid-3x3"></i> Heatmap</h2>
 <p>A color-coded table showing how each vendor's line item amounts deviate from the group average. Colors range from dark green (significantly below average) through neutral (within 5%) to red (significantly above average). Grey cells indicate missing data.</p>
@@ -5259,7 +5270,16 @@ HelpDocs.content['pc-analytics'] = {
         <tr><td><strong>Data Quality</strong></td><td>10%</td><td>Extraction confidence and data consistency</td></tr>
     </tbody>
 </table>
-<p>If Chart.js is loaded, a grouped bar chart shows component scores for all vendors side by side.</p>
+<p>If Chart.js is loaded, a radar/spider chart overlays all vendors on one plot and a grouped bar chart shows component scores side by side.</p>
+
+<h2><i data-lucide="sliders-horizontal"></i> Evaluation Weight Sliders</h2>
+<p>Below the vendor score cards, four sliders let you adjust the evaluation weights in real-time:</p>
+<ul>
+    <li>Drag any slider to change its weight (0-100% in 5% increments)</li>
+    <li>The total display turns green at 100% and red otherwise</li>
+    <li>Vendor scores, letter grades, and rankings recalculate instantly as you adjust</li>
+    <li>Click <strong>Reset</strong> to restore the default weights (Price 40%, Completeness 25%, Risk 25%, Data Quality 10%)</li>
+</ul>
 
 <h2><i data-lucide="folder-open"></i> Project Management</h2>
 <p>On the upload screen, use the project selector to group proposals into named projects. Create a new project with the folder-plus button. When a project is selected, its existing proposals are shown below the selector and count toward the comparison minimum (2 proposals). This lets you add new proposals to a previous comparison session.</p>
@@ -5295,6 +5315,8 @@ HelpDocs.content['pc-export'] = {
     <li>Variance percentage column</li>
     <li>Grand total row with AEGIS gold branding</li>
     <li>Proper currency formatting ($#,##0.00)</li>
+    <li><strong>Frozen panes</strong> — Headers and description column stay visible while scrolling</li>
+    <li><strong>Auto-filter</strong> — Excel dropdown filters on all header columns for quick filtering</li>
 </ul>
 
 <h3>Sheet 2: Category Summary</h3>
@@ -7660,6 +7682,22 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.9.41 <span class="changelog-date">February 20, 2026</span></h3>
+        <p><strong>Proposal Compare Advanced Analytics &amp; Visualizations</strong></p>
+        <ul>
+            <li><strong>ENH: PDF extraction overhaul</strong> — Wired EnhancedTableExtractor (camelot/pdfplumber/tabula) as primary strategy with 3-tier fallback and data-pattern column inference for headerless tables</li>
+            <li><strong>ENH: Radar chart</strong> — Spider plot in Vendor Scores tab overlaying all vendors for at-a-glance strength/weakness comparison</li>
+            <li><strong>ENH: Tornado chart</strong> — Horizontal bar chart in Executive Summary showing biggest price spreads for negotiation focus</li>
+            <li><strong>ENH: Stacked bar chart</strong> — Categories tab shows cost structure breakdown per vendor with tooltip totals</li>
+            <li><strong>ENH: Weight sliders</strong> — Drag Price/Completeness/Risk/Data Quality evaluation weights and vendor scores recalculate in real-time</li>
+            <li><strong>ENH: Sort &amp; filter</strong> — Comparison table supports column sorting, category filter, and variance threshold filter (10%/20%/50%)</li>
+            <li><strong>ENH: Enhanced red flags</strong> — Identical pricing detection, missing category gaps, and FAR 15.404 price reasonableness (z-score outliers)</li>
+            <li><strong>ENH: XLSX freeze panes</strong> — Exported comparison sheet has frozen headers and auto-filter for professional Excel experience</li>
+            <li><strong>ENH: Print CSS</strong> — Proposal Compare results optimized for paper output</li>
+            <li><strong>ENH: Delete proposal</strong> — Remove individual proposals from projects with confirmation dialog</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.9.40 <span class="changelog-date">February 20, 2026</span></h3>
         <p><strong>Proposal Compare v2.0 + Bug Fixes</strong></p>
         <ul>

@@ -523,6 +523,12 @@ def export_comparison():
             ws.column_dimensions[col_letter].width = 20
         ws.column_dimensions[openpyxl.utils.get_column_letter(variance_col)].width = 12
 
+        # Freeze panes (freeze row 3 header + column A)
+        ws.freeze_panes = 'C4'
+        # Auto-filter on header row
+        last_col = openpyxl.utils.get_column_letter(variance_col)
+        ws.auto_filter.ref = f'A3:{last_col}{row_num}'
+
         # ── Sheet 3: Red Flags ──
         ws3 = wb.create_sheet('Red Flags')
         rf_headers = ['Vendor', 'Severity', 'Flag Type', 'Title', 'Detail']

@@ -398,15 +398,50 @@ window.ProposalCompare = (function() {
             ' already in project</div>';
 
         for (const p of State.projectProposals) {
-            html += '<div class="pc-project-prop-item">' +
+            html += '<div class="pc-project-prop-item" data-proposal-id="' + (p.id || '') + '">' +
                 '<span class="pc-project-prop-name">' + escHtml(p.company_name || p.filename) + '</span>' +
                 '<span class="pc-project-prop-total">' + (p.total_raw || '\u2014') + '</span>' +
+                (p.id ? '<button class="pc-prop-delete-btn" data-pid="' + p.id + '" title="Remove from project">' +
+                    '<i data-lucide="trash-2" style="width:14px;height:14px"></i></button>' : '') +
             '</div>';
         }
         html += '</div>';
 
         listEl.innerHTML = html;
         if (window.lucide) window.lucide.createIcons();
+
+        // Wire delete buttons
+        listEl.querySelectorAll('.pc-prop-delete-btn').forEach(function(btn) {
+            btn.addEventListener('click', async function(e) {
+                e.stopPropagation();
+                var pid = parseInt(this.getAttribute('data-pid'));
+                if (!pid) return;
+
+                var propName = this.closest('.pc-project-prop-item')
+                    ?.querySelector('.pc-project-prop-name')?.textContent || 'this proposal';
+
+                if (!confirm('Remove "' + propName + '" from this project?')) return;
+
+                try {
+                    var resp = await fetch('/api/proposal-compare/proposals/' + pid, {
+                        method: 'DELETE',
+                        headers: { 'X-CSRF-Token': getCSRF() },
+                    });
+                    var result = await resp.json();
+                    if (result.success) {
+                        if (window.showToast) window.showToast('Proposal removed', 'success');
+                        // Refresh the list
+                        await fetchProjectProposals(State.selectedProjectId);
+                        renderProjectProposalsList();
+                    } else {
+                        if (window.showToast) window.showToast(result.error?.message || 'Failed to remove', 'error');
+                    }
+                } catch (err) {
+                    console.error('[AEGIS ProposalCompare] Delete proposal error:', err);
+                    if (window.showToast) window.showToast('Failed to remove proposal', 'error');
+                }
+            });
+        });
     }
 
     // ──────────────────────────────────────────
@@ -959,6 +994,12 @@ window.ProposalCompare = (function() {
         if (negot.length > 0) {
             html += '<div class="pc-exec-section">';
             html += '<h4 class="pc-exec-section-title"><i data-lucide="handshake" style="width:16px;height:16px;color:#D6A84A"></i> Top Negotiation Opportunities</h4>';
+
+            // Tornado chart — shows line items with largest price spread
+            html += '<div class="pc-chart-container" id="pc-chart-tornado-wrap">' +
+                '<canvas id="pc-chart-tornado" height="280"></canvas>' +
+            '</div>';
+
             html += '<div class="pc-table-wrap"><table class="pc-table">';
             html += '<thead><tr>' +
                 '<th>Vendor</th><th>Line Item</th><th>Current</th><th>Average</th><th>Potential Savings</th><th>Variance</th>' +
@@ -977,8 +1018,23 @@ window.ProposalCompare = (function() {
             html += '</div>';
         }
 
+        // ── Price Spread / Tornado Chart (from aligned items) ──
+        var aligned = cmp.aligned_items || [];
+        if (aligned.length > 0 && negot.length === 0) {
+            // If no negotiation opportunities computed, show tornado from aligned items
+            html += '<div class="pc-exec-section">';
+            html += '<h4 class="pc-exec-section-title"><i data-lucide="bar-chart-horizontal" style="width:16px;height:16px;color:#D6A84A"></i> Price Spread Analysis</h4>';
+            html += '<div class="pc-chart-container" id="pc-chart-tornado-wrap">' +
+                '<canvas id="pc-chart-tornado" height="280"></canvas>' +
+            '</div>';
+            html += '</div>';
+        }
+
         panel.innerHTML = html;
         if (window.lucide) window.lucide.createIcons();
+
+        // Render tornado chart
+        renderTornadoChart(cmp);
     }
 
     function renderHeroCard(icon, value, label, color) {
@@ -989,6 +1045,265 @@ window.ProposalCompare = (function() {
             '<div class="pc-exec-hero-value">' + value + '</div>' +
             '<div class="pc-exec-hero-label">' + label + '</div>' +
         '</div>';
+    }
+
+    // ──────────────────────────────────────────
+    // Weight Sliders (Phase 3.1)
+    // ──────────────────────────────────────────
+
+    function renderWeightSlider(key, label, value, color) {
+        return '<div class="pc-weight-row">' +
+            '<label class="pc-weight-label">' + label + '</label>' +
+            '<input type="range" class="pc-weight-slider" id="pc-wt-' + key + '" ' +
+                'min="0" max="100" step="5" value="' + value + '" ' +
+                'style="accent-color:' + color + '">' +
+            '<span class="pc-weight-value" id="pc-wt-val-' + key + '">' + value + '%</span>' +
+        '</div>';
+    }
+
+    function wireWeightSliders(propIds, cmp, scores) {
+        var defaults = { price: 40, completeness: 25, risk: 25, data_quality: 10 };
+        if (!State._weights) State._weights = Object.assign({}, defaults);
+
+        var keys = ['price', 'completeness', 'risk', 'data_quality'];
+        var scoreKeys = ['price_score', 'completeness_score', 'risk_score', 'data_quality_score'];
+        var _debounceTimer = null;
+
+        function updateTotal() {
+            var total = 0;
+            keys.forEach(function(k) { total += State._weights[k]; });
+            var el = document.getElementById('pc-weight-total');
+            if (el) {
+                el.textContent = total + '%';
+                el.style.color = total === 100 ? 'var(--success, #219653)' : '#f44336';
+            }
+        }
+
+        function recalcScores() {
+            var w = State._weights;
+            var totalW = w.price + w.completeness + w.risk + w.data_quality;
+            if (totalW <= 0) return;
+
+            // Recalculate overall scores with new weights
+            for (var i = 0; i < propIds.length; i++) {
+                var pid = propIds[i];
+                var vs = scores[pid];
+                if (!vs) continue;
+
+                vs.overall = Math.round(
+                    (vs.price_score * w.price +
+                     vs.completeness_score * w.completeness +
+                     vs.risk_score * w.risk +
+                     vs.data_quality_score * w.data_quality) / totalW
+                );
+
+                // Recalc grade
+                if (vs.overall >= 90) vs.grade = 'A';
+                else if (vs.overall >= 80) vs.grade = 'B';
+                else if (vs.overall >= 70) vs.grade = 'C';
+                else if (vs.overall >= 60) vs.grade = 'D';
+                else vs.grade = 'F';
+            }
+
+            // Update score cards in-place (don't re-render entire tab)
+            propIds.forEach(function(pid) {
+                var vs = scores[pid];
+                if (!vs) return;
+                var gc = gradeColor(vs.grade);
+
+                // Update overall number
+                var panel = document.getElementById('pc-panel-scores');
+                if (!panel) return;
+                var cards = panel.querySelectorAll('.pc-score-card');
+                cards.forEach(function(card) {
+                    var vendorEl = card.querySelector('.pc-score-vendor');
+                    if (!vendorEl || vendorEl.textContent !== pid) return;
+                    var numEl = card.querySelector('.pc-score-num');
+                    if (numEl) numEl.textContent = vs.overall;
+                    var gradeEl = card.querySelector('.pc-score-grade');
+                    if (gradeEl) {
+                        gradeEl.textContent = vs.grade;
+                        gradeEl.style.background = gc;
+                    }
+                    var circleEl = card.querySelector('.pc-score-circle');
+                    if (circleEl) circleEl.style.borderColor = gc;
+                });
+            });
+
+            // Rebuild charts with new scores
+            destroyChartById('pc-chart-radar');
+            destroyChartById('pc-chart-scores');
+            renderRadarChart(propIds, scores);
+            renderScoresChart(propIds, scores);
+        }
+
+        function destroyChartById(canvasId) {
+            var canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            var chartInstance = Chart.getChart(canvas);
+            if (chartInstance) {
+                chartInstance.destroy();
+                var idx = State._charts.indexOf(chartInstance);
+                if (idx >= 0) State._charts.splice(idx, 1);
+            }
+        }
+
+        keys.forEach(function(key) {
+            var slider = document.getElementById('pc-wt-' + key);
+            if (!slider) return;
+
+            slider.addEventListener('input', function() {
+                var val = parseInt(this.value, 10);
+                State._weights[key] = val;
+                var valEl = document.getElementById('pc-wt-val-' + key);
+                if (valEl) valEl.textContent = val + '%';
+                updateTotal();
+
+                // Debounce recalc
+                clearTimeout(_debounceTimer);
+                _debounceTimer = setTimeout(recalcScores, 200);
+            });
+        });
+
+        var resetBtn = document.getElementById('pc-weight-reset');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', function() {
+                State._weights = Object.assign({}, defaults);
+                keys.forEach(function(key) {
+                    var slider = document.getElementById('pc-wt-' + key);
+                    if (slider) slider.value = defaults[key];
+                    var valEl = document.getElementById('pc-wt-val-' + key);
+                    if (valEl) valEl.textContent = defaults[key] + '%';
+                });
+                updateTotal();
+                recalcScores();
+            });
+        }
+
+        updateTotal();
+    }
+
+    // ──────────────────────────────────────────
+    // Chart: Tornado (Negotiation Impact)
+    // ──────────────────────────────────────────
+
+    function renderTornadoChart(cmp) {
+        if (!window.Chart) return;
+        var canvas = document.getElementById('pc-chart-tornado');
+        if (!canvas) return;
+
+        // Build spread data from aligned items or negotiation opportunities
+        var items = [];
+        var aligned = cmp.aligned_items || [];
+        for (var i = 0; i < aligned.length; i++) {
+            var item = aligned[i];
+            var amounts = item.amounts || {};
+            var valid = [];
+            for (var k in amounts) {
+                if (amounts[k] != null && amounts[k] > 0) valid.push(amounts[k]);
+            }
+            if (valid.length < 2) continue;
+            var minAmt = Math.min.apply(null, valid);
+            var maxAmt = Math.max.apply(null, valid);
+            var spread = maxAmt - minAmt;
+            if (spread <= 0) continue;
+            items.push({
+                description: item.description || 'Unknown',
+                spread: spread,
+                min: minAmt,
+                max: maxAmt,
+                avg: valid.reduce(function(a, b) { return a + b; }, 0) / valid.length,
+                variance_pct: minAmt > 0 ? ((maxAmt - minAmt) / minAmt * 100) : 0,
+            });
+        }
+
+        // Sort by spread descending, take top 12
+        items.sort(function(a, b) { return b.spread - a.spread; });
+        items = items.slice(0, 12);
+
+        if (items.length === 0) {
+            canvas.parentElement.style.display = 'none';
+            return;
+        }
+
+        // Adjust canvas height based on item count
+        var barHeight = items.length > 8 ? 30 : 36;
+        canvas.height = Math.max(200, items.length * barHeight + 80);
+
+        var textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#333';
+        var secondaryColor = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#666';
+
+        try {
+            var chart = new Chart(canvas.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: items.map(function(it) {
+                        return it.description.length > 35 ? it.description.substring(0, 32) + '...' : it.description;
+                    }),
+                    datasets: [{
+                        label: 'Price Spread (Max - Min)',
+                        data: items.map(function(it) { return it.spread; }),
+                        backgroundColor: items.map(function(it) {
+                            // Color by variance intensity
+                            if (it.variance_pct > 50) return 'rgba(244,67,54,0.75)';
+                            if (it.variance_pct > 25) return 'rgba(255,152,0,0.75)';
+                            return 'rgba(214,168,74,0.75)';
+                        }),
+                        borderWidth: 0,
+                        borderRadius: 3,
+                        borderSkipped: false,
+                    }],
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        title: {
+                            display: true,
+                            text: 'Biggest Price Spreads — Where to Focus Negotiations',
+                            color: textColor,
+                            font: { size: 13, weight: '600' },
+                            padding: { bottom: 12 },
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    var it = items[ctx.dataIndex];
+                                    return [
+                                        'Spread: ' + formatMoney(it.spread),
+                                        'Range: ' + formatMoney(it.min) + ' – ' + formatMoney(it.max),
+                                        'Variance: ' + it.variance_pct.toFixed(1) + '%',
+                                    ];
+                                },
+                            },
+                        },
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(v) { return formatMoneyShort(v); },
+                                color: secondaryColor,
+                                font: { size: 11 },
+                            },
+                            grid: { color: 'rgba(128,128,128,0.1)' },
+                        },
+                        y: {
+                            ticks: {
+                                color: textColor,
+                                font: { size: 11 },
+                            },
+                            grid: { display: false },
+                        },
+                    },
+                },
+            });
+            State._charts.push(chart);
+        } catch (e) {
+            console.warn('[AEGIS ProposalCompare] Tornado chart error:', e);
+        }
     }
 
     // ──────────────────────────────────────────
@@ -1010,28 +1325,99 @@ window.ProposalCompare = (function() {
             return;
         }
 
-        // Sort by category then description
-        var sorted = items.slice().sort(function(a, b) {
-            var catCmp = (a.category || 'zzz').localeCompare(b.category || 'zzz');
-            if (catCmp !== 0) return catCmp;
-            return (a.description || '').localeCompare(b.description || '');
+        // Store for interactive re-rendering
+        State._compItems = items;
+        State._compPropIds = propIds;
+        State._compCmp = cmp;
+        State._compSort = State._compSort || { col: 'category', dir: 'asc' };
+        State._compFilter = State._compFilter || { minVariance: 0, category: null };
+
+        _renderComparisonInner(panel, propIds, cmp);
+    }
+
+    function _renderComparisonInner(panel, propIds, cmp) {
+        var items = State._compItems || cmp.aligned_items || [];
+        var sort = State._compSort;
+        var filter = State._compFilter;
+
+        // Apply filters
+        var filtered = items.filter(function(item) {
+            if (filter.minVariance > 0 && (item.variance_pct || 0) < filter.minVariance) return false;
+            if (filter.category && item.category !== filter.category) return false;
+            return true;
         });
 
+        // Sort
+        var sorted = filtered.slice().sort(function(a, b) {
+            var dir = sort.dir === 'asc' ? 1 : -1;
+            if (sort.col === 'category') {
+                var catCmp = (a.category || 'zzz').localeCompare(b.category || 'zzz');
+                if (catCmp !== 0) return catCmp * dir;
+                return (a.description || '').localeCompare(b.description || '') * dir;
+            } else if (sort.col === 'description') {
+                return (a.description || '').localeCompare(b.description || '') * dir;
+            } else if (sort.col === 'variance') {
+                return ((a.variance_pct || 0) - (b.variance_pct || 0)) * dir;
+            } else {
+                // Sort by vendor amount
+                var aAmt = a.amounts?.[sort.col] || 0;
+                var bAmt = b.amounts?.[sort.col] || 0;
+                return (aAmt - bAmt) * dir;
+            }
+        });
+
+        // ── Filter bar ──
+        var categories = {};
+        items.forEach(function(it) {
+            var c = it.category || 'Uncategorized';
+            categories[c] = (categories[c] || 0) + 1;
+        });
+
+        var html = '<div class="pc-comp-filters">' +
+            '<div class="pc-comp-filter-row">' +
+                '<span class="pc-comp-filter-label">Filter:</span>' +
+                '<select class="pc-comp-filter-cat" id="pc-comp-filter-cat">' +
+                    '<option value="">All Categories</option>';
+        Object.keys(categories).sort().forEach(function(cat) {
+            var sel = filter.category === cat ? ' selected' : '';
+            html += '<option value="' + escHtml(cat) + '"' + sel + '>' + escHtml(cat) + ' (' + categories[cat] + ')</option>';
+        });
+        html += '</select>' +
+                '<select class="pc-comp-filter-var" id="pc-comp-filter-var">' +
+                    '<option value="0"' + (filter.minVariance === 0 ? ' selected' : '') + '>All Variance</option>' +
+                    '<option value="10"' + (filter.minVariance === 10 ? ' selected' : '') + '>&gt; 10% spread</option>' +
+                    '<option value="20"' + (filter.minVariance === 20 ? ' selected' : '') + '>&gt; 20% spread</option>' +
+                    '<option value="50"' + (filter.minVariance === 50 ? ' selected' : '') + '>&gt; 50% spread</option>' +
+                '</select>' +
+                '<span class="pc-comp-count">' + filtered.length + ' of ' + items.length + ' items</span>' +
+            '</div>' +
+        '</div>';
+
+        // ── Sortable header icons ──
+        function sortIcon(col) {
+            if (sort.col !== col) return ' <span class="pc-sort-icon">\u2195</span>';
+            return sort.dir === 'asc'
+                ? ' <span class="pc-sort-icon pc-sort-active">\u2191</span>'
+                : ' <span class="pc-sort-icon pc-sort-active">\u2193</span>';
+        }
+
         // Build table
-        var html = '<div class="pc-table-wrap"><table class="pc-table">' +
+        html += '<div class="pc-table-wrap"><table class="pc-table pc-comp-table">' +
             '<thead><tr>' +
-                '<th style="min-width:200px">Line Item</th>' +
-                '<th>Category</th>' +
-                propIds.map(function(id) { return '<th style="min-width:130px">' + escHtml(id) + '</th>'; }).join('') +
-                '<th>Variance</th>' +
+                '<th class="pc-sortable" data-sort="description" style="min-width:200px">Line Item' + sortIcon('description') + '</th>' +
+                '<th class="pc-sortable" data-sort="category">Category' + sortIcon('category') + '</th>' +
+                propIds.map(function(id) {
+                    return '<th class="pc-sortable" data-sort="' + escHtml(id) + '" style="min-width:130px">' + escHtml(id) + sortIcon(id) + '</th>';
+                }).join('') +
+                '<th class="pc-sortable" data-sort="variance">Variance' + sortIcon('variance') + '</th>' +
             '</tr></thead>' +
             '<tbody>';
 
         var currentCategory = null;
         for (var i = 0; i < sorted.length; i++) {
             var item = sorted[i];
-            // Category header
-            if (item.category !== currentCategory) {
+            // Category header (only when sorted by category)
+            if (sort.col === 'category' && item.category !== currentCategory) {
                 currentCategory = item.category;
                 html += '<tr class="pc-category-header">' +
                     '<td colspan="' + (propIds.length + 3) + '">' + escHtml(currentCategory || 'Uncategorized') + '</td>' +
@@ -1090,6 +1476,35 @@ window.ProposalCompare = (function() {
         }
 
         panel.innerHTML = html;
+
+        // Wire sort/filter events
+        panel.querySelectorAll('.pc-sortable').forEach(function(th) {
+            th.addEventListener('click', function() {
+                var col = this.getAttribute('data-sort');
+                if (State._compSort.col === col) {
+                    State._compSort.dir = State._compSort.dir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    State._compSort = { col: col, dir: 'asc' };
+                }
+                _renderComparisonInner(panel, propIds, cmp);
+            });
+        });
+
+        var catFilter = document.getElementById('pc-comp-filter-cat');
+        if (catFilter) {
+            catFilter.addEventListener('change', function() {
+                State._compFilter.category = this.value || null;
+                _renderComparisonInner(panel, propIds, cmp);
+            });
+        }
+
+        var varFilter = document.getElementById('pc-comp-filter-var');
+        if (varFilter) {
+            varFilter.addEventListener('change', function() {
+                State._compFilter.minVariance = parseInt(this.value, 10) || 0;
+                _renderComparisonInner(panel, propIds, cmp);
+            });
+        }
     }
 
     // ──────────────────────────────────────────
@@ -1174,6 +1589,9 @@ window.ProposalCompare = (function() {
             };
         });
 
+        var textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#333';
+        var secondaryColor = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#666';
+
         try {
             var chart = new Chart(canvas.getContext('2d'), {
                 type: 'bar',
@@ -1188,34 +1606,50 @@ window.ProposalCompare = (function() {
                         legend: {
                             position: 'top',
                             labels: {
-                                color: 'var(--text-primary, #333)',
+                                color: textColor,
                                 usePointStyle: true,
                                 pointStyleWidth: 12,
                                 padding: 16,
                                 font: { size: 11 },
                             },
                         },
+                        title: {
+                            display: true,
+                            text: 'Cost Breakdown by Category',
+                            color: textColor,
+                            font: { size: 14, weight: '600' },
+                            padding: { bottom: 12 },
+                        },
                         tooltip: {
+                            mode: 'index',
+                            intersect: false,
                             callbacks: {
                                 label: function(ctx) {
                                     return ctx.dataset.label + ': ' + formatMoney(ctx.raw);
+                                },
+                                footer: function(tooltipItems) {
+                                    var sum = 0;
+                                    tooltipItems.forEach(function(ti) { sum += ti.raw; });
+                                    return 'Total: ' + formatMoney(sum);
                                 },
                             },
                         },
                     },
                     scales: {
                         y: {
+                            stacked: true,
                             beginAtZero: true,
                             ticks: {
                                 callback: function(v) { return formatMoneyShort(v); },
-                                color: 'var(--text-secondary, #666)',
+                                color: secondaryColor,
                                 font: { size: 11 },
                             },
                             grid: { color: 'rgba(128,128,128,0.1)' },
                         },
                         x: {
+                            stacked: true,
                             ticks: {
-                                color: 'var(--text-secondary, #666)',
+                                color: secondaryColor,
                                 font: { size: 11 },
                                 maxRotation: 45,
                             },
@@ -1424,9 +1858,31 @@ window.ProposalCompare = (function() {
             return;
         }
 
-        // Chart container
-        var html = '<div class="pc-chart-container" id="pc-chart-scores-wrap">' +
-            '<canvas id="pc-chart-scores" height="250"></canvas>' +
+        // ── Weight Sliders ──
+        var weights = State._weights || { price: 40, completeness: 25, risk: 25, data_quality: 10 };
+        var html = '<div class="pc-weight-panel">' +
+            '<div class="pc-weight-header">' +
+                '<i data-lucide="sliders-horizontal" style="width:16px;height:16px;color:#D6A84A"></i>' +
+                '<span>Evaluation Weights</span>' +
+                '<span class="pc-weight-total" id="pc-weight-total">' + (weights.price + weights.completeness + weights.risk + weights.data_quality) + '%</span>' +
+                '<button class="pc-weight-reset" id="pc-weight-reset" title="Reset to defaults">Reset</button>' +
+            '</div>' +
+            '<div class="pc-weight-sliders">' +
+                renderWeightSlider('price', 'Price', weights.price, '#D6A84A') +
+                renderWeightSlider('completeness', 'Completeness', weights.completeness, '#2196f3') +
+                renderWeightSlider('risk', 'Risk', weights.risk, '#219653') +
+                renderWeightSlider('data_quality', 'Data Quality', weights.data_quality, '#9c27b0') +
+            '</div>' +
+        '</div>';
+
+        // Chart containers — radar (primary) + bar (secondary)
+        html += '<div class="pc-scores-charts">' +
+            '<div class="pc-chart-container" id="pc-chart-radar-wrap">' +
+                '<canvas id="pc-chart-radar" height="300"></canvas>' +
+            '</div>' +
+            '<div class="pc-chart-container" id="pc-chart-scores-wrap">' +
+                '<canvas id="pc-chart-scores" height="250"></canvas>' +
+            '</div>' +
         '</div>';
 
         // Score cards
@@ -1469,8 +1925,12 @@ window.ProposalCompare = (function() {
         panel.innerHTML = html;
         if (window.lucide) window.lucide.createIcons();
 
-        // Render chart
+        // Render charts
+        renderRadarChart(propIds, scores);
         renderScoresChart(propIds, scores);
+
+        // Wire up weight sliders
+        wireWeightSliders(propIds, cmp, scores);
     }
 
     function renderScoreBar(label, value, color) {
@@ -1482,6 +1942,99 @@ window.ProposalCompare = (function() {
             '</div>' +
             '<div class="pc-score-bar-value">' + pct + '</div>' +
         '</div>';
+    }
+
+    function renderRadarChart(propIds, scores) {
+        if (!window.Chart) return;
+        var canvas = document.getElementById('pc-chart-radar');
+        if (!canvas) return;
+
+        var radarColors = [
+            { bg: 'rgba(214,168,74,0.2)', border: 'rgba(214,168,74,0.9)' },
+            { bg: 'rgba(33,150,83,0.2)', border: 'rgba(33,150,83,0.9)' },
+            { bg: 'rgba(47,128,237,0.2)', border: 'rgba(47,128,237,0.9)' },
+            { bg: 'rgba(235,87,87,0.2)', border: 'rgba(235,87,87,0.9)' },
+            { bg: 'rgba(155,89,182,0.2)', border: 'rgba(155,89,182,0.9)' },
+            { bg: 'rgba(241,196,15,0.2)', border: 'rgba(241,196,15,0.9)' },
+            { bg: 'rgba(26,188,156,0.2)', border: 'rgba(26,188,156,0.9)' },
+            { bg: 'rgba(230,126,34,0.2)', border: 'rgba(230,126,34,0.9)' },
+        ];
+
+        var axes = ['Price', 'Completeness', 'Risk', 'Data Quality'];
+        var axisKeys = ['price_score', 'completeness_score', 'risk_score', 'data_quality_score'];
+
+        var datasets = [];
+        for (var i = 0; i < propIds.length; i++) {
+            var pid = propIds[i];
+            var vs = scores[pid];
+            if (!vs) continue;
+            var ci = i % radarColors.length;
+            datasets.push({
+                label: pid,
+                data: axisKeys.map(function(k) { return vs[k] || 0; }),
+                backgroundColor: radarColors[ci].bg,
+                borderColor: radarColors[ci].border,
+                borderWidth: 2,
+                pointBackgroundColor: radarColors[ci].border,
+                pointBorderColor: '#fff',
+                pointRadius: 4,
+                pointHoverRadius: 6,
+            });
+        }
+
+        try {
+            var chart = new Chart(canvas.getContext('2d'), {
+                type: 'radar',
+                data: {
+                    labels: axes,
+                    datasets: datasets,
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#333',
+                                usePointStyle: true,
+                                padding: 16,
+                                font: { size: 11 },
+                            },
+                        },
+                        title: {
+                            display: true,
+                            text: 'Vendor Comparison Radar',
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#333',
+                            font: { size: 14, weight: '600' },
+                            padding: { bottom: 12 },
+                        },
+                    },
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                stepSize: 20,
+                                display: true,
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#666',
+                                font: { size: 10 },
+                                backdropColor: 'transparent',
+                            },
+                            grid: { color: 'rgba(128,128,128,0.15)' },
+                            pointLabels: {
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#333',
+                                font: { size: 12, weight: '600' },
+                            },
+                            angleLines: { color: 'rgba(128,128,128,0.15)' },
+                        },
+                    },
+                },
+            });
+            State._charts.push(chart);
+        } catch (e) {
+            console.warn('[AEGIS ProposalCompare] Radar chart error:', e);
+        }
     }
 
     function renderScoresChart(propIds, scores) {

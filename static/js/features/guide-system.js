@@ -1843,22 +1843,24 @@ const AEGISGuide = {
             keyActions: [
                 { icon: 'upload', text: 'Upload 2-10 proposal documents (DOCX, PDF, XLSX) into named projects' },
                 { icon: 'scan-search', text: 'Extract financial data — tables, line items, totals, company names' },
-                { icon: 'trophy', text: 'Executive summary with price rankings, key findings, and savings opportunities' },
-                { icon: 'shield-alert', text: 'Automated red flag detection — critical, warning, and info severity levels' },
-                { icon: 'grid-3x3', text: 'Cost deviation heatmap showing above and below average line items' },
-                { icon: 'bar-chart-3', text: 'Vendor scoring — letter grades based on price, completeness, risk, data quality' },
-                { icon: 'download', text: 'Export to Excel with five branded sheets including executive summary' }
+                { icon: 'trophy', text: 'Executive summary with price rankings, tornado chart, and savings opportunities' },
+                { icon: 'shield-alert', text: 'Red flags — FAR 15.404 reasonableness, identical pricing, missing categories' },
+                { icon: 'sliders-horizontal', text: 'Weight sliders — adjust price, completeness, risk, data quality weights in real-time' },
+                { icon: 'arrow-up-down', text: 'Sort and filter comparison table by column, category, or variance threshold' },
+                { icon: 'bar-chart-3', text: 'Radar chart, stacked bars, and letter grades with configurable evaluation weights' },
+                { icon: 'download', text: 'Export to Excel with freeze panes, auto-filter, and five branded sheets' }
             ],
             proTips: [
                 'Use Projects to group proposals from the same procurement — add new bids as they arrive',
-                'The Executive Summary tab shows potential savings and negotiation opportunities automatically',
-                'Red flags detect missing line items, pricing outliers, and incomplete proposals',
-                'Vendor scores weight four factors: Price forty percent, Completeness twenty-five, Risk twenty-five, Data Quality ten',
-                'The Heatmap uses green for below-average costs and red for above-average — grey means missing data',
+                'The tornado chart in Executive Summary shows where negotiation will save the most money',
+                'Drag the weight sliders to re-rank vendors instantly — try setting Price to sixty percent for cost-focused evaluation',
+                'Red flags now include FAR 15.404 price reasonableness checks — z-score outliers flagged automatically',
+                'Click any column header in the Comparison tab to sort — use the variance filter to focus on biggest price gaps',
+                'The radar chart in Vendor Scores overlays all vendors on one spider plot for instant visual comparison',
                 'Supports mixed file types — compare an Excel cost estimate against a PDF proposal',
-                'Line items are matched by description similarity — even with different wording across vendors',
-                'Category summaries group costs by Labor, Material, Travel, ODC, Overhead, and Fee',
-                'Check the Metrics and Analytics Proposals tab for cross-project vendor analytics'
+                'PDF extraction uses three table extraction strategies with automatic data-pattern column inference',
+                'The stacked bar chart in Categories shows cost structure breakdown per vendor at a glance',
+                'Excel exports include frozen panes and auto-filter headers for professional spreadsheet experience'
             ],
             tourSteps: [
                 {
@@ -1871,25 +1873,25 @@ const AEGISGuide = {
             demoScenes: [
                 {
                     target: '#pc-modal',
-                    narration: 'Proposal Compare is a full procurement analysis tool. Upload two or more vendor proposals and AEGIS extracts financial data, aligns line items across vendors, then generates eight tabs of analysis including an executive summary, red flags, cost heatmap, and vendor scores.',
+                    narration: 'Proposal Compare is a full procurement analysis tool. Upload two or more vendor proposals and AEGIS extracts financial data, aligns line items across vendors, then generates eight tabs of analysis including an executive summary with tornado chart, red flags with FAR 15.404 checks, cost heatmap, and vendor scores with radar chart.',
                     duration: 9500,
                     navigate: 'proposal-compare'
                 },
                 {
                     target: '#pc-modal',
-                    narration: 'Start by selecting or creating a project to organize your proposals. Drop files onto the upload area — AEGIS accepts DOCX, PDF, and Excel formats up to ten files at once. Each file is parsed for tables, dollar amounts, and company names automatically.',
+                    narration: 'Start by selecting or creating a project to organize your proposals. Drop files onto the upload area — AEGIS accepts DOCX, PDF, and Excel formats up to ten files at once. PDF extraction now uses three strategies with automatic data-pattern column inference for tables without headers.',
                     duration: 9000,
                     navigate: 'proposal-compare'
                 },
                 {
                     target: '#pc-modal',
-                    narration: 'After comparison, the Executive Summary shows hero stats, price rankings with gold, silver, and bronze medals, overall vendor scores, key findings with severity badges, and a negotiation opportunities table showing where you could save money.',
+                    narration: 'The Executive Summary shows hero stats, price rankings with medals, key findings, and a tornado chart visualizing the biggest price spreads across vendors. The horizontal bars are colored by variance intensity — red for over fifty percent, orange for over twenty-five percent — showing exactly where to focus negotiations.',
                     duration: 9500,
                     navigate: 'proposal-compare'
                 },
                 {
                     target: '#pc-modal',
-                    narration: 'The Red Flags tab runs automated risk checks on each vendor. Critical flags catch serious pricing anomalies or missing major line items. Warning flags highlight notable deviations. Info flags note data quality observations. Each flag includes a detailed explanation.',
+                    narration: 'Red Flags now include FAR 15.404 price reasonableness checks that flag statistical outliers more than two standard deviations from the mean. They also detect identical pricing between vendors, which can indicate collusion, and missing cost categories that signal scope gaps.',
                     duration: 9000,
                     navigate: 'proposal-compare'
                 },
@@ -1901,19 +1903,19 @@ const AEGISGuide = {
                 },
                 {
                     target: '#pc-modal',
-                    narration: 'Vendor Scores assign each vendor a letter grade from A to F based on four weighted components: Price at forty percent, Completeness at twenty-five percent, Risk at twenty-five percent, and Data Quality at ten percent. The component breakdown is shown as color-coded bars.',
-                    duration: 9000,
-                    navigate: 'proposal-compare'
-                },
-                {
-                    target: '#pc-modal',
-                    narration: 'The Comparison tab shows the traditional side-by-side matrix with variance percentages. The Categories tab groups costs by type. Details shows per-proposal metadata. Raw Tables shows every extracted table for full transparency. Export everything as a five-sheet Excel workbook.',
+                    narration: 'Vendor Scores now feature a radar chart overlaying all vendors on one spider plot. Four weight sliders let you adjust evaluation priorities in real time. Drag the Price slider higher for cost-focused evaluation, or boost Risk to emphasize compliance. Scores and letter grades recalculate instantly.',
                     duration: 9500,
                     navigate: 'proposal-compare'
                 },
                 {
                     target: '#pc-modal',
-                    narration: 'Projects let you organize proposals over time. Create a project for each procurement, add new vendor bids as they arrive, and compare within the project. The Metrics and Analytics dashboard includes a Proposals tab with cross-project analytics.',
+                    narration: 'The Comparison tab is now fully interactive — click any column header to sort ascending or descending. Filter by category or set a variance threshold to show only items with greater than ten, twenty, or fifty percent price spread. The Categories tab uses a stacked bar chart showing cost structure per vendor.',
+                    duration: 9500,
+                    navigate: 'proposal-compare'
+                },
+                {
+                    target: '#pc-modal',
+                    narration: 'Export to a five-sheet Excel workbook with frozen panes and auto-filter headers. Print-optimized CSS means you can also print the analysis directly from the browser. Projects let you organize proposals over time and the Metrics dashboard tracks cross-project analytics.',
                     duration: 9000,
                     navigate: 'proposal-compare'
                 }
@@ -1933,7 +1935,7 @@ const AEGISGuide = {
                     scenes: [
                         { target: '#pc-modal', narration: 'The upload screen includes a project selector at the top. Select an existing project to add proposals to it, or click the folder-plus button to create a new project. Projects group proposals for ongoing procurement tracking.', duration: 8500, navigate: 'proposal-compare' },
                         { target: '#pc-modal', narration: 'Drop files onto the upload dropzone or click to browse. AEGIS accepts DOCX, PDF, and Excel formats. You need at least two files to run a comparison, and you can upload up to ten proposals at once.', duration: 8000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Supported Excel formats include XLSX with multiple sheets. Each sheet is scanned for financial tables. PDF extraction uses PyMuPDF for table detection. DOCX files use the mammoth library for table parsing.', duration: 8500, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'Excel files have the richest extraction since data is already structured. PDF extraction uses a three-strategy pipeline — camelot, pdfplumber, and tabula — with automatic data-pattern column inference for tables without proper headers. DOCX files use the mammoth library for table parsing.', duration: 9000, navigate: 'proposal-compare' },
                         { target: '#pc-modal', narration: 'After upload, each file shows its extraction status with line item count, table count, and detected total. You can edit auto-detected company names before comparing. Click Compare to generate the full eight-tab analysis.', duration: 8500, navigate: 'proposal-compare' }
                     ]
                 },
@@ -1952,7 +1954,7 @@ const AEGISGuide = {
                         { target: '#pc-modal', narration: 'The Executive Summary is the first tab shown after comparison. Hero stats at the top show total line items compared, vendor count, red flag count, and potential savings amount — all calculated automatically from the extracted data.', duration: 8500, navigate: 'proposal-compare' },
                         { target: '#pc-modal', narration: 'Price rankings show vendors ordered by total cost with gold, silver, and bronze medal icons. The overall score ranking shows vendors by their composite score, which factors in price competitiveness, completeness, risk profile, and data quality.', duration: 9000, navigate: 'proposal-compare' },
                         { target: '#pc-modal', narration: 'Key findings are auto-generated observations with severity badges. These highlight the lowest bidder, largest cost gaps, vendors with missing line items, and any pricing anomalies detected during analysis.', duration: 8500, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'The negotiation opportunities table identifies specific line items where significant cost savings are possible. It shows the current amount, the benchmark amount, potential savings, and the vendor to target for negotiation.', duration: 8500, navigate: 'proposal-compare' }
+                        { target: '#pc-modal', narration: 'A tornado chart visualizes the biggest price spreads as horizontal bars sorted by magnitude. Bars are colored by variance intensity — red for over fifty percent spread, orange for over twenty-five percent. This instantly shows where negotiation effort will have the greatest financial impact.', duration: 9000, navigate: 'proposal-compare' }
                     ]
                 },
                 red_flags: {
@@ -1968,9 +1970,9 @@ const AEGISGuide = {
                     },
                     scenes: [
                         { target: '#pc-modal', narration: 'The Red Flags tab groups risk findings by vendor. Each vendor section shows a flag count summary and a list of individual flags with severity badges — critical in red, warning in orange, and info in blue.', duration: 8000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Critical flags detect serious issues like pricing anomalies where a line item is more than double the group average, missing major cost categories, or unusually high totals that suggest errors in the proposal.', duration: 8500, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Warning flags highlight notable deviations — vendors missing multiple line items that others quoted, unusual patterns in cost distribution, or incomplete data that reduces comparison accuracy.', duration: 8000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Info flags provide data quality notes for awareness. These include observations about extraction confidence, table formatting issues, or vendor-specific patterns that may warrant manual review.', duration: 7500, navigate: 'proposal-compare' }
+                        { target: '#pc-modal', narration: 'Critical flags detect serious issues like pricing anomalies where a line item is more than double the group average. FAR 15.404 price reasonableness checks flag items with z-scores more than two standard deviations from the mean — the same statistical technique used in government source selection.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'Warning flags now include identical pricing detection — when two vendors have suspiciously similar prices on more than sixty percent of items, it may indicate collusion. Missing category detection flags vendors who omit entire cost categories that others include, indicating scope gaps.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'Info flags provide data quality notes. These include extraction confidence indicators, table formatting observations, and vendor-specific patterns. Each flag includes a detailed explanation to help you understand the finding and take action.', duration: 8000, navigate: 'proposal-compare' }
                     ]
                 },
                 heatmap_view: {
@@ -2003,10 +2005,10 @@ const AEGISGuide = {
                         } catch(e) { console.warn('[AEGIS Guide] preAction error:', e); }
                     },
                     scenes: [
-                        { target: '#pc-modal', narration: 'Each vendor receives an overall score from zero to one hundred and a corresponding letter grade from A through F. Scores are calculated from four weighted components that together measure how competitive and complete each proposal is.', duration: 9000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'The Price component, weighted at forty percent, measures cost competitiveness relative to the other vendors. The lowest total cost gets the highest price score. This is the heaviest factor because price matters most in procurement.', duration: 8500, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Completeness at twenty-five percent measures how many line items the vendor quoted compared to the total across all vendors. Risk at twenty-five percent is the inverse of red flag count and severity. Data Quality at ten percent reflects extraction confidence.', duration: 9000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Component scores are shown as colored horizontal bars. If Chart dot JS is loaded, a grouped bar chart compares all vendors side by side. This visualization makes it easy to see which vendors excel in which areas.', duration: 8000, navigate: 'proposal-compare' }
+                        { target: '#pc-modal', narration: 'Each vendor receives an overall score from zero to one hundred and a letter grade from A through F. A radar chart overlays all vendors on one spider plot with four axes — Price, Completeness, Risk, and Data Quality — for instant visual comparison of strengths and weaknesses.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'Below the vendor score cards, four weight sliders let you customize the evaluation. Drag the Price slider higher for cost-focused analysis, or boost Risk to emphasize compliance. The total display turns green when weights sum to one hundred percent and red otherwise.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'As you adjust any slider, all vendor scores, letter grades, and rankings recalculate instantly — no need to re-run the comparison. Click Reset to restore the defaults: Price at forty percent, Completeness at twenty-five, Risk at twenty-five, and Data Quality at ten.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'A grouped bar chart shows component scores side by side for quick visual comparison. Combined with the radar chart overlay, you can instantly identify which vendors have the best overall balance and which have critical weaknesses.', duration: 8500, navigate: 'proposal-compare' }
                     ]
                 },
                 comparison_view: {
@@ -2021,9 +2023,9 @@ const AEGISGuide = {
                         } catch(e) { console.warn('[AEGIS Guide] preAction error:', e); }
                     },
                     scenes: [
-                        { target: '#pc-modal', narration: 'The comparison matrix is the core output. Line items are grouped by category and sorted alphabetically. Each row shows the description, category, amounts from each vendor, and the variance percentage between the lowest and highest bids.', duration: 9000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Line item alignment uses text similarity matching. Even if two vendors describe the same service differently, AEGIS will match items with at least fifty-five percent description similarity and boost matches in the same cost category.', duration: 8500, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'The Grand Total row at the bottom sums each vendor column. The total variance percentage shows how much the overall bids diverge. Notes below the table summarize the comparison — number of proposals, items aligned, and the lowest bidder.', duration: 8500, navigate: 'proposal-compare' }
+                        { target: '#pc-modal', narration: 'The comparison matrix is now fully interactive. Click any column header to sort ascending or descending — sort by description, any vendor amount, or variance percentage. Sort icons show the current state: neutral arrows for unsorted, gold up or down arrows for active sort.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'Use the filter bar above the table to narrow results. The category dropdown filters by cost type — Labor, Material, Travel, and more. The variance threshold dropdown shows only items with spread above ten, twenty, or fifty percent. The item count updates as you filter.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'Line item alignment uses text similarity matching with category-aware scoring. The Grand Total row sums each vendor column. Green highlights the lowest cost per item, red highlights the highest. Notes below summarize the comparison and lowest bidder.', duration: 8500, navigate: 'proposal-compare' }
                     ]
                 },
                 export_results: {
@@ -2038,9 +2040,9 @@ const AEGISGuide = {
                         } catch(e) { console.warn('[AEGIS Guide] preAction error:', e); }
                     },
                     scenes: [
-                        { target: '#pc-modal', narration: 'The Export button generates a formatted Excel workbook with five sheets. The Executive Summary sheet includes the price rankings, key findings, and negotiation opportunities. The Proposal Comparison sheet contains the full side-by-side matrix with AEGIS gold branding.', duration: 9000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'The Red Flags sheet lists all detected risks organized by vendor with severity indicators. The Category Summary sheet breaks down costs by type for each vendor with item counts and sub-totals.', duration: 8000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'The Proposal Details sheet lists metadata for each proposal — company name, file type, date, number of tables and line items, and the grand total. The exported file uses AEGIS dark-navy and gold branding with proper currency and percentage formatting.', duration: 8500, navigate: 'proposal-compare' }
+                        { target: '#pc-modal', narration: 'The Export button generates a formatted Excel workbook with five sheets. The Proposal Comparison sheet has frozen panes so headers and descriptions stay visible while scrolling, plus auto-filter dropdowns on all columns for quick Excel filtering.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'Additional sheets include Executive Summary with rankings and findings, Red Flags organized by vendor with severity indicators, Category Summary with per-vendor cost breakdown, and Proposal Details with metadata. All sheets use AEGIS dark-navy and gold branding.', duration: 8500, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'You can also print the analysis directly from the browser. The print-optimized CSS hides interactive controls like weight sliders and filter bars, and formats tables for clean paper output. Use browser print or Control-P for a quick hard copy.', duration: 8500, navigate: 'proposal-compare' }
                     ]
                 }
             }
