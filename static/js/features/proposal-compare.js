@@ -782,57 +782,37 @@ window.ProposalCompare = (function() {
 
         container.innerHTML = '<div class="pc-doc-loading"><div class="pc-spinner"></div> Loading document...</div>';
 
-        // PDF: read File into ArrayBuffer for PDF.js, fall back to extracted text
+        // PDF: serve from backend via /api/proposal-compare/file/<name>
+        // Same pattern as /api/scan-history/document-file for the main review tool
         if (fileType === 'pdf') {
             var textContent = p.extraction_text || '';
-            if (State.files[idx] && window.TWR && window.TWR.PDFViewer) {
-                console.log('[PC DocViewer] Reading PDF file into ArrayBuffer for PDF.js');
-                var file = State.files[idx];
-                var reader = new FileReader();
-                reader.onload = function() {
-                    var arrayBuffer = reader.result;
-                    console.log('[PC DocViewer] ArrayBuffer ready, size=' + arrayBuffer.byteLength + ', rendering...');
-                    TWR.PDFViewer.render(container, {data: arrayBuffer}, { scale: 1.0 }).catch(function(err) {
-                        console.warn('[PC DocViewer] PDF.js render failed:', err);
-                        if (textContent) {
-                            container.innerHTML = '<div class="pc-doc-notice"><i data-lucide="info"></i> ' +
-                                'PDF canvas render failed — showing extracted text</div>' +
-                                '<pre class="pc-doc-text">' + escHtml(textContent) + '</pre>';
-                            if (window.lucide) window.lucide.createIcons();
-                        }
-                    });
-                };
-                reader.onerror = function() {
-                    console.warn('[PC DocViewer] FileReader error, falling back to text');
+            var serverFile = p._server_file;
+
+            if (serverFile && window.TWR && window.TWR.PDFViewer) {
+                var fileUrl = '/api/proposal-compare/file/' + encodeURIComponent(serverFile);
+                console.log('[PC DocViewer] Rendering PDF from server: ' + fileUrl);
+                TWR.PDFViewer.render(container, fileUrl, { scale: 1.0 }).catch(function(err) {
+                    console.warn('[PC DocViewer] PDF.js render failed:', err);
                     if (textContent) {
                         container.innerHTML = '<div class="pc-doc-notice"><i data-lucide="info"></i> ' +
-                            'Could not read PDF file — showing extracted text</div>' +
+                            'PDF canvas render failed — showing extracted text</div>' +
                             '<pre class="pc-doc-text">' + escHtml(textContent) + '</pre>';
                         if (window.lucide) window.lucide.createIcons();
-                    } else {
-                        container.innerHTML = '<div class="pc-doc-fallback"><i data-lucide="file-text"></i>' +
-                            '<p>Could not read PDF file.</p>' +
-                            '<p class="pc-doc-hint">Extracted data shown in the editor panel.</p></div>';
-                        if (window.lucide) window.lucide.createIcons();
                     }
-                };
-                reader.readAsArrayBuffer(file);
+                });
+            } else if (textContent) {
+                // No PDF.js or no server file — show extracted text
+                console.log('[PC DocViewer] Showing extracted text (serverFile=' + !!serverFile +
+                    ', PDFViewer=' + !!(window.TWR && window.TWR.PDFViewer) + ')');
+                container.innerHTML = '<div class="pc-doc-notice"><i data-lucide="info"></i> ' +
+                    'Showing extracted text</div>' +
+                    '<pre class="pc-doc-text">' + escHtml(textContent) + '</pre>';
+                if (window.lucide) window.lucide.createIcons();
             } else {
-                // No PDF.js or no file — show extracted text
-                console.log('[PC DocViewer] PDF.js not available (TWR.PDFViewer=' +
-                    !!(window.TWR && window.TWR.PDFViewer) + ', file=' + !!State.files[idx] +
-                    '), falling back to text');
-                if (textContent) {
-                    container.innerHTML = '<div class="pc-doc-notice"><i data-lucide="info"></i> ' +
-                        'PDF preview unavailable — showing extracted text</div>' +
-                        '<pre class="pc-doc-text">' + escHtml(textContent) + '</pre>';
-                    if (window.lucide) window.lucide.createIcons();
-                } else {
-                    container.innerHTML = '<div class="pc-doc-fallback"><i data-lucide="file-text"></i>' +
-                        '<p>PDF preview not available.</p>' +
-                        '<p class="pc-doc-hint">Extracted data shown in the editor panel.</p></div>';
-                    if (window.lucide) window.lucide.createIcons();
-                }
+                container.innerHTML = '<div class="pc-doc-fallback"><i data-lucide="file-text"></i>' +
+                    '<p>PDF preview not available.</p>' +
+                    '<p class="pc-doc-hint">Extracted data shown in the editor panel.</p></div>';
+                if (window.lucide) window.lucide.createIcons();
             }
             return;
         }

@@ -53,6 +53,28 @@ def _ensure_db():
 
 
 # ──────────────────────────────────────────
+# Helpers
+# ──────────────────────────────────────────
+
+def _cleanup_old_proposal_files(upload_dir, max_age_seconds=3600):
+    """Remove proposal files older than max_age_seconds to prevent disk bloat."""
+    import time
+    now = time.time()
+    try:
+        for fname in os.listdir(upload_dir):
+            fpath = os.path.join(upload_dir, fname)
+            if os.path.isfile(fpath):
+                age = now - os.path.getmtime(fpath)
+                if age > max_age_seconds:
+                    try:
+                        os.unlink(fpath)
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
+
+# ──────────────────────────────────────────
 # Upload & Extract
 # ──────────────────────────────────────────
 
@@ -89,7 +111,21 @@ def upload_proposals():
         project_id = request.form.get('project_id')
 
         results = []
-        temp_dir = tempfile.mkdtemp(prefix='aegis_proposal_')
+
+        # Store uploaded files in a persistent session directory so the doc viewer
+        # can serve them via /api/proposal-compare/file/<idx> (same pattern as
+        # /api/scan-history/document-file for the main review tool)
+        upload_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            'temp', 'proposals'
+        )
+        os.makedirs(upload_dir, exist_ok=True)
+
+        # Clean up old proposal files (>1 hour old) to prevent disk bloat
+        _cleanup_old_proposal_files(upload_dir, max_age_seconds=3600)
+
+        # Track saved file paths for this session
+        session_files = []
 
         for f in files:
             if not f.filename:
@@ -104,8 +140,10 @@ def upload_proposals():
                 })
                 continue
 
-            # Save temp file
-            temp_path = os.path.join(temp_dir, f.filename)
+            # Save file to persistent temp directory with unique prefix
+            import time
+            safe_name = f'{int(time.time())}_{f.filename}'
+            temp_path = os.path.join(upload_dir, safe_name)
             try:
                 f.save(temp_path)
             except Exception as save_err:
@@ -120,6 +158,8 @@ def upload_proposals():
             try:
                 proposal_data = parse_proposal(temp_path)
                 data_dict = proposal_data.to_dict()
+                # Store the server-side file path so doc viewer can serve it
+                data_dict['_server_file'] = safe_name
 
                 # Auto-add to project if specified
                 db_id = None
@@ -131,6 +171,7 @@ def upload_proposals():
                     except Exception as db_err:
                         logger.warning(f'Failed to add proposal to project: {db_err}')
 
+                session_files.append(temp_path)
                 results.append({
                     'filename': f.filename,
                     'success': True,
@@ -144,18 +185,11 @@ def upload_proposals():
                     'success': False,
                     'error': f'Parse error: {str(parse_err)}',
                 })
-            finally:
-                # Clean up temp file
+                # Clean up file on parse failure
                 try:
                     os.unlink(temp_path)
                 except Exception:
                     pass
-
-        # Clean up temp dir
-        try:
-            os.rmdir(temp_dir)
-        except Exception:
-            pass
 
         successful = sum(1 for r in results if r.get('success'))
 
@@ -175,6 +209,39 @@ def upload_proposals():
             'success': False,
             'error': {'message': f'Upload error: {str(e)}', 'traceback': traceback.format_exc()}
         }), 500
+
+
+# ──────────────────────────────────────────
+# Serve Uploaded File (for doc viewer)
+# ──────────────────────────────────────────
+
+@pc_blueprint.route('/api/proposal-compare/file/<path:filename>', methods=['GET'])
+def serve_proposal_file(filename):
+    """Serve an uploaded proposal file for the document viewer.
+
+    Same pattern as /api/scan-history/document-file — serves the original
+    file from disk so PDF.js can render it via a server URL (not blob URL).
+    """
+    try:
+        # Sanitize filename — only allow the basename, no path traversal
+        safe_name = os.path.basename(filename)
+        if not safe_name or '..' in safe_name:
+            return jsonify({'success': False, 'error': 'Invalid filename'}), 400
+
+        upload_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            'temp', 'proposals'
+        )
+        filepath = os.path.join(upload_dir, safe_name)
+
+        if not os.path.isfile(filepath):
+            return jsonify({'success': False, 'error': 'File not found'}), 404
+
+        return send_file(filepath, as_attachment=False)
+
+    except Exception as e:
+        logger.error(f'Serve proposal file error: {e}', exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ──────────────────────────────────────────
