@@ -1,13 +1,26 @@
 {
-  "version": "5.9.36",
+  "version": "5.9.37",
   "release_date": "2026-02-20",
-  "core_version": "5.9.36",
+  "core_version": "5.9.37",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.37",
+      "date": "2026-02-20",
+      "changes": [
+        "PERF: Persistent Docling worker pool — eliminates 15-30s Python startup overhead per document during batch scans",
+        "PERF: Docling initialization (torch, transformers, DocumentConverter) happens ONCE, not per-document",
+        "PERF: batch_mode option skips html_preview and clean_full_text generation during batch/folder scans",
+        "PERF: Increased folder scan workers from 3→4 and chunk size from 5→8 for better throughput",
+        "FIX: Increased per-file timeout from 300s→480s to prevent false timeout errors on complex PDFs",
+        "FIX: Persistent worker auto-restarts if it dies, with automatic fallback to legacy per-document subprocess",
+        "ENH: Docling worker pool is thread-safe — multiple batch threads share a single persistent worker"
+      ]
+    },
     {
       "version": "5.9.36",
       "date": "2026-02-20",

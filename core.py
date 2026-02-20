@@ -56,9 +56,237 @@ def _log(message: str, level: str = 'debug', **kwargs):
 ## Use _extract_with_docling_subprocess() for timeout-safe extraction instead.
 
 
+# =============================================================================
+# v5.9.37: PERSISTENT DOCLING WORKER POOL
+# =============================================================================
+# Instead of spawning a new Python process per document (which reimports
+# torch/transformers/docling every time, costing 15-30s of overhead),
+# we keep a long-lived worker process that initializes Docling ONCE and
+# processes multiple documents via a request/response queue pair.
+#
+# Architecture:
+#   - _docling_persistent_worker() runs in a spawn'd subprocess
+#   - It initializes DoclingExtractor ONCE on startup
+#   - Parent sends (filepath, fast_mode, timeout) tuples via request_queue
+#   - Worker sends back results via response_queue
+#   - Sentinel value None on request_queue signals worker to shut down
+#   - _PersistentDoclingPool manages the lifecycle and provides extract()
+#   - Falls back to per-document subprocess if persistent worker dies
+# =============================================================================
+
+import threading
+import time as _time
+
+
+def _docling_persistent_worker(request_queue, response_queue):
+    """Long-lived Docling worker process. Initializes once, processes many.
+    Runs in a spawned subprocess — fully isolated from Flask."""
+    import signal
+    # Ignore SIGINT in worker — let parent handle Ctrl+C
+    try:
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+    except (OSError, ValueError):
+        pass
+
+    try:
+        from docling_extractor import DoclingExtractor
+        docling = DoclingExtractor(fallback_to_legacy=False)
+        if not docling.is_available:
+            response_queue.put({'type': 'init', 'success': False, 'error': 'Docling not available'})
+            return
+        response_queue.put({'type': 'init', 'success': True, 'backend': docling.backend_name})
+    except Exception as e:
+        response_queue.put({'type': 'init', 'success': False, 'error': str(e)})
+        return
+
+    # Main work loop — process documents until sentinel (None) received
+    while True:
+        try:
+            request = request_queue.get(timeout=600)  # 10-min idle timeout
+            if request is None:
+                # Sentinel: clean shutdown
+                break
+            filepath, fast_mode, req_id = request
+            try:
+                doc_result = docling.extract(filepath, fast_mode=fast_mode)
+                response_queue.put({
+                    'type': 'result', 'req_id': req_id,
+                    'success': True, 'result': doc_result
+                })
+            except Exception as e:
+                response_queue.put({
+                    'type': 'result', 'req_id': req_id,
+                    'success': False, 'error': str(e)
+                })
+        except Exception:
+            # Queue timeout or error — worker exits, will be restarted on next use
+            break
+
+
+class _PersistentDoclingPool:
+    """Manages a persistent Docling worker subprocess.
+
+    Thread-safe: uses a lock so multiple batch threads can submit work.
+    Auto-restarts worker if it dies. Falls back to per-document spawn
+    if persistent worker can't be started.
+    """
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._process = None
+        self._request_queue = None
+        self._response_queue = None
+        self._available = None  # None=unknown, True/False after first check
+        self._backend_name = ''
+        self._req_counter = 0
+        self._started = False
+
+    def _start_worker(self):
+        """Start (or restart) the persistent Docling worker."""
+        import multiprocessing
+        try:
+            ctx = multiprocessing.get_context('spawn')
+            self._request_queue = ctx.Queue()
+            self._response_queue = ctx.Queue()
+            self._process = ctx.Process(
+                target=_docling_persistent_worker,
+                args=(self._request_queue, self._response_queue),
+                daemon=True
+            )
+            self._process.start()
+
+            # Wait for init response (up to 120s for first-time torch import)
+            try:
+                init_resp = self._response_queue.get(timeout=120)
+                if init_resp.get('type') == 'init' and init_resp.get('success'):
+                    self._available = True
+                    self._backend_name = init_resp.get('backend', '')
+                    self._started = True
+                    _log(f"  Persistent Docling worker started (PID {self._process.pid}, backend: {self._backend_name})")
+                    return True
+                else:
+                    _log(f"  Persistent Docling worker init failed: {init_resp.get('error')}", level='warning')
+                    self._available = False
+                    self._cleanup()
+                    return False
+            except Exception:
+                _log("  Persistent Docling worker init timed out (120s)", level='warning')
+                self._available = False
+                self._cleanup()
+                return False
+        except Exception as e:
+            _log(f"  Failed to start persistent Docling worker: {e}", level='warning')
+            self._available = False
+            return False
+
+    def _cleanup(self):
+        """Kill the worker process and clean up queues."""
+        if self._process and self._process.is_alive():
+            try:
+                self._request_queue.put(None)  # Try graceful shutdown
+                self._process.join(timeout=5)
+            except Exception:
+                pass
+            if self._process.is_alive():
+                try:
+                    self._process.kill()
+                    self._process.join(timeout=3)
+                except Exception:
+                    pass
+        self._process = None
+        self._request_queue = None
+        self._response_queue = None
+        self._started = False
+
+    def _is_alive(self):
+        """Check if the worker process is still running."""
+        return self._process is not None and self._process.is_alive()
+
+    def extract(self, filepath, fast_mode=False, timeout=120):
+        """Extract a document using the persistent worker.
+        Returns DocumentExtractionResult on success, None on failure.
+        Thread-safe — multiple batch threads can call this concurrently."""
+        with self._lock:
+            # Start or restart worker if needed
+            if not self._is_alive():
+                if self._available is False and self._started:
+                    # Worker died after previously working — try restart
+                    _log("  Persistent Docling worker died — restarting...", level='warning')
+                elif self._available is False:
+                    # Already tried and failed — don't retry
+                    return None
+                if not self._start_worker():
+                    return None
+
+            # Submit work
+            self._req_counter += 1
+            req_id = self._req_counter
+            try:
+                self._request_queue.put((filepath, fast_mode, req_id))
+            except Exception as e:
+                _log(f"  Failed to submit to Docling worker: {e}", level='warning')
+                return None
+
+        # Wait for result (outside lock so other threads can submit)
+        # Use polling loop so we can detect worker death
+        deadline = _time.time() + timeout
+        while _time.time() < deadline:
+            try:
+                resp = self._response_queue.get(timeout=min(5.0, deadline - _time.time()))
+                if resp.get('type') == 'result' and resp.get('req_id') == req_id:
+                    if resp.get('success'):
+                        return resp['result']
+                    else:
+                        _log(f"  Docling worker error: {resp.get('error')}", level='warning')
+                        return None
+                # Not our response — put it back (another thread's result)
+                # This shouldn't happen with locked submission, but be safe
+                try:
+                    self._response_queue.put(resp)
+                except Exception:
+                    pass
+            except Exception:
+                # Timeout on get — check if worker is still alive
+                if not self._is_alive():
+                    _log("  Docling worker died during extraction", level='warning')
+                    with self._lock:
+                        self._cleanup()
+                    return None
+
+        # Timed out
+        _log(f"  Docling persistent worker timed out after {timeout}s", level='warning')
+        # Don't kill the worker — it might still be processing
+        # The response will be discarded when it eventually arrives
+        return None
+
+    def shutdown(self):
+        """Gracefully shut down the persistent worker."""
+        with self._lock:
+            self._cleanup()
+            self._available = None
+
+    @property
+    def is_available(self):
+        """Check if Docling is available (starts worker if needed)."""
+        if self._available is None:
+            with self._lock:
+                if self._available is None:
+                    self._start_worker()
+        return self._available or False
+
+    @property
+    def backend(self):
+        return self._backend_name
+
+
+# Module-level singleton — shared across all batch threads
+_docling_pool = _PersistentDoclingPool()
+
+
 def _docling_subprocess_worker(filepath, fast_mode, result_queue):
     """Run Docling extraction in an isolated subprocess.
-    Results are sent via multiprocessing.Queue as a plain dict (pickle-safe)."""
+    Results are sent via multiprocessing.Queue as a plain dict (pickle-safe).
+    LEGACY: Used as fallback when persistent worker is unavailable."""
     try:
         from docling_extractor import DoclingExtractor
         docling = DoclingExtractor(fallback_to_legacy=False)
@@ -73,9 +301,26 @@ def _docling_subprocess_worker(filepath, fast_mode, result_queue):
 
 
 def _extract_with_docling_subprocess(filepath, fast_mode=False, timeout=120):
-    """Run Docling in a subprocess with a hard timeout via process.kill().
-    Unlike threads, killed processes actually stop — no resource leaks.
+    """Run Docling extraction with persistent worker pool (fast path) or
+    fallback to per-document subprocess (slow path).
+
+    v5.9.37: Tries persistent worker first — eliminates 15-30s startup overhead
+    per document by reusing an already-initialized Docling process.
+    Falls back to spawn-per-document if persistent worker is unavailable.
+
     Returns the DocumentExtractionResult on success, or None on timeout/error."""
+
+    # v5.9.37: FAST PATH — persistent worker (no startup overhead)
+    try:
+        result = _docling_pool.extract(filepath, fast_mode=fast_mode, timeout=timeout)
+        if result is not None:
+            return result
+        # If pool returned None, it might be a one-off failure — try legacy
+        _log("  Persistent Docling worker returned None — trying legacy subprocess", level='debug')
+    except Exception as e:
+        _log(f"  Persistent Docling pool error: {e} — trying legacy subprocess", level='debug')
+
+    # SLOW PATH — legacy per-document subprocess (fallback)
     import multiprocessing
     import multiprocessing.context
     try:
@@ -1739,25 +1984,29 @@ class AEGISEngine:
         
         return filtered
     
-    def review_document(self, filepath: str, options: Dict = None, 
+    def review_document(self, filepath: str, options: Dict = None,
                         progress_callback: Callable = None,
                         cancellation_check: Callable = None) -> Dict:
         """
         Perform comprehensive review of a document.
-        
+
         Args:
             filepath: Path to the document file (.docx or .pdf)
             options: Dictionary of review options (which checks to run)
+                     Special option: 'batch_mode' (bool) — when True, skips
+                     html_preview and clean_full_text generation for faster
+                     batch processing (v5.9.37)
             progress_callback: Optional callback for progress updates.
                                Signature: callback(phase: str, progress: float, message: str)
                                Phases: 'extracting', 'parsing', 'checking', 'postprocessing', 'complete'
             cancellation_check: Optional callback to check if job was cancelled.
                                 Signature: check() -> bool (returns True if cancelled)
-        
+
         Returns:
             Dictionary with review results
-            
+
         v3.0.39: Added progress_callback and cancellation_check for job-based review.
+        v5.9.37: Added batch_mode option to skip html_preview/clean_full_text for speed.
         """
         options = options or {}
         self.issues = []
@@ -1984,8 +2233,10 @@ class AEGISEngine:
         # v4.3.0: Ensure html_preview is available for Statement History viewer
         # If the extractor doesn't have html_preview (e.g., Docling, legacy),
         # try to generate it from mammoth (DOCX) or pymupdf4llm (PDF)
+        # v5.9.37: Skip in batch_mode — not needed for batch scan results
         # =====================================================================
-        if not getattr(extractor, 'html_preview', ''):
+        batch_mode = options.get('batch_mode', False) if options else False
+        if not batch_mode and not getattr(extractor, 'html_preview', ''):
             try:
                 # v4.5.2: Use helper to detect ZIP/DOCX without leaking file handles
                 def _is_zip_file(fp):
@@ -2028,9 +2279,10 @@ class AEGISEngine:
         # v4.4.0: Generate clean_full_text for Statement Forge when Docling
         # produced artifacts. mammoth's extract_raw_text() gives clean text
         # without | and ** markers that pollute statement descriptions.
+        # v5.9.37: Skip in batch_mode — Statement Forge runs separately
         # =====================================================================
         clean_full_text = None
-        if docling_used and MAMMOTH_AVAILABLE:
+        if not batch_mode and docling_used and MAMMOTH_AVAILABLE:
             try:
                 if filepath_lower.endswith('.docx') or (
                     not filepath_lower.endswith('.pdf') and

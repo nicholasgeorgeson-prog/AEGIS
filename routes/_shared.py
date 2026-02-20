@@ -389,5 +389,6 @@ MAX_BATCH_TOTAL_SIZE = 524288000  # 500MB per upload batch
 
 # v5.5.0: Folder scan constants
 MAX_FOLDER_SCAN_FILES = 500  # Max files per folder scan operation
-FOLDER_SCAN_CHUNK_SIZE = 5  # Files per processing chunk
-FOLDER_SCAN_MAX_WORKERS = 3  # Concurrent threads per chunk
+FOLDER_SCAN_CHUNK_SIZE = 8  # v5.9.37: Increased from 5 — larger chunks reduce overhead
+FOLDER_SCAN_MAX_WORKERS = 4  # v5.9.37: Increased from 3 — persistent Docling worker
+                              # reduces memory pressure per thread (no more spawn per doc)

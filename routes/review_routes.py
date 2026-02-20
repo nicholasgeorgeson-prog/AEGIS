@@ -251,6 +251,10 @@ def review_batch():
         'roles_found': {}
     }
 
+    # v5.9.37: Enable batch_mode for faster processing (skips html_preview, clean_full_text)
+    batch_options = dict(options) if options else {}
+    batch_options['batch_mode'] = True
+
     def _review_single_doc(fp_str):
         """Review a single document in its own thread with its own engine."""
         filepath = Path(fp_str)
@@ -258,7 +262,7 @@ def review_batch():
             return {'filename': filepath.name, 'error': 'File not found'}
         try:
             engine = AEGISEngine()
-            doc_results = engine.review_document(str(filepath), options)
+            doc_results = engine.review_document(str(filepath), batch_options)
             issues = doc_results.get('issues', [])
             doc_roles = doc_results.get('roles', {})
             if not isinstance(doc_roles, dict):
@@ -577,12 +581,16 @@ def folder_scan():
 
     start_time = time.time()
 
+    # v5.9.37: Enable batch_mode for faster processing
+    folder_batch_options = dict(options) if options else {}
+    folder_batch_options['batch_mode'] = True
+
     def _review_single(file_info):
         """Review one document with its own engine instance."""
         filepath = Path(file_info['path'])
         try:
             engine = AEGISEngine()
-            doc_results = engine.review_document(str(filepath), options)
+            doc_results = engine.review_document(str(filepath), folder_batch_options)
             # Convert ReviewIssue objects to dicts for safe .get() access and JSON serialization
             raw_issues = doc_results.get('issues', [])
             issues = []
@@ -1132,12 +1140,16 @@ def _process_folder_scan_async(scan_id, discovered, options):
     except ImportError:
         flask_app = None
 
+    # v5.9.37: Enable batch_mode for faster processing
+    async_batch_options = dict(options) if options else {}
+    async_batch_options['batch_mode'] = True
+
     def _review_single_async(file_info):
         """Review one document with its own engine instance."""
         filepath = Path(file_info['path'])
         try:
             engine = AEGISEngine()
-            doc_results = engine.review_document(str(filepath), options)
+            doc_results = engine.review_document(str(filepath), async_batch_options)
 
             # Convert ReviewIssue objects to dicts
             raw_issues = doc_results.get('issues', [])
@@ -1199,8 +1211,12 @@ def _process_folder_scan_async(scan_id, discovered, options):
         chunks = [discovered[i:i + FOLDER_SCAN_CHUNK_SIZE]
                   for i in range(0, len(discovered), FOLDER_SCAN_CHUNK_SIZE)]
 
-        # v5.7.1: Per-file timeout — 5 minutes max per file to prevent hangs
-        PER_FILE_TIMEOUT = 300
+        # v5.7.1: Per-file timeout — 8 minutes max per file to prevent hangs
+        # v5.9.37: Increased from 300s (5min) to 480s (8min) because some complex
+        # PDFs with dense tables legitimately need 4-5 minutes for Docling extraction.
+        # The persistent Docling worker eliminates startup overhead, but extraction
+        # itself can still be slow for large documents.
+        PER_FILE_TIMEOUT = 480
 
         for chunk_idx, chunk in enumerate(chunks):
             logger.info(f'[FolderScan-Async] {scan_id} chunk {chunk_idx + 1}/{len(chunks)} ({len(chunk)} files)')
@@ -1643,7 +1659,7 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
     import gc
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    PER_FILE_TIMEOUT = 300  # 5 minutes per file (includes download + review)
+    PER_FILE_TIMEOUT = 480  # v5.9.37: 8 minutes per file (includes download + review)
 
     def _review_sharepoint_file(file_info):
         """Download a single file from SharePoint and review it."""

@@ -166,7 +166,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.9.34
+- **Current version**: 5.9.37
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -748,6 +748,20 @@ The actual logic lives in `repair_aegis.py` (500 lines) where Python's error han
 **Root Cause**: Werkzeug's `MultiPartParser` in `formparser.py` reads `max_content_length` at the moment `request.files` is first accessed (lazy `_load_form_data()` call). On the Windows embedded Python's Werkzeug version, the blueprint `before_request` hook either didn't execute reliably before the form parser initialization, or the parser cached the limit from a source other than `current_app.config`. The result: despite setting `current_app.config['MAX_CONTENT_LENGTH'] = None` in `before_request`, Werkzeug still raised 413 at line 389 of `formparser.py` during multipart parsing.
 **Fix**: Three-layer approach: (1) Set `app.config['MAX_CONTENT_LENGTH'] = None` globally in `app.py` — AEGIS is a local-only tool (localhost:5050), no security reason for an upload limit. (2) Keep blueprint `before_request` hook as safety net. (3) Added inline `request.max_content_length = None` + `current_app.config['MAX_CONTENT_LENGTH'] = None` + `request.environ.pop('MAX_CONTENT_LENGTH', None)` RIGHT BEFORE the first `request.files` access in each export endpoint, plus `try/except RequestEntityTooLarge` wrapper with diagnostic logging.
 **Lesson**: When overriding Flask/Werkzeug upload size limits for specific routes, `before_request` hooks are NOT reliable across all Werkzeug versions. The safest approach for local-only tools is to remove `MAX_CONTENT_LENGTH` entirely at the app level (`app.config['MAX_CONTENT_LENGTH'] = None`). If you must keep a global limit, override it at three levels immediately before `request.files` access: `request.max_content_length`, `current_app.config['MAX_CONTENT_LENGTH']`, and `request.environ`. Always wrap `request.files` access in `try/except RequestEntityTooLarge` for defense in depth.
+
+### 86. Persistent Docling Worker Pool for Batch Performance (v5.9.37)
+**Problem**: Batch scans processed at 0.3 docs/min. Users reported documents timing out at 1500s (the chunk timeout: 300s × 5 files).
+**Root Cause**: `_extract_with_docling_subprocess()` used `multiprocessing.get_context('spawn')` which creates a brand new Python interpreter for EVERY document. Each subprocess must: (1) Start fresh Python, (2) Import docling, torch, transformers, (3) Create DocumentConverter with PDF pipeline, (4) Process one document, (5) Serialize via Queue, (6) Shut down. The import/init overhead was 15-30s per document BEFORE Docling even read the file.
+**Fix**: Five-part optimization:
+1. **Persistent Docling worker** (`_PersistentDoclingPool`): Module-level singleton that spawns ONE long-lived subprocess. Worker initializes Docling ONCE, then processes documents via request/response queues. Auto-restarts on death. Falls back to legacy per-doc subprocess if persistent worker fails.
+2. **batch_mode option**: `review_document()` accepts `options['batch_mode'] = True` which skips `html_preview` generation (mammoth/pymupdf4llm) and `clean_full_text` generation during batch scans. These are only needed for Statement History viewer, not batch results.
+3. **Increased workers**: `FOLDER_SCAN_MAX_WORKERS` 3→4, `FOLDER_SCAN_CHUNK_SIZE` 5→8. Safe because persistent worker eliminates per-thread memory pressure from subprocess spawning.
+4. **Increased timeout**: `PER_FILE_TIMEOUT` 300s→480s to prevent false timeouts on complex PDFs.
+5. **Thread-safe**: `_PersistentDoclingPool` uses a lock for submission but releases it during wait, so multiple batch threads can queue work.
+**Architecture**: `_docling_persistent_worker()` runs in spawned subprocess, loops on `request_queue.get()`, sends results on `response_queue`. Sentinel `None` triggers clean shutdown. 600s idle timeout auto-exits unused workers. Parent-side `_PersistentDoclingPool.extract()` submits work under lock, waits outside lock with polling for worker death detection.
+**Expected improvement**: From ~0.3 docs/min to ~1-2 docs/min (3-6x faster) — the exact improvement depends on document complexity, but eliminating 15-30s of overhead per document on a 3-4 minute total cycle is significant.
+**Key constraint**: ZERO accuracy loss. Docling extraction quality is identical — only the process management changed. User explicitly stated: "I am not looking at losing any accuracy."
+**Lesson**: When a subprocess is spawned repeatedly with heavy initialization, convert to a persistent worker pattern. The `spawn` context is still necessary (fork crashes on macOS), but the subprocess stays alive across documents. The Queue-based request/response pattern gives clean process isolation while amortizing initialization cost across the entire batch.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

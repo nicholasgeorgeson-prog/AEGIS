@@ -45,7 +45,7 @@
 'use strict';
 
 const HelpDocs = {
-    version: '5.9.36',
+    version: '5.9.37',
     lastUpdated: '2026-02-20',
     
     config: {
@@ -7601,6 +7601,18 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.9.37 <span class="changelog-date">February 20, 2026</span></h3>
+        <p><strong>Batch Scan Performance Optimization</strong></p>
+        <ul>
+            <li><strong>PERF: Persistent Docling worker</strong> — Eliminates 15-30 second Python startup overhead per document during batch/folder scans by keeping a long-lived Docling process</li>
+            <li><strong>PERF: One-time initialization</strong> — Docling, torch, transformers, and DocumentConverter initialize ONCE instead of per-document — massive speed improvement for large batches</li>
+            <li><strong>PERF: Batch mode optimization</strong> — Skips non-essential html_preview and clean_full_text generation during batch scans (normal single-doc scans unaffected)</li>
+            <li><strong>PERF: Larger worker pool</strong> — Folder scan workers increased from 3→4 and chunk size from 5→8 for better throughput</li>
+            <li><strong>FIX: Timeout handling</strong> — Per-file timeout increased from 5→8 minutes to prevent false timeout errors on complex PDFs</li>
+            <li><strong>ENH: Auto-restart</strong> — Persistent Docling worker auto-restarts if it dies, with seamless fallback to legacy per-document subprocess</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.9.36 <span class="changelog-date">February 20, 2026</span></h3>
         <p><strong>Proposal Compare Tool — Major Feature Release</strong></p>
         <ul>
