@@ -141,7 +141,12 @@ logger = get_logger('app')
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = config.secret_key
-app.config['MAX_CONTENT_LENGTH'] = config.max_content_length
+# v5.9.34: Remove upload size limit entirely — AEGIS is a local-only tool (localhost:5050)
+# and the Hyperlink Validator export sends large multipart payloads (file + results JSON).
+# The previous 200MB limit caused persistent Werkzeug 413 RequestEntityTooLarge errors
+# because Werkzeug's MultiPartParser reads this value at form-data parse time, and
+# blueprint before_request hooks couldn't reliably override it on all Werkzeug versions.
+app.config['MAX_CONTENT_LENGTH'] = None
 app.config['SESSION_COOKIE_SECURE'] = False
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -574,7 +579,7 @@ def main():
     print(f"  CSRF Protection: {'Enabled' if config.csrf_enabled else 'Disabled'}")
     print(f"  Rate Limiting: {'Enabled' if config.rate_limit_enabled else 'Disabled'}")
     print(f"  Authentication: {'Enabled (' + config.auth_provider + ')' if config.auth_enabled else 'Disabled'}")
-    print(f'  Max Upload: {config.max_content_length / 1048576:.0f}MB')
+    print(f'  Max Upload: No limit (local-only tool)')
 
     if not config.auth_enabled:
         logger.warning('Authentication is DISABLED.')

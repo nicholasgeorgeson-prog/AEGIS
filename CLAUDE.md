@@ -166,7 +166,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.9.33
+- **Current version**: 5.9.34
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -742,6 +742,12 @@ The actual logic lives in `repair_aegis.py` (500 lines) where Python's error han
 **Fix**: (1) New `export_highlighted_excel_multicolor()` function in `export.py` with `_STATUS_COLORS` dict mapping each status to fill/font colors. (2) Adds "Link Status" and "Link Details" columns to the sheet. (3) Adds "Link Validation Summary" sheet with category counts, detailed breakdown, and color legend. (4) Frontend now sends ALL results (slimmed to essential fields: url, status, status_code, message) with `mode=multicolor` form field. (5) Route selects between multicolor and legacy broken_only mode based on `mode` parameter.
 **Color scheme**: Green (`C6EFCE`) = WORKING/OK/REDIRECT. Yellow (`FFF2CC`) = SSL_WARNING/REDIRECT_LOOP. Orange (`FCE4D6`) = AUTH_REQUIRED/BLOCKED. Red (`FFC7CE`) = BROKEN/INVALID/TIMEOUT/DNSFAILED/SSLERROR. Grey (`F2F2F2`) = no URL in row.
 **Lesson**: For export features that color-code data, send ALL data points (not just problems). Users want at-a-glance status of everything, not just what's broken. Slim the payload by sending only the fields needed for highlighting (url, status, status_code, message) rather than the full validation result objects. The `_build_url_status_map()` helper creates a URL→result lookup dict with normalized variants for fast per-row matching.
+
+### 85. Werkzeug 413 — request.max_content_length vs app.config['MAX_CONTENT_LENGTH'] (v5.9.34)
+**Problem**: `export_highlighted_excel_endpoint` crashed with `413 Request Entity Too Large` on Windows despite `before_request` hook setting `MAX_CONTENT_LENGTH = None`. Error persisted across v5.9.30-v5.9.33. Payload was only ~1.1MB (856KB file + 250KB JSON) — well under the 200MB limit.
+**Root Cause**: Werkzeug's `MultiPartParser` in `formparser.py` reads `max_content_length` at the moment `request.files` is first accessed (lazy `_load_form_data()` call). On the Windows embedded Python's Werkzeug version, the blueprint `before_request` hook either didn't execute reliably before the form parser initialization, or the parser cached the limit from a source other than `current_app.config`. The result: despite setting `current_app.config['MAX_CONTENT_LENGTH'] = None` in `before_request`, Werkzeug still raised 413 at line 389 of `formparser.py` during multipart parsing.
+**Fix**: Three-layer approach: (1) Set `app.config['MAX_CONTENT_LENGTH'] = None` globally in `app.py` — AEGIS is a local-only tool (localhost:5050), no security reason for an upload limit. (2) Keep blueprint `before_request` hook as safety net. (3) Added inline `request.max_content_length = None` + `current_app.config['MAX_CONTENT_LENGTH'] = None` + `request.environ.pop('MAX_CONTENT_LENGTH', None)` RIGHT BEFORE the first `request.files` access in each export endpoint, plus `try/except RequestEntityTooLarge` wrapper with diagnostic logging.
+**Lesson**: When overriding Flask/Werkzeug upload size limits for specific routes, `before_request` hooks are NOT reliable across all Werkzeug versions. The safest approach for local-only tools is to remove `MAX_CONTENT_LENGTH` entirely at the app level (`app.config['MAX_CONTENT_LENGTH'] = None`). If you must keep a global limit, override it at three levels immediately before `request.files` access: `request.max_content_length`, `current_app.config['MAX_CONTENT_LENGTH']`, and `request.environ`. Always wrap `request.files` access in `try/except RequestEntityTooLarge` for defense in depth.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

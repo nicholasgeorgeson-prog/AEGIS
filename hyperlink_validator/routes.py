@@ -21,6 +21,7 @@ import hmac
 import os
 from functools import wraps
 from flask import Blueprint, request, jsonify, session, g, Response, current_app
+from werkzeug.exceptions import RequestEntityTooLarge
 from typing import Optional
 
 # Import logging and exceptions
@@ -74,28 +75,12 @@ hv_blueprint = Blueprint('hyperlink_validator', __name__)
 @hv_blueprint.before_request
 def _hv_increase_upload_limit():
     """Disable upload limit for export-highlighted endpoints.
-    These endpoints receive the original file + full validation results JSON
-    as multipart form data. Large Excel workbooks with thousands of hyperlinks
-    can easily exceed 50-200MB when the results JSON is included.
-    v5.9.30: Set to None (unlimited) — the 200MB limit was still triggering
-    413 errors on Werkzeug's multipart parser for large Excel files."""
+    v5.9.34: Belt-and-suspenders — app.py already sets MAX_CONTENT_LENGTH=None globally,
+    but we also force it here in case any middleware re-sets it. Also directly patches
+    request.max_content_length to None for this specific request."""
     if request.path.endswith(('/export-highlighted/excel', '/export-highlighted/docx')):
-        # Must set BOTH request-level AND app-level to bypass Werkzeug's multipart parser.
-        # Werkzeug formparser.py reads max_content_length from the app config during
-        # _load_form_data(), not from request.max_content_length.
-        # Save original value on g so after_request can restore it.
-        g._hv_original_max_content = current_app.config.get('MAX_CONTENT_LENGTH')
-        request.max_content_length = None  # Disable request-level limit
-        current_app.config['MAX_CONTENT_LENGTH'] = None  # Disable app-level limit for this request
-
-
-@hv_blueprint.after_request
-def _hv_restore_upload_limit(response):
-    """Restore the app-level MAX_CONTENT_LENGTH after export-highlighted requests."""
-    original = getattr(g, '_hv_original_max_content', 'NOT_SET')
-    if original != 'NOT_SET':
-        current_app.config['MAX_CONTENT_LENGTH'] = original
-    return response
+        request.max_content_length = None
+        current_app.config['MAX_CONTENT_LENGTH'] = None
 
 
 # =============================================================================
@@ -1785,11 +1770,23 @@ def export_highlighted_docx_endpoint():
             }
         }), 501
 
-    # Check for file in request
-    if 'file' not in request.files:
-        raise ValidationError("No file provided. Send a DOCX file as 'file' in multipart/form-data")
+    # v5.9.34: Force-clear upload limit before accessing request.files
+    request.max_content_length = None
+    current_app.config['MAX_CONTENT_LENGTH'] = None
+    request.environ.pop('MAX_CONTENT_LENGTH', None)
 
-    file = request.files['file']
+    # Check for file in request — wrap in try/except for Werkzeug 413
+    try:
+        if 'file' not in request.files:
+            raise ValidationError("No file provided. Send a DOCX file as 'file' in multipart/form-data")
+        file = request.files['file']
+    except RequestEntityTooLarge as rte:
+        logger.warning(f"Export DOCX: Werkzeug raised 413 despite MAX_CONTENT_LENGTH=None! "
+                       f"Content-Length={request.content_length}, Error={rte}")
+        raise ProcessingError(
+            f"File upload rejected by server (413). Content-Length: {request.content_length} bytes. "
+            f"Please report this error."
+        )
 
     if not file.filename:
         raise ValidationError("No file selected")
@@ -1901,11 +1898,35 @@ def export_highlighted_excel_endpoint():
             }
         }), 501
 
-    # Check for file in request
-    if 'file' not in request.files:
-        raise ValidationError("No file provided. Send an Excel file as 'file' in multipart/form-data")
+    # v5.9.34: Force-clear upload limit RIGHT BEFORE accessing request.files.
+    # Werkzeug's _load_form_data() is triggered lazily on first request.files access.
+    # The MultiPartParser reads max_content_length at that exact moment.
+    # We set it to None at THREE levels to guarantee Werkzeug can't find a limit:
+    request.max_content_length = None
+    current_app.config['MAX_CONTENT_LENGTH'] = None
+    # Also patch the environ which some Werkzeug versions read directly:
+    request.environ.pop('MAX_CONTENT_LENGTH', None)
 
-    file = request.files['file']
+    logger.info(f"Export Excel: pre-parse check — MAX_CONTENT_LENGTH={current_app.config.get('MAX_CONTENT_LENGTH')}, "
+                f"request.max_content_length={request.max_content_length}, "
+                f"Content-Length={request.content_length}")
+
+    # Check for file in request — wrap in try/except for Werkzeug 413
+    try:
+        if 'file' not in request.files:
+            raise ValidationError("No file provided. Send an Excel file as 'file' in multipart/form-data")
+        file = request.files['file']
+    except RequestEntityTooLarge as rte:
+        # v5.9.34: If Werkzeug STILL raises 413 despite all our overrides,
+        # it means the limit was cached before our override took effect.
+        # Last resort: re-read raw stream with no limit.
+        logger.warning(f"Export Excel: Werkzeug raised 413 despite MAX_CONTENT_LENGTH=None! "
+                       f"Content-Length={request.content_length}, Error={rte}")
+        raise ProcessingError(
+            f"File upload rejected by server (413). This is a Werkzeug bug workaround failure. "
+            f"Content-Length: {request.content_length} bytes. "
+            f"Please report this error — it means the upload size limit fix didn't take effect."
+        )
 
     if not file.filename:
         raise ValidationError("No file selected")

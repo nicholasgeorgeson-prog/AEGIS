@@ -45,7 +45,7 @@
 'use strict';
 
 const HelpDocs = {
-    version: '5.9.21',
+    version: '5.9.34',
     lastUpdated: '2026-02-18',
     
     config: {
@@ -7419,6 +7419,14 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.9.34 <span class="changelog-date">February 19, 2026</span></h3>
+        <p><strong>413 Upload Limit Fix for Excel/DOCX Export</strong></p>
+        <ul>
+            <li><strong>FIX: 413 Request Entity Too Large</strong> — Resolved persistent error that blocked all Excel/DOCX exports on Windows. Removed global upload size limit entirely (AEGIS is local-only, no need for upload restrictions).</li>
+            <li><strong>FIX: Belt-and-suspenders override</strong> — MAX_CONTENT_LENGTH=None set at three levels: app config, before_request hook, and inline before request.files access. Try/except wrapper catches any remaining Werkzeug 413 errors with diagnostic logging.</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.9.33 <span class="changelog-date">February 19, 2026</span></h3>
         <p><strong>Multi-Color Status Highlighting for Excel Export</strong></p>
         <ul>

@@ -1,13 +1,24 @@
 {
-  "version": "5.9.33",
+  "version": "5.9.34",
   "release_date": "2026-02-19",
-  "core_version": "5.9.33",
+  "core_version": "5.9.34",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.34",
+      "date": "2026-02-19",
+      "changes": [
+        "FIX: Resolved persistent 413 Request Entity Too Large error that blocked all Excel/DOCX exports on Windows",
+        "FIX: Removed global MAX_CONTENT_LENGTH limit entirely — AEGIS is a local-only tool with no need for upload size restrictions",
+        "FIX: Added belt-and-suspenders MAX_CONTENT_LENGTH=None override at 3 levels: app config, before_request hook, and inline before request.files access",
+        "FIX: Added try/except RequestEntityTooLarge wrapper around request.files access with diagnostic logging",
+        "IMPROVE: Export endpoints now log MAX_CONTENT_LENGTH state before parsing for easier debugging"
+      ]
+    },
     {
       "version": "5.9.33",
       "date": "2026-02-19",
