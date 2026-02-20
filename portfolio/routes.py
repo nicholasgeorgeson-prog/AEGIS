@@ -286,7 +286,8 @@ def get_batch_details(batch_id):
         conn = _get_db_connection()
         cursor = conn.cursor()
 
-        # Get scans within 5 minutes of the batch timestamp
+        # v5.9.39: Use 30-second window to match batch detection in list view
+        # (was ±5 minutes which pulled in scans from different batches)
         cursor.execute('''
             SELECT
                 s.id, s.document_id, s.scan_time, s.score, s.grade,
@@ -294,7 +295,7 @@ def get_batch_details(batch_id):
                 d.filename, d.filepath, d.scan_count
             FROM scans s
             JOIN documents d ON s.document_id = d.id
-            WHERE datetime(s.scan_time) BETWEEN datetime(?, '-5 minutes') AND datetime(?, '+5 minutes')
+            WHERE datetime(s.scan_time) BETWEEN datetime(?, '-30 seconds') AND datetime(?, '+30 seconds')
             ORDER BY s.scan_time DESC
         ''', (timestamp, timestamp))
 

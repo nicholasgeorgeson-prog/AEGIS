@@ -45,7 +45,7 @@
 'use strict';
 
 const HelpDocs = {
-    version: '5.9.38',
+    version: '5.9.39',
     lastUpdated: '2026-02-20',
     
     config: {
@@ -7601,6 +7601,16 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.9.39 <span class="changelog-date">February 20, 2026</span></h3>
+        <p><strong>Batch Scan Minimize &amp; Portfolio Fix</strong></p>
+        <ul>
+            <li><strong>ENH: Batch scan minimize/restore</strong> — Minimize button in modal header hides the scan to a floating progress badge with SVG ring showing completion percentage</li>
+            <li><strong>ENH: Floating mini badge</strong> — Click the bottom-right badge to restore the full scan dashboard at any time — works for batch, folder, and SharePoint scans</li>
+            <li><strong>ENH: Auto-minimize on outside click</strong> — Clicking outside the scan modal during an active scan minimizes instead of closing (prevents accidental data loss)</li>
+            <li><strong>FIX: Portfolio batch doc count</strong> — Detail view showed more documents than the card because it used a 5-minute window vs the card's 30-second batch grouping — now consistent</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.9.38 <span class="changelog-date">February 20, 2026</span></h3>
         <p><strong>SharePoint Scan Improvements</strong></p>
         <ul>

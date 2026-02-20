@@ -166,7 +166,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.9.38
+- **Current version**: 5.9.39
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -773,6 +773,13 @@ The actual logic lives in `repair_aegis.py` (500 lines) where Python's error han
 4. **Auto-populate library path**: URL paste auto-parses library path client-side. Server-side auto-detection fills it if not found in URL. Library path field placeholder changed to "(auto-detected)".
 **Files**: `sharepoint_connector.py`, `routes/review_routes.py`, `templates/index.html`, `static/js/app.js`
 **Lesson**: Multi-step connection flows are UX friction — combine them into one-click operations. For corporate network debugging, always log the full error and categorize ConnectionError subtypes (SSL vs DNS vs proxy vs timeout) rather than using a catch-all message. Users can't fix "Cannot reach server" but CAN fix "DNS resolution failed — check VPN".
+
+### 88. Batch Scan Minimize/Restore and Portfolio Batch Count Mismatch (v5.9.39)
+**Problem**: (1) Clicking outside the batch scan modal during an active scan closed it with no way to get back. (2) Portfolio batch detail view showed different document counts (e.g., "2 docs" on card, "16 docs" inside detail).
+**Root Cause**: (1) `closeBatchModal()` did `modal.style.display = 'none'` unconditionally with no "minimize to badge" option. (2) Portfolio `/api/portfolio/batches` (card view) groups scans within a 30-second window, but `/api/portfolio/batch/<id>` (detail view) queried with `BETWEEN datetime(?, '-5 minutes') AND datetime(?, '+5 minutes')` — a 10-minute window that pulls in scans from separate batches.
+**Fix**: (1) Implemented minimize/restore pattern matching HV cinematic progress: `minimizeBatchModal()` hides modal, creates `.batch-mini-badge` with SVG progress ring and percentage. `restoreBatchModal()` shows modal and removes badge. `closeBatchModal()` now checks `_isBatchScanStillRunning()` and calls `minimizeBatchModal()` if any scan is active. Minimize button shown in modal header during active scans. Badge loop reads percentage from whichever dashboard is active (batch/folder/SP). (2) Changed detail query from `±5 minutes` to `±30 seconds` to match the card view's `BATCH_TIME_WINDOW_SECONDS = 30`.
+**Files**: `static/js/app.js` (minimize/restore functions), `static/css/features/batch-progress-dashboard.css` (mini badge styling), `templates/index.html` (minimize button), `portfolio/routes.py` (detail query window fix)
+**Lesson**: When a modal hosts a long-running operation, NEVER close it on outside-click — minimize to a floating indicator instead. For batch grouping, use the SAME time window constant in both the list view and detail view queries. Two different window sizes cause visible count mismatches that confuse users.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

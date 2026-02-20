@@ -11183,6 +11183,8 @@ STEPS TO REPRODUCE
         // Close modal
         document.getElementById('btn-close-batch-modal')?.addEventListener('click', closeBatchModal);
         document.getElementById('btn-cancel-batch')?.addEventListener('click', closeBatchModal);
+        // v5.9.38: Minimize button
+        document.getElementById('btn-minimize-batch-modal')?.addEventListener('click', minimizeBatchModal);
         
         // Batch dropzone
         const batchDropzone = document.getElementById('batch-dropzone');
@@ -11378,6 +11380,10 @@ STEPS TO REPRODUCE
                     if (fsDocsComplete) fsDocsComplete.textContent = '0';
                     if (fsPercent) fsPercent.textContent = '0%';
                     if (fsIssueCount) fsIssueCount.textContent = '0';
+
+                    // v5.9.39: Show minimize button when folder scan starts
+                    const minBtnFS = document.getElementById('btn-minimize-batch-modal');
+                    if (minBtnFS) minBtnFS.style.display = '';
 
                     // Build initial doc rows from discovery
                     if (fsDocList) {
@@ -11930,6 +11936,10 @@ STEPS TO REPRODUCE
                 if (spPercent) spPercent.textContent = '0%';
                 if (spIssueCount) spIssueCount.textContent = '0';
 
+                // v5.9.39: Show minimize button when SharePoint scan starts
+                const minBtnSP = document.getElementById('btn-minimize-batch-modal');
+                if (minBtnSP) minBtnSP.style.display = '';
+
                 // Build initial doc rows from stored discovery
                 let discoveryFiles = [];
                 try {
@@ -12145,8 +12155,179 @@ STEPS TO REPRODUCE
     }
     
     function closeBatchModal() {
+        // v5.9.38: If any scan is running, minimize to floating badge instead of closing
+        const batchRunning = BatchState.processing;
+        const fsDash = document.getElementById('folder-scan-dashboard');
+        const spDash = document.getElementById('sp-scan-dashboard');
+        const batchDash = document.getElementById('batch-progress');
+        const folderScanRunning = fsDash && !fsDash.classList.contains('hidden') && !fsDash.classList.contains('bpd-complete');
+        const spScanRunning = spDash && !spDash.classList.contains('hidden') && !spDash.classList.contains('bpd-complete');
+        const batchDashRunning = batchDash && !batchDash.classList.contains('hidden') && !batchDash.classList.contains('bpd-complete');
+
+        if (batchRunning || folderScanRunning || spScanRunning || batchDashRunning) {
+            minimizeBatchModal();
+            return;
+        }
         document.getElementById('batch-upload-modal').style.display = 'none';
         BatchState.files = [];
+        // Hide minimize button when closing normally (scan complete)
+        const minBtn = document.getElementById('btn-minimize-batch-modal');
+        if (minBtn) minBtn.style.display = 'none';
+    }
+
+    // v5.9.38: Minimize/Restore pattern (same as HV cinematic progress)
+    let _batchMiniBadgeInterval = null;
+
+    function minimizeBatchModal() {
+        const modal = document.getElementById('batch-upload-modal');
+        if (modal) modal.style.display = 'none';
+
+        // Determine which scan type is active for the label
+        let scanLabel = 'Batch Scan';
+        let scanIcon = 'layers';
+        const fsDash = document.getElementById('folder-scan-dashboard');
+        const spDash = document.getElementById('sp-scan-dashboard');
+        if (spDash && !spDash.classList.contains('hidden')) {
+            scanLabel = 'SharePoint Scan';
+            scanIcon = 'cloud';
+        } else if (fsDash && !fsDash.classList.contains('hidden')) {
+            scanLabel = 'Folder Scan';
+            scanIcon = 'folder-open';
+        }
+
+        // Create floating mini badge if it doesn't exist
+        let badge = document.getElementById('batch-mini-badge');
+        if (!badge) {
+            badge = document.createElement('div');
+            badge.className = 'batch-mini-badge';
+            badge.id = 'batch-mini-badge';
+            badge.innerHTML = `
+                <div class="batch-mini-ring">
+                    <svg viewBox="0 0 36 36">
+                        <circle class="batch-mini-ring-bg" cx="18" cy="18" r="15.9"/>
+                        <circle class="batch-mini-ring-fill" cx="18" cy="18" r="15.9" id="batch-mini-ring-fill"/>
+                    </svg>
+                </div>
+                <div class="batch-mini-info">
+                    <span class="batch-mini-pct" id="batch-mini-pct">0%</span>
+                    <span class="batch-mini-text" id="batch-mini-text">${scanLabel}</span>
+                </div>
+            `;
+            badge.addEventListener('click', restoreBatchModal);
+            badge.title = 'Click to restore scan progress';
+            document.body.appendChild(badge);
+            requestAnimationFrame(() => badge.classList.add('batch-mini-badge-visible'));
+        } else {
+            // Update label if it changed
+            const textEl = badge.querySelector('#batch-mini-text');
+            if (textEl) textEl.textContent = scanLabel;
+        }
+
+        // Start mini badge update loop
+        _startBatchMiniBadgeLoop();
+    }
+
+    function restoreBatchModal() {
+        const modal = document.getElementById('batch-upload-modal');
+        if (modal) modal.style.display = 'flex';
+
+        // Remove the mini badge
+        const badge = document.getElementById('batch-mini-badge');
+        if (badge) {
+            badge.classList.remove('batch-mini-badge-visible');
+            setTimeout(() => badge.remove(), 300);
+        }
+
+        if (_batchMiniBadgeInterval) {
+            clearInterval(_batchMiniBadgeInterval);
+            _batchMiniBadgeInterval = null;
+        }
+    }
+
+    function _isBatchScanStillRunning() {
+        // Check all 3 scan types: batch upload, folder scan, SharePoint scan
+        if (BatchState.processing) return true;
+        const fsDash = document.getElementById('folder-scan-dashboard');
+        if (fsDash && !fsDash.classList.contains('hidden') && !fsDash.classList.contains('bpd-complete')) return true;
+        const spDash = document.getElementById('sp-scan-dashboard');
+        if (spDash && !spDash.classList.contains('hidden') && !spDash.classList.contains('bpd-complete')) return true;
+        const batchDash = document.getElementById('batch-progress');
+        if (batchDash && !batchDash.classList.contains('hidden') && !batchDash.classList.contains('bpd-complete')) return true;
+        return false;
+    }
+
+    function _startBatchMiniBadgeLoop() {
+        if (_batchMiniBadgeInterval) clearInterval(_batchMiniBadgeInterval);
+        _batchMiniBadgeInterval = setInterval(() => {
+            if (!_isBatchScanStillRunning()) {
+                // Scan finished — show completion briefly then remove badge
+                _updateBatchMiniBadge();
+                setTimeout(() => {
+                    const badge = document.getElementById('batch-mini-badge');
+                    if (badge) {
+                        badge.classList.remove('batch-mini-badge-visible');
+                        setTimeout(() => badge.remove(), 300);
+                    }
+                    // Hide minimize button since scan is done
+                    const minBtn = document.getElementById('btn-minimize-batch-modal');
+                    if (minBtn) minBtn.style.display = 'none';
+                }, 3000);
+                clearInterval(_batchMiniBadgeInterval);
+                _batchMiniBadgeInterval = null;
+                return;
+            }
+            _updateBatchMiniBadge();
+        }, 1000);
+    }
+
+    function _updateBatchMiniBadge() {
+        const pctEl = document.getElementById('batch-mini-pct');
+        const ringFill = document.getElementById('batch-mini-ring-fill');
+        if (!pctEl || !ringFill) return;
+
+        // Try to get percentage from the various dashboard elements
+        let pct = 0;
+        // Check batch progress first, then folder scan, then SharePoint
+        const batchPct = document.getElementById('batch-percent-animated');
+        const fsPct = document.getElementById('fs-percent');
+        const spPct = document.getElementById('sp-percent');
+
+        if (batchPct && batchPct.textContent) {
+            pct = parseInt(batchPct.textContent) || 0;
+        } else if (fsPct && fsPct.textContent) {
+            pct = parseInt(fsPct.textContent) || 0;
+        } else if (spPct && spPct.textContent) {
+            pct = parseInt(spPct.textContent) || 0;
+        }
+
+        pctEl.textContent = `${pct}%`;
+
+        // Update SVG ring
+        const circumference = 2 * Math.PI * 15.9;
+        ringFill.style.strokeDasharray = `${circumference}`;
+        ringFill.style.strokeDashoffset = `${circumference - (pct / 100) * circumference}`;
+
+        // Change color on completion
+        if (pct >= 100) {
+            ringFill.style.stroke = '#22c55e';
+            pctEl.textContent = 'Done';
+            const textEl = document.getElementById('batch-mini-text');
+            if (textEl) textEl.textContent = 'Scan Complete';
+        }
+    }
+
+    // v5.9.38: Also clean up badge when batch processing finishes
+    // This is called from the scan completion paths
+    function _removeBatchMiniBadge() {
+        const badge = document.getElementById('batch-mini-badge');
+        if (badge) {
+            badge.classList.remove('batch-mini-badge-visible');
+            setTimeout(() => badge.remove(), 300);
+        }
+        if (_batchMiniBadgeInterval) {
+            clearInterval(_batchMiniBadgeInterval);
+            _batchMiniBadgeInterval = null;
+        }
     }
 
     /**
@@ -12548,6 +12729,10 @@ STEPS TO REPRODUCE
         startBtn.disabled = true;
         docsTotal.textContent = totalFiles;
         docsComplete.textContent = '0';
+
+        // v5.9.39: Show minimize button when scan starts
+        const minBtn = document.getElementById('btn-minimize-batch-modal');
+        if (minBtn) minBtn.style.display = '';
 
         // Create document rows with batch labels if multiple batches
         globalIndex = 0;

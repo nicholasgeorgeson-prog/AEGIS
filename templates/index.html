@@ -1062,9 +1062,14 @@ if (document.documentElement.classList.contains('dark-mode')) {
                 <div class="modal-container" style="max-width:700px;">
                     <div class="modal-header">
                         <h3 id="batch-modal-title"><i data-lucide="folder-plus" aria-hidden="true"></i> Batch Upload Documents</h3>
-                        <button class="btn btn-ghost" id="btn-close-batch-modal" aria-label="Close batch upload dialog">
-                            <i data-lucide="x" aria-hidden="true"></i>
-                        </button>
+                        <div style="display:flex;align-items:center;gap:4px;">
+                            <button class="btn btn-ghost" id="btn-minimize-batch-modal" aria-label="Minimize to floating badge" title="Minimize — continue scan in background" style="display:none;">
+                                <i data-lucide="minimize-2" aria-hidden="true"></i>
+                            </button>
+                            <button class="btn btn-ghost" id="btn-close-batch-modal" aria-label="Close batch upload dialog">
+                                <i data-lucide="x" aria-hidden="true"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="modal-body">
                         <!-- Hidden file inputs (outside dropzone to prevent event bubbling issues) -->

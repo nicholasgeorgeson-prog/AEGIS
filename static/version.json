@@ -1,13 +1,25 @@
 {
-  "version": "5.9.38",
+  "version": "5.9.39",
   "release_date": "2026-02-20",
-  "core_version": "5.9.38",
+  "core_version": "5.9.39",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.39",
+      "date": "2026-02-20",
+      "changes": [
+        "ENH: Batch scan minimize/restore — minimize button in modal header hides to floating progress badge",
+        "ENH: Floating mini badge with SVG progress ring shows scan % while working in other areas",
+        "ENH: Click mini badge to restore full scan dashboard — works for batch, folder, and SharePoint scans",
+        "ENH: Auto-minimize when clicking outside scan modal during active scan (prevents accidental close)",
+        "FIX: Portfolio batch document count mismatch — detail view used ±5min window vs card's 30sec window",
+        "FIX: Portfolio batch detail now uses consistent 30-second batch grouping window"
+      ]
+    },
     {
       "version": "5.9.38",
       "date": "2026-02-20",

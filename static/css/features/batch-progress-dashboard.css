@@ -490,3 +490,131 @@
         transition-duration: 0.01ms !important;
     }
 }
+
+/* ==========================================================================
+   v5.9.38: BATCH SCAN MINI BADGE (floating indicator when minimized)
+   Same pattern as HV cinematic progress mini badge
+   ========================================================================== */
+.batch-mini-badge {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 10060;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: 14px;
+    background: rgba(10, 14, 26, 0.95);
+    border: 1px solid rgba(214, 168, 74, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(214, 168, 74, 0.15);
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.3s ease;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    user-select: none;
+}
+
+.batch-mini-badge-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.batch-mini-badge:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 30px rgba(214, 168, 74, 0.25);
+    border-color: rgba(214, 168, 74, 0.5);
+}
+
+.batch-mini-badge:active {
+    transform: translateY(0);
+}
+
+.batch-mini-ring {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+}
+
+.batch-mini-ring svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.batch-mini-ring-bg {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.1);
+    stroke-width: 3;
+}
+
+.batch-mini-ring-fill {
+    fill: none;
+    stroke: #D6A84A;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    transition: stroke-dashoffset 0.5s ease, stroke 0.3s ease;
+    filter: drop-shadow(0 0 4px rgba(214, 168, 74, 0.5));
+}
+
+.batch-mini-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.batch-mini-pct {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #f0f4f8;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+}
+
+.batch-mini-text {
+    font-size: 0.6875rem;
+    color: rgba(255, 255, 255, 0.4);
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+/* Light mode */
+body:not(.dark-mode) .batch-mini-badge,
+[data-theme="light"] .batch-mini-badge {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(214, 168, 74, 0.4);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), 0 0 20px rgba(214, 168, 74, 0.1);
+}
+
+body:not(.dark-mode) .batch-mini-badge:hover,
+[data-theme="light"] .batch-mini-badge:hover {
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2), 0 0 30px rgba(214, 168, 74, 0.15);
+}
+
+body:not(.dark-mode) .batch-mini-pct,
+[data-theme="light"] .batch-mini-pct {
+    color: #1a1a2e;
+}
+
+body:not(.dark-mode) .batch-mini-text,
+[data-theme="light"] .batch-mini-text {
+    color: rgba(0, 0, 0, 0.5);
+}
+
+body:not(.dark-mode) .batch-mini-ring-bg,
+[data-theme="light"] .batch-mini-ring-bg {
+    stroke: rgba(0, 0, 0, 0.1);
+}
+
+/* Pulse animation on the ring when actively scanning */
+@keyframes batchMiniPulse {
+    0%, 100% { filter: drop-shadow(0 0 4px rgba(214, 168, 74, 0.5)); }
+    50% { filter: drop-shadow(0 0 8px rgba(214, 168, 74, 0.8)); }
+}
+
+.batch-mini-badge-visible .batch-mini-ring-fill {
+    animation: batchMiniPulse 2s ease-in-out infinite;
+}
