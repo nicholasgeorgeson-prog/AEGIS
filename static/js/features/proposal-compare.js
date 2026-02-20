@@ -782,30 +782,46 @@ window.ProposalCompare = (function() {
 
         container.innerHTML = '<div class="pc-doc-loading"><div class="pc-spinner"></div> Loading document...</div>';
 
-        // PDF: try PDF.js, fall back to extracted text
+        // PDF: read File into ArrayBuffer for PDF.js, fall back to extracted text
         if (fileType === 'pdf') {
-            // Try PDF.js canvas rendering first
+            var textContent = p.extraction_text || '';
             if (State.files[idx] && window.TWR && window.TWR.PDFViewer) {
-                var blobUrl = URL.createObjectURL(State.files[idx]);
-                State._blobUrls.push(blobUrl);
-                console.log('[PC DocViewer] Attempting PDF.js render with blob URL');
-                TWR.PDFViewer.render(container, blobUrl, { scale: 1.0 }).catch(function(err) {
-                    console.warn('[PC DocViewer] PDF.js render failed:', err);
-                    // Fall back to extracted text on render failure
-                    var textContent = p.full_text || p.extraction_text || '';
+                console.log('[PC DocViewer] Reading PDF file into ArrayBuffer for PDF.js');
+                var file = State.files[idx];
+                var reader = new FileReader();
+                reader.onload = function() {
+                    var arrayBuffer = reader.result;
+                    console.log('[PC DocViewer] ArrayBuffer ready, size=' + arrayBuffer.byteLength + ', rendering...');
+                    TWR.PDFViewer.render(container, {data: arrayBuffer}, { scale: 1.0 }).catch(function(err) {
+                        console.warn('[PC DocViewer] PDF.js render failed:', err);
+                        if (textContent) {
+                            container.innerHTML = '<div class="pc-doc-notice"><i data-lucide="info"></i> ' +
+                                'PDF canvas render failed — showing extracted text</div>' +
+                                '<pre class="pc-doc-text">' + escHtml(textContent) + '</pre>';
+                            if (window.lucide) window.lucide.createIcons();
+                        }
+                    });
+                };
+                reader.onerror = function() {
+                    console.warn('[PC DocViewer] FileReader error, falling back to text');
                     if (textContent) {
                         container.innerHTML = '<div class="pc-doc-notice"><i data-lucide="info"></i> ' +
-                            'PDF preview unavailable — showing extracted text</div>' +
+                            'Could not read PDF file — showing extracted text</div>' +
                             '<pre class="pc-doc-text">' + escHtml(textContent) + '</pre>';
                         if (window.lucide) window.lucide.createIcons();
+                    } else {
+                        container.innerHTML = '<div class="pc-doc-fallback"><i data-lucide="file-text"></i>' +
+                            '<p>Could not read PDF file.</p>' +
+                            '<p class="pc-doc-hint">Extracted data shown in the editor panel.</p></div>';
+                        if (window.lucide) window.lucide.createIcons();
                     }
-                });
+                };
+                reader.readAsArrayBuffer(file);
             } else {
                 // No PDF.js or no file — show extracted text
                 console.log('[PC DocViewer] PDF.js not available (TWR.PDFViewer=' +
                     !!(window.TWR && window.TWR.PDFViewer) + ', file=' + !!State.files[idx] +
                     '), falling back to text');
-                var textContent = p.full_text || p.extraction_text || '';
                 if (textContent) {
                     container.innerHTML = '<div class="pc-doc-notice"><i data-lucide="info"></i> ' +
                         'PDF preview unavailable — showing extracted text</div>' +
@@ -814,7 +830,7 @@ window.ProposalCompare = (function() {
                 } else {
                     container.innerHTML = '<div class="pc-doc-fallback"><i data-lucide="file-text"></i>' +
                         '<p>PDF preview not available.</p>' +
-                        '<p class="pc-doc-hint">PDF.js module not loaded. Extracted data shown in the editor panel.</p></div>';
+                        '<p class="pc-doc-hint">Extracted data shown in the editor panel.</p></div>';
                     if (window.lucide) window.lucide.createIcons();
                 }
             }
