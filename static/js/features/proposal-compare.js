@@ -28,11 +28,16 @@ window.ProposalCompare = (function() {
         files: [],             // File objects
         proposals: [],         // Extracted ProposalData objects (from server)
         comparison: null,      // ComparisonResult from server
+        comparisonId: null,    // DB id of saved comparison (for history)
         activeTab: 'executive', // active tab id
         // Project management
         projects: [],          // cached project list
         selectedProjectId: null,
         projectProposals: [],  // proposals already in selected project
+        // Review phase navigation
+        _reviewIdx: 0,         // current proposal index in review split-pane
+        _blobUrls: [],         // blob URLs for document viewer (cleaned up on phase exit)
+        _lineItemEditorOpen: [], // track which proposals have line item editor open
         // Chart instances (for cleanup)
         _charts: [],
     };
@@ -204,11 +209,12 @@ window.ProposalCompare = (function() {
     // ──────────────────────────────────────────
 
     function renderPhaseIndicator(activeStep) {
-        // activeStep: 1=Upload, 2=Extract, 3=Compare
+        // activeStep: 1=Upload, 2=Extract, 3=Review, 4=Compare
         const steps = [
             { num: 1, label: 'Upload' },
             { num: 2, label: 'Extract' },
-            { num: 3, label: 'Compare' },
+            { num: 3, label: 'Review' },
+            { num: 4, label: 'Compare' },
         ];
         return '<div class="pc-phase-indicator">' + steps.map((s, i) => {
             let cls = 'pc-phase-step';
@@ -460,7 +466,12 @@ window.ProposalCompare = (function() {
         body.innerHTML =
             renderPhaseIndicator(1) +
             '<div class="pc-upload-area">' +
-                '<div id="pc-project-selector"></div>' +
+                '<div class="pc-upload-header">' +
+                    '<div id="pc-project-selector"></div>' +
+                    '<button class="pc-btn pc-btn-ghost pc-btn-sm" id="pc-btn-history">' +
+                        '<i data-lucide="history"></i> History' +
+                    '</button>' +
+                '</div>' +
                 '<div class="pc-dropzone" id="pc-dropzone">' +
                     '<input type="file" class="pc-file-input" id="pc-file-input"' +
                     '       multiple accept=".xlsx,.xls,.docx,.pdf">' +
@@ -510,6 +521,11 @@ window.ProposalCompare = (function() {
         });
 
         extractBtn.addEventListener('click', startExtraction);
+
+        var historyBtn = document.getElementById('pc-btn-history');
+        if (historyBtn) {
+            historyBtn.addEventListener('click', renderHistoryView);
+        }
 
         if (window.lucide) window.lucide.createIcons();
     }
@@ -695,71 +711,316 @@ window.ProposalCompare = (function() {
     }
 
     // ──────────────────────────────────────────
-    // Phase: Review (edit company names, verify extraction)
+    // Phase: Review (split-pane: doc viewer + metadata editor)
     // ──────────────────────────────────────────
+
+    function _formatCurrency(val) {
+        if (val == null || val === '' || isNaN(val)) return '';
+        return '$' + Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function _parseCurrency(str) {
+        if (str == null || str === '') return null;
+        var cleaned = String(str).replace(/[^0-9.\-]/g, '');
+        var num = parseFloat(cleaned);
+        return isNaN(num) ? null : num;
+    }
+
+    /** Save current review form fields into State.proposals[idx] */
+    function _captureReviewEdits(idx) {
+        var p = State.proposals[idx];
+        if (!p) return;
+
+        var companyEl = document.getElementById('pc-edit-company');
+        var dateEl = document.getElementById('pc-edit-date');
+        var totalEl = document.getElementById('pc-edit-total');
+
+        if (companyEl) p.company_name = companyEl.value.trim() || p.filename;
+        if (dateEl) p.date = dateEl.value.trim();
+        if (totalEl) {
+            var parsed = _parseCurrency(totalEl.value);
+            if (parsed !== null) {
+                p.total_amount = parsed;
+                p.total_raw = totalEl.value.trim();
+            }
+        }
+
+        // Capture line item edits if editor is open
+        var editorBody = document.getElementById('pc-line-item-tbody');
+        if (editorBody && State._lineItemEditorOpen[idx]) {
+            var rows = editorBody.querySelectorAll('.pc-li-row');
+            var items = [];
+            rows.forEach(function(row) {
+                var desc = row.querySelector('.pc-li-desc')?.value?.trim() || '';
+                if (!desc) return; // skip empty rows
+                items.push({
+                    description: desc,
+                    category: row.querySelector('.pc-li-cat')?.value || 'Other',
+                    amount: _parseCurrency(row.querySelector('.pc-li-amount')?.value),
+                    amount_raw: row.querySelector('.pc-li-amount')?.value || '',
+                    quantity: parseFloat(row.querySelector('.pc-li-qty')?.value) || null,
+                    unit_price: _parseCurrency(row.querySelector('.pc-li-unit')?.value),
+                    unit: '',
+                    row_index: 0,
+                    table_index: 0,
+                    source_sheet: '',
+                    confidence: 1.0,
+                });
+            });
+            p.line_items = items;
+        }
+    }
+
+    function _renderDocViewer(idx) {
+        var p = State.proposals[idx];
+        var fileType = (p.file_type || '').toLowerCase();
+        var container = document.getElementById('pc-doc-viewer');
+        if (!container) return;
+
+        container.innerHTML = '<div class="pc-doc-loading"><div class="pc-spinner"></div> Loading document...</div>';
+
+        // PDF: use PDF.js
+        if (fileType === 'pdf' && State.files[idx]) {
+            var blobUrl = URL.createObjectURL(State.files[idx]);
+            State._blobUrls.push(blobUrl);
+            if (window.TWR && window.TWR.PDFViewer) {
+                TWR.PDFViewer.render(container, blobUrl, { scale: 1.0 });
+            } else {
+                container.innerHTML = '<div class="pc-doc-fallback"><i data-lucide="file-text"></i><p>PDF viewer not available. PDF.js module not loaded.</p></div>';
+                if (window.lucide) window.lucide.createIcons();
+            }
+            return;
+        }
+
+        // XLSX: render tables
+        if (fileType === 'xlsx' && p.tables && p.tables.length > 0) {
+            var html = '';
+            p.tables.forEach(function(t, ti) {
+                html += '<div class="pc-doc-table-section"><h5>Table ' + (ti + 1) + '</h5>';
+                html += '<table class="pc-doc-table"><thead><tr>';
+                (t.headers || []).forEach(function(h) { html += '<th>' + escHtml(h) + '</th>'; });
+                html += '</tr></thead><tbody>';
+                (t.rows || []).forEach(function(r) {
+                    html += '<tr>';
+                    r.forEach(function(c) { html += '<td>' + escHtml(String(c ?? '')) + '</td>'; });
+                    html += '</tr>';
+                });
+                html += '</tbody></table></div>';
+            });
+            container.innerHTML = html || '<p class="pc-doc-fallback">No table data extracted.</p>';
+            return;
+        }
+
+        // DOCX / text fallback: show extraction text
+        var textContent = p.full_text || p.extraction_text || '';
+        if (textContent) {
+            container.innerHTML = '<pre class="pc-doc-text">' + escHtml(textContent) + '</pre>';
+        } else if (State.files[idx] && fileType === 'docx') {
+            // For DOCX, try to show a basic message since we can't render it natively
+            container.innerHTML = '<div class="pc-doc-fallback"><i data-lucide="file-text"></i>' +
+                '<p>DOCX preview not available.</p><p class="pc-doc-hint">Extracted data shown in the editor panel.</p></div>';
+            if (window.lucide) window.lucide.createIcons();
+        } else {
+            container.innerHTML = '<div class="pc-doc-fallback"><i data-lucide="file-question"></i>' +
+                '<p>No document preview available.</p></div>';
+            if (window.lucide) window.lucide.createIcons();
+        }
+    }
+
+    function _renderLineItemEditor(idx) {
+        var p = State.proposals[idx];
+        var items = p.line_items || [];
+        var cats = ['Labor', 'Material', 'Software', 'Travel', 'ODC', 'Subcontract', 'Other'];
+
+        var html = '<div class="pc-li-editor" id="pc-li-editor">' +
+            '<div class="pc-li-table-wrap"><table class="pc-li-table">' +
+            '<thead><tr>' +
+                '<th class="pc-li-th-desc">Description</th>' +
+                '<th class="pc-li-th-cat">Category</th>' +
+                '<th class="pc-li-th-amt">Amount</th>' +
+                '<th class="pc-li-th-qty">Qty</th>' +
+                '<th class="pc-li-th-unit">Unit Price</th>' +
+                '<th class="pc-li-th-del"></th>' +
+            '</tr></thead>' +
+            '<tbody id="pc-line-item-tbody">';
+
+        items.forEach(function(li, liIdx) {
+            html += _renderLineItemRow(li, liIdx, cats);
+        });
+
+        html += '</tbody></table></div>' +
+            '<button class="pc-btn pc-btn-sm pc-btn-ghost" id="pc-add-line-item">' +
+                '<i data-lucide="plus"></i> Add Line Item' +
+            '</button></div>';
+
+        return html;
+    }
+
+    function _renderLineItemRow(li, liIdx, cats) {
+        var catOptions = cats.map(function(c) {
+            var sel = (li.category || 'Other') === c ? ' selected' : '';
+            return '<option value="' + c + '"' + sel + '>' + c + '</option>';
+        }).join('');
+
+        return '<tr class="pc-li-row" data-li-idx="' + liIdx + '">' +
+            '<td><input type="text" class="pc-li-desc pc-li-input" value="' + escHtml(li.description || '') + '" placeholder="Description"></td>' +
+            '<td><select class="pc-li-cat pc-li-input">' + catOptions + '</select></td>' +
+            '<td><input type="text" class="pc-li-amount pc-li-input" value="' + escHtml(li.amount_raw || (li.amount != null ? _formatCurrency(li.amount) : '')) + '" placeholder="$0.00"></td>' +
+            '<td><input type="text" class="pc-li-qty pc-li-input" value="' + (li.quantity || '') + '" placeholder="-"></td>' +
+            '<td><input type="text" class="pc-li-unit pc-li-input" value="' + escHtml(li.unit_price != null ? _formatCurrency(li.unit_price) : '') + '" placeholder="-"></td>' +
+            '<td><button class="pc-li-del-btn" title="Remove">&times;</button></td>' +
+        '</tr>';
+    }
+
+    function _renderReviewProposal(idx) {
+        var p = State.proposals[idx];
+        if (!p) return;
+
+        var ext = '.' + (p.file_type || '').toLowerCase();
+        var items = p.line_items?.length || 0;
+        var tables = p.tables?.length || 0;
+        var totalDisplay = p.total_raw || (p.total_amount != null ? _formatCurrency(p.total_amount) : '');
+        var editorOpen = State._lineItemEditorOpen[idx];
+
+        var container = document.getElementById('pc-review-content');
+        if (!container) return;
+
+        container.innerHTML =
+            '<div class="pc-review-split">' +
+                // Left: Document viewer
+                '<div class="pc-review-doc-panel">' +
+                    '<div class="pc-review-doc-header">' +
+                        '<i data-lucide="' + fileIcon(ext) + '"></i> ' +
+                        '<span>' + escHtml(p.filename) + '</span>' +
+                    '</div>' +
+                    '<div class="pc-review-doc-viewer" id="pc-doc-viewer"></div>' +
+                '</div>' +
+                // Right: Metadata editor
+                '<div class="pc-review-edit-panel">' +
+                    '<div class="pc-review-edit-form">' +
+                        '<div class="pc-edit-field">' +
+                            '<label>Company / Vendor Name</label>' +
+                            '<input type="text" id="pc-edit-company" class="pc-edit-input" value="' + escHtml(p.company_name || '') + '" placeholder="Enter company name">' +
+                        '</div>' +
+                        '<div class="pc-edit-field">' +
+                            '<label>Date</label>' +
+                            '<input type="text" id="pc-edit-date" class="pc-edit-input" value="' + escHtml(p.date || '') + '" placeholder="e.g. February 15, 2026">' +
+                        '</div>' +
+                        '<div class="pc-edit-field">' +
+                            '<label>Total Amount</label>' +
+                            '<input type="text" id="pc-edit-total" class="pc-edit-input" value="' + escHtml(totalDisplay) + '" placeholder="$0.00">' +
+                        '</div>' +
+                        '<div class="pc-edit-stats">' +
+                            '<span class="pc-edit-stat"><strong>' + items + '</strong> Line Items</span>' +
+                            '<span class="pc-edit-stat"><strong>' + tables + '</strong> Tables</span>' +
+                        '</div>' +
+                        '<button class="pc-btn pc-btn-sm pc-btn-ghost pc-li-toggle" id="pc-toggle-line-items">' +
+                            '<i data-lucide="' + (editorOpen ? 'chevron-down' : 'chevron-right') + '"></i> ' +
+                            (editorOpen ? 'Hide' : 'Edit') + ' Line Items' +
+                        '</button>' +
+                    '</div>' +
+                    '<div id="pc-li-editor-wrap" class="' + (editorOpen ? '' : 'pc-hidden') + '">' +
+                        (editorOpen ? _renderLineItemEditor(idx) : '') +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+
+        // Render document viewer async
+        _renderDocViewer(idx);
+
+        // Bind events
+        document.getElementById('pc-toggle-line-items')?.addEventListener('click', function() {
+            _captureReviewEdits(idx); // save any in-progress edits
+            State._lineItemEditorOpen[idx] = !State._lineItemEditorOpen[idx];
+            _renderReviewProposal(idx); // re-render with toggled state
+        });
+
+        // Line item editor events (if open)
+        if (editorOpen) {
+            document.getElementById('pc-add-line-item')?.addEventListener('click', function() {
+                var tbody = document.getElementById('pc-line-item-tbody');
+                if (!tbody) return;
+                var cats = ['Labor', 'Material', 'Software', 'Travel', 'ODC', 'Subcontract', 'Other'];
+                var newRow = _renderLineItemRow({ description: '', category: 'Other', amount: null, amount_raw: '', quantity: null, unit_price: null }, tbody.children.length, cats);
+                tbody.insertAdjacentHTML('beforeend', newRow);
+            });
+
+            document.getElementById('pc-li-editor')?.addEventListener('click', function(e) {
+                if (e.target.classList.contains('pc-li-del-btn')) {
+                    e.target.closest('.pc-li-row')?.remove();
+                }
+            });
+        }
+
+        if (window.lucide) window.lucide.createIcons();
+    }
 
     function renderReviewPhase() {
         State.phase = 'review';
+        State._reviewIdx = State._reviewIdx || 0;
+        State._lineItemEditorOpen = State._lineItemEditorOpen.length === State.proposals.length
+            ? State._lineItemEditorOpen
+            : State.proposals.map(function() { return false; });
+
         const body = document.getElementById('pc-body');
         if (!body) return;
 
+        // Clean up previous blob URLs
+        _cleanupBlobUrls();
+
+        var total = State.proposals.length;
+        var idx = State._reviewIdx;
+
         body.innerHTML =
             renderPhaseIndicator(3) +
-            '<div class="pc-extraction-summary" id="pc-proposal-cards"></div>' +
+            '<div class="pc-review-nav">' +
+                '<button class="pc-btn pc-btn-sm pc-btn-ghost" id="pc-review-prev"' +
+                    (idx <= 0 ? ' disabled' : '') + '>' +
+                    '<i data-lucide="chevron-left"></i> Previous' +
+                '</button>' +
+                '<span class="pc-review-counter">Proposal ' + (idx + 1) + ' of ' + total + '</span>' +
+                '<button class="pc-btn pc-btn-sm pc-btn-ghost" id="pc-review-next"' +
+                    (idx >= total - 1 ? ' disabled' : '') + '>' +
+                    'Next <i data-lucide="chevron-right"></i>' +
+                '</button>' +
+            '</div>' +
+            '<div id="pc-review-content"></div>' +
             '<div class="pc-upload-actions">' +
                 '<button class="pc-btn pc-btn-secondary" onclick="ProposalCompare._restart()">' +
                     '<i data-lucide="arrow-left"></i> Start Over' +
                 '</button>' +
                 '<button class="pc-btn pc-btn-primary" id="pc-btn-compare">' +
-                    '<i data-lucide="git-compare-arrows"></i> Compare Proposals' +
+                    '<i data-lucide="git-compare-arrows"></i> Compare All ' + total + ' Proposals' +
                 '</button>' +
             '</div>';
 
-        // Render proposal cards
-        var cardsEl = document.getElementById('pc-proposal-cards');
-        if (cardsEl) {
-            cardsEl.innerHTML = State.proposals.map(function(p, idx) {
-                var company = p.company_name || p.filename;
-                var items = p.line_items?.length || 0;
-                var tables = p.tables?.length || 0;
-                var total = p.total_raw || 'N/A';
-                var ext = '.' + (p.file_type || '').toLowerCase();
+        // Render current proposal split-pane
+        _renderReviewProposal(idx);
 
-                return '<div class="pc-proposal-card">' +
-                    '<div class="pc-proposal-card-header">' +
-                        '<div class="pc-card-icon">' +
-                            '<i data-lucide="' + fileIcon(ext) + '"></i>' +
-                        '</div>' +
-                        '<h4 title="' + escHtml(p.filename) + '">' + escHtml(p.filename) + '</h4>' +
-                    '</div>' +
-                    '<div class="pc-company-name">' +
-                        '<span contenteditable="true" class="pc-editable" id="pc-company-' + idx + '"' +
-                        '      title="Click to edit company name">' + escHtml(company) + '</span>' +
-                    '</div>' +
-                    '<div class="pc-card-stats">' +
-                        '<div class="pc-card-stat">' +
-                            '<div class="pc-card-stat-value">' + items + '</div>' +
-                            '<div class="pc-card-stat-label">Line Items</div>' +
-                        '</div>' +
-                        '<div class="pc-card-stat">' +
-                            '<div class="pc-card-stat-value">' + tables + '</div>' +
-                            '<div class="pc-card-stat-label">Tables</div>' +
-                        '</div>' +
-                        '<div class="pc-card-stat">' +
-                            '<div class="pc-card-stat-value">' + escHtml(String(total)) + '</div>' +
-                            '<div class="pc-card-stat-label">Total</div>' +
-                        '</div>' +
-                        '<div class="pc-card-stat">' +
-                            '<div class="pc-card-stat-value">' + escHtml(p.date || '\u2014') + '</div>' +
-                            '<div class="pc-card-stat-label">Date</div>' +
-                        '</div>' +
-                    '</div>' +
-                '</div>';
-            }).join('');
-        }
-
+        // Bind nav
+        document.getElementById('pc-review-prev')?.addEventListener('click', function() {
+            if (State._reviewIdx > 0) {
+                _captureReviewEdits(State._reviewIdx);
+                State._reviewIdx--;
+                renderReviewPhase();
+            }
+        });
+        document.getElementById('pc-review-next')?.addEventListener('click', function() {
+            if (State._reviewIdx < State.proposals.length - 1) {
+                _captureReviewEdits(State._reviewIdx);
+                State._reviewIdx++;
+                renderReviewPhase();
+            }
+        });
         document.getElementById('pc-btn-compare')?.addEventListener('click', startComparison);
         if (window.lucide) window.lucide.createIcons();
+    }
+
+    function _cleanupBlobUrls() {
+        State._blobUrls.forEach(function(url) {
+            try { URL.revokeObjectURL(url); } catch(e) {}
+        });
+        State._blobUrls = [];
     }
 
     // ──────────────────────────────────────────
@@ -767,13 +1028,9 @@ window.ProposalCompare = (function() {
     // ──────────────────────────────────────────
 
     async function startComparison() {
-        // Capture any edited company names
-        State.proposals.forEach(function(p, idx) {
-            var nameEl = document.getElementById('pc-company-' + idx);
-            if (nameEl) {
-                p.company_name = nameEl.textContent.trim() || p.filename;
-            }
-        });
+        // Capture edits for current review proposal
+        _captureReviewEdits(State._reviewIdx);
+        _cleanupBlobUrls();
 
         State.phase = 'comparing';
         const body = document.getElementById('pc-body');
@@ -807,6 +1064,7 @@ window.ProposalCompare = (function() {
             }
 
             State.comparison = result.data;
+            State.comparisonId = result.data?.comparison_id || null;
             renderResults();
 
         } catch (err) {
@@ -838,7 +1096,7 @@ window.ProposalCompare = (function() {
         var cmp = State.comparison;
         if (!cmp) return;
 
-        var propIds = cmp.proposals.map(function(p) { return p.id; });
+        var propIds = cmp.proposals.map(function(p) { return p.id || p.company_name || p.filename || 'Unknown'; });
 
         // Determine available tabs based on data
         var tabs = [
@@ -873,6 +1131,11 @@ window.ProposalCompare = (function() {
                         '<button class="pc-btn pc-btn-secondary" onclick="ProposalCompare._restart()">' +
                             '<i data-lucide="arrow-left"></i> New Compare' +
                         '</button>' +
+                        (State.proposals.length > 0
+                            ? '<button class="pc-btn pc-btn-ghost" onclick="ProposalCompare._backToReview()">' +
+                                '<i data-lucide="pencil"></i> Back to Review' +
+                              '</button>'
+                            : '') +
                         '<button class="pc-btn pc-btn-primary" onclick="ProposalCompare._export()">' +
                             '<i data-lucide="download"></i> Export XLSX' +
                         '</button>' +
@@ -2233,6 +2496,200 @@ window.ProposalCompare = (function() {
     }
 
     // ──────────────────────────────────────────
+    // Comparison History
+    // ──────────────────────────────────────────
+
+    async function renderHistoryView() {
+        var body = document.getElementById('pc-body');
+        if (!body) return;
+
+        body.innerHTML =
+            '<div class="pc-history-view">' +
+                '<div class="pc-history-header">' +
+                    '<h3><i data-lucide="history" style="width:20px;height:20px;vertical-align:-3px;margin-right:6px"></i>Comparison History</h3>' +
+                    '<button class="pc-btn pc-btn-ghost pc-btn-sm" onclick="ProposalCompare._restart()">' +
+                        '<i data-lucide="arrow-left"></i> Back to Upload' +
+                    '</button>' +
+                '</div>' +
+                '<div class="pc-history-list" id="pc-history-list">' +
+                    '<div class="pc-loading"><i data-lucide="loader" class="spin"></i> Loading history...</div>' +
+                '</div>' +
+            '</div>';
+
+        if (window.lucide) window.lucide.createIcons();
+
+        // Fetch history
+        try {
+            var resp = await fetch('/api/proposal-compare/history', {
+                headers: { 'X-CSRF-Token': getCSRF() },
+            });
+            var json = await resp.json();
+            if (!json.success || !json.data || json.data.length === 0) {
+                document.getElementById('pc-history-list').innerHTML =
+                    '<div class="pc-empty">' +
+                        '<i data-lucide="inbox" style="width:48px;height:48px;opacity:0.3"></i>' +
+                        '<h4>No comparisons yet</h4>' +
+                        '<p>Run a proposal comparison and it will be automatically saved here.</p>' +
+                    '</div>';
+                if (window.lucide) window.lucide.createIcons();
+                return;
+            }
+
+            var items = json.data;
+            var html = items.map(function(item) {
+                var vendors = (item.vendor_names || []).map(function(v) {
+                    return '<span class="pc-history-vendor">' + escHtml(v) + '</span>';
+                }).join('');
+
+                var spread = item.total_spread
+                    ? _formatCurrency(item.total_spread) + ' spread'
+                    : '';
+
+                var date = '';
+                if (item.created_at) {
+                    try {
+                        var d = new Date(item.created_at);
+                        date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+                            ' at ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                    } catch(e) { date = item.created_at; }
+                }
+
+                return '<div class="pc-history-card" data-id="' + item.id + '">' +
+                    '<div class="pc-history-card-main">' +
+                        '<div class="pc-history-card-info">' +
+                            '<div class="pc-history-card-title">' +
+                                escHtml(item.project_name || 'Ad-hoc Comparison') +
+                            '</div>' +
+                            '<div class="pc-history-card-vendors">' + vendors + '</div>' +
+                            '<div class="pc-history-card-meta">' +
+                                '<span>' + (item.vendor_count || 0) + ' proposals</span>' +
+                                (spread ? ' \u2022 <span>' + spread + '</span>' : '') +
+                                ' \u2022 <span>' + date + '</span>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="pc-history-card-actions">' +
+                            '<button class="pc-btn pc-btn-primary pc-btn-sm pc-history-load" title="View results">' +
+                                '<i data-lucide="eye"></i> View' +
+                            '</button>' +
+                            '<button class="pc-btn pc-btn-ghost pc-btn-sm pc-history-delete" title="Delete">' +
+                                '<i data-lucide="trash-2"></i>' +
+                            '</button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+
+            document.getElementById('pc-history-list').innerHTML = html;
+            if (window.lucide) window.lucide.createIcons();
+
+            // Wire up events via delegation
+            document.getElementById('pc-history-list').addEventListener('click', function(e) {
+                var loadBtn = e.target.closest('.pc-history-load');
+                var delBtn = e.target.closest('.pc-history-delete');
+                var card = e.target.closest('.pc-history-card');
+                if (!card) return;
+                var id = card.dataset.id;
+
+                if (delBtn) {
+                    e.stopPropagation();
+                    _deleteHistoryItem(id, card);
+                } else if (loadBtn || (!delBtn && card)) {
+                    _loadHistoryItem(id);
+                }
+            });
+
+        } catch (err) {
+            console.error('[AEGIS ProposalCompare] History fetch error:', err);
+            document.getElementById('pc-history-list').innerHTML =
+                '<div class="pc-empty"><h4>Failed to load history</h4><p>' + escHtml(err.message) + '</p></div>';
+        }
+    }
+
+    async function _loadHistoryItem(id) {
+        try {
+            var list = document.getElementById('pc-history-list');
+            if (list) {
+                list.innerHTML = '<div class="pc-loading"><i data-lucide="loader" class="spin"></i> Loading comparison...</div>';
+                if (window.lucide) window.lucide.createIcons();
+            }
+
+            var resp = await fetch('/api/proposal-compare/history/' + id, {
+                headers: { 'X-CSRF-Token': getCSRF() },
+            });
+            var json = await resp.json();
+            if (!json.success || !json.data) {
+                throw new Error(json.error?.message || 'Failed to load comparison');
+            }
+
+            var result = json.data;
+
+            // If the result has _proposals_input, restore State.proposals for Back to Review
+            if (result._proposals_input && Array.isArray(result._proposals_input)) {
+                State.proposals = result._proposals_input;
+            } else {
+                State.proposals = [];
+            }
+            // Remove internal field before rendering
+            delete result._proposals_input;
+
+            State.comparison = result;
+            State.comparisonId = parseInt(id, 10);
+            State.activeTab = 'executive';
+            renderResults();
+
+        } catch (err) {
+            console.error('[AEGIS ProposalCompare] Load history item error:', err);
+            if (window.showToast) {
+                window.showToast('Failed to load comparison: ' + err.message, 'error');
+            }
+        }
+    }
+
+    async function _deleteHistoryItem(id, cardEl) {
+        if (!confirm('Delete this comparison? This cannot be undone.')) return;
+
+        try {
+            var resp = await fetch('/api/proposal-compare/history/' + id, {
+                method: 'DELETE',
+                headers: { 'X-CSRF-Token': getCSRF() },
+            });
+            var json = await resp.json();
+            if (!json.success) {
+                throw new Error(json.error?.message || 'Delete failed');
+            }
+
+            // Animate removal
+            cardEl.style.transition = 'opacity 0.3s, transform 0.3s';
+            cardEl.style.opacity = '0';
+            cardEl.style.transform = 'translateX(20px)';
+            setTimeout(function() {
+                cardEl.remove();
+                // Check if list is now empty
+                var list = document.getElementById('pc-history-list');
+                if (list && !list.querySelector('.pc-history-card')) {
+                    list.innerHTML =
+                        '<div class="pc-empty">' +
+                            '<i data-lucide="inbox" style="width:48px;height:48px;opacity:0.3"></i>' +
+                            '<h4>No comparisons yet</h4>' +
+                            '<p>Run a proposal comparison and it will be automatically saved here.</p>' +
+                        '</div>';
+                    if (window.lucide) window.lucide.createIcons();
+                }
+            }, 300);
+
+            if (window.showToast) {
+                window.showToast('Comparison deleted', 'success');
+            }
+
+        } catch (err) {
+            console.error('[AEGIS ProposalCompare] Delete error:', err);
+            if (window.showToast) {
+                window.showToast('Delete failed: ' + err.message, 'error');
+            }
+        }
+    }
+
+    // ──────────────────────────────────────────
     // Export
     // ──────────────────────────────────────────
 
@@ -2289,7 +2746,9 @@ window.ProposalCompare = (function() {
         close: close,
         // Internal callbacks (used by onclick in HTML)
         _removeFile: removeFile,
-        _restart: function() { renderUploadPhase(); },
+        _restart: function() { _cleanupBlobUrls(); State._reviewIdx = 0; State._lineItemEditorOpen = []; renderUploadPhase(); },
+        _backToReview: function() { renderReviewPhase(); },
         _export: exportXLSX,
+        _loadHistory: renderHistoryView,
     };
 })();

@@ -293,18 +293,46 @@ def remove_proposal_from_project(proposal_id: int) -> bool:
 # Comparison history
 # ──────────────────────────────────────────
 
-def save_comparison(project_id: int, proposal_ids: List[int],
-                    result_data: Dict[str, Any], notes: str = '') -> int:
-    """Save a comparison result for a project."""
+def _get_or_create_adhoc_project() -> int:
+    """Get or create the default 'Ad-hoc Comparisons' project for comparisons without a project."""
     conn = _get_connection()
     try:
+        row = conn.execute(
+            "SELECT id FROM pc_projects WHERE name = 'Ad-hoc Comparisons' AND status = 'active'"
+        ).fetchone()
+        if row:
+            return row['id']
+        cursor = conn.execute(
+            "INSERT INTO pc_projects (name, description) VALUES ('Ad-hoc Comparisons', 'Auto-created for comparisons without a specific project')"
+        )
+        conn.commit()
+        return cursor.lastrowid
+    finally:
+        conn.close()
+
+
+def save_comparison(project_id: int, proposal_ids: List[int],
+                    result_data: Dict[str, Any], notes: str = '',
+                    proposals_json: Dict[str, Any] = None) -> int:
+    """Save a comparison result. If project_id is None/0, uses the ad-hoc project."""
+    if not project_id:
+        project_id = _get_or_create_adhoc_project()
+
+    conn = _get_connection()
+    try:
+        # Store proposals alongside result for history re-loading
+        save_data = result_data
+        if proposals_json:
+            save_data = dict(result_data)
+            save_data['_proposals_input'] = proposals_json
+
         cursor = conn.execute("""
             INSERT INTO pc_comparisons (project_id, proposal_ids_json, result_json, notes)
             VALUES (?, ?, ?, ?)
         """, (
             project_id,
             json.dumps(proposal_ids),
-            json.dumps(result_data),
+            json.dumps(save_data),
             notes,
         ))
         conn.execute(
@@ -313,6 +341,91 @@ def save_comparison(project_id: int, proposal_ids: List[int],
         )
         conn.commit()
         return cursor.lastrowid
+    finally:
+        conn.close()
+
+
+def list_comparisons(limit: int = 20) -> List[Dict[str, Any]]:
+    """List recent comparisons with summary metadata."""
+    conn = _get_connection()
+    try:
+        rows = conn.execute("""
+            SELECT c.id, c.project_id, c.created_at, c.notes,
+                   p.name as project_name
+            FROM pc_comparisons c
+            LEFT JOIN pc_projects p ON p.id = c.project_id
+            ORDER BY c.created_at DESC
+            LIMIT ?
+        """, (limit,)).fetchall()
+
+        results = []
+        for row in rows:
+            # Extract summary from result_json
+            try:
+                result_json = conn.execute(
+                    "SELECT result_json FROM pc_comparisons WHERE id = ?",
+                    (row['id'],)
+                ).fetchone()
+                result_data = json.loads(result_json['result_json']) if result_json else {}
+            except (json.JSONDecodeError, TypeError):
+                result_data = {}
+
+            proposals = result_data.get('proposals', [])
+            vendor_names = [p.get('company_name') or p.get('filename', '') for p in proposals]
+            totals = result_data.get('totals', {})
+            total_values = [v for v in totals.values() if v is not None and v > 0]
+
+            results.append({
+                'id': row['id'],
+                'project_id': row['project_id'],
+                'project_name': row['project_name'] or 'Ad-hoc',
+                'created_at': row['created_at'],
+                'notes': row['notes'] or '',
+                'vendor_count': len(proposals),
+                'vendor_names': vendor_names,
+                'total_spread': (
+                    '${:,.0f} - ${:,.0f}'.format(min(total_values), max(total_values))
+                    if len(total_values) >= 2 else 'N/A'
+                ),
+            })
+
+        return results
+    finally:
+        conn.close()
+
+
+def get_comparison(comparison_id: int) -> Optional[Dict[str, Any]]:
+    """Get full comparison result_json for re-rendering."""
+    conn = _get_connection()
+    try:
+        row = conn.execute(
+            "SELECT id, project_id, result_json, created_at, notes FROM pc_comparisons WHERE id = ?",
+            (comparison_id,)
+        ).fetchone()
+        if not row:
+            return None
+        try:
+            result_data = json.loads(row['result_json'])
+        except (json.JSONDecodeError, TypeError):
+            result_data = {}
+        return {
+            'id': row['id'],
+            'project_id': row['project_id'],
+            'created_at': row['created_at'],
+            'notes': row['notes'] or '',
+            'result': result_data,
+        }
+    finally:
+        conn.close()
+
+
+def delete_comparison(comparison_id: int) -> bool:
+    """Delete a saved comparison."""
+    conn = _get_connection()
+    try:
+        conn.execute("DELETE FROM pc_comparisons WHERE id = ?", (comparison_id,))
+        conn.commit()
+        return True
     finally:
         conn.close()
 

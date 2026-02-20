@@ -1839,27 +1839,27 @@ const AEGISGuide = {
             id: 'proposal-compare',
             title: 'Proposal Compare',
             icon: 'git-compare-arrows',
-            whatIsThis: 'Compare vendor proposals side-by-side with automated financial extraction and analytics. Upload two or more proposal documents in DOCX, PDF, or Excel format. AEGIS extracts tables, dollar amounts, line items, and company information, then produces an eight-tab analysis: executive summary with rankings and savings, side-by-side comparison matrix, category breakdown, automated red flag detection, cost deviation heatmap, vendor scoring with letter grades, proposal details, and raw extracted tables. Organize proposals into named projects for ongoing tracking. Export results as formatted XLSX.',
+            whatIsThis: 'Compare vendor proposals side-by-side with automated financial extraction and analytics. Upload two or more proposal documents in DOCX, PDF, or Excel format. AEGIS extracts tables, dollar amounts, line items, and company information. A split-pane Review phase lets you view source documents alongside editable metadata, correct company names, dates, totals, and individual line items before comparison. Eight-tab analysis includes executive summary, comparison matrix, category breakdown, red flags, heatmap, vendor scoring, details, and raw tables. Every comparison is auto-saved to history for later retrieval. Organize proposals into named projects for ongoing tracking.',
             keyActions: [
                 { icon: 'upload', text: 'Upload 2-10 proposal documents (DOCX, PDF, XLSX) into named projects' },
                 { icon: 'scan-search', text: 'Extract financial data — tables, line items, totals, company names' },
+                { icon: 'pencil', text: 'Review phase — split-pane document viewer with editable metadata and line items' },
                 { icon: 'trophy', text: 'Executive summary with price rankings, tornado chart, and savings opportunities' },
                 { icon: 'shield-alert', text: 'Red flags — FAR 15.404 reasonableness, identical pricing, missing categories' },
                 { icon: 'sliders-horizontal', text: 'Weight sliders — adjust price, completeness, risk, data quality weights in real-time' },
-                { icon: 'arrow-up-down', text: 'Sort and filter comparison table by column, category, or variance threshold' },
-                { icon: 'bar-chart-3', text: 'Radar chart, stacked bars, and letter grades with configurable evaluation weights' },
+                { icon: 'history', text: 'Comparison history — auto-saved results, reload past analyses, Back to Review' },
                 { icon: 'download', text: 'Export to Excel with freeze panes, auto-filter, and five branded sheets' }
             ],
             proTips: [
-                'Use Projects to group proposals from the same procurement — add new bids as they arrive',
+                'Use the Review phase to correct extracted company names, dates, and totals before comparison',
+                'Expand the line item editor in Review to add, remove, or recategorize individual cost items',
+                'The document viewer shows PDFs inline, extracted text for DOCX, and table data for Excel',
+                'Every comparison is auto-saved — click History on the upload screen to browse past analyses',
+                'Use Back to Review from results to adjust metadata without re-uploading files',
                 'The tornado chart in Executive Summary shows where negotiation will save the most money',
-                'Drag the weight sliders to re-rank vendors instantly — try setting Price to sixty percent for cost-focused evaluation',
-                'Red flags now include FAR 15.404 price reasonableness checks — z-score outliers flagged automatically',
-                'Click any column header in the Comparison tab to sort — use the variance filter to focus on biggest price gaps',
-                'The radar chart in Vendor Scores overlays all vendors on one spider plot for instant visual comparison',
+                'Drag the weight sliders to re-rank vendors instantly — try Price at sixty percent for cost-focused evaluation',
+                'Red flags include FAR 15.404 price reasonableness checks — z-score outliers flagged automatically',
                 'Supports mixed file types — compare an Excel cost estimate against a PDF proposal',
-                'PDF extraction uses three table extraction strategies with automatic data-pattern column inference',
-                'The stacked bar chart in Categories shows cost structure breakdown per vendor at a glance',
                 'Excel exports include frozen panes and auto-filter headers for professional spreadsheet experience'
             ],
             tourSteps: [
@@ -1873,49 +1873,49 @@ const AEGISGuide = {
             demoScenes: [
                 {
                     target: '#pc-modal',
-                    narration: 'Proposal Compare is a full procurement analysis tool. Upload two or more vendor proposals and AEGIS extracts financial data, aligns line items across vendors, then generates eight tabs of analysis including an executive summary with tornado chart, red flags with FAR 15.404 checks, cost heatmap, and vendor scores with radar chart.',
+                    narration: 'Proposal Compare is a full procurement analysis tool. Upload two or more vendor proposals and AEGIS extracts financial data, then lets you review and edit everything before comparison. Eight tabs of analysis include executive summary with tornado chart, red flags, cost heatmap, vendor scores, and comparison history.',
                     duration: 9500,
                     navigate: 'proposal-compare'
                 },
                 {
                     target: '#pc-modal',
-                    narration: 'Start by selecting or creating a project to organize your proposals. Drop files onto the upload area — AEGIS accepts DOCX, PDF, and Excel formats up to ten files at once. PDF extraction now uses three strategies with automatic data-pattern column inference for tables without headers.',
+                    narration: 'The workflow has four phases: Upload, Extract, Review, and Compare. Start by selecting or creating a project, then drop files onto the upload area. After extraction, the Review phase lets you verify and correct all metadata before running the comparison.',
                     duration: 9000,
                     navigate: 'proposal-compare'
                 },
                 {
                     target: '#pc-modal',
-                    narration: 'The Executive Summary shows hero stats, price rankings with medals, key findings, and a tornado chart visualizing the biggest price spreads across vendors. The horizontal bars are colored by variance intensity — red for over fifty percent, orange for over twenty-five percent — showing exactly where to focus negotiations.',
+                    narration: 'The Review phase shows a split-pane view for each proposal — the source document on the left, and an editable metadata panel on the right. You can view PDFs rendered inline, see extracted text from DOCX files, or browse table data from Excel files right alongside the editor.',
                     duration: 9500,
                     navigate: 'proposal-compare'
                 },
                 {
                     target: '#pc-modal',
-                    narration: 'Red Flags now include FAR 15.404 price reasonableness checks that flag statistical outliers more than two standard deviations from the mean. They also detect identical pricing between vendors, which can indicate collusion, and missing cost categories that signal scope gaps.',
+                    narration: 'In the editor panel, correct company names, dates, and total amounts. Expand the line item editor to add, remove, or modify individual cost items and their categories. Navigate between proposals with previous and next buttons — edits are preserved automatically.',
                     duration: 9000,
                     navigate: 'proposal-compare'
                 },
                 {
                     target: '#pc-modal',
-                    narration: 'The Heatmap shows a color-coded grid of every line item versus every vendor. Green cells are below the group average, red cells are above average, and grey cells mean missing data. This gives you an instant visual picture of where each vendor is expensive or competitive.',
+                    narration: 'The Executive Summary shows hero stats, price rankings with medals, key findings, and a tornado chart visualizing the biggest price spreads. Red Flags include FAR 15.404 price reasonableness checks, identical pricing detection, and missing category warnings.',
                     duration: 9500,
                     navigate: 'proposal-compare'
                 },
                 {
                     target: '#pc-modal',
-                    narration: 'Vendor Scores now feature a radar chart overlaying all vendors on one spider plot. Four weight sliders let you adjust evaluation priorities in real time. Drag the Price slider higher for cost-focused evaluation, or boost Risk to emphasize compliance. Scores and letter grades recalculate instantly.',
-                    duration: 9500,
+                    narration: 'The Heatmap shows a color-coded grid of every line item versus every vendor. Vendor Scores feature a radar chart with adjustable weight sliders. The Comparison tab supports sorting, filtering by category, and variance thresholds.',
+                    duration: 9000,
                     navigate: 'proposal-compare'
                 },
                 {
                     target: '#pc-modal',
-                    narration: 'The Comparison tab is now fully interactive — click any column header to sort ascending or descending. Filter by category or set a variance threshold to show only items with greater than ten, twenty, or fifty percent price spread. The Categories tab uses a stacked bar chart showing cost structure per vendor.',
-                    duration: 9500,
+                    narration: 'Every comparison is automatically saved to history. Click the History button on the upload screen to browse past comparisons with vendor names, dates, and cost spreads. Click any card to reload the full results, or use Back to Review to return and adjust your edits.',
+                    duration: 9000,
                     navigate: 'proposal-compare'
                 },
                 {
                     target: '#pc-modal',
-                    narration: 'Export to a five-sheet Excel workbook with frozen panes and auto-filter headers. Print-optimized CSS means you can also print the analysis directly from the browser. Projects let you organize proposals over time and the Metrics dashboard tracks cross-project analytics.',
+                    narration: 'Export to a five-sheet Excel workbook with frozen panes and auto-filter headers. Print directly from the browser with optimized CSS. Projects organize proposals over time, and the Metrics dashboard Proposals tab tracks cross-project analytics.',
                     duration: 9000,
                     navigate: 'proposal-compare'
                 }
@@ -1933,10 +1933,45 @@ const AEGISGuide = {
                         } catch(e) { console.warn('[AEGIS Guide] preAction error:', e); }
                     },
                     scenes: [
-                        { target: '#pc-modal', narration: 'The upload screen includes a project selector at the top. Select an existing project to add proposals to it, or click the folder-plus button to create a new project. Projects group proposals for ongoing procurement tracking.', duration: 8500, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'The upload screen has a project selector at the top left and a History button at the top right. Select an existing project to add proposals to it, or create a new one. Click History to browse past comparisons.', duration: 8500, navigate: 'proposal-compare' },
                         { target: '#pc-modal', narration: 'Drop files onto the upload dropzone or click to browse. AEGIS accepts DOCX, PDF, and Excel formats. You need at least two files to run a comparison, and you can upload up to ten proposals at once.', duration: 8000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Excel files have the richest extraction since data is already structured. PDF extraction uses a three-strategy pipeline — camelot, pdfplumber, and tabula — with automatic data-pattern column inference for tables without proper headers. DOCX files use the mammoth library for table parsing.', duration: 9000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'After upload, each file shows its extraction status with line item count, table count, and detected total. You can edit auto-detected company names before comparing. Click Compare to generate the full eight-tab analysis.', duration: 8500, navigate: 'proposal-compare' }
+                        { target: '#pc-modal', narration: 'Excel files have the richest extraction since data is already structured. PDF extraction uses a multi-strategy pipeline with automatic data-pattern column inference for tables without proper headers. DOCX files use mammoth for table parsing.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'After extraction, AEGIS enters the Review phase where you verify and edit all metadata before comparison. The four-step progress indicator shows Upload, Extract, Review, and Compare phases.', duration: 8500, navigate: 'proposal-compare' }
+                    ]
+                },
+                review_edit: {
+                    id: 'review_edit',
+                    title: 'Review and Edit',
+                    icon: 'pencil',
+                    description: 'Split-pane document viewer with editable metadata and line items',
+                    preAction: async () => {
+                        try {
+                            if (window.ProposalCompare) ProposalCompare.open();
+                            await AEGISGuide._wait(600);
+                        } catch(e) { console.warn('[AEGIS Guide] preAction error:', e); }
+                    },
+                    scenes: [
+                        { target: '#pc-modal', narration: 'The Review phase shows one proposal at a time with a split-pane layout. On the left, a document viewer renders the source file — PDFs display inline via PDF.js, DOCX files show extracted text, and Excel files show parsed tables.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'On the right, editable fields let you correct the company name, date, and total amount. These values are pre-filled from extraction but you can change them to match the actual document content.', duration: 8500, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'Click Edit Line Items to expand the line item editor. Each row shows description, category dropdown, amount, quantity, and unit price. Delete rows with the X button or add new rows with the plus button at the bottom.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'Navigate between proposals using the previous and next buttons. Your edits are saved automatically as you navigate. When all proposals look correct, click Compare Proposals to run the analysis.', duration: 8500, navigate: 'proposal-compare' }
+                    ]
+                },
+                comparison_history: {
+                    id: 'comparison_history',
+                    title: 'History',
+                    icon: 'history',
+                    description: 'Browse, reload, and manage past comparisons',
+                    preAction: async () => {
+                        try {
+                            if (window.ProposalCompare) ProposalCompare.open();
+                            await AEGISGuide._wait(600);
+                        } catch(e) { console.warn('[AEGIS Guide] preAction error:', e); }
+                    },
+                    scenes: [
+                        { target: '#pc-modal', narration: 'Every comparison you run is automatically saved to history. Click the History button on the upload screen to browse all past analyses with vendor names, proposal counts, cost spreads, and timestamps.', duration: 8500, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'Click the View button on any history card to reload the full comparison results — all eight analysis tabs are restored exactly as they were. Click the trash icon to delete a comparison you no longer need.', duration: 8500, navigate: 'proposal-compare' },
+                        { target: '#pc-modal', narration: 'From the results view, click Back to Review to return to the split-pane editor with your original proposals preserved. Adjust metadata or line items, then re-run the comparison. Back to Upload starts fresh with new files.', duration: 9000, navigate: 'proposal-compare' }
                     ]
                 },
                 exec_summary: {

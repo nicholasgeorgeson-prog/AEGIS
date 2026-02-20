@@ -215,8 +215,15 @@ def classify_line_item(description: str) -> str:
     return 'Other'
 
 
-def extract_company_from_text(text: str, max_chars: int = 2000) -> str:
-    """Try to extract company name from document text (first N chars)."""
+def extract_company_from_text(text: str, max_chars: int = 2000, filename: str = '') -> str:
+    """Try to extract company name from document text (first N chars).
+
+    Uses multiple strategies in priority order:
+    1. Lines containing company legal suffixes (LLC, Inc, Corp, etc.)
+    2. "Prepared by" / "Submitted by" attribution lines
+    3. First prominent heading-like line (short, no numbers, title case)
+    4. Company name extracted from the filename
+    """
     search_text = text[:max_chars]
 
     # Strategy 1: Look for lines with company indicators
@@ -241,13 +248,64 @@ def extract_company_from_text(text: str, max_chars: int = 2000) -> str:
 
     # Strategy 2: Look for "Prepared by: XXX" or "Submitted by: XXX"
     match = re.search(
-        r'(?:prepared|submitted|proposed|offered)\s+by\s*:?\s*(.+?)(?:\n|$)',
+        r'(?:prepared|submitted|proposed|offered|provided)\s+by\s*:?\s*(.+?)(?:\n|$)',
         search_text, re.IGNORECASE
     )
     if match:
         name = match.group(1).strip()
         if 3 < len(name) < 80:
             return name
+
+    # Strategy 3: Look for "Vendor:" or "Supplier:" or "Contractor:" labels
+    match = re.search(
+        r'(?:vendor|supplier|contractor|company|firm|offeror)\s*:?\s*(.+?)(?:\n|$)',
+        search_text, re.IGNORECASE
+    )
+    if match:
+        name = match.group(1).strip()
+        # Skip if it looks like a generic label or instruction
+        if 3 < len(name) < 80 and not re.search(r'^\s*(?:name|enter|fill|n/a)', name, re.IGNORECASE):
+            return name
+
+    # Strategy 4: First prominent heading-like line (title case, short, not generic)
+    skip_words = {'proposal', 'pricing', 'quote', 'quotation', 'bid', 'offer', 'response',
+                  'statement', 'work', 'scope', 'table', 'contents', 'page', 'date',
+                  'section', 'attachment', 'appendix', 'exhibit', 'schedule', 'cost',
+                  'price', 'summary', 'executive', 'technical', 'management', 'volume'}
+    for line in search_text.split('\n')[:30]:
+        line = line.strip()
+        if not line or len(line) < 3 or len(line) > 60:
+            continue
+        if DOLLAR_PATTERN.search(line):
+            continue
+        digit_ratio = sum(c.isdigit() for c in line) / max(len(line), 1)
+        if digit_ratio > 0.15:
+            continue
+        words = line.split()
+        if len(words) > 6 or len(words) < 1:
+            continue
+        # Check if all words start capitalized and none are skip words
+        lower_words = {w.lower().rstrip('.,;:') for w in words}
+        if lower_words & skip_words:
+            continue
+        if all(w[0].isupper() for w in words if w):
+            return line
+
+    # Strategy 5: Extract from filename (e.g., "Dell_Proposal_3yr.pdf" → "Dell")
+    if filename:
+        # Remove extension and common suffixes
+        base = re.sub(r'\.[^.]+$', '', filename)
+        # Replace separators with spaces
+        base = re.sub(r'[_\-]+', ' ', base)
+        # Remove common terms
+        base = re.sub(
+            r'\b(?:proposal|quote|pricing|bid|offer|3\s*yr|5\s*yr|3\s*year|5\s*year|draft|final|v\d+|rev\s*\d*)\b',
+            '', base, flags=re.IGNORECASE
+        ).strip()
+        # Clean up
+        base = re.sub(r'\s+', ' ', base).strip()
+        if 2 < len(base) < 60:
+            return base
 
     return ''
 
@@ -854,7 +912,7 @@ def parse_excel(filepath: str) -> ProposalData:
     # Extract company name and date from all text
     full_text = '\n'.join(all_text_parts)
     if not proposal.company_name:
-        proposal.company_name = extract_company_from_text(full_text)
+        proposal.company_name = extract_company_from_text(full_text, filename=proposal.filename)
     if not proposal.date:
         proposal.date = extract_dates_from_text(full_text)
 
@@ -967,7 +1025,7 @@ def parse_docx(filepath: str) -> ProposalData:
 
     # Company and date
     if not proposal.company_name:
-        proposal.company_name = extract_company_from_text(full_text)
+        proposal.company_name = extract_company_from_text(full_text, filename=proposal.filename)
     if not proposal.date:
         proposal.date = extract_dates_from_text(full_text)
 
@@ -1001,6 +1059,49 @@ def parse_pdf(filepath: str) -> ProposalData:
     )
 
     full_text = ''  # For company/date extraction
+
+    # ── Always extract full text for company name/date (independent of table extraction) ──
+    try:
+        import pdfplumber
+        with pdfplumber.open(filepath) as pdf:
+            if not proposal.page_count:
+                proposal.page_count = len(pdf.pages)
+            text_parts = []
+            for page in pdf.pages[:10]:
+                text = page.extract_text()
+                if text:
+                    text_parts.append(text)
+            full_text = '\n'.join(text_parts)
+    except ImportError:
+        pass
+    except Exception as e:
+        logger.debug(f'[AEGIS ProposalParser] pdfplumber text pre-extraction failed: {e}')
+
+    if not full_text:
+        try:
+            import fitz
+            doc = fitz.open(filepath)
+            text_parts = []
+            for page in doc[:10]:
+                text = page.get_text()
+                if text:
+                    text_parts.append(text)
+            full_text = '\n'.join(text_parts)
+            doc.close()
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.debug(f'[AEGIS ProposalParser] fitz text pre-extraction failed: {e}')
+
+    # Extract company name and date from text BEFORE table extraction
+    if full_text:
+        proposal.company_name = extract_company_from_text(full_text, filename=proposal.filename)
+        proposal.date = extract_dates_from_text(full_text)
+        if proposal.company_name:
+            proposal.extraction_notes.append(f'Company: {proposal.company_name}')
+    elif proposal.filename:
+        # No text extracted yet — try filename as last resort for company name
+        proposal.company_name = extract_company_from_text('', filename=proposal.filename)
 
     # ── Strategy 1: EnhancedTableExtractor (primary — best accuracy) ──
     enhanced_success = False
@@ -1180,26 +1281,6 @@ def parse_pdf(filepath: str) -> ProposalData:
             proposal.extraction_notes.append(f'pymupdf4llm fallback error: {e}')
             logger.warning(f'[AEGIS ProposalParser] pymupdf4llm fallback failed: {e}')
 
-    # ── Strategy 3: pdfplumber text extraction (for company/date + inline amounts) ──
-    if not full_text:
-        try:
-            import pdfplumber
-            with pdfplumber.open(filepath) as pdf:
-                if not proposal.page_count:
-                    proposal.page_count = len(pdf.pages)
-                text_parts = []
-                for page in pdf.pages[:10]:
-                    text = page.extract_text()
-                    if text:
-                        text_parts.append(text)
-                full_text = '\n'.join(text_parts)
-                if full_text:
-                    proposal.extraction_notes.append('pdfplumber text extraction for metadata')
-        except ImportError:
-            pass
-        except Exception as e:
-            logger.debug(f'[AEGIS ProposalParser] pdfplumber text extraction failed: {e}')
-
     # ── Final fallback: inline dollar amounts from text if no tables extracted ──
     if not proposal.line_items and full_text:
         proposal.extraction_notes.append('No tables found — extracting inline dollar amounts from text')
@@ -1217,13 +1298,6 @@ def parse_pdf(filepath: str) -> ProposalData:
                     source_sheet='PDF Text',
                     confidence=0.4,
                 ))
-
-    # ── Extract company name and date ──
-    if full_text:
-        if not proposal.company_name:
-            proposal.company_name = extract_company_from_text(full_text)
-        if not proposal.date:
-            proposal.date = extract_dates_from_text(full_text)
 
     # ── Compute total ──
     if proposal.total_amount is None and proposal.line_items:

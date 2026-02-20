@@ -12,19 +12,22 @@
       "version": "5.9.41",
       "date": "2026-02-20",
       "changes": [
-        "ENH: PDF extraction overhaul — wired EnhancedTableExtractor (camelot/pdfplumber/tabula) as primary strategy with 3-tier fallback",
-        "ENH: Data-pattern column inference — automatically detects description/amount/qty columns when headers are missing or generic (Col1, Col2)",
-        "ENH: Expanded header keyword matching — recognizes 'Product Description', 'Your Price', 'Retail Price', 'MSRP', etc.",
+        "ENH: Proposal Compare Review Phase — split-pane view with inline document viewer (PDF.js, DOCX text, XLSX tables) and editable metadata panel",
+        "ENH: Line item editor — expand accordion to add/remove/edit individual cost items with category dropdowns, amounts, quantities",
+        "ENH: Comparison History — auto-save all comparisons, browse past analyses, reload full results, delete old entries",
+        "ENH: Back to Review — return from results to the review phase with proposals preserved, adjust metadata and re-compare",
+        "ENH: Four-phase workflow — Upload → Extract → Review → Compare with visual progress indicator",
+        "ENH: PDF extraction overhaul — text extraction before tables, 5-strategy company name detection with filename fallback",
         "ENH: Radar chart in Vendor Scores tab — overlays all vendors on spider plot for at-a-glance comparison",
         "ENH: Tornado chart in Executive Summary — horizontal bar chart showing biggest price spreads for negotiation focus",
         "ENH: Stacked bar chart in Categories tab — shows cost structure breakdown per vendor with tooltip totals",
         "ENH: Configurable evaluation weight sliders — drag Price/Completeness/Risk/Data Quality weights, scores recalculate in real-time",
         "ENH: Sortable comparison table — click any column header to sort, category/variance dropdown filters, item count display",
-        "ENH: Delete proposal from project — trash icon on each proposal in project list with confirmation dialog",
         "ENH: Enhanced red flags — identical pricing detection, missing category gaps, FAR 15.404 price reasonableness (z-score outliers)",
-        "ENH: XLSX export freeze panes + auto-filter on comparison sheet for professional Excel usability",
-        "ENH: Print CSS for Proposal Compare — hides interactive controls, optimizes table layout for paper",
-        "FIX: PDF proposals with no header rows now extract line items via data-pattern analysis"
+        "ENH: Guided demos updated — 2 new sub-demos (Review & Edit, History) covering editable review phase and comparison history",
+        "FIX: Centralized proposal ID generation prevents mismatched IDs between align and compare functions",
+        "FIX: Totals computed from aligned items instead of raw extraction total for accurate comparison",
+        "FIX: Frontend ID fallback prevents undefined errors when comparison results lack proposal IDs"
       ]
     },
     {

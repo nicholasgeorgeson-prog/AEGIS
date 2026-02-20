@@ -265,15 +265,24 @@ def compare_proposals_endpoint():
         result = compare_proposals(proposals)
         result_dict = result.to_dict()
 
-        # Save comparison if project_id provided
-        project_id = data.get('project_id')
-        if project_id:
-            try:
-                from .projects import save_comparison
-                proposal_ids = data.get('proposal_db_ids', [])
-                save_comparison(int(project_id), proposal_ids, result_dict)
-            except Exception as db_err:
-                logger.warning(f'Failed to save comparison: {db_err}')
+        # Auto-save all comparisons to history
+        comparison_id = None
+        try:
+            from .projects import save_comparison
+            project_id = data.get('project_id')
+            proposal_ids = data.get('proposal_db_ids', [])
+            # Store raw proposals for history re-editing
+            proposals_input = data.get('proposals', [])
+            comparison_id = save_comparison(
+                int(project_id) if project_id else 0,
+                proposal_ids,
+                result_dict,
+                proposals_json=proposals_input,
+            )
+        except Exception as db_err:
+            logger.warning(f'Failed to save comparison: {db_err}')
+
+        result_dict['comparison_id'] = comparison_id
 
         return jsonify({
             'success': True,
@@ -285,6 +294,66 @@ def compare_proposals_endpoint():
         return jsonify({
             'success': False,
             'error': {'message': f'Compare error: {str(e)}', 'traceback': traceback.format_exc()}
+        }), 500
+
+
+# ──────────────────────────────────────────
+# Comparison History
+# ──────────────────────────────────────────
+
+@pc_blueprint.route('/api/proposal-compare/history', methods=['GET'])
+def list_comparison_history():
+    """List recent comparisons with summary metadata."""
+    try:
+        from .projects import list_comparisons
+        limit = request.args.get('limit', 20, type=int)
+        comparisons = list_comparisons(limit=limit)
+        return jsonify({'success': True, 'data': comparisons})
+    except Exception as e:
+        logger.error(f'Failed to list comparisons: {e}', exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': {'message': f'Failed to load history: {str(e)}'}
+        }), 500
+
+
+@pc_blueprint.route('/api/proposal-compare/history/<int:comparison_id>', methods=['GET'])
+def get_comparison_detail(comparison_id):
+    """Get full comparison result for re-rendering."""
+    try:
+        from .projects import get_comparison
+        result = get_comparison(comparison_id)
+        if not result:
+            return jsonify({
+                'success': False,
+                'error': {'message': 'Comparison not found'}
+            }), 404
+        return jsonify({'success': True, 'data': result})
+    except Exception as e:
+        logger.error(f'Failed to get comparison {comparison_id}: {e}', exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': {'message': f'Failed to load comparison: {str(e)}'}
+        }), 500
+
+
+@pc_blueprint.route('/api/proposal-compare/history/<int:comparison_id>', methods=['DELETE'])
+def delete_comparison_history(comparison_id):
+    """Delete a saved comparison."""
+    try:
+        from .projects import delete_comparison
+        success = delete_comparison(comparison_id)
+        if not success:
+            return jsonify({
+                'success': False,
+                'error': {'message': 'Comparison not found'}
+            }), 404
+        return jsonify({'success': True, 'message': 'Comparison deleted'})
+    except Exception as e:
+        logger.error(f'Failed to delete comparison {comparison_id}: {e}', exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': {'message': f'Failed to delete comparison: {str(e)}'}
         }), 500
 
 

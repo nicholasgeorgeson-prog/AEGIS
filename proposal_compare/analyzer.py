@@ -174,8 +174,29 @@ def _description_similarity(desc1: str, desc2: str) -> float:
 MATCH_THRESHOLD = 0.55  # Minimum similarity to consider a match
 
 
-def align_line_items(proposals: List[ProposalData]) -> Tuple[List[AlignedItem], Dict[str, List[Dict]]]:
+def _generate_proposal_ids(proposals: List[ProposalData]) -> List[str]:
+    """Generate unique proposal IDs from company names or filenames.
+
+    Centralized to ensure consistent IDs across align_line_items() and compare_proposals().
+    """
+    prop_ids = []
+    for p in proposals:
+        pid = p.company_name or p.filename
+        counter = 1
+        base_pid = pid
+        while pid in prop_ids:
+            pid = f'{base_pid} ({counter})'
+            counter += 1
+        prop_ids.append(pid)
+    return prop_ids
+
+
+def align_line_items(proposals: List[ProposalData], prop_ids: List[str] = None) -> Tuple[List[AlignedItem], Dict[str, List[Dict]]]:
     """Align line items across multiple proposals by description similarity.
+
+    Args:
+        proposals: List of ProposalData objects
+        prop_ids: Pre-generated proposal IDs (pass from compare_proposals for consistency)
 
     Returns:
         aligned: List of AlignedItem objects with amounts from each proposal
@@ -184,17 +205,9 @@ def align_line_items(proposals: List[ProposalData]) -> Tuple[List[AlignedItem], 
     if not proposals:
         return [], {}
 
-    # Create proposal IDs
-    prop_ids = []
-    for p in proposals:
-        pid = p.company_name or p.filename
-        # Ensure unique IDs
-        counter = 1
-        base_pid = pid
-        while pid in prop_ids:
-            pid = f'{base_pid} ({counter})'
-            counter += 1
-        prop_ids.append(pid)
+    # Use provided IDs or generate them
+    if prop_ids is None:
+        prop_ids = _generate_proposal_ids(proposals)
 
     # Build the alignment using the first proposal as anchor
     # Then merge in items from subsequent proposals
@@ -318,16 +331,8 @@ def compare_proposals(proposals: List[ProposalData]) -> ComparisonResult:
         result.notes.append('Need at least 2 proposals to compare')
         return result
 
-    # Create proposal IDs
-    prop_ids = []
-    for p in proposals:
-        pid = p.company_name or p.filename
-        counter = 1
-        base_pid = pid
-        while pid in prop_ids:
-            pid = f'{base_pid} ({counter})'
-            counter += 1
-        prop_ids.append(pid)
+    # Create proposal IDs (centralized — same IDs used for alignment)
+    prop_ids = _generate_proposal_ids(proposals)
 
     # Build proposal summaries
     for i, (p, pid) in enumerate(zip(proposals, prop_ids)):
@@ -345,15 +350,16 @@ def compare_proposals(proposals: List[ProposalData]) -> ComparisonResult:
             'extraction_notes': p.extraction_notes,
         })
 
-    # Align line items
-    result.aligned_items, result.unmatched_items = align_line_items(proposals)
+    # Align line items (pass prop_ids for consistent IDs)
+    result.aligned_items, result.unmatched_items = align_line_items(proposals, prop_ids)
 
     # Category summaries
     result.category_summaries = build_category_summaries(result.aligned_items, prop_ids)
 
-    # Grand totals
+    # Grand totals — prefer sum of aligned items, fall back to extraction total
     for i, (p, pid) in enumerate(zip(proposals, prop_ids)):
-        result.totals[pid] = p.total_amount
+        aligned_sum = sum(ai.amounts.get(pid, 0) or 0 for ai in result.aligned_items)
+        result.totals[pid] = aligned_sum if aligned_sum > 0 else p.total_amount
         result.totals_raw[pid] = p.total_raw
 
     # Overall metrics

@@ -138,8 +138,10 @@ const HelpDocs = {
         { id: 'proposal-compare', title: 'Proposal Compare', icon: 'git-compare-arrows', subsections: [
             { id: 'pc-overview', title: 'Overview', icon: 'info' },
             { id: 'pc-uploading', title: 'Uploading Proposals', icon: 'upload' },
+            { id: 'pc-review', title: 'Review & Edit', icon: 'pencil' },
             { id: 'pc-comparison', title: 'Comparison View', icon: 'columns' },
             { id: 'pc-analytics', title: 'Analytics Tabs', icon: 'bar-chart-3' },
+            { id: 'pc-history', title: 'History', icon: 'history' },
             { id: 'pc-export', title: 'Exporting Results', icon: 'download' }
         ]},
         { id: 'exporting', title: 'Exporting Results', icon: 'download', subsections: [
@@ -5125,10 +5127,11 @@ HelpDocs.content['pc-overview'] = {
     <li>Click <strong>Proposal Compare</strong> on the dashboard or sidebar</li>
     <li>Drag and drop 2+ proposal files (or click Browse)</li>
     <li>Click <strong>Extract Data</strong> to parse all files</li>
-    <li>Review extracted data and edit company names if needed</li>
+    <li>In the <strong>Review phase</strong>, verify company names, dates, totals, and line items — edit anything that was misdetected</li>
     <li>Click <strong>Compare Proposals</strong> to generate the comparison</li>
     <li>Use 8 tabs to explore results: Executive Summary, Comparison, Categories, Red Flags, Heatmap, Vendor Scores, Details, and Raw Tables</li>
-    <li>Click <strong>Export XLSX</strong> to download a formatted spreadsheet</li>
+    <li>Click <strong>Back to Review</strong> to adjust metadata, or <strong>Export XLSX</strong> to download</li>
+    <li>All comparisons are auto-saved — click <strong>History</strong> on the upload screen to reload past analyses</li>
 </ol>
 `
 };
@@ -5175,6 +5178,52 @@ HelpDocs.content['pc-uploading'] = {
     <li><strong>Extraction notes</strong> — Any warnings or observations</li>
 </ul>
 <p>Edit company names before comparing to ensure clear labeling in the comparison matrix.</p>
+`
+};
+
+// ============================================================================
+// PROPOSAL COMPARE - REVIEW & EDIT
+// ============================================================================
+HelpDocs.content['pc-review'] = {
+    title: 'Review & Edit',
+    subtitle: 'Split-pane document viewer with editable metadata',
+    html: `
+<h2><i data-lucide="pencil"></i> The Review Phase</h2>
+<p>After extraction, AEGIS enters the <strong>Review phase</strong> — a split-pane view where you verify and correct all metadata before running the comparison. One proposal is shown at a time with previous/next navigation.</p>
+
+<h2><i data-lucide="file-text"></i> Document Viewer (Left Panel)</h2>
+<p>The left panel renders the source document:</p>
+<ul>
+    <li><strong>PDF files</strong> — Rendered inline via PDF.js with full scroll support</li>
+    <li><strong>DOCX files</strong> — Shows extracted text content in a scrollable panel</li>
+    <li><strong>Excel files</strong> — Displays parsed tables as formatted HTML tables</li>
+</ul>
+<p>Use the document viewer to cross-reference extracted data with the original source.</p>
+
+<h2><i data-lucide="edit-3"></i> Metadata Editor (Right Panel)</h2>
+<p>Editable fields for each proposal:</p>
+<table class="help-table">
+    <thead><tr><th>Field</th><th>Description</th></tr></thead>
+    <tbody>
+        <tr><td>Company Name</td><td>Vendor/supplier name — pre-filled from extraction, editable</td></tr>
+        <tr><td>Date</td><td>Proposal date — pre-filled if detected, editable</td></tr>
+        <tr><td>Total Amount</td><td>Grand total — pre-filled from extraction, editable (accepts $1,234.56 format)</td></tr>
+    </tbody>
+</table>
+
+<h2><i data-lucide="list"></i> Line Item Editor</h2>
+<p>Click <strong>Edit Line Items</strong> to expand the accordion editor:</p>
+<ul>
+    <li>Each row shows description, category dropdown, amount, quantity, and unit price</li>
+    <li>Change the <strong>category</strong> (Labor, Material, Software, Travel, ODC, Subcontract, Other)</li>
+    <li>Click the <strong>× button</strong> to delete a line item</li>
+    <li>Click <strong>+ Add Line Item</strong> to add a new empty row</li>
+</ul>
+<p>Edits are saved automatically when you navigate between proposals or click Compare.</p>
+
+<h2><i data-lucide="arrow-right"></i> Navigation</h2>
+<p>Use <strong>← Previous</strong> and <strong>Next →</strong> buttons to navigate between proposals. The counter shows "1 of 3" etc. Edits to the current proposal are captured before navigating.</p>
+<p>Click <strong>Compare Proposals</strong> when all proposals look correct.</p>
 `
 };
 
@@ -5295,6 +5344,36 @@ HelpDocs.content['pc-analytics'] = {
     <li><strong>Recent Activity</strong> — Sortable table of latest proposals with drill-down to vendor details</li>
 </ul>
 <p>Data is loaded lazily when you switch to the Proposals tab and cached for 5 minutes. Click <strong>Refresh</strong> to force a data reload.</p>
+`
+};
+
+// ============================================================================
+// PROPOSAL COMPARE - HISTORY
+// ============================================================================
+HelpDocs.content['pc-history'] = {
+    title: 'Comparison History',
+    subtitle: 'Browse, reload, and manage past comparisons',
+    html: `
+<h2><i data-lucide="history"></i> Auto-Save</h2>
+<p>Every comparison you run is <strong>automatically saved</strong> to history. No manual save step is required — results are persisted the moment the comparison completes.</p>
+
+<h2><i data-lucide="list"></i> Browsing History</h2>
+<p>Click the <strong>History</strong> button on the upload screen (top right) to see all past comparisons. Each card shows:</p>
+<ul>
+    <li><strong>Project name</strong> (or "Ad-hoc Comparison" for unlinked comparisons)</li>
+    <li><strong>Vendor names</strong> as gold badges</li>
+    <li><strong>Proposal count, cost spread, and date/time</strong></li>
+</ul>
+
+<h2><i data-lucide="eye"></i> Reloading Results</h2>
+<p>Click <strong>View</strong> on any history card to reload the full comparison with all 8 analysis tabs restored exactly as they were.</p>
+
+<h2><i data-lucide="pencil"></i> Back to Review</h2>
+<p>From results (whether freshly compared or loaded from history), click <strong>Back to Review</strong> to return to the split-pane editor. Your original proposals are preserved — adjust metadata or line items, then re-run the comparison.</p>
+<p><strong>Note:</strong> Back to Review is only available when proposal data was preserved (fresh comparisons or comparisons saved with proposal input data).</p>
+
+<h2><i data-lucide="trash-2"></i> Deleting Comparisons</h2>
+<p>Click the <strong>trash icon</strong> on a history card to delete it permanently. A confirmation dialog prevents accidental deletion.</p>
 `
 };
 
@@ -7683,18 +7762,21 @@ HelpDocs.content['version-history'] = {
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
         <h3>v5.9.41 <span class="changelog-date">February 20, 2026</span></h3>
-        <p><strong>Proposal Compare Advanced Analytics &amp; Visualizations</strong></p>
+        <p><strong>Proposal Compare v2.1 — Editable Review Phase, Document Viewer &amp; History</strong></p>
         <ul>
-            <li><strong>ENH: PDF extraction overhaul</strong> — Wired EnhancedTableExtractor (camelot/pdfplumber/tabula) as primary strategy with 3-tier fallback and data-pattern column inference for headerless tables</li>
-            <li><strong>ENH: Radar chart</strong> — Spider plot in Vendor Scores tab overlaying all vendors for at-a-glance strength/weakness comparison</li>
-            <li><strong>ENH: Tornado chart</strong> — Horizontal bar chart in Executive Summary showing biggest price spreads for negotiation focus</li>
-            <li><strong>ENH: Stacked bar chart</strong> — Categories tab shows cost structure breakdown per vendor with tooltip totals</li>
-            <li><strong>ENH: Weight sliders</strong> — Drag Price/Completeness/Risk/Data Quality evaluation weights and vendor scores recalculate in real-time</li>
-            <li><strong>ENH: Sort &amp; filter</strong> — Comparison table supports column sorting, category filter, and variance threshold filter (10%/20%/50%)</li>
-            <li><strong>ENH: Enhanced red flags</strong> — Identical pricing detection, missing category gaps, and FAR 15.404 price reasonableness (z-score outliers)</li>
-            <li><strong>ENH: XLSX freeze panes</strong> — Exported comparison sheet has frozen headers and auto-filter for professional Excel experience</li>
-            <li><strong>ENH: Print CSS</strong> — Proposal Compare results optimized for paper output</li>
-            <li><strong>ENH: Delete proposal</strong> — Remove individual proposals from projects with confirmation dialog</li>
+            <li><strong>NEW: Review phase</strong> — Split-pane view with inline document viewer (PDF.js, DOCX text, XLSX tables) alongside editable metadata panel</li>
+            <li><strong>NEW: Line item editor</strong> — Expand accordion to add/remove/edit individual cost items with category dropdowns, amounts, quantities</li>
+            <li><strong>NEW: Comparison history</strong> — Auto-save all comparisons, browse past analyses with vendor badges, reload full results, delete old entries</li>
+            <li><strong>NEW: Back to Review</strong> — Return from results to the review phase with proposals preserved; adjust metadata and re-compare</li>
+            <li><strong>ENH: Four-phase workflow</strong> — Upload → Extract → Review → Compare with visual progress indicator</li>
+            <li><strong>ENH: PDF extraction</strong> — Text extraction before tables, 5-strategy company name detection with filename fallback</li>
+            <li><strong>ENH: Radar chart</strong> — Spider plot in Vendor Scores tab overlaying all vendors for at-a-glance comparison</li>
+            <li><strong>ENH: Weight sliders</strong> — Drag evaluation weights and vendor scores recalculate in real-time</li>
+            <li><strong>ENH: Sort &amp; filter</strong> — Comparison table supports column sorting, category filter, and variance threshold filter</li>
+            <li><strong>ENH: Enhanced red flags</strong> — FAR 15.404 reasonableness, identical pricing detection, missing category gaps</li>
+            <li><strong>FIX: Centralized ID generation</strong> — Prevents mismatched proposal IDs between align and compare functions</li>
+            <li><strong>FIX: Totals from aligned items</strong> — Accurate comparison totals computed from actual matched line items</li>
+            <li><strong>ENH: Guided demos</strong> — 2 new sub-demos (Review &amp; Edit, History) covering new workflows</li>
         </ul>
     </div>
     <div class="changelog-version">
