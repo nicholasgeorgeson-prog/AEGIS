@@ -43,6 +43,8 @@ FILES = [
     "static/js/help-docs.js",
     "static/js/features/proposal-compare.js",
     "static/js/features/guide-system.js",
+    "static/js/features/pdf-viewer.js",
+    "static/js/features/statement-history.js",
 
     # CSS
     "static/css/features/proposal-compare.css",

@@ -1086,10 +1086,17 @@ TWR.StatementHistory = (function() {
 
                     if (btn.dataset.view === 'pdf') {
                         if (typeof TWR !== 'undefined' && TWR.PDFViewer) {
-                            await TWR.PDFViewer.render(
-                                docContent,
-                                `/api/scan-history/document-file?scan_id=${scanId}`
-                            );
+                            try {
+                                await TWR.PDFViewer.render(
+                                    docContent,
+                                    `/api/scan-history/document-file?scan_id=${scanId}`
+                                );
+                            } catch (pdfErr) {
+                                console.warn('[SFH] PDF render failed, falling back to text:', pdfErr);
+                                docContent.innerHTML = renderDocument(docText, filtered, { forceText: true });
+                                buildMarkIndexMap(docContent);
+                                _activeMarkEl = null;
+                            }
                         } else {
                             docContent.innerHTML = '<div class="pdfv-error">PDF viewer not available.</div>';
                         }

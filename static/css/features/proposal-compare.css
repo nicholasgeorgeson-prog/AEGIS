@@ -506,6 +506,20 @@
 .pc-doc-fallback p { margin: 4px 0; font-size: 13px; }
 .pc-doc-hint { font-size: 11px; opacity: 0.7; }
 
+.pc-doc-notice {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    margin-bottom: 6px;
+    font-size: 11px;
+    color: var(--text-muted, #888);
+    background: var(--bg-surface, #f6f8fa);
+    border-radius: 4px;
+    border-left: 3px solid var(--info, #3b82f6);
+}
+.pc-doc-notice i { width: 14px; height: 14px; flex-shrink: 0; }
+
 .pc-doc-table-section { margin-bottom: 16px; }
 .pc-doc-table-section h5 { margin: 0 0 6px; font-size: 12px; color: var(--text-secondary, #666); }
 

@@ -41,8 +41,10 @@ TWR.PDFViewer = (function() {
      */
     async function render(container, url, options = {}) {
         if (!await init()) {
-            container.innerHTML = `<div class="pdfv-error">PDF.js could not be loaded: ${lastError || 'Unknown error'}.<br><small>Falling back to HTML view.</small></div>`;
-            return;
+            const errMsg = lastError || 'Unknown error';
+            console.error('[PDFViewer] Init failed:', errMsg);
+            container.innerHTML = `<div class="pdfv-error">PDF.js could not be loaded: ${errMsg}.<br><small>Falling back to HTML view.</small></div>`;
+            throw new Error('PDF.js init failed: ' + errMsg);
         }
 
         container.innerHTML = '<div class="pdfv-loading"><div class="sfh-spinner"></div><p>Loading PDF...</p></div>';
@@ -83,7 +85,9 @@ TWR.PDFViewer = (function() {
                 }).promise;
             }
         } catch (e) {
+            console.error('[PDFViewer] Render error:', e);
             container.innerHTML = `<div class="pdfv-error">Failed to render PDF: ${e.message}<br><small>The original file may no longer be available.</small></div>`;
+            throw e;  // Re-throw so callers can provide fallback content
         }
     }
 

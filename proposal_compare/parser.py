@@ -71,6 +71,7 @@ class ProposalData:
     # Metadata
     page_count: int = 0
     extraction_notes: List[str] = field(default_factory=list)
+    extraction_text: str = ''   # Full extracted text for doc viewer fallback
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to JSON-serializable dict."""
@@ -113,6 +114,7 @@ class ProposalData:
             'currency': self.currency,
             'page_count': self.page_count,
             'extraction_notes': self.extraction_notes,
+            'extraction_text': self.extraction_text,
         }
 
 
@@ -921,6 +923,7 @@ def parse_excel(filepath: str) -> ProposalData:
         proposal.total_amount = sum(li.amount for li in proposal.line_items if li.amount)
         proposal.total_raw = f'${proposal.total_amount:,.2f}'
 
+    proposal.extraction_text = full_text
     proposal.extraction_notes.append(f'Found {len(proposal.tables)} sheets, {len(proposal.line_items)} line items')
 
     return proposal
@@ -1035,6 +1038,7 @@ def parse_docx(filepath: str) -> ProposalData:
         proposal.total_raw = f'${proposal.total_amount:,.2f}'
 
     proposal.page_count = len(doc.paragraphs) // 30  # Rough estimate
+    proposal.extraction_text = full_text
     proposal.extraction_notes.append(f'Found {len(doc.tables)} tables, {len(proposal.line_items)} line items')
 
     return proposal
@@ -1304,6 +1308,7 @@ def parse_pdf(filepath: str) -> ProposalData:
         proposal.total_amount = sum(li.amount for li in proposal.line_items if li.amount)
         proposal.total_raw = f'${proposal.total_amount:,.2f}'
 
+    proposal.extraction_text = full_text
     proposal.extraction_notes.append(f'Found {len(proposal.tables)} tables, {len(proposal.line_items)} line items')
 
     return proposal

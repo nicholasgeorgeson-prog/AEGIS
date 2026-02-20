@@ -777,17 +777,46 @@ window.ProposalCompare = (function() {
         var container = document.getElementById('pc-doc-viewer');
         if (!container) return;
 
+        console.log('[PC DocViewer] Rendering idx=' + idx + ' fileType=' + fileType +
+            ' hasFile=' + !!State.files[idx] + ' hasText=' + !!(p.full_text || p.extraction_text));
+
         container.innerHTML = '<div class="pc-doc-loading"><div class="pc-spinner"></div> Loading document...</div>';
 
-        // PDF: use PDF.js
-        if (fileType === 'pdf' && State.files[idx]) {
-            var blobUrl = URL.createObjectURL(State.files[idx]);
-            State._blobUrls.push(blobUrl);
-            if (window.TWR && window.TWR.PDFViewer) {
-                TWR.PDFViewer.render(container, blobUrl, { scale: 1.0 });
+        // PDF: try PDF.js, fall back to extracted text
+        if (fileType === 'pdf') {
+            // Try PDF.js canvas rendering first
+            if (State.files[idx] && window.TWR && window.TWR.PDFViewer) {
+                var blobUrl = URL.createObjectURL(State.files[idx]);
+                State._blobUrls.push(blobUrl);
+                console.log('[PC DocViewer] Attempting PDF.js render with blob URL');
+                TWR.PDFViewer.render(container, blobUrl, { scale: 1.0 }).catch(function(err) {
+                    console.warn('[PC DocViewer] PDF.js render failed:', err);
+                    // Fall back to extracted text on render failure
+                    var textContent = p.full_text || p.extraction_text || '';
+                    if (textContent) {
+                        container.innerHTML = '<div class="pc-doc-notice"><i data-lucide="info"></i> ' +
+                            'PDF preview unavailable — showing extracted text</div>' +
+                            '<pre class="pc-doc-text">' + escHtml(textContent) + '</pre>';
+                        if (window.lucide) window.lucide.createIcons();
+                    }
+                });
             } else {
-                container.innerHTML = '<div class="pc-doc-fallback"><i data-lucide="file-text"></i><p>PDF viewer not available. PDF.js module not loaded.</p></div>';
-                if (window.lucide) window.lucide.createIcons();
+                // No PDF.js or no file — show extracted text
+                console.log('[PC DocViewer] PDF.js not available (TWR.PDFViewer=' +
+                    !!(window.TWR && window.TWR.PDFViewer) + ', file=' + !!State.files[idx] +
+                    '), falling back to text');
+                var textContent = p.full_text || p.extraction_text || '';
+                if (textContent) {
+                    container.innerHTML = '<div class="pc-doc-notice"><i data-lucide="info"></i> ' +
+                        'PDF preview unavailable — showing extracted text</div>' +
+                        '<pre class="pc-doc-text">' + escHtml(textContent) + '</pre>';
+                    if (window.lucide) window.lucide.createIcons();
+                } else {
+                    container.innerHTML = '<div class="pc-doc-fallback"><i data-lucide="file-text"></i>' +
+                        '<p>PDF preview not available.</p>' +
+                        '<p class="pc-doc-hint">PDF.js module not loaded. Extracted data shown in the editor panel.</p></div>';
+                    if (window.lucide) window.lucide.createIcons();
+                }
             }
             return;
         }
