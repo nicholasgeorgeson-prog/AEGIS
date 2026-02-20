@@ -11568,19 +11568,20 @@ STEPS TO REPRODUCE
         }
 
         // ====================================================================
-        // v5.9.29: SharePoint Online Scan Handlers
+        // v5.9.29/v5.9.38: SharePoint Online Scan Handlers
         // ====================================================================
         const btnSpTest = document.getElementById('btn-sp-test');
         const btnSpDiscover = document.getElementById('btn-sp-discover');
         const btnSpScan = document.getElementById('btn-sp-scan');
+        const btnSpConnectScan = document.getElementById('btn-sp-connect-scan');
         const spSiteUrl = document.getElementById('sp-site-url');
         const spLibraryPath = document.getElementById('sp-library-path');
         const spRecursive = document.getElementById('sp-recursive');
         const spConnectionStatus = document.getElementById('sp-connection-status');
         const spFilePreview = document.getElementById('sp-file-preview');
 
-        // v5.9.35: Auto-parse library path from site URL when user pastes/types full URL
-        // Listen on input, change, AND paste events for immediate feedback
+        // v5.9.38: Auto-parse library path from site URL when user pastes/types full URL
+        // Also split the site URL from the library path component
         if (spSiteUrl) {
             const _spAutoParseUrl = () => {
                 const url = spSiteUrl.value.trim();
@@ -11607,7 +11608,7 @@ STEPS TO REPRODUCE
                 }
             };
             spSiteUrl.addEventListener('change', _spAutoParseUrl);
-            spSiteUrl.addEventListener('paste', () => setTimeout(_spAutoParseUrl, 100)); // Delay for paste to populate
+            spSiteUrl.addEventListener('paste', () => setTimeout(_spAutoParseUrl, 100));
         }
 
         // Test Connection button
@@ -11666,6 +11667,133 @@ STEPS TO REPRODUCE
                 } finally {
                     btnSpTest.disabled = false;
                     btnSpTest.innerHTML = '<i data-lucide="plug"></i> Test';
+                    lucide?.createIcons?.();
+                }
+            });
+        }
+
+        // v5.9.38: Connect & Scan button — one-click flow
+        // Tests connection, auto-detects library, discovers files, and starts scan
+        if (btnSpConnectScan) {
+            btnSpConnectScan.addEventListener('click', async () => {
+                const siteUrl = spSiteUrl?.value?.trim();
+                if (!siteUrl) {
+                    window.showToast?.('Please enter a SharePoint site URL', 'warning');
+                    spSiteUrl?.focus();
+                    return;
+                }
+
+                // Disable all SP buttons during operation
+                [btnSpConnectScan, btnSpTest, btnSpDiscover, btnSpScan].forEach(b => { if (b) b.disabled = true; });
+                btnSpConnectScan.innerHTML = '<i data-lucide="loader" class="spin"></i> Connecting...';
+                lucide?.createIcons?.();
+
+                try {
+                    const resp = await fetch('/api/review/sharepoint-connect-and-scan', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': window.CSRF_TOKEN || document.querySelector('meta[name="csrf-token"]')?.content || ''
+                        },
+                        body: JSON.stringify({
+                            site_url: siteUrl,
+                            library_path: spLibraryPath?.value?.trim() || '',
+                            recursive: spRecursive?.checked ?? true,
+                            max_files: 500,
+                        })
+                    });
+                    const json = await resp.json();
+
+                    if (spConnectionStatus) spConnectionStatus.classList.remove('hidden');
+
+                    if (json.success && json.data) {
+                        const d = json.data;
+
+                        // Auto-fill the library path field
+                        if (d.library_path && spLibraryPath) {
+                            spLibraryPath.value = d.library_path;
+                        }
+
+                        // Show connection success
+                        if (spConnectionStatus) {
+                            spConnectionStatus.style.background = 'rgba(34,197,94,0.1)';
+                            spConnectionStatus.style.border = '1px solid rgba(34,197,94,0.3)';
+                            spConnectionStatus.style.color = 'var(--success, #22c55e)';
+                            let connMsg = `<strong>✓ Connected</strong> — ${escapeHtml(d.site_title || 'SharePoint site')} (${d.auth_method || 'SSO'})`;
+                            if (d.ssl_fallback) connMsg += ' <span style="opacity:0.7;font-size:11px">[SSL bypass]</span>';
+                            spConnectionStatus.innerHTML = connMsg;
+                        }
+
+                        const disc = d.discovery;
+                        if (disc && disc.supported_files > 0) {
+                            // Show file preview
+                            let html = `<div class="folder-scan-stats">`;
+                            html += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${disc.supported_files}</div><div class="folder-scan-stat-label">Documents</div></div>`;
+                            html += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${disc.total_size_human || '—'}</div><div class="folder-scan-stat-label">Total Size</div></div>`;
+                            const types = disc.file_type_breakdown || {};
+                            Object.entries(types).forEach(([ext, count]) => {
+                                html += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${count}</div><div class="folder-scan-stat-label">${ext}</div></div>`;
+                            });
+                            html += `</div>`;
+                            if (spFilePreview) {
+                                spFilePreview.innerHTML = html;
+                                spFilePreview.classList.remove('hidden');
+                            }
+
+                            window.showToast?.(`Found ${disc.supported_files} documents — scan started!`, 'success');
+
+                            // If scan_id exists, the scan is already running — go straight to dashboard
+                            if (d.scan_id) {
+                                // Store scan info
+                                if (btnSpScan) {
+                                    btnSpScan.dataset.scanId = d.scan_id;
+                                    btnSpScan.dataset.totalFiles = disc.supported_files || 0;
+                                    btnSpScan.dataset.discoveryFiles = JSON.stringify(disc.files || []);
+                                }
+
+                                // Auto-trigger scan dashboard display
+                                setTimeout(() => {
+                                    if (btnSpScan) {
+                                        btnSpScan.style.display = '';
+                                        btnSpScan.disabled = false;
+                                        btnSpScan.click(); // Triggers the scan polling handler
+                                    }
+                                }, 300);
+                            }
+                        } else {
+                            // Connected but no files
+                            window.showToast?.(d.message || 'No supported documents found', 'info');
+                            if (spFilePreview) {
+                                spFilePreview.innerHTML = `<p style="color:var(--text-muted);font-size:12px;">${escapeHtml(d.message || 'No documents found')}</p>`;
+                                spFilePreview.classList.remove('hidden');
+                            }
+                        }
+                    } else {
+                        // Connection failed
+                        const errMsg = json.data?.message || json.error?.message || 'Connection failed';
+                        if (spConnectionStatus) {
+                            spConnectionStatus.style.background = 'rgba(239,68,68,0.1)';
+                            spConnectionStatus.style.border = '1px solid rgba(239,68,68,0.3)';
+                            spConnectionStatus.style.color = 'var(--danger, #ef4444)';
+                            spConnectionStatus.innerHTML = `<strong>✗ Failed</strong> — ${escapeHtml(errMsg)}`;
+                        }
+                        window.showToast?.(errMsg, 'error');
+                    }
+                } catch (err) {
+                    console.error('[TWR SP] Connect & Scan error:', err);
+                    window.showToast?.('SharePoint connection failed: ' + err.message, 'error');
+                    if (spConnectionStatus) {
+                        spConnectionStatus.classList.remove('hidden');
+                        spConnectionStatus.style.background = 'rgba(239,68,68,0.1)';
+                        spConnectionStatus.style.border = '1px solid rgba(239,68,68,0.3)';
+                        spConnectionStatus.style.color = 'var(--danger, #ef4444)';
+                        spConnectionStatus.innerHTML = `<strong>✗ Error</strong> — ${escapeHtml(err.message)}`;
+                    }
+                } finally {
+                    btnSpConnectScan.disabled = false;
+                    btnSpConnectScan.innerHTML = '<i data-lucide="cloud"></i> Connect &amp; Scan';
+                    if (btnSpTest) btnSpTest.disabled = false;
+                    if (btnSpDiscover) btnSpDiscover.disabled = false;
                     lucide?.createIcons?.();
                 }
             });

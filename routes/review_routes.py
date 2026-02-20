@@ -1457,6 +1457,176 @@ def sharepoint_test():
         connector.close()
 
 
+@review_bp.route('/api/review/sharepoint-connect-and-scan', methods=['POST'])
+@require_csrf
+@handle_api_errors
+def sharepoint_connect_and_scan():
+    """
+    v5.9.38: Combined Connect + Discover + Scan endpoint.
+    Replaces the multi-step Test → Preview → Scan flow with a single call.
+
+    Steps:
+    1. Parse URL to extract site_url and optional library path
+    2. Connect and test authentication
+    3. Auto-detect library path if not provided
+    4. Discover files in the library
+    5. Start async scan of discovered files
+
+    Returns scan_id + discovery results immediately, scan runs in background.
+    """
+    SPConnector, sp_parse_url = _get_sharepoint_connector()
+    if SPConnector is None:
+        return jsonify({
+            'success': False,
+            'error': {'message': 'SharePoint connector not available — check server logs', 'code': 'SP_UNAVAILABLE'}
+        }), 500
+
+    data = request.get_json() or {}
+    site_url = data.get('site_url', '').strip()
+    library_path = data.get('library_path', '').strip()
+    recursive = data.get('recursive', True)
+    options = data.get('options', {})
+    max_files = min(data.get('max_files', 500), MAX_FOLDER_SCAN_FILES)
+
+    if not site_url:
+        return jsonify({
+            'success': False,
+            'error': {'message': 'SharePoint site URL is required', 'code': 'MISSING_URL'}
+        }), 400
+
+    # Parse the URL
+    parsed = sp_parse_url(site_url)
+    actual_site_url = parsed['site_url']
+
+    # Use library path from URL if not explicitly provided
+    if not library_path:
+        library_path = parsed.get('library_path', '')
+
+    # Combined connect + discover
+    connector = SPConnector(actual_site_url)
+    result = connector.connect_and_discover(
+        library_path=library_path,
+        recursive=recursive,
+        max_files=max_files
+    )
+
+    if not result['success']:
+        connector.close()
+        return jsonify({
+            'success': False,
+            'data': {
+                'message': result['message'],
+                'auth_method': result.get('auth_method', 'none'),
+                'error_category': result.get('error_category', 'connection'),
+            },
+            'error': {'message': result['message'], 'code': 'SP_CONNECT_FAILED'}
+        }), 400
+
+    files = result.get('files', [])
+    library_path = result.get('library_path', library_path)
+
+    if not files:
+        connector.close()
+        return jsonify({
+            'success': True,
+            'data': {
+                'scan_id': None,
+                'site_title': result.get('title', ''),
+                'library_path': library_path,
+                'message': result.get('message', f'No supported documents found in {library_path}'),
+                'auth_method': result.get('auth_method', 'none'),
+                'ssl_fallback': result.get('ssl_fallback', False),
+                'discovery': {
+                    'total_discovered': 0,
+                    'supported_files': 0,
+                    'files': [],
+                    'file_type_breakdown': {},
+                }
+            }
+        })
+
+    # Calculate size and type breakdown
+    total_size = sum(f.get('size', 0) for f in files)
+    type_breakdown = {}
+    for f in files:
+        ext = f.get('extension', 'unknown')
+        type_breakdown[ext] = type_breakdown.get(ext, 0) + 1
+
+    def _human_size(b):
+        for unit in ('B', 'KB', 'MB', 'GB'):
+            if b < 1024:
+                return f'{b:.1f} {unit}'
+            b /= 1024
+        return f'{b:.1f} TB'
+
+    for f in files:
+        f['size_human'] = _human_size(f.get('size', 0))
+
+    # Generate scan_id and start the scan
+    scan_id = uuid.uuid4().hex[:12]
+
+    with _folder_scan_state_lock:
+        _cleanup_old_scans()
+        _folder_scan_state[scan_id] = {
+            'phase': 'reviewing',
+            'total_files': len(files),
+            'processed': 0,
+            'errors': 0,
+            'current_file': None,
+            'current_chunk': 0,
+            'total_chunks': (len(files) + FOLDER_SCAN_CHUNK_SIZE - 1) // FOLDER_SCAN_CHUNK_SIZE,
+            'documents': [],
+            'summary': {
+                'total_documents': len(files),
+                'processed': 0,
+                'errors': 0,
+                'total_issues': 0,
+                'total_words': 0,
+                'issues_by_severity': {'Critical': 0, 'High': 0, 'Medium': 0, 'Low': 0, 'Info': 0},
+                'issues_by_category': {},
+                'grade_distribution': {},
+            },
+            'roles_found': {},
+            'started_at': time.time(),
+            'completed_at': None,
+            'elapsed_seconds': 0,
+            'estimated_remaining': None,
+            'folder_path': f'SharePoint: {library_path}',
+            'source': 'sharepoint',
+        }
+
+    # Phase 2: Spawn background thread
+    flask_app = current_app._get_current_object()
+    thread = threading.Thread(
+        target=_process_sharepoint_scan_async,
+        args=(scan_id, connector, files, options, flask_app),
+        daemon=True,
+        name=f'sp-scan-{scan_id}',
+    )
+    thread.start()
+
+    logger.info(f"SharePoint connect-and-scan {scan_id}: {len(files)} files from {library_path}")
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'scan_id': scan_id,
+            'site_title': result.get('title', ''),
+            'library_path': library_path,
+            'auth_method': result.get('auth_method', 'none'),
+            'ssl_fallback': result.get('ssl_fallback', False),
+            'discovery': {
+                'total_discovered': len(files),
+                'supported_files': len(files),
+                'total_size': total_size,
+                'total_size_human': _human_size(total_size),
+                'files': files[:100],
+                'file_type_breakdown': type_breakdown,
+            }
+        }
+    })
+
+
 @review_bp.route('/api/review/sharepoint-scan-start', methods=['POST'])
 @require_csrf
 @handle_api_errors
@@ -1697,7 +1867,10 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
                 }
 
             engine = AEGISEngine()
-            doc_results = engine.review_document(dest_path, options)
+            # v5.9.38: Enable batch_mode for SharePoint scans (same as folder scan)
+            sp_options = dict(options) if options else {}
+            sp_options['batch_mode'] = True
+            doc_results = engine.review_document(dest_path, sp_options)
 
             # Convert ReviewIssue objects to dicts (Lesson #36)
             raw_issues = doc_results.get('issues', [])

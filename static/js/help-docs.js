@@ -45,7 +45,7 @@
 'use strict';
 
 const HelpDocs = {
-    version: '5.9.37',
+    version: '5.9.38',
     lastUpdated: '2026-02-20',
     
     config: {
@@ -7601,6 +7601,17 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.9.38 <span class="changelog-date">February 20, 2026</span></h3>
+        <p><strong>SharePoint Scan Improvements</strong></p>
+        <ul>
+            <li><strong>FIX: SharePoint connection</strong> — Enhanced error diagnostics with categorized messages (SSL, DNS, proxy, timeout, reset) and better recovery on corporate networks</li>
+            <li><strong>FIX: Connection resilience</strong> — Auto-tries SSL bypass on all connection errors (not just SSL-specific), creates fresh SSO session on retry, increased timeout to 45 seconds</li>
+            <li><strong>ENH: One-click Connect &amp; Scan</strong> — New button combines connection test, library auto-detection, file discovery, and scan start into a single action</li>
+            <li><strong>ENH: Auto-populate folder</strong> — Library path auto-fills from URL paste and server-side detection — no manual path entry required</li>
+            <li><strong>ENH: SharePoint batch mode</strong> — SharePoint scans now use batch_mode for faster processing (skips html_preview generation during batch)</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.9.37 <span class="changelog-date">February 20, 2026</span></h3>
         <p><strong>Batch Scan Performance Optimization</strong></p>
         <ul>

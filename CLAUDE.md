@@ -166,7 +166,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.9.37
+- **Current version**: 5.9.38
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -762,6 +762,17 @@ The actual logic lives in `repair_aegis.py` (500 lines) where Python's error han
 **Expected improvement**: From ~0.3 docs/min to ~1-2 docs/min (3-6x faster) — the exact improvement depends on document complexity, but eliminating 15-30s of overhead per document on a 3-4 minute total cycle is significant.
 **Key constraint**: ZERO accuracy loss. Docling extraction quality is identical — only the process management changed. User explicitly stated: "I am not looking at losing any accuracy."
 **Lesson**: When a subprocess is spawned repeatedly with heavy initialization, convert to a persistent worker pattern. The `spawn` context is still necessary (fork crashes on macOS), but the subprocess stays alive across documents. The Queue-based request/response pattern gives clean process isolation while amortizing initialization cost across the entire batch.
+
+### 87. SharePoint Connect & Scan — One-Click Flow and Connection Diagnostics (v5.9.38)
+**Problem**: SharePoint batch scan required 4 clicks (paste URL → Test → Preview → Scan All) and showed generic "Cannot reach SharePoint server" errors with no diagnostic detail. Library path required manual entry even though it could be auto-detected.
+**Root Cause**: (1) The `test_connection()` error handler at line 392 was a catch-all `ConnectionError` handler that swallowed the actual error details (SSL cert, DNS failure, proxy, timeout) into a generic message. (2) The connector's default timeout was 30s — too short for some corporate networks with proxy inspection. (3) The multi-step UX required the user to click Test (waits for connection), then Preview (waits for discovery), then Scan All (starts polling). (4) Library path auto-detection happened only after Test succeeded, not during the scan flow.
+**Fix**: Four-part improvement:
+1. **Enhanced error diagnostics**: `test_connection()` now categorizes ConnectionError into specific types: SSL/certificate, DNS/getaddrinfo, connection refused, timeout, proxy, reset by peer, and max retries (with inner reason extraction via regex). Includes auth method in error message for diagnostics.
+2. **Connection resilience**: Default timeout increased 30s→45s. All ConnectionErrors now trigger SSL bypass (not just SSL-specific ones) because corporate proxies can wrap SSL issues in generic ConnectionError. On retry, creates fresh session with SSO auth.
+3. **One-click "Connect & Scan"**: New `connect_and_discover()` method combines test + auto-detect library + list files. New `/api/review/sharepoint-connect-and-scan` endpoint does test+discover+start-scan in one call. Frontend "Connect & Scan" button replaces the 3-button flow.
+4. **Auto-populate library path**: URL paste auto-parses library path client-side. Server-side auto-detection fills it if not found in URL. Library path field placeholder changed to "(auto-detected)".
+**Files**: `sharepoint_connector.py`, `routes/review_routes.py`, `templates/index.html`, `static/js/app.js`
+**Lesson**: Multi-step connection flows are UX friction — combine them into one-click operations. For corporate network debugging, always log the full error and categorize ConnectionError subtypes (SSL vs DNS vs proxy vs timeout) rather than using a catch-all message. Users can't fix "Cannot reach server" but CAN fix "DNS resolution failed — check VPN".
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

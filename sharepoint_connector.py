@@ -141,13 +141,13 @@ class SharePointConnector:
         'Shared%20Documents',
     ]
 
-    def __init__(self, site_url: str, timeout: int = 30):
+    def __init__(self, site_url: str, timeout: int = 45):
         """
         Initialize SharePoint connector.
 
         Args:
             site_url: SharePoint site URL (e.g., https://ngc.sharepoint.us/sites/MyTeam)
-            timeout: HTTP request timeout in seconds
+            timeout: HTTP request timeout in seconds (v5.9.38: increased from 30→45 for corporate networks)
         """
         if not REQUESTS_AVAILABLE:
             raise RuntimeError("requests library not available")
@@ -156,6 +156,7 @@ class SharePointConnector:
         self.timeout = timeout
         self.ssl_verify = True  # Start with SSL verification enabled
         self._ssl_fallback_used = False
+        self._last_error_detail = ''  # v5.9.38: detailed error for diagnostics
         self.session = requests.Session()
 
         # Configure Windows SSO auth
@@ -169,13 +170,16 @@ class SharePointConnector:
                 self.auth_method = 'none'
         else:
             self.auth_method = 'none'
-            logger.warning("SharePoint connector: No Windows auth available — will attempt anonymous access")
+            if sys.platform == 'win32':
+                logger.warning("SharePoint connector: Windows auth packages missing — install requests-negotiate-sspi")
+            else:
+                logger.info("SharePoint connector: Non-Windows platform — SSO not available (expected on Mac dev)")
 
         # SharePoint REST API headers
         self.session.headers.update({
             'Accept': 'application/json;odata=verbose',
             'Content-Type': 'application/json;odata=verbose',
-            'User-Agent': 'AEGIS/5.9.35 SharePointConnector',
+            'User-Agent': 'AEGIS/5.9.38 SharePointConnector',
         })
 
     def _api_get(self, endpoint: str, stream: bool = False) -> requests.Response:
@@ -241,7 +245,7 @@ class SharePointConnector:
                     raise
 
             except requests.exceptions.ConnectionError as conn_err:
-                # v5.9.35: ConnectionError can wrap SSL errors on some platforms
+                # v5.9.38: ConnectionError can wrap SSL errors on some platforms
                 err_str = str(conn_err).lower()
                 is_ssl = any(kw in err_str for kw in ['ssl', 'certificate', 'handshake', 'tls', 'cert'])
 
@@ -251,9 +255,19 @@ class SharePointConnector:
                     self._ssl_fallback_used = True
                     ssl_retried = True
                     continue  # Retry immediately — does NOT increment attempt
+                elif not ssl_retried and self.ssl_verify:
+                    # v5.9.38: Some corporate networks wrap non-SSL connection errors
+                    # Try with verify=False anyway as it sometimes resolves proxy/intercept issues
+                    logger.warning(f"SharePoint connection error — trying verify=False as fallback: {conn_err}")
+                    self.ssl_verify = False
+                    self._ssl_fallback_used = True
+                    ssl_retried = True
+                    continue  # Retry immediately
                 elif attempt < self.MAX_RETRIES - 1:
+                    # v5.9.38: On connection errors, try fresh session with increased timeout
+                    logger.warning(f"SharePoint request failed (attempt {attempt + 1}): {conn_err}")
+                    self._create_fresh_session()
                     wait = self.RETRY_DELAY * (attempt + 1)
-                    logger.warning(f"SharePoint request failed (attempt {attempt + 1}): {conn_err} — retrying in {wait}s")
                     time.sleep(wait)
                     attempt += 1
                 else:
@@ -380,34 +394,61 @@ class SharePointConnector:
                 'status_code': 0,
             }
         except requests.exceptions.ConnectionError as e:
-            # v5.9.35: Improved error message with more detail
-            err_str = str(e).lower()
-            if any(kw in err_str for kw in ['ssl', 'certificate', 'handshake', 'tls']):
+            # v5.9.38: Enhanced error diagnostics with categorized messages
+            err_str = str(e)
+            err_lower = err_str.lower()
+
+            # Log the full error for server-side diagnosis
+            logger.error(f"SharePoint ConnectionError for {self.site_url}: {err_str[:500]}")
+            self._last_error_detail = err_str[:500]
+
+            if any(kw in err_lower for kw in ['ssl', 'certificate', 'handshake', 'tls']):
                 detail = 'SSL/certificate issue — corporate CA certificate may not be trusted by Python'
-            elif 'name or service not known' in err_str or 'getaddrinfo' in err_str:
+            elif 'name or service not known' in err_lower or 'getaddrinfo' in err_lower:
                 detail = 'DNS resolution failed — check if VPN is connected and SharePoint URL is correct'
-            elif 'connection refused' in err_str:
+            elif 'connection refused' in err_lower:
                 detail = 'Connection refused — SharePoint server may be blocking this connection'
+            elif 'timed out' in err_lower or 'timeout' in err_lower:
+                detail = f'Connection timed out — server may be slow or network is blocking the connection'
+            elif 'proxy' in err_lower:
+                detail = 'Proxy error — corporate proxy may be blocking the connection'
+            elif 'reset by peer' in err_lower or 'broken pipe' in err_lower:
+                detail = 'Connection reset — server actively rejected the connection'
+            elif 'max retries' in err_lower:
+                # Extract the inner reason from urllib3's MaxRetryError
+                import re
+                inner = re.search(r"Caused by (\w+Error)\(([^)]{0,200})\)", err_str)
+                if inner:
+                    detail = f'Connection failed after retries — {inner.group(1)}: {inner.group(2)[:100]}'
+                else:
+                    detail = 'Connection failed after multiple retries — check VPN and URL'
             else:
                 detail = 'Cannot reach server — check VPN/network connection and URL'
+
+            # v5.9.38: Include auth method in message for diagnostics
+            auth_note = f' [auth: {self.auth_method}]' if self.auth_method != 'negotiate' else ''
             return {
                 'success': False,
                 'title': '',
                 'url': self.site_url,
                 'auth_method': self.auth_method,
-                'message': f'{detail}. Error: {str(e)[:100]}',
+                'message': f'{detail}{auth_note}. Error: {err_str[:150]}',
                 'status_code': 0,
+                'error_category': 'connection',
             }
         except requests.exceptions.Timeout:
+            logger.error(f"SharePoint Timeout for {self.site_url} after {self.timeout}s")
             return {
                 'success': False,
                 'title': '',
                 'url': self.site_url,
                 'auth_method': self.auth_method,
-                'message': f'Connection timed out after {self.timeout}s — server may be slow or blocked',
+                'message': f'Connection timed out after {self.timeout}s — server may be slow or blocked by firewall',
                 'status_code': 0,
+                'error_category': 'timeout',
             }
         except Exception as e:
+            logger.error(f"SharePoint unexpected error for {self.site_url}: {type(e).__name__}: {e}")
             return {
                 'success': False,
                 'title': '',
@@ -415,7 +456,87 @@ class SharePointConnector:
                 'auth_method': self.auth_method,
                 'message': f'Connection error ({type(e).__name__}): {str(e)[:200]}',
                 'status_code': 0,
+                'error_category': 'unknown',
             }
+
+    def connect_and_discover(self, library_path: str = '', recursive: bool = True, max_files: int = 500) -> Dict[str, Any]:
+        """
+        v5.9.38: Combined test + auto-detect + discover in one call.
+        Reduces the multi-step flow to a single operation.
+
+        Returns:
+            {
+                'success': bool,
+                'title': str,
+                'auth_method': str,
+                'library_path': str,
+                'files': list,
+                'message': str,
+                'ssl_fallback': bool,
+            }
+        """
+        # Step 1: Test connection
+        probe = self.test_connection()
+        if not probe['success']:
+            return {
+                'success': False,
+                'title': '',
+                'auth_method': self.auth_method,
+                'library_path': '',
+                'files': [],
+                'message': probe.get('message', 'Connection failed'),
+                'ssl_fallback': self._ssl_fallback_used,
+                'error_category': probe.get('error_category', 'connection'),
+            }
+
+        title = probe.get('title', '')
+
+        # Step 2: Auto-detect library path if not provided
+        if not library_path:
+            try:
+                detected = self.auto_detect_library_path()
+                if detected:
+                    library_path = detected
+                    logger.info(f"SharePoint auto-detected library: {library_path}")
+            except Exception as e:
+                logger.debug(f"SharePoint library auto-detect failed: {e}")
+
+        if not library_path:
+            return {
+                'success': True,
+                'title': title,
+                'auth_method': self.auth_method,
+                'library_path': '',
+                'files': [],
+                'message': f'Connected to "{title}" but could not detect document library. '
+                           'Please enter the library path (e.g., /sites/MyTeam/Shared Documents)',
+                'ssl_fallback': self._ssl_fallback_used,
+            }
+
+        # Step 3: Discover files
+        try:
+            files = self.list_files(library_path, recursive=recursive, max_files=max_files)
+        except Exception as e:
+            logger.error(f"SharePoint discovery error: {e}")
+            return {
+                'success': True,  # Connection worked, discovery failed
+                'title': title,
+                'auth_method': self.auth_method,
+                'library_path': library_path,
+                'files': [],
+                'message': f'Connected to "{title}" but failed to list files: {str(e)[:200]}',
+                'ssl_fallback': self._ssl_fallback_used,
+            }
+
+        return {
+            'success': True,
+            'title': title,
+            'auth_method': self.auth_method,
+            'library_path': library_path,
+            'files': files,
+            'message': f'Connected to "{title}" — found {len(files)} document(s)',
+            'ssl_fallback': self._ssl_fallback_used,
+        }
 
     def auto_detect_library_path(self) -> Optional[str]:
         """

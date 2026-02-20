@@ -1,13 +1,27 @@
 {
-  "version": "5.9.37",
+  "version": "5.9.38",
   "release_date": "2026-02-20",
-  "core_version": "5.9.37",
+  "core_version": "5.9.38",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.38",
+      "date": "2026-02-20",
+      "changes": [
+        "FIX: SharePoint connector — improved error diagnostics with categorized messages (SSL, DNS, proxy, timeout, reset)",
+        "FIX: SharePoint connector — increased default timeout from 30s→45s for corporate networks",
+        "FIX: SharePoint connector — auto-tries verify=False on all ConnectionErrors (not just SSL-related ones)",
+        "FIX: SharePoint connector — creates fresh session with SSO on connection retry for better recovery",
+        "ENH: One-click 'Connect & Scan' button combines test + auto-detect library + discover files + start scan",
+        "ENH: Library path auto-populates from URL paste and server-side detection — no manual entry needed",
+        "ENH: SharePoint batch scans now use batch_mode for faster processing (skips html_preview generation)",
+        "ENH: New /api/review/sharepoint-connect-and-scan endpoint replaces multi-step Test → Preview → Scan flow"
+      ]
+    },
     {
       "version": "5.9.37",
       "date": "2026-02-20",

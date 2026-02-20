@@ -1177,30 +1177,35 @@ if (document.documentElement.classList.contains('dark-mode')) {
                                 </div>
                             </div>
                         </div>
-                        <!-- v5.9.29: SharePoint Online Scan Section -->
+                        <!-- v5.9.29/v5.9.38: SharePoint Online Scan Section -->
                         <div class="sharepoint-scan-section" id="sharepoint-scan-section">
                             <div class="folder-scan-divider">
                                 <span>or scan a SharePoint library</span>
                             </div>
                             <div class="folder-scan-input-row" style="flex-wrap:wrap;gap:6px;">
                                 <input type="text" id="sp-site-url" class="folder-scan-input"
-                                       placeholder="SharePoint site URL (e.g. https://ngc.sharepoint.us/sites/MyTeam)"
+                                       placeholder="Paste SharePoint URL — folder will auto-detect (e.g. https://ngc.sharepoint.us/sites/MyTeam/Shared Documents)"
                                        aria-label="SharePoint site URL"
                                        style="flex:1 1 100%;">
                                 <input type="text" id="sp-library-path" class="folder-scan-input"
-                                       placeholder="Library path (e.g. /sites/MyTeam/Shared Documents)"
+                                       placeholder="Library path (auto-detected)"
                                        aria-label="SharePoint document library path"
-                                       style="flex:1 1 60%;">
+                                       style="flex:1 1 50%;">
+                                <button type="button" class="btn btn-primary btn-sm" id="btn-sp-connect-scan"
+                                        aria-label="Connect to SharePoint and scan all documents"
+                                        style="white-space:nowrap;">
+                                    <i data-lucide="cloud" aria-hidden="true"></i> Connect &amp; Scan
+                                </button>
                                 <button type="button" class="btn btn-secondary btn-sm" id="btn-sp-test"
-                                        aria-label="Test connection to SharePoint">
+                                        aria-label="Test connection to SharePoint" title="Test connection only">
                                     <i data-lucide="plug" aria-hidden="true"></i> Test
                                 </button>
                                 <button type="button" class="btn btn-secondary btn-sm" id="btn-sp-discover"
-                                        aria-label="Preview files in SharePoint library">
+                                        aria-label="Preview files in SharePoint library" title="Preview files only">
                                     <i data-lucide="search" aria-hidden="true"></i> Preview
                                 </button>
-                                <button type="button" class="btn btn-primary btn-sm" id="btn-sp-scan"
-                                        aria-label="Scan all documents in SharePoint library" disabled>
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-sp-scan"
+                                        aria-label="Scan already-discovered files" disabled style="display:none;">
                                     <i data-lucide="scan-line" aria-hidden="true"></i> Scan All
                                 </button>
                             </div>
