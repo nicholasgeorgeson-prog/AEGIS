@@ -45,8 +45,8 @@
 'use strict';
 
 const HelpDocs = {
-    version: '5.9.34',
-    lastUpdated: '2026-02-18',
+    version: '5.9.36',
+    lastUpdated: '2026-02-20',
     
     config: {
         searchEnabled: true,
@@ -7601,6 +7601,29 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.9.36 <span class="changelog-date">February 20, 2026</span></h3>
+        <p><strong>Proposal Compare Tool — Major Feature Release</strong></p>
+        <ul>
+            <li><strong>NEW: Proposal Compare</strong> — Upload 2-10 vendor proposals (DOCX/PDF/XLSX) and compare financial data side-by-side with automatic line item alignment</li>
+            <li><strong>NEW: Financial parser</strong> — Extracts tables, dollar amounts, line items, company names, and totals from mixed document types using pure extraction (no AI)</li>
+            <li><strong>NEW: Comparison engine</strong> — Aligns line items across proposals using text similarity matching with category-aware scoring and variance calculation</li>
+            <li><strong>NEW: XLSX export</strong> — Three-sheet workbook with side-by-side comparison, category summary, and proposal details — green/red cost highlighting</li>
+            <li><strong>NEW: Dashboard tile</strong> — Proposal Compare tile on landing page with purple accent</li>
+            <li><strong>NEW: Demo scenes</strong> — 6 overview + 10 sub-demo narrated walkthroughs with pre-generated TTS audio (Jenny Neural voice)</li>
+            <li><strong>NEW: Help documentation</strong> — 4 new help sections covering overview, uploading, comparison view, and export</li>
+            <li><strong>ENH: Batch progress dashboard</strong> — Running Issues and Roles counters now visible during batch scanning</li>
+            <li><strong>ENH: Scan completion lines</strong> — All scan types (batch/folder/SharePoint) show consistent words/issues/roles/score format</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.35 <span class="changelog-date">February 20, 2026</span></h3>
+        <p><strong>Batch Dashboard Enhancement</strong></p>
+        <ul>
+            <li><strong>ENH: Batch scan stats row</strong> — Added running Issues and Roles counters to batch processing progress dashboard</li>
+            <li><strong>ENH: SharePoint scan completion</strong> — Now shows word count, issue count, roles extracted, and score in consistent format</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.9.34 <span class="changelog-date">February 19, 2026</span></h3>
         <p><strong>413 Upload Limit Fix for Excel/DOCX Export</strong></p>
         <ul>
