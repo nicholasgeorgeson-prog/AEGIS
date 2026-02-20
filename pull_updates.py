@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-AEGIS v5.9.28 Update Puller
-Downloads the 26 changed files from GitHub and saves them
+AEGIS v5.9.40 Update Puller
+Downloads changed files from GitHub and saves them
 into the updates/ folder for the built-in AEGIS updater.
 
 Usage:
@@ -29,39 +29,33 @@ FILES = [
     "version.json",
     "static/version.json",
     "core.py",
-    "config_logging.py",
-    "report_generator.py",
-    "graph_export_html.py",
-    "adjudication_export.py",
+    "docling_extractor.py",
+    "routes/_shared.py",
 
-    # Routes
-    "routes/roles_routes.py",
-    "routes/data_routes.py",
-    "routes/config_routes.py",
-    "routes/review_routes.py",
+    # Hyperlink Validator
+    "hyperlink_validator/routes.py",
 
-    # NLP / dictionaries
-    "nlp/spelling/checker.py",
-    "dictionaries/defense.txt",
+    # Proposal Compare
+    "proposal_compare/parser.py",
+    "proposal_compare/analyzer.py",
+    "proposal_compare/routes.py",
+    "proposal_compare/projects.py",
 
     # Templates
     "templates/index.html",
 
     # JavaScript
-    "static/js/app.js",
-    "static/js/roles-tabs-fix.js",
     "static/js/help-docs.js",
-    "static/js/features/hyperlink-validator.js",
-    "static/js/features/hyperlink-validator-state.js",
-    "static/js/features/landing-page.js",
-    "static/js/features/document-viewer.js",
-    "static/js/features/scan-progress-dashboard.js",
+    "static/js/features/proposal-compare.js",
+    "static/js/features/metrics-analytics.js",
+    "static/js/features/guide-system.js",
 
     # CSS
-    "static/css/features/sow-generator.css",
-    "static/css/features/landing-page.css",
+    "static/css/features/proposal-compare.css",
     "static/css/features/metrics-analytics.css",
-    "static/css/features/scan-progress-dashboard.css",
+
+    # Docs
+    "CLAUDE.md",
 ]
 
 
@@ -131,7 +125,7 @@ def download_file(filepath, output_dir, ssl_ctx):
 
 
 def main():
-    print(f"AEGIS v5.9.28 Update Puller")
+    print(f"AEGIS v5.9.40 Update Puller")
     print(f"=" * 50)
     print(f"Repo:   {REPO}")
     print(f"Branch: {BRANCH}")
