@@ -618,6 +618,7 @@ def folder_scan():
             return {
                 'filename': file_info['filename'],
                 'relative_path': file_info['relative_path'],
+                'full_path': file_info['path'],
                 'folder': file_info['folder'],
                 'extension': file_info['extension'],
                 'file_size': file_info['size'],
@@ -637,6 +638,7 @@ def folder_scan():
             return {
                 'filename': file_info['filename'],
                 'relative_path': file_info['relative_path'],
+                'full_path': file_info['path'],
                 'folder': file_info['folder'],
                 'extension': file_info['extension'],
                 'file_size': file_info['size'],
@@ -707,7 +709,7 @@ def folder_scan():
                         db = get_scan_history_db()
                         scan_record = db.record_scan(
                             filename=result['filename'],
-                            filepath=result.get('relative_path', result['filename']),
+                            filepath=result.get('full_path', result.get('relative_path', result['filename'])),
                             results=doc_results_full,
                             options=options
                         )
@@ -1093,7 +1095,7 @@ def _update_scan_state_with_result(scan_id, result, options, flask_app):
                         db = get_scan_history_db()
                         scan_record = db.record_scan(
                             filename=result['filename'],
-                            filepath=result.get('relative_path', result['filename']),
+                            filepath=result.get('full_path', result.get('relative_path', result['filename'])),
                             results=doc_results_full,
                             options=options
                         )
@@ -1181,6 +1183,7 @@ def _process_folder_scan_async(scan_id, discovered, options):
             return {
                 'filename': file_info['filename'],
                 'relative_path': file_info['relative_path'],
+                'full_path': file_info['path'],
                 'folder': file_info['folder'],
                 'extension': file_info['extension'],
                 'file_size': file_info['size'],
@@ -1200,6 +1203,7 @@ def _process_folder_scan_async(scan_id, discovered, options):
             return {
                 'filename': file_info['filename'],
                 'relative_path': file_info['relative_path'],
+                'full_path': file_info['path'],
                 'folder': file_info['folder'],
                 'extension': file_info['extension'],
                 'file_size': file_info['size'],
