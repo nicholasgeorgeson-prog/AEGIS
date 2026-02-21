@@ -12,6 +12,10 @@
       "version": "5.9.42",
       "date": "2026-02-21",
       "changes": [
+        "ENH: Project Dashboard — centralized hub for browsing all projects with 2-column card grid, drill-down to project detail with proposals and comparison history",
+        "ENH: Project Detail View — view all proposals and comparisons for a project, edit in-place, move between projects, start new comparisons",
+        "ENH: Edit persistence — review phase edits (company name, line items, totals, contract term) auto-save to database via fire-and-forget PUT, survive modal close/reopen",
+        "ENH: Tag to project — assign any proposal to any project via positioned dropdown, even after review, with move support between projects",
         "ENH: Proposal Compare v2.2 — License category, vendor color badges, currency formatting, dark mode chart text fixes",
         "ENH: PDF viewer v2.0 — HiDPI/Retina rendering, zoom controls (+/−/fit), magnifier loupe at 3× zoom on hover",
         "ENH: Review phase quality indicators — green check/amber warning badges for company, line items, total, contract term",
@@ -22,13 +26,12 @@
         "ENH: Export Interactive HTML button — alongside XLSX export with gold accent styling",
         "ENH: Vendor color badges in comparison table headers, executive ranking, and score cards for disambiguation",
         "ENH: Expanded category list — Labor, Material, Software, License, Travel, Training, ODC, Subcontract, Overhead, Fee, Other",
+        "ENH: Live demo scenes — Proposal Compare demos inject simulated results (executive summary, comparison matrix, heatmap, vendor scores, red flags, categories)",
+        "ENH: fresh_install.py — comprehensive installer downloads ~230 code files from GitHub without touching dependencies, databases, or config",
         "FIX: Dark mode chart text — all Chart.js instances now read fresh computed CSS vars via helper functions",
         "FIX: Currency formatting — explicit en-US locale in formatMoney() for consistent $X,XXX.XX display",
-        "ENH: Project Dashboard — browse projects with proposal/comparison counts, open detail view, edit proposals from dashboard",
-        "ENH: Edit persistence — review phase edits auto-save to database via fire-and-forget PUT, survive modal close/reopen",
-        "ENH: Tag to project — assign any proposal to any project via dropdown, even after review, with move support",
-        "ENH: Live demo scenes — Proposal Compare demos inject simulated results (executive summary, comparison matrix, heatmap, vendor scores, red flags, categories)",
-        "FIX: HV blueprint import — changed except ImportError to except Exception to handle config_logging init failures on Windows (NameError: logger)"
+        "FIX: HV blueprint import — changed except ImportError to except Exception to handle config_logging init failures on Windows (PermissionError/OSError from OneDrive paths)",
+        "FIX: Tag-to-project bug — proposals now correctly attach to selected project instead of previously-selected project"
       ]
     },
     {

@@ -7851,20 +7851,26 @@ HelpDocs.content['version-history'] = {
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
         <h3>v5.9.42 <span class="changelog-date">February 21, 2026</span></h3>
-        <p><strong>Proposal Compare v2.2 — Currency, Vendor Badges, HTML Export, Enhanced XLSX</strong></p>
+        <p><strong>Proposal Compare v2.2 — Project Dashboard, Edit Persistence, HTML Export, Live Demos</strong></p>
         <ul>
-            <li><strong>NEW: Interactive HTML export</strong> — Self-contained standalone HTML report with SVG charts, dark/light toggle, sort/filter, animated stats, and print optimization</li>
-            <li><strong>NEW: License category</strong> — Dedicated category for licenses, subscriptions, annual fees, and maintenance agreements (extracted automatically)</li>
+            <li><strong>NEW: Project Dashboard</strong> — Centralized hub for browsing all projects with 2-column card grid showing proposal counts, line items, and last updated timestamps. Click to drill into project detail view with proposals and comparison history</li>
+            <li><strong>NEW: Edit persistence</strong> — Review phase edits (company name, line items, totals, contract term) auto-save to the database via fire-and-forget PUT requests. Changes survive modal close/reopen and persist across sessions</li>
+            <li><strong>NEW: Tag to project</strong> — Assign any proposal to any project via positioned dropdown menu. Available from review phase, project detail, and results. Supports both fresh uploads and database-backed proposals with move support between projects</li>
+            <li><strong>NEW: Project detail view</strong> — View all proposals and comparison history for a project. Edit proposals in-place, move between projects, delete, or start new comparisons directly from the detail view</li>
+            <li><strong>NEW: Interactive HTML export</strong> — Self-contained standalone HTML report with SVG charts, dark/light toggle, sort/filter, animated stats, and print optimization. No external dependencies or internet required</li>
+            <li><strong>NEW: License category</strong> — Dedicated category for licenses, subscriptions, annual fees, and maintenance agreements (extracted automatically from proposals)</li>
             <li><strong>NEW: Vendor color badges</strong> — 10-color deterministic palette distinguishes vendors throughout comparison views, charts, and exports</li>
             <li><strong>NEW: PDF viewer zoom &amp; magnifier</strong> — Zoom controls (+/−/fit-width) and a 3× magnifier loupe for scanned/small-text PDFs. HiDPI-aware canvas rendering</li>
-            <li><strong>NEW: Quality indicator badges</strong> — Green/amber status badges in review phase show extraction completeness at a glance</li>
-            <li><strong>NEW: Comparison preview card</strong> — Before clicking Compare, see proposal count, line item total, and ready status</li>
-            <li><strong>NEW: Review-phase project selector</strong> — Change project association after uploading, directly from the review phase</li>
+            <li><strong>NEW: Quality indicator badges</strong> — Green/amber status badges in review phase show extraction completeness at a glance for company, line items, total, and contract term</li>
+            <li><strong>NEW: Comparison preview card</strong> — Before clicking Compare, see proposal count, vendors identified, line item total, and readiness status</li>
+            <li><strong>NEW: Review-phase project selector</strong> — Change or assign project at any point during review, directly from the review phase header</li>
+            <li><strong>NEW: Live demo scenes</strong> — Proposal Compare demos now inject simulated results showing executive summary hero stats, comparison matrix with vendor data, heatmap grid, vendor score cards, red flags, and category breakdowns</li>
             <li><strong>ENH: Enhanced XLSX export (8 sheets)</strong> — Added Heatmap, Rate Analysis, and Raw Line Items sheets. Letter-grade coloring, conditional fills, currency formatting throughout</li>
             <li><strong>ENH: Currency formatting</strong> — All dollar amounts display as $X,XXX.XX with proper locale formatting. Auto-format on blur in review fields</li>
             <li><strong>ENH: Dark mode charts</strong> — Chart.js text/grid colors read fresh from CSS variables on each render, adapting correctly to theme changes</li>
             <li><strong>ENH: Category list expanded</strong> — 11 categories: Labor, Material, Software, License, Travel, Training, ODC, Subcontract, Overhead, Fee, Other</li>
-            <li><strong>ENH: Auto-format currency in review</strong> — Blur handlers on amount/unit price fields format values as $X,XXX.XX</li>
+            <li><strong>FIX: HV blueprint import</strong> — Changed except ImportError to except Exception in hyperlink_validator/routes.py to handle config_logging initialization failures on Windows (PermissionError from OneDrive paths). Prevents "resource not found" 404 for all HV API endpoints</li>
+            <li><strong>FIX: fresh_install.py</strong> — New comprehensive installer that downloads all ~230 code files from GitHub without touching dependencies, databases, or user config. SSL fallback chain for corporate networks</li>
         </ul>
     </div>
     <div class="changelog-version">
