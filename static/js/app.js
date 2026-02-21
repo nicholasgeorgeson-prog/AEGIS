@@ -17369,7 +17369,7 @@ async function _loadDataManagementCounts() {
     }
     // 4. Learning Data count (function categories + tags)
     try {
-        const tagResp = await fetch('/api/roles/function-categories');
+        const tagResp = await fetch('/api/function-categories');
         if (tagResp.ok) {
             const tagData = await tagResp.json();
             const span = document.getElementById('learning-data-count');

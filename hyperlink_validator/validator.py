@@ -133,6 +133,84 @@ except Exception as e:
     _auth_init_error = f'Unexpected error: {e}'
     logger.error(f'[AEGIS HV Auth] Unexpected error during auth initialization: {e}', exc_info=True)
 
+# v5.9.44: Try truststore for OS certificate store (eliminates most corporate SSL errors)
+# truststore makes Python's ssl module use the OS cert store (Windows CertStore)
+# instead of certifi's Mozilla CA bundle. This means corporate internal CA certs
+# that Windows trusts are automatically trusted by Python too.
+TRUSTSTORE_AVAILABLE = False
+try:
+    import truststore
+    truststore.inject_into_ssl()
+    TRUSTSTORE_AVAILABLE = True
+    logger.info('[AEGIS HV] truststore injected — using OS certificate store for SSL validation')
+except ImportError:
+    logger.debug('[AEGIS HV] truststore not available (pip install truststore) — using certifi CA bundle')
+except Exception as e:
+    logger.debug(f'[AEGIS HV] truststore injection failed: {e} — using certifi CA bundle')
+
+# v5.9.44: Per-domain rate limiter to prevent 429/IP blocks during batch validation
+# Limits concurrent requests to the same domain
+class _DomainRateLimiter:
+    """Thread-safe per-domain rate limiter using semaphores."""
+
+    def __init__(self, max_per_domain: int = 3, delay_between: float = 0.2):
+        self._semaphores: Dict[str, threading.Semaphore] = {}
+        self._last_request: Dict[str, float] = {}
+        self._lock = threading.Lock()
+        self._max_per_domain = max_per_domain
+        self._delay_between = delay_between
+
+    def acquire(self, url: str):
+        """Acquire rate limit slot for URL's domain. Blocks if at limit."""
+        domain = urlparse(url).netloc.lower().split(':')[0]
+        with self._lock:
+            if domain not in self._semaphores:
+                self._semaphores[domain] = threading.Semaphore(self._max_per_domain)
+                self._last_request[domain] = 0
+        self._semaphores[domain].acquire()
+        # Enforce minimum delay between requests to same domain
+        with self._lock:
+            elapsed = time.time() - self._last_request.get(domain, 0)
+            if elapsed < self._delay_between:
+                time.sleep(self._delay_between - elapsed)
+            self._last_request[domain] = time.time()
+
+    def release(self, url: str):
+        """Release rate limit slot for URL's domain."""
+        domain = urlparse(url).netloc.lower().split(':')[0]
+        with self._lock:
+            if domain in self._semaphores:
+                self._semaphores[domain].release()
+
+# Module-level rate limiter instance (shared across all validations)
+_domain_rate_limiter = _DomainRateLimiter(max_per_domain=3, delay_between=0.2)
+
+# v5.9.44: Content-Type validation for detecting login page redirects
+# When a URL ends in .pdf/.docx/etc but returns text/html, it's likely a login redirect
+_DOCUMENT_EXTENSIONS = {
+    '.pdf', '.docx', '.doc', '.xlsx', '.xls', '.pptx', '.ppt',
+    '.zip', '.rar', '.7z', '.tar', '.gz',
+    '.csv', '.xml', '.json',
+}
+_DOCUMENT_CONTENT_TYPES = {
+    'application/pdf', 'application/msword',
+    'application/vnd.openxmlformats-officedocument', 'application/vnd.ms-excel',
+    'application/vnd.ms-powerpoint', 'application/octet-stream',
+    'application/zip', 'application/x-zip',
+    'application/vnd.oasis.opendocument',
+    'text/csv', 'application/xml', 'application/json',
+}
+
+# v5.9.44: Login page URL patterns for _is_login_page_redirect
+_LOGIN_URL_PATTERNS = (
+    '/adfs/ls/', '/adfs/oauth2/',
+    'login.microsoftonline.com', 'login.windows.net',
+    'sts.windows.net', '/idp/SSO',
+    'wa=wsignin', 'SAMLRequest=',
+    '/saml/', '/sso/', '/auth/login',
+    '/signin', '/logon',
+)
+
 # SharePoint connector for REST API validation (v5.9.35)
 SHAREPOINT_CONNECTOR_AVAILABLE = False
 _SharePointConnector = None
@@ -1268,6 +1346,9 @@ class StandaloneHyperlinkValidator:
         last_error = None
         head_failed = False
 
+        # v5.9.44: Rate limit — prevent hammering a single domain
+        _domain_rate_limiter.acquire(url)
+
         for attempt in range(retries + 1):
             try:
                 # First try HEAD request (faster, less server load)
@@ -1347,6 +1428,32 @@ class StandaloneHyperlinkValidator:
                 if 200 <= response.status_code < 300:
                     result.status = 'WORKING'
                     result.message = f'HTTP {response.status_code} OK'
+
+                    # v5.9.44: Content-type mismatch detection
+                    # When URL ends in .pdf/.docx/etc but server returns text/html,
+                    # it's likely a login page redirect (the server silently redirected
+                    # to a login form instead of serving the document)
+                    _parsed_ct = urlparse(url)
+                    _url_ext = os.path.splitext(_parsed_ct.path.lower())[1]
+                    if _url_ext in _DOCUMENT_EXTENSIONS and content_type:
+                        _ct_lower = content_type.lower()
+                        if 'text/html' in _ct_lower or 'application/xhtml' in _ct_lower:
+                            # Document URL returned HTML — check if it's a login page
+                            _final_url = response.url if hasattr(response, 'url') else url
+                            if any(pattern in _final_url.lower() for pattern in _LOGIN_URL_PATTERNS):
+                                result.status = 'AUTH_REQUIRED'
+                                result.message = f'Document URL ({_url_ext}) redirected to login page'
+                                break
+                            # Not a clear login page, but still suspicious
+                            result.message = f'HTTP {response.status_code} OK (note: {_url_ext} URL returned HTML — may be login redirect)'
+
+                    # v5.9.44: Check if 200 response is actually a login page redirect
+                    # Some SSO systems return 200 with a login form instead of 302
+                    if response.url and response.url != url:
+                        if any(pattern in response.url.lower() for pattern in _LOGIN_URL_PATTERNS):
+                            result.status = 'AUTH_REQUIRED'
+                            result.message = f'Silently redirected to login page ({response.url[:80]})'
+                            break
 
                     # Thorough mode: check for soft 404
                     if detect_soft_404_flag and response.status_code == 200:
@@ -1745,6 +1852,9 @@ class StandaloneHyperlinkValidator:
                 import random
                 wait_time = (2 ** attempt) + (random.random() * 0.1)
                 time.sleep(wait_time)
+
+        # v5.9.44: Release rate limiter slot (always, even on error)
+        _domain_rate_limiter.release(url)
 
         result.response_time_ms = (time.time() - start_time) * 1000
         result.attempts = min(attempt + 1, retries + 1) if 'attempt' in dir() else 1

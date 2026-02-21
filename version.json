@@ -1,13 +1,26 @@
 {
-  "version": "5.9.43",
+  "version": "5.9.44",
   "release_date": "2026-02-21",
-  "core_version": "5.9.43",
+  "core_version": "5.9.44",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.44",
+      "date": "2026-02-21",
+      "changes": [
+        "FIX: Role Doc Matrix — wrong API URL /api/roles/function-categories (404) corrected to /api/function-categories in app.js boot sequence",
+        "ENH: Role Doc Matrix safety valve — auto-truncates matrices over 10,000 cells (shows top N roles by document coverage) to prevent browser freeze on large datasets",
+        "ENH: HV headless browser rewrite — resource blocking (images/CSS/fonts), parallel validation (5x throughput), Windows SSO passthrough via auth-server-allowlist flags, login page detection, soft 404 detection",
+        "ENH: HV per-domain rate limiting — thread-safe semaphore-based limiter (max 3 concurrent per domain, 0.2s min delay) prevents 429/IP blocks during batch validation",
+        "ENH: HV content-type mismatch detection — catches login redirects where document URLs (.pdf/.docx) return text/html instead of expected content type",
+        "ENH: HV login page URL detection — identifies silent SSO redirects to ADFS/Azure AD/SAML login pages that return HTTP 200 instead of 302",
+        "ENH: HV truststore integration — uses OS certificate store when available, eliminating most corporate SSL errors without verify=False"
+      ]
+    },
     {
       "version": "5.9.43",
       "date": "2026-02-21",

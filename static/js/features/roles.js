@@ -3113,28 +3113,51 @@ TWR.Roles = (function() {
             }
             
             if (emptyMsg) emptyMsg.style.display = 'none';
-            
+
             const showCounts = document.getElementById('roledoc-show-counts')?.checked || false;
-            
+
+            // v5.9.44: Safety valve for large datasets — warn if matrix would be huge
+            const cellCount = roleIds.length * docIds.length;
+            const MAX_MATRIX_CELLS = 10000;
+
+            // Sort roles alphabetically
+            const sortedRoleIds = roleIds.sort((a, b) => {
+                return (roles[a] || '').localeCompare(roles[b] || '');
+            });
+
+            // v5.9.44: If matrix is too large, show top N roles by document count
+            let displayRoleIds = sortedRoleIds;
+            let truncatedMsg = '';
+            if (cellCount > MAX_MATRIX_CELLS) {
+                const maxRoles = Math.floor(MAX_MATRIX_CELLS / docIds.length);
+                // Sort by connection count (most connected first), then take top N
+                displayRoleIds = [...sortedRoleIds].sort((a, b) => {
+                    const aCount = Object.keys(connections[a] || {}).length;
+                    const bCount = Object.keys(connections[b] || {}).length;
+                    return bCount - aCount;
+                }).slice(0, maxRoles);
+                truncatedMsg = `<div style="padding:8px 14px;background:var(--bg-tertiary);border-radius:6px;margin-bottom:8px;font-size:12px;color:var(--text-secondary);border:1px solid var(--border-default);">
+                    <i data-lucide="info" style="width:13px;height:13px;display:inline;vertical-align:-2px;"></i>
+                    Showing top <strong>${displayRoleIds.length}</strong> of ${roleIds.length} roles (sorted by document coverage) to prevent browser slowdown.
+                </div>`;
+                console.log(`[TWR Roles] Matrix truncated: ${roleIds.length} roles × ${docIds.length} docs = ${cellCount} cells > ${MAX_MATRIX_CELLS} limit. Showing top ${displayRoleIds.length}.`);
+            }
+
             // Build header row
-            let html = '<div class="roledoc-table-wrapper"><table class="roledoc-matrix-table"><thead><tr>';
+            let html = truncatedMsg;
+            html += '<div class="roledoc-table-wrapper"><table class="roledoc-matrix-table"><thead><tr>';
             html += '<th class="roledoc-role-header">Role</th>';
-            
+
             docIds.forEach(docId => {
                 const docName = documents[docId] || 'Unknown';
                 const shortName = docName.length > 20 ? docName.substring(0, 17) + '...' : docName;
                 html += `<th class="roledoc-doc-header" title="${escapeHtml(docName)}">${escapeHtml(shortName)}</th>`;
             });
-            
+
             html += '<th class="roledoc-total-header">Total</th></tr></thead><tbody>';
-            
-            // Sort roles alphabetically
-            const sortedRoleIds = roleIds.sort((a, b) => {
-                return (roles[a] || '').localeCompare(roles[b] || '');
-            });
-            
+
             // Build data rows
-            sortedRoleIds.forEach(roleId => {
+            displayRoleIds.forEach(roleId => {
                 const roleName = roles[roleId] || 'Unknown';
                 const roleConnections = connections[roleId] || {};
                 let totalDocs = 0;
@@ -3163,9 +3186,9 @@ TWR.Roles = (function() {
             html += '</tbody></table></div>';
             
             // Summary stats
-            const matrixAdjCount = adjLookup ? adjLookup.countAdjudicated(sortedRoleIds.map(id => roles[id] || '')) : { adjudicated: 0 };
+            const matrixAdjCount = adjLookup ? adjLookup.countAdjudicated(displayRoleIds.map(id => roles[id] || '')) : { adjudicated: 0 };
             html += `<div class="roledoc-summary">
-                <span><strong>${roleIds.length}</strong> roles</span>
+                <span><strong>${displayRoleIds.length}</strong>${displayRoleIds.length < roleIds.length ? ` of ${roleIds.length}` : ''} roles</span>
                 <span><strong>${docIds.length}</strong> documents</span>
                 ${matrixAdjCount.adjudicated > 0 ? `<span><strong style="color:#22c55e;">${matrixAdjCount.confirmed}</strong> adjudicated${matrixAdjCount.rejected > 0 ? `, <strong style="color:#ef4444;">${matrixAdjCount.rejected}</strong> rejected` : ''}</span>` : ''}
             </div>`;
