@@ -425,13 +425,60 @@ class SharePointConnector:
                     }
 
             elif resp.status_code == 401:
+                # v5.9.43: Capture WWW-Authenticate header for diagnostics
+                www_auth = resp.headers.get('WWW-Authenticate', '')
+                resp_headers_diag = {
+                    'www_authenticate': www_auth[:200] if www_auth else '(none)',
+                    'server': resp.headers.get('Server', '(none)'),
+                    'x_ms_diagnostics': resp.headers.get('X-MS-Diagnostics', '')[:200],
+                    'location': resp.headers.get('Location', '')[:200],
+                }
+                logger.error(f"SharePoint 401 for {self.site_url}: "
+                             f"WWW-Authenticate={www_auth[:200]}, "
+                             f"Server={resp.headers.get('Server', '?')}, "
+                             f"X-MS-Diagnostics={resp.headers.get('X-MS-Diagnostics', '?')[:200]}")
+
+                # Detect if server is requesting OAuth/Bearer (modern auth only)
+                auth_hint = ''
+                if 'bearer' in www_auth.lower():
+                    auth_hint = ' Server requires OAuth2/Bearer token (modern auth) — NTLM/Negotiate not accepted.'
+                elif 'negotiate' in www_auth.lower() or 'ntlm' in www_auth.lower():
+                    auth_hint = ' Server accepts Negotiate/NTLM but credentials were rejected — check domain trust.'
+                elif not www_auth:
+                    auth_hint = ' Server sent no WWW-Authenticate header — may require pre-authentication or modern auth.'
+
+                # v5.9.43: Try fresh session as auth retry before giving up
+                try:
+                    logger.info("SharePoint 401: Trying fresh SSO session...")
+                    self._create_fresh_session()
+                    retry_resp = self._api_get('/_api/web')
+                    if retry_resp.status_code == 200:
+                        try:
+                            data = retry_resp.json()
+                            d = data.get('d', data)
+                            title = d.get('Title', 'Unknown')
+                            url = d.get('Url', self.site_url)
+                            return {
+                                'success': True,
+                                'title': title,
+                                'url': url,
+                                'auth_method': self.auth_method,
+                                'message': f'Connected to "{title}" via {self.auth_method} (fresh session retry)',
+                                'status_code': 200,
+                            }
+                        except (ValueError, KeyError):
+                            pass
+                except Exception as retry_e:
+                    logger.debug(f"SharePoint 401 fresh session retry failed: {retry_e}")
+
                 return {
                     'success': False,
                     'title': '',
                     'url': self.site_url,
                     'auth_method': self.auth_method,
-                    'message': f'Authentication failed (401) — Windows SSO credentials not accepted',
+                    'message': f'Authentication failed (401) — Windows SSO credentials not accepted.{auth_hint}',
                     'status_code': 401,
+                    'diagnostics': resp_headers_diag,
                 }
 
             elif resp.status_code == 403:
