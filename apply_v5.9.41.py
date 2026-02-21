@@ -34,24 +34,26 @@ FILES = [
     "static/version.json",
 
     # Proposal Compare backend
-    "proposal_compare/__init__.py",
     "proposal_compare/parser.py",
     "proposal_compare/analyzer.py",
     "proposal_compare/routes.py",
     "proposal_compare/projects.py",
 
     # JavaScript
+    "static/js/help-docs.js",
     "static/js/features/proposal-compare.js",
     "static/js/features/guide-system.js",
-    "static/js/help-docs.js",
 
     # CSS
     "static/css/features/proposal-compare.css",
+
+    # Docs
+    "CLAUDE.md",
 ]
 
-# Demo voice narration audio files (34 MP3s)
+# Audio narration files for new demo scenes
 AUDIO_FILES = [
-    # Overview demo (8 scenes)
+    "static/audio/demo/manifest.json",
     "static/audio/demo/proposal-compare__step0.mp3",
     "static/audio/demo/proposal-compare__step1.mp3",
     "static/audio/demo/proposal-compare__step2.mp3",
@@ -60,52 +62,21 @@ AUDIO_FILES = [
     "static/audio/demo/proposal-compare__step5.mp3",
     "static/audio/demo/proposal-compare__step6.mp3",
     "static/audio/demo/proposal-compare__step7.mp3",
-
-    # Upload & Extract sub-demo (4 scenes)
+    "static/audio/demo/review_edit__step0.mp3",
+    "static/audio/demo/review_edit__step1.mp3",
+    "static/audio/demo/review_edit__step2.mp3",
+    "static/audio/demo/review_edit__step3.mp3",
+    "static/audio/demo/comparison_history__step0.mp3",
+    "static/audio/demo/comparison_history__step1.mp3",
+    "static/audio/demo/comparison_history__step2.mp3",
     "static/audio/demo/upload_extract__step0.mp3",
-    "static/audio/demo/upload_extract__step1.mp3",
     "static/audio/demo/upload_extract__step2.mp3",
     "static/audio/demo/upload_extract__step3.mp3",
-
-    # Executive Summary sub-demo (4 scenes)
-    "static/audio/demo/exec_summary__step0.mp3",
-    "static/audio/demo/exec_summary__step1.mp3",
-    "static/audio/demo/exec_summary__step2.mp3",
-    "static/audio/demo/exec_summary__step3.mp3",
-
-    # Red Flags sub-demo (4 scenes)
-    "static/audio/demo/red_flags__step0.mp3",
-    "static/audio/demo/red_flags__step1.mp3",
-    "static/audio/demo/red_flags__step2.mp3",
-    "static/audio/demo/red_flags__step3.mp3",
-
-    # Heatmap View sub-demo (4 scenes)
-    "static/audio/demo/heatmap_view__step0.mp3",
-    "static/audio/demo/heatmap_view__step1.mp3",
-    "static/audio/demo/heatmap_view__step2.mp3",
-    "static/audio/demo/heatmap_view__step3.mp3",
-
-    # Vendor Scores sub-demo (4 scenes)
-    "static/audio/demo/vendor_scores__step0.mp3",
-    "static/audio/demo/vendor_scores__step1.mp3",
-    "static/audio/demo/vendor_scores__step2.mp3",
-    "static/audio/demo/vendor_scores__step3.mp3",
-
-    # Comparison View sub-demo (3 scenes)
-    "static/audio/demo/comparison_view__step0.mp3",
-    "static/audio/demo/comparison_view__step1.mp3",
-    "static/audio/demo/comparison_view__step2.mp3",
-
-    # Export Results sub-demo (3 scenes)
-    "static/audio/demo/export_results__step0.mp3",
-    "static/audio/demo/export_results__step1.mp3",
-    "static/audio/demo/export_results__step2.mp3",
 ]
 
 
 def get_ssl_context():
     """Get SSL context with aggressive fallback for embedded Python."""
-    # Try 1: certifi
     try:
         import certifi
         ctx = ssl.create_default_context(cafile=certifi.where())
@@ -118,7 +89,6 @@ def get_ssl_context():
     except Exception:
         pass
 
-    # Try 2: system certs
     try:
         ctx = ssl.create_default_context()
         urllib.request.urlopen(
@@ -130,7 +100,6 @@ def get_ssl_context():
     except Exception:
         pass
 
-    # Try 3: unverified (SSLContext directly, not create_default_context)
     print("  [WARN] SSL certificates not available - using unverified HTTPS")
     print("         (This is safe for downloading from GitHub)")
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -152,10 +121,8 @@ def download_file(filepath, ssl_ctx):
 
 
 def main():
-    # Detect install directory (where this script is running)
     install_dir = os.path.dirname(os.path.abspath(__file__))
 
-    # Verify we're in the right place
     has_app = os.path.exists(os.path.join(install_dir, "app.py"))
     has_static = os.path.isdir(os.path.join(install_dir, "static"))
     if not has_app and not has_static:
@@ -175,35 +142,48 @@ def main():
     print()
     print("  =============================================")
     print("    AEGIS v5.9.41 Direct Updater")
-    print("    Proposal Compare Advanced Analytics")
+    print("    Proposal Compare v2.1 + Audio Narration")
     print("  =============================================")
     print()
-    print("  NEW IN v5.9.41:")
-    print("    - PDF extraction overhaul (EnhancedTableExtractor)")
-    print("    - Radar chart + tornado chart + stacked bars")
-    print("    - Evaluation weight sliders (real-time)")
-    print("    - Sortable/filterable comparison table")
-    print("    - FAR 15.404 price reasonableness red flags")
-    print("    - Identical pricing & missing category detection")
-    print("    - XLSX freeze panes + auto-filter")
-    print("    - Print-optimized CSS")
+    print("  PROPOSAL COMPARE v2.1:")
+    print("    - Editable Review phase (split-pane layout)")
+    print("    - Inline document viewer (PDF/DOCX/XLSX)")
+    print("    - Metadata editor (company, date, total)")
+    print("    - Line item editor (add/edit/delete rows)")
+    print("    - Comparison history (auto-save, reload)")
+    print("    - Back to Review from results")
+    print("    - 4-phase workflow indicator")
     print()
-    print(f"  Install dir: {install_dir}")
-    print(f"  Code files:  {len(FILES)}")
-    print(f"  Audio files: {len(AUDIO_FILES)}")
-    print(f"  Total:       {len(FILES) + len(AUDIO_FILES)}")
+    print("  AUDIO NARRATION:")
+    print("    - 18 new MP3 files (JennyNeural voice)")
+    print("    - 8 overview scenes + 7 sub-demo scenes")
+    print("    - Updated manifest.json")
+    print()
+    print("  BUG FIXES:")
+    print("    - Centralized proposal ID generation")
+    print("    - Totals computed from aligned items")
+    print("    - Frontend ID fallback for missing IDs")
+    print("    - PDF text extraction before tables")
+    print("    - 5-strategy company name detection")
+    print()
+    print(f"  Install dir:  {install_dir}")
+    print(f"  Code files:   {len(FILES)}")
+    print(f"  Audio files:  {len(AUDIO_FILES)}")
     print()
 
     # Ensure proposal_compare directory exists
     pc_dir = os.path.join(install_dir, "proposal_compare")
     if not os.path.isdir(pc_dir):
         os.makedirs(pc_dir, exist_ok=True)
-        # Create __init__.py if missing
         init_file = os.path.join(pc_dir, "__init__.py")
         if not os.path.exists(init_file):
             with open(init_file, "w") as f:
                 f.write("# Proposal Compare module\n")
             print(f"  Created proposal_compare/__init__.py")
+
+    # Ensure audio directory exists
+    audio_dir = os.path.join(install_dir, "static", "audio", "demo")
+    os.makedirs(audio_dir, exist_ok=True)
 
     # Set up SSL
     print("  Setting up SSL...")
@@ -217,7 +197,7 @@ def main():
     print(f"  Backup dir: {backup_dir}")
     print()
 
-    # Download and apply each file
+    # Download and apply code files
     print("  Downloading and applying code files...")
     print("  " + "-" * 50)
     success = 0
@@ -225,7 +205,6 @@ def main():
     backed_up = 0
 
     for filepath in FILES:
-        # Download from GitHub
         data = download_file(filepath, ssl_ctx)
         if data is None:
             failed += 1
@@ -233,7 +212,6 @@ def main():
 
         dest = os.path.join(install_dir, filepath)
 
-        # Backup existing file
         if os.path.exists(dest):
             backup_dest = os.path.join(backup_dir, filepath)
             backup_dest_dir = os.path.dirname(backup_dest)
@@ -245,12 +223,10 @@ def main():
             except Exception as e:
                 print(f"  [WARN] Could not backup {filepath}: {e}")
 
-        # Create directory structure if needed
         dest_dir = os.path.dirname(dest)
         if dest_dir:
             os.makedirs(dest_dir, exist_ok=True)
 
-        # Write the new file
         try:
             with open(dest, "wb") as f:
                 f.write(data)
@@ -263,17 +239,13 @@ def main():
 
     print()
     print(f"  Code:  {success} applied, {failed} failed, {backed_up} backed up")
+    print()
 
     # Download and apply audio files
-    print()
-    print("  Downloading demo voice narration audio files...")
+    print("  Downloading audio narration files...")
     print("  " + "-" * 50)
     audio_success = 0
     audio_failed = 0
-
-    # Ensure audio directory exists
-    audio_dir = os.path.join(install_dir, "static", "audio", "demo")
-    os.makedirs(audio_dir, exist_ok=True)
 
     for filepath in AUDIO_FILES:
         data = download_file(filepath, ssl_ctx)
@@ -282,26 +254,27 @@ def main():
             continue
 
         dest = os.path.join(install_dir, filepath)
+        dest_dir = os.path.dirname(dest)
+        if dest_dir:
+            os.makedirs(dest_dir, exist_ok=True)
 
-        # No backup for audio files (they're new)
         try:
             with open(dest, "wb") as f:
                 f.write(data)
             size_kb = len(data) / 1024
-            print(f"  OK    {os.path.basename(filepath)} ({size_kb:.1f} KB)")
+            print(f"  OK    {filepath} ({size_kb:.1f} KB)")
             audio_success += 1
         except Exception as e:
             print(f"  FAIL  {filepath} -- write error: {e}")
             audio_failed += 1
 
-    total_failed = failed + audio_failed
     print()
     print("  " + "=" * 50)
-    print(f"  Code:   {success} applied, {failed} failed, {backed_up} backed up")
+    print(f"  Code:   {success} applied, {failed} failed")
     print(f"  Audio:  {audio_success} applied, {audio_failed} failed")
-    print(f"  Total:  {success + audio_success} / {len(FILES) + len(AUDIO_FILES)}")
     print()
 
+    total_failed = failed + audio_failed
     if total_failed == 0:
         print("  All files applied successfully!")
         print()
@@ -312,9 +285,8 @@ def main():
         print("    1. Close this window")
         print("    2. Restart AEGIS with Start_AEGIS.bat or Restart_AEGIS.bat")
         print("    3. Open AEGIS in your browser")
-        print("    4. Open Proposal Compare and upload vendor proposals")
-        print("    5. Try the new weight sliders, tornado chart, and sort/filter!")
-        print("    6. Open Help > Proposal Compare > Watch Demo for narrated walkthrough!")
+        print("    4. Try the new Review phase in Proposal Compare!")
+        print("    5. Check History to see auto-saved comparisons")
         print()
         print(f"  If something went wrong, your old files are in:")
         print(f"    {backup_dir}")
@@ -323,8 +295,8 @@ def main():
         print("  Check your internet connection and try again.")
         if audio_failed > 0 and failed == 0:
             print()
-            print("  NOTE: All code files succeeded. Audio failures only affect")
-            print("  demo narration - the tool works fine without them.")
+            print("  NOTE: Code files applied OK. Audio failures are non-critical.")
+            print("  Demos will use Web Speech API fallback for missing audio.")
         print()
         print(f"  Successfully applied files are already in place.")
         print(f"  Old versions backed up to: {backup_dir}")

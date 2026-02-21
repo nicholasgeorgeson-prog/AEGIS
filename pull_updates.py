@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-AEGIS v5.9.40 Update Puller
+AEGIS v5.9.41 Update Puller
 Downloads changed files from GitHub and saves them
 into the updates/ folder for the built-in AEGIS updater.
 
@@ -25,41 +25,47 @@ BRANCH = "main"
 OUTPUT_DIR = "updates"
 
 FILES = [
-    # Python backend
+    # Version files
     "version.json",
     "static/version.json",
-    "core.py",
-    "docling_extractor.py",
-    "routes/_shared.py",
-    "routes/config_routes.py",
 
-    # Hyperlink Validator
-    "hyperlink_validator/routes.py",
-
-    # Proposal Compare
+    # Proposal Compare backend
     "proposal_compare/parser.py",
     "proposal_compare/analyzer.py",
     "proposal_compare/routes.py",
     "proposal_compare/projects.py",
 
-    # Templates
-    "templates/index.html",
-
     # JavaScript
-    "static/js/app.js",
-    "static/js/update-functions.js",
     "static/js/help-docs.js",
     "static/js/features/proposal-compare.js",
-    "static/js/features/metrics-analytics.js",
     "static/js/features/guide-system.js",
 
     # CSS
     "static/css/features/proposal-compare.css",
-    "static/css/features/metrics-analytics.css",
-    "static/css/features/landing-page.css",
+
+    # Audio narration
+    "static/audio/demo/manifest.json",
+    "static/audio/demo/proposal-compare__step0.mp3",
+    "static/audio/demo/proposal-compare__step1.mp3",
+    "static/audio/demo/proposal-compare__step2.mp3",
+    "static/audio/demo/proposal-compare__step3.mp3",
+    "static/audio/demo/proposal-compare__step4.mp3",
+    "static/audio/demo/proposal-compare__step5.mp3",
+    "static/audio/demo/proposal-compare__step6.mp3",
+    "static/audio/demo/proposal-compare__step7.mp3",
+    "static/audio/demo/review_edit__step0.mp3",
+    "static/audio/demo/review_edit__step1.mp3",
+    "static/audio/demo/review_edit__step2.mp3",
+    "static/audio/demo/review_edit__step3.mp3",
+    "static/audio/demo/comparison_history__step0.mp3",
+    "static/audio/demo/comparison_history__step1.mp3",
+    "static/audio/demo/comparison_history__step2.mp3",
+    "static/audio/demo/upload_extract__step0.mp3",
+    "static/audio/demo/upload_extract__step2.mp3",
+    "static/audio/demo/upload_extract__step3.mp3",
 
     # Update script
-    "apply_v5.9.40.py",
+    "apply_v5.9.41.py",
 
     # Docs
     "CLAUDE.md",
@@ -132,7 +138,7 @@ def download_file(filepath, output_dir, ssl_ctx):
 
 
 def main():
-    print(f"AEGIS v5.9.40 Update Puller")
+    print(f"AEGIS v5.9.41 Update Puller")
     print(f"=" * 50)
     print(f"Repo:   {REPO}")
     print(f"Branch: {BRANCH}")
