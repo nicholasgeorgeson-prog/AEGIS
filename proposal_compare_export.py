@@ -726,9 +726,9 @@ body {
     margin-top: 2px;
 }
 .heat-very_low { background: rgba(33,150,83,0.25); color: var(--success); }
-.heat-low { background: rgba(33,150,83,0.12); }
-.heat-neutral { background: transparent; }
-.heat-high { background: rgba(235,87,87,0.12); }
+.heat-low { background: rgba(33,150,83,0.12); color: var(--text-primary); }
+.heat-neutral { background: transparent; color: var(--text-primary); }
+.heat-high { background: rgba(235,87,87,0.12); color: var(--text-primary); }
 .heat-very_high { background: rgba(235,87,87,0.25); color: var(--error); }
 .heat-missing { background: var(--table-stripe); color: var(--text-muted); font-style: italic; }
 
@@ -1011,11 +1011,17 @@ function renderExecutive() {
     const spread = maxCost - minCost;
     const totalItems = (DATA.aligned_items || []).length;
 
+    // v5.9.43: Compute unique vendor count by company name
+    const proposals = DATA.proposals || [];
+    const uniqueCompanies = new Set(proposals.map(p => (p.company_name || p.filename || '').trim().toLowerCase()).filter(Boolean));
+    const uniqueVendorCount = uniqueCompanies.size;
+
     let html = `
     <div class="hero-grid">
         <div class="hero-card">
-            <div class="hero-value" data-count="${vendors.length}">${vendors.length}</div>
-            <div class="hero-label">Proposals Compared</div>
+            <div class="hero-value" data-count="${uniqueVendorCount}">${uniqueVendorCount}</div>
+            <div class="hero-label">Unique Vendors</div>
+            ${uniqueVendorCount < vendors.length ? `<div class="hero-sub">${vendors.length} proposals total</div>` : ''}
         </div>
         <div class="hero-card">
             <div class="hero-value" data-count="${totalItems}">${totalItems}</div>
@@ -1256,12 +1262,12 @@ function renderCategories() {
         <div class="chart-legend" id="stacked-legend"></div>
     </div>`;
 
-    // Donut Chart
+    // Category Summary (replaced donut — cleaner and more informative)
     html += `<div class="section-card">
         <div class="section-title">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
-            Overall Category Split</div>
-        <div class="chart-container" id="donut-chart"></div>
+            Category Summary</div>
+        <div id="cat-summary-bars"></div>
     </div>`;
 
     html += `</div>`;
@@ -1286,7 +1292,7 @@ function renderCategories() {
 
     panel.innerHTML = html;
     renderStackedBarChart(cats);
-    renderDonutChart(cats);
+    renderCategorySummaryBars(cats);
 }
 
 function renderStackedBarChart(cats) {
@@ -1302,11 +1308,11 @@ function renderStackedBarChart(cats) {
     });
     if (maxCatTotal === 0) maxCatTotal = 1;
 
-    const barH = 28;
+    const barH = 30;
     const gap = 8;
-    const labelW = 120;
-    const chartW = 400;
-    const totalW = labelW + chartW + 80;
+    const labelW = 160;
+    const chartW = 380;
+    const totalW = labelW + chartW + 100;
     const totalH = cats.length * (barH + gap) + 10;
 
     let svg = `<svg viewBox="0 0 ${totalW} ${totalH}" xmlns="http://www.w3.org/2000/svg">`;
@@ -1316,7 +1322,7 @@ function renderStackedBarChart(cats) {
         let xOffset = labelW;
         const catLabel = c.category || 'Other';
 
-        svg += `<text x="${labelW - 8}" y="${y + barH / 2 + 4}" text-anchor="end" fill="var(--text-secondary)" font-size="11">${esc(catLabel.length > 14 ? catLabel.slice(0, 13) + '...' : catLabel)}</text>`;
+        svg += `<text x="${labelW - 8}" y="${y + barH / 2 + 5}" text-anchor="end" fill="var(--text-primary)" font-size="12" font-weight="500">${esc(catLabel.length > 18 ? catLabel.slice(0, 17) + '...' : catLabel)}</text>`;
 
         vendors.forEach((v, vi) => {
             const amt = (c.totals || {})[v] || 0;
@@ -1342,67 +1348,38 @@ function renderStackedBarChart(cats) {
     ).join('');
 }
 
-function renderDonutChart(cats) {
-    const container = document.getElementById('donut-chart');
+function renderCategorySummaryBars(cats) {
+    const container = document.getElementById('cat-summary-bars');
     if (!container || !cats.length) return;
 
-    // Aggregate across all vendors per category
+    // Aggregate across all vendors per category, sorted by total descending
     const catTotals = cats.map(c => ({
         category: c.category || 'Other',
-        total: vendors.reduce((s, v) => s + ((c.totals || {})[v] || 0), 0)
-    })).filter(c => c.total > 0);
+        total: vendors.reduce((s, v) => s + ((c.totals || {})[v] || 0), 0),
+        items: c.item_count || 0
+    })).filter(c => c.total > 0).sort((a, b) => b.total - a.total);
 
     const grandTotal = catTotals.reduce((s, c) => s + c.total, 0) || 1;
-    const catColors = ['#D6A84A','#2196f3','#219653','#f44336','#9b59b6','#e67e22','#1abc9c','#34495e','#e74c3c','#2ecc71','#8e44ad','#3498db'];
+    const catColors = ['#D6A84A','#2196f3','#219653','#f44336','#9b59b6','#e67e22','#1abc9c','#34495e'];
+    const maxTotal = catTotals.length ? catTotals[0].total : 1;
 
-    const size = 240;
-    const cx = size / 2;
-    const cy = size / 2;
-    const outerR = 100;
-    const innerR = 55;
-
-    let svg = `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg" style="max-width:${size}px;margin:0 auto">`;
-
-    let startAngle = -Math.PI / 2;
+    let html = '<div style="display:flex;flex-direction:column;gap:10px">';
     catTotals.forEach((ct, i) => {
-        const sliceAngle = (ct.total / grandTotal) * 2 * Math.PI;
-        const endAngle = startAngle + sliceAngle;
-        const largeArc = sliceAngle > Math.PI ? 1 : 0;
-
-        const x1o = cx + outerR * Math.cos(startAngle);
-        const y1o = cy + outerR * Math.sin(startAngle);
-        const x2o = cx + outerR * Math.cos(endAngle);
-        const y2o = cy + outerR * Math.sin(endAngle);
-        const x1i = cx + innerR * Math.cos(endAngle);
-        const y1i = cy + innerR * Math.sin(endAngle);
-        const x2i = cx + innerR * Math.cos(startAngle);
-        const y2i = cy + innerR * Math.sin(startAngle);
-
+        const pct = (ct.total / grandTotal * 100).toFixed(1);
+        const barPct = (ct.total / maxTotal * 100).toFixed(1);
         const color = catColors[i % catColors.length];
-        const pct = (ct.total / grandTotal * 100).toFixed(1);
-
-        svg += `<path d="M${x1o},${y1o} A${outerR},${outerR} 0 ${largeArc} 1 ${x2o},${y2o} L${x1i},${y1i} A${innerR},${innerR} 0 ${largeArc} 0 ${x2i},${y2i} Z"
-            fill="${color}" opacity="0.85" stroke="var(--bg-card)" stroke-width="2"
-            onmousemove="showTooltip(event, '${esc(ct.category).replace("'","\\'")} — ${fmtShort(ct.total).replace("'","\\'")} (${pct}%)')"
-            onmouseleave="hideTooltip()"/>`;
-
-        startAngle = endAngle;
+        html += `<div style="display:flex;align-items:center;gap:10px">
+            <div style="width:120px;flex-shrink:0;font-size:0.82rem;font-weight:500;color:var(--text-primary);text-align:right">${esc(ct.category)}</div>
+            <div style="flex:1;background:var(--bg-surface);border-radius:4px;height:24px;overflow:hidden;position:relative">
+                <div style="width:${barPct}%;height:100%;background:${color};opacity:0.75;border-radius:4px;transition:width 0.3s"></div>
+            </div>
+            <div style="width:90px;flex-shrink:0;text-align:right;font-size:0.8rem;color:var(--text-secondary);font-variant-numeric:tabular-nums">${fmtShort(ct.total)} (${pct}%)</div>
+        </div>`;
     });
+    html += '</div>';
+    html += `<div style="text-align:center;margin-top:12px;font-size:0.78rem;color:var(--text-muted)">Total across all vendors: ${fmt(grandTotal)}</div>`;
 
-    // Center text
-    svg += `<text x="${cx}" y="${cy - 6}" text-anchor="middle" fill="var(--text-primary)" font-size="16" font-weight="800">${catTotals.length}</text>`;
-    svg += `<text x="${cx}" y="${cy + 12}" text-anchor="middle" fill="var(--text-muted)" font-size="10">CATEGORIES</text>`;
-    svg += `</svg>`;
-
-    // Legend
-    svg += `<div class="chart-legend" style="margin-top:16px">`;
-    catTotals.forEach((ct, i) => {
-        const pct = (ct.total / grandTotal * 100).toFixed(1);
-        svg += `<span class="legend-item"><span class="legend-swatch" style="background:${catColors[i % catColors.length]}"></span>${esc(ct.category)} (${pct}%)</span>`;
-    });
-    svg += `</div>`;
-
-    container.innerHTML = svg;
+    container.innerHTML = html;
 }
 
 // ══════════════════════════════════════════════

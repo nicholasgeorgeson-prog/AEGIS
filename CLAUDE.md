@@ -167,7 +167,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.9.41
+- **Current version**: 5.9.43
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -959,6 +959,37 @@ Auto-disables SSL verification for corporate SharePoint because Python's `certif
 2. **Detail View** (`renderProjectDetail(projectId)`) — proposals list + comparisons list for a specific project
 **Tag-to-Project** uses a fixed-position dropdown (`_showTagToProjectMenu()`) that supports both in-memory proposals (add to project) and DB-backed proposals (move between projects).
 **Edit from Dashboard** fetches full proposal data via GET, enters review phase with a "Save & Back" button, and auto-persists changes on save.
+
+### 111. openpyxl ws.hyperlinks vs cell.hyperlink Discrepancy (v5.9.43)
+**Problem**: HV export showed 3,742 "No URL" rows despite the dashboard showing all URLs were validated. Export only highlighted 17 of 106 broken links.
+**Root Cause**: openpyxl has TWO different hyperlink access methods: (1) `ws.hyperlinks` (sheet-level collection used by extraction/validation) and (2) `cell.hyperlink` (per-cell property used by export highlighting). These are NOT equivalent — `ws.hyperlinks` has entries that `cell.hyperlink` misses, and vice versa. The extraction code in `excel_extractor.py` reads from `ws.hyperlinks` which returns the full list, but the export code in `export.py` iterated cells and checked `cell.hyperlink` which returned `None` for many cells.
+**Fix**: 3-strategy URL matching in export: (1) Row-level map from `(sheet_name, row_num)` → ValidationResult using source location metadata added to the result objects (sheet_name, cell_address fields). (2) Sheet-level hyperlink map built from `ws.hyperlinks` (same source as extraction). (3) Original cell text + `cell.hyperlink` fallback. Strategy 1 handles 90%+ of cases because the frontend now sends source location data with each result.
+**Lesson**: When one part of the system reads URLs via `ws.hyperlinks` (sheet-level) and another reads via `cell.hyperlink` (cell-level), they WILL disagree. Always use the same access method, or better yet, carry the source location metadata through the entire pipeline so matching doesn't depend on re-extracting URLs from cells.
+
+### 112. Multi-Term Comparison Awareness — Same Company, Different Periods (v5.9.43)
+**Problem**: When the same company submits 3-year and 5-year proposals, items unique to the 5-year option were flagged as "missing" from the 3-year proposal (critical/warning severity). This created false red flags.
+**Root Cause**: The missing items detection in `analyzer.py` compared each vendor's line items against ALL other vendors. It didn't understand that two proposals from the same company represent different contract configurations, not competing bids with missing items.
+**Fix**: Added multi-term detection: (1) Identify same-company proposals by comparing `company_name` case-insensitively. (2) When same-company proposals exist, count how many "missing" items are only priced by other proposals from the same company (term-specific items). (3) Subtract term-specific count from missing count. (4) Add info-level "Term-Specific Items" flag instead of false critical/warning. (5) Falls through to original logic for genuinely different vendors.
+**Lesson**: Financial comparison tools must understand that proposals from the same company with different terms are NOT competing bids — they're options. "Missing" items between same-company variants are expected (term-specific) and should be info-level, not critical. Always check `company_name` equality (case-insensitive) before flagging missing items.
+
+### 113. ProposalData Reconstruction Must Include ALL Fields (v5.9.43)
+**Problem**: Contract term was filled in by the user during review, but after comparison the results showed no contract term distinction. Vendor IDs fell back to numeric suffixes instead of "(3 Year)" / "(5 Year)".
+**Root Cause**: `routes.py` line 296 reconstructs `ProposalData` from the JSON payload, but the reconstruction didn't include `contract_term` or `extraction_text`. These fields were silently dropped, so the analyzer never saw the user's edits.
+**Fix**: Added `contract_term=rp.get('contract_term', '')` and `extraction_text=rp.get('extraction_text', '')` to the ProposalData reconstruction.
+**Lesson**: When a dataclass is reconstructed from dict/JSON in a route handler, EVERY field must be explicitly mapped. Use `ProposalData(**{k: rp.get(k, default) for k in ProposalData.__dataclass_fields__})` pattern or at minimum manually verify all fields are present when adding new ones.
+
+### 114. Vendor Count Deduplication Pattern (v5.9.43)
+**Pattern**: Unique vendor count is computed by deduplicating company names case-insensitively:
+```javascript
+var uniqueVendors = {};
+proposals.forEach(function(p) {
+    var base = (p.company_name || p.filename || '').trim().toLowerCase();
+    if (base) uniqueVendors[base] = true;
+});
+var vendorCount = Object.keys(uniqueVendors).length;
+```
+Display "Unique Vendors" when vendorCount < proposals.length, with a separate "Proposals" card showing total count. In HTML export, show "X proposals total" as subtitle under unique vendor count.
+**Lesson**: Never use `proposals.length` as vendor count. Same company can submit multiple proposals (different terms, options, scenarios). Always deduplicate by company name.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

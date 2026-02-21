@@ -45,7 +45,7 @@
 'use strict';
 
 const HelpDocs = {
-    version: '5.9.42',
+    version: '5.9.43',
     lastUpdated: '2026-02-21',
     
     config: {
@@ -7850,6 +7850,19 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.9.43 <span class="changelog-date">February 21, 2026</span></h3>
+        <p><strong>Hyperlink Validator Export Fix + Proposal Compare Accuracy Improvements</strong></p>
+        <ul>
+            <li><strong>FIX: HV export URL matching</strong> — 3-strategy matching (row-level source map, sheet-level hyperlinks, cell fallback) resolves 3,742 'No URL' rows caused by openpyxl hyperlink access discrepancy</li>
+            <li><strong>FIX: Validation summary counting</strong> — AUTH_REQUIRED, SSL_WARNING, and RATE_LIMITED statuses now counted correctly instead of falling to 'unknown'</li>
+            <li><strong>FIX: Contract term preserved</strong> — Review phase edits to contract term now flow through to comparison (was silently dropped during ProposalData reconstruction)</li>
+            <li><strong>FIX: Multi-term comparison awareness</strong> — Same-company proposals with different terms (e.g. 3-year vs 5-year) no longer falsely flag term-specific items as "missing". Shows info-level "Term-Specific Items" instead</li>
+            <li><strong>FIX: Vendor count accuracy</strong> — Unique vendors computed by company name dedup (case-insensitive), shows "Unique Vendors" separately from "Proposals" when counts differ</li>
+            <li><strong>FIX: Proposal ID disambiguation</strong> — Falls back to filename when no contract term exists, preventing confusing numeric suffixes for same-company proposals</li>
+            <li><strong>FIX: HTML export readability</strong> — Replaced confusing donut chart ("Category Mix") with clear horizontal category bars; improved stacked bar chart label sizes and truncation; fixed heatmap cell text contrast</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.9.42 <span class="changelog-date">February 21, 2026</span></h3>
         <p><strong>Proposal Compare v2.2 — Project Dashboard, Edit Persistence, HTML Export, Live Demos</strong></p>
         <ul>

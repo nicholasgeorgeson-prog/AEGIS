@@ -1522,9 +1522,20 @@ window.ProposalCompare = (function() {
         var totalSavings = exec.total_potential_savings_formatted || '\u2014';
         var lineItemCount = exec.total_line_items || (cmp.aligned_items || []).length;
 
+        // v5.9.43: Compute unique vendor count (by company name, case-insensitive)
+        var uniqueVendors = {};
+        (cmp.proposals || []).forEach(function(pr) {
+            var base = (pr.company_name || pr.filename || '').trim().toLowerCase();
+            if (base) uniqueVendors[base] = true;
+        });
+        var vendorCount = Object.keys(uniqueVendors).length;
+
         html += '<div class="pc-exec-heroes">';
         html += renderHeroCard('layers', lineItemCount, 'Line Items Compared', '#2196f3');
-        html += renderHeroCard('users', propIds.length, 'Vendors', '#D6A84A');
+        html += renderHeroCard('users', vendorCount, 'Unique Vendors', '#D6A84A');
+        if (propIds.length > vendorCount) {
+            html += renderHeroCard('file-text', propIds.length, 'Proposals', '#8b949e');
+        }
         html += renderHeroCard('shield-alert', totalFlags, 'Red Flags', totalFlags > 0 ? '#f44336' : '#219653');
         html += renderHeroCard('piggy-bank', totalSavings, 'Potential Savings', '#219653');
         html += '</div>';

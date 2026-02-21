@@ -182,6 +182,7 @@ def _generate_proposal_ids(proposals: List[ProposalData]) -> List[str]:
     Centralized to ensure consistent IDs across align_line_items() and compare_proposals().
     When two proposals share the same company name but have different contract terms,
     appends the contract term for disambiguation (e.g., "Acme Corp (3 Year)").
+    When same company has duplicates without contract terms, appends filename for disambiguation.
     """
     # First pass: detect company name collisions
     name_counts: Dict[str, int] = {}
@@ -193,9 +194,14 @@ def _generate_proposal_ids(proposals: List[ProposalData]) -> List[str]:
     for p in proposals:
         pid = p.company_name or p.filename
 
-        # If same company appears multiple times AND contract terms differ, use term for disambiguation
-        if name_counts.get(pid, 0) > 1 and p.contract_term:
-            pid = f'{pid} ({p.contract_term})'
+        if name_counts.get(pid, 0) > 1:
+            # Multiple proposals from same company — disambiguate
+            if p.contract_term:
+                # v5.9.43: Use contract term first for disambiguation
+                pid = f'{pid} ({p.contract_term})'
+            elif p.filename and p.company_name:
+                # v5.9.43: Fall back to filename if no contract term
+                pid = f'{pid} ({p.filename})'
 
         # Dedup fallback (numeric suffix)
         counter = 1
@@ -492,11 +498,57 @@ def detect_red_flags(
                 })
 
         # ── 3. Missing Line Items (scope gap) ──
+        # v5.9.43: Be smarter about multi-term comparisons from same company
+        # If same company has proposals with different terms, items unique to one
+        # term are NOT "missing" — they're term-specific.
         total_aligned = len(aligned_items)
         priced_by_vendor = sum(1 for ai in aligned_items
                                if pid in ai.amounts and ai.amounts[pid] is not None)
         missing = total_aligned - priced_by_vendor
-        if missing > 0 and total_aligned > 0:
+
+        # Detect if this is a multi-term comparison from the same company
+        company_base = proposal.company_name.strip().lower() if proposal.company_name else ''
+        same_company_pids = []
+        if company_base:
+            for other_idx, other_p in enumerate(proposals):
+                if other_idx != p_idx:
+                    other_base = other_p.company_name.strip().lower() if other_p.company_name else ''
+                    if other_base == company_base:
+                        same_company_pids.append(prop_ids[other_idx])
+
+        # If same company has other proposals, items priced ONLY by same-company variants
+        # are term-specific, not missing
+        if same_company_pids and missing > 0:
+            # Count items priced only by same-company proposals (not by this one)
+            term_specific = 0
+            for ai in aligned_items:
+                if pid in ai.amounts and ai.amounts[pid] is not None:
+                    continue  # This vendor priced it — not missing
+                # Check if this item is priced ONLY by same-company variants
+                other_pricers = [k for k, v in ai.amounts.items()
+                                 if k != pid and v is not None]
+                if other_pricers and all(k in same_company_pids for k in other_pricers):
+                    term_specific += 1
+
+            actual_missing = missing - term_specific
+            if actual_missing > 0 and total_aligned > 0:
+                detail = f'Vendor did not price {actual_missing} of {total_aligned} line items — possible scope gap'
+                if term_specific > 0:
+                    detail += f' ({term_specific} additional items are term-specific to other contract periods)'
+                flags[pid].append({
+                    'type': 'missing_items',
+                    'severity': 'critical' if actual_missing > total_aligned * 0.3 else 'warning',
+                    'title': f'{actual_missing} Missing Line Items',
+                    'detail': detail,
+                })
+            elif term_specific > 0:
+                flags[pid].append({
+                    'type': 'term_specific_items',
+                    'severity': 'info',
+                    'title': f'{term_specific} Term-Specific Items',
+                    'detail': f'{term_specific} line items appear only in other contract periods from {proposal.company_name}',
+                })
+        elif missing > 0 and total_aligned > 0:
             flags[pid].append({
                 'type': 'missing_items',
                 'severity': 'critical' if missing > total_aligned * 0.3 else 'warning',

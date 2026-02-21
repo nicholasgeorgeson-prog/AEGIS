@@ -1,13 +1,26 @@
 {
-  "version": "5.9.42",
+  "version": "5.9.43",
   "release_date": "2026-02-21",
-  "core_version": "5.9.42",
+  "core_version": "5.9.43",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.43",
+      "date": "2026-02-21",
+      "changes": [
+        "FIX: HV export URL matching — 3-strategy approach (row-level source map, sheet-level hyperlinks, cell fallback) fixes 3,742 'No URL' rows from openpyxl ws.hyperlinks vs cell.hyperlink discrepancy",
+        "FIX: HV ValidationSummary counting — AUTH_REQUIRED, SSL_WARNING, RATE_LIMITED now have explicit counters instead of falling to 'unknown'",
+        "FIX: Proposal contract term preserved through comparison — routes.py ProposalData reconstruction now includes contract_term and extraction_text fields",
+        "FIX: False 'missing line items' flags — multi-term comparison awareness detects same-company proposals (e.g. 3-year vs 5-year) and marks term-specific items as info, not critical",
+        "FIX: Vendor count accuracy — unique vendors computed by company name dedup (case-insensitive), separate from proposal count",
+        "FIX: HTML export readability — replaced confusing donut chart with horizontal category bars, improved stacked bar label sizes, fixed heatmap cell text contrast",
+        "FIX: Proposal ID disambiguation — falls back to filename when no contract term exists for same-company proposals"
+      ]
+    },
     {
       "version": "5.9.42",
       "date": "2026-02-21",

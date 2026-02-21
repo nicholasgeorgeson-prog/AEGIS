@@ -305,6 +305,8 @@ def compare_proposals_endpoint():
                 currency=rp.get('currency', 'USD'),
                 page_count=rp.get('page_count', 0),
                 extraction_notes=rp.get('extraction_notes', []),
+                contract_term=rp.get('contract_term', ''),
+                extraction_text=rp.get('extraction_text', ''),
             )
 
             # Reconstruct tables

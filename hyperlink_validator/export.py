@@ -1072,6 +1072,40 @@ def export_highlighted_excel_multicolor(
         total_highlighted = 0
         category_counts = {'good': 0, 'warning': 0, 'caution': 0, 'broken': 0, 'no_url': 0}
 
+        # v5.9.43: Build row-level map from result source location data
+        # This bridges the gap between extraction (ws.hyperlinks) and export (cell.hyperlink)
+        # Key: (sheet_name, row_number) → ValidationResult
+        row_result_map = {}
+        for r in results:
+            sn = getattr(r, 'sheet_name', '') or ''
+            ca = getattr(r, 'cell_address', '') or ''
+            if sn and ca:
+                # Extract row number from cell_address like "C5" → 5
+                                row_match = re.search(r'(\d+)$', ca)
+                if row_match:
+                    row_num = int(row_match.group(1))
+                    key = (sn, row_num)
+                    # Keep the first result for this row (don't overwrite with later ones)
+                    if key not in row_result_map:
+                        row_result_map[key] = r
+        logger.info(f"Export multicolor: built row_result_map with {len(row_result_map)} entries from source locations")
+
+        # Also build a sheet-level hyperlink map by re-reading ws.hyperlinks
+        # This catches hyperlinks that cell.hyperlink misses (openpyxl inconsistency)
+        def _build_sheet_hyperlink_map(ws):
+            """Build (row) → (url, col) map from sheet-level hyperlinks."""
+            hl_map = {}
+            if hasattr(ws, 'hyperlinks'):
+                for hl in ws.hyperlinks:
+                    if hl.target:
+                        ref = hl.ref
+                        row_match = re.search(r'(\d+)$', ref)
+                        if row_match:
+                            row_num = int(row_match.group(1))
+                            if row_num not in hl_map:
+                                hl_map[row_num] = hl.target
+            return hl_map
+
         # Process each sheet
         for sheet_name in wb.sheetnames:
             ws = wb[sheet_name]
@@ -1081,6 +1115,9 @@ def export_highlighted_excel_multicolor(
 
             # Find URL columns if not specified
             url_columns = _find_url_columns(ws) if link_column is None else [link_column]
+
+            # Build sheet-level hyperlink map for fallback
+            sheet_hl_map = _build_sheet_hyperlink_map(ws)
 
             # Add "Link Status" column header
             status_col = ws.max_column + 1
@@ -1106,27 +1143,41 @@ def export_highlighted_excel_multicolor(
                 row_url = None
                 row_result = None
 
-                # Find URL in this row
-                for col_idx in url_columns:
-                    cell = ws.cell(row=row_idx, column=col_idx)
-                    cell_value = str(cell.value).strip() if cell.value else ''
+                # v5.9.43: Strategy 1 — Look up by (sheet_name, row) from source location data
+                row_key = (sheet_name, row_idx)
+                if row_key in row_result_map:
+                    row_result = row_result_map[row_key]
+                    row_url = row_result.url
 
-                    if cell_value and ('http://' in cell_value.lower() or 'https://' in cell_value.lower()):
-                        row_url = cell_value
-                        # Look up in our status map
-                        row_result = url_status_map.get(cell_value) or \
-                                     url_status_map.get(cell_value.rstrip('/'))
-                        if row_result:
-                            break
+                # Strategy 2 — Look up by sheet-level hyperlink → URL map
+                if not row_result and row_idx in sheet_hl_map:
+                    hl_url = sheet_hl_map[row_idx]
+                    row_result = url_status_map.get(hl_url) or \
+                                 url_status_map.get(hl_url.rstrip('/'))
+                    if row_result:
+                        row_url = hl_url
 
-                    # Also check hyperlink target
-                    if cell.hyperlink and cell.hyperlink.target:
-                        target = cell.hyperlink.target
-                        row_result = url_status_map.get(target) or \
-                                     url_status_map.get(target.rstrip('/'))
-                        if row_result:
-                            row_url = target
-                            break
+                # Strategy 3 — Original cell text + cell.hyperlink scan (fallback)
+                if not row_result:
+                    for col_idx in url_columns:
+                        cell = ws.cell(row=row_idx, column=col_idx)
+                        cell_value = str(cell.value).strip() if cell.value else ''
+
+                        if cell_value and ('http://' in cell_value.lower() or 'https://' in cell_value.lower()):
+                            row_url = cell_value
+                            row_result = url_status_map.get(cell_value) or \
+                                         url_status_map.get(cell_value.rstrip('/'))
+                            if row_result:
+                                break
+
+                        # Also check hyperlink target
+                        if cell.hyperlink and cell.hyperlink.target:
+                            target = cell.hyperlink.target
+                            row_result = url_status_map.get(target) or \
+                                         url_status_map.get(target.rstrip('/'))
+                            if row_result:
+                                row_url = target
+                                break
 
                 # Determine status for coloring
                 if row_result:

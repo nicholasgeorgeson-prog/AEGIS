@@ -307,6 +307,11 @@ class ValidationResult:
     excluded: bool = False
     exclusion_reason: str = ""
     original_status: Optional[str] = None
+    # Source location fields (from Excel extraction — used for export highlighting)
+    sheet_name: str = ""
+    cell_address: str = ""
+    display_text: str = ""
+    link_source: str = ""
 
     def __post_init__(self):
         """Set checked_at if not provided."""
@@ -405,6 +410,9 @@ class ValidationSummary:
     skipped: int = 0
     pending: int = 0
     excluded: int = 0
+    auth_required: int = 0
+    ssl_warning_count: int = 0
+    rate_limited: int = 0
     by_domain: Dict[str, Dict[str, int]] = field(default_factory=dict)
     by_domain_category: Dict[str, Dict[str, int]] = field(default_factory=dict)
     by_status_code: Dict[int, int] = field(default_factory=dict)
@@ -462,6 +470,12 @@ class ValidationSummary:
                 summary.ssl_error += 1
             elif status == 'INVALID':
                 summary.invalid += 1
+            elif status == 'AUTH_REQUIRED':
+                summary.auth_required += 1
+            elif status == 'SSL_WARNING':
+                summary.ssl_warning_count += 1
+            elif status == 'RATE_LIMITED':
+                summary.rate_limited += 1
             elif status == 'SKIPPED':
                 summary.skipped += 1
             elif status == 'PENDING':

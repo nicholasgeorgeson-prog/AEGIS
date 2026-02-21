@@ -1068,7 +1068,11 @@ window.HyperlinkValidator = (function() {
                 status_code: r.status_code || 0,
                 message: (r.message || '').substring(0, 200),
                 excluded: r.excluded || false,
-                treat_as_valid: r.treat_as_valid || false
+                treat_as_valid: r.treat_as_valid || false,
+                // v5.9.43: Include source location for accurate row-level matching
+                sheet_name: r.sheet_name || '',
+                cell_address: r.cell_address || '',
+                display_text: r.display_text || ''
             }));
             console.log(`[HyperlinkValidator] Sending ${slimResults.length} results for multicolor export (payload ~${Math.round(JSON.stringify(slimResults).length / 1024)}KB)`);
             formData.append('results', JSON.stringify(slimResults));
