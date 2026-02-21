@@ -7850,8 +7850,23 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.9.44 <span class="changelog-date">February 21, 2026</span></h3>
+        <p><strong>Hyperlink Validator Headless Rewrite + Rate Limiting + OS Truststore + Voice Narration</strong></p>
+        <ul>
+            <li><strong>ENH: HV headless browser rewrite</strong> — Complete rewrite of headless validation: resource blocking (images/CSS/fonts skipped for speed), parallel validation at 5× throughput, Windows SSO passthrough via auth-server-allowlist Chromium flags, login page detection (ADFS/Azure AD/SAML), and soft 404 detection for pages that return 200 with error content</li>
+            <li><strong>ENH: Per-domain rate limiting</strong> — Thread-safe semaphore-based limiter (max 3 concurrent requests per domain, 0.2s minimum delay between requests) prevents HTTP 429 responses and IP blocks during large batch validation runs</li>
+            <li><strong>ENH: Content-type mismatch detection</strong> — Catches silent login redirects where document URLs (.pdf, .docx) return text/html instead of the expected document content type, flagging them as AUTH_REQUIRED rather than WORKING</li>
+            <li><strong>ENH: Login page URL detection</strong> — Identifies SSO redirects to ADFS, Azure AD, and SAML login pages that return HTTP 200 instead of 302, preventing false positives on authenticated sites</li>
+            <li><strong>ENH: OS truststore integration</strong> — Uses the operating system's certificate store when available (via truststore module), eliminating most corporate SSL certificate errors without needing verify=False</li>
+            <li><strong>ENH: Voice narration for all demos</strong> — Pre-generated MP3 audio clips (Jenny Neural voice via edge-tts) for all 11 sections with 37+ audio files. Three-tier provider chain: MP3 → Web Speech API → silent timer fallback</li>
+            <li><strong>ENH: Audio manifest system</strong> — manifest.json tracks all pre-generated audio files with text hashes for cache invalidation. Automatic regeneration when narration text changes</li>
+            <li><strong>FIX: Role Doc Matrix API URL</strong> — Corrected /api/roles/function-categories (404) to /api/function-categories in the boot sequence</li>
+            <li><strong>FIX: Role Doc Matrix safety valve</strong> — Auto-truncates matrices over 10,000 cells (shows top N roles by document coverage) to prevent browser freeze on large datasets</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.9.43 <span class="changelog-date">February 21, 2026</span></h3>
-        <p><strong>Hyperlink Validator Export Fix + Proposal Compare Accuracy Improvements</strong></p>
+        <p><strong>HV Export URL Matching Fix + Proposal Compare Multi-Term Accuracy</strong></p>
         <ul>
             <li><strong>FIX: HV export URL matching</strong> — 3-strategy matching (row-level source map, sheet-level hyperlinks, cell fallback) resolves 3,742 'No URL' rows caused by openpyxl hyperlink access discrepancy</li>
             <li><strong>FIX: Validation summary counting</strong> — AUTH_REQUIRED, SSL_WARNING, and RATE_LIMITED statuses now counted correctly instead of falling to 'unknown'</li>
