@@ -991,6 +991,109 @@ var vendorCount = Object.keys(uniqueVendors).length;
 Display "Unique Vendors" when vendorCount < proposals.length, with a separate "Proposals" card showing total count. In HTML export, show "X proposals total" as subtitle under unique vendor count.
 **Lesson**: Never use `proposals.length` as vendor count. Same company can submit multiple proposals (different terms, options, scenarios). Always deduplicate by company name.
 
+### 115. HV Headless Browser Rewrite — Resource Blocking + Parallel Validation (v5.9.44)
+**Problem**: Headless browser validation was slow (1 URL at a time) and downloaded full page resources (images, CSS, fonts), wasting bandwidth and time. Government sites and corporate intranets needed Windows SSO passthrough.
+**Fix**: Complete rewrite of `headless_validator.py`:
+1. **Resource blocking**: Intercept requests via `page.route()`, block images/CSS/fonts/media. Only allow HTML/document/XHR/fetch. Saves 60-80% bandwidth.
+2. **Parallel validation**: Process 5 URLs concurrently via `asyncio.gather()` with semaphore control. 5× throughput improvement.
+3. **Windows SSO passthrough**: Chromium launch args `--auth-server-allowlist=*.myngc.com,*.northgrum.com` + `--auth-negotiate-delegate-allowlist` pass NTLM/Negotiate auth through to headless browser.
+4. **Login page detection**: After navigation, check final URL for ADFS/Azure AD/SAML patterns (e.g., `/adfs/ls/`, `login.microsoftonline.com`, `/saml2/`). Mark as AUTH_REQUIRED not WORKING.
+5. **Soft 404 detection**: Check page title/body for "not found", "404", "page doesn't exist" patterns when server returns 200.
+**Lesson**: Headless browser validation should ALWAYS block non-essential resources and run in parallel. The biggest performance win comes from resource blocking (fewer network requests), not from parallelism alone. For corporate environments, SSO passthrough via Chromium's `--auth-server-allowlist` flag is essential — without it, headless visits the same login redirect that Python requests sees.
+
+### 116. Per-Domain Rate Limiting with Thread-Safe Semaphores (v5.9.44)
+**Problem**: Large batch validation (6000+ URLs) triggered HTTP 429 (Too Many Requests) and IP blocks from aggressive servers. All requests to the same domain were fired simultaneously across ThreadPoolExecutor workers.
+**Fix**: Added `_DomainRateLimiter` class in `validator.py`:
+- `defaultdict(lambda: threading.Semaphore(3))` — max 3 concurrent requests per domain
+- `defaultdict(float)` — tracks last request time per domain
+- `acquire(domain)` method: acquires semaphore, then sleeps if < 0.2s since last request to that domain
+- `release(domain)` method: releases semaphore
+- Used as context manager around every HTTP request in the validation loop
+**Lesson**: For batch URL validation, per-domain rate limiting is essential. A global rate limit (e.g., 10 req/s total) is too conservative for 500+ unique domains but too aggressive for a single domain with 100 URLs. The per-domain semaphore + minimum delay pattern gives optimal throughput: fast for diverse URL sets, polite for single-domain concentrations. Always make it thread-safe (`threading.Semaphore`, not a plain counter).
+
+### 117. Content-Type Mismatch Detection for Silent Login Redirects (v5.9.44)
+**Problem**: Corporate URLs to `.pdf` and `.docx` files returned HTTP 200 with `Content-Type: text/html` — the server silently redirected to a login page instead of returning the document. These were marked as WORKING because the status code was 200.
+**Fix**: Added content-type mismatch check after successful HEAD/GET responses:
+1. Build expected content-type from URL extension (`.pdf` → `application/pdf`, `.docx` → `application/vnd.openxmlformats`, etc.)
+2. Compare actual `Content-Type` header against expected
+3. If URL has document extension but response is `text/html`, mark as `AUTH_REQUIRED` with message "Document URL returned HTML (likely login redirect)"
+4. Also check for login-related URL patterns in the final URL after redirects
+**Lesson**: HTTP 200 does NOT mean the link works correctly. When validating document links, always check that the Content-Type matches what the URL extension implies. A `.pdf` URL returning `text/html` is almost always a silent SSO redirect to a login page. This is a common pattern on SharePoint, ADFS-protected file servers, and corporate intranets.
+
+### 118. OS Truststore Integration for Corporate SSL (v5.9.44)
+**Problem**: Python's `requests` library uses `certifi` (Mozilla CA bundle) which doesn't trust corporate internal CA certificates. Hundreds of internal links flagged as SSLERROR.
+**Fix**: Added `truststore` module integration:
+```python
+try:
+    import truststore
+    truststore.inject_into_ssl()  # Monkey-patches ssl to use OS cert store
+    _using_truststore = True
+except ImportError:
+    _using_truststore = False
+```
+When `truststore` is available, Python's `ssl` module uses the OS certificate store (same as Chrome), eliminating most corporate SSL errors. Falls back to existing `verify=False` cascade when `truststore` is not installed.
+**Lesson**: The `truststore` module (pip install truststore) is the cleanest solution for corporate SSL issues. It monkey-patches Python's `ssl` module to use the OS certificate store instead of certifi. No code changes needed — all `requests` calls automatically trust the same CAs as Chrome. Always try `truststore.inject_into_ssl()` at module load with ImportError fallback. Include `truststore>=0.9.0` in requirements.txt.
+
+### 119. Python 3.14 SSL Certificate Issue — Use curl for GitHub API (v5.9.44)
+**Problem**: GitHub REST API push script using `urllib.request` failed with `ssl.SSLCertVerificationError: certificate verify failed: unable to get local issuer certificate` on Python 3.14.
+**Root Cause**: Python 3.14 on macOS doesn't automatically trust the system certificate store. The `Install Certificates.command` script needs to be run after Python installation to install certifi certs, but this wasn't done for the 3.14 installation.
+**Fix**: Replaced `urllib.request` with `subprocess.run(["curl", ...])` for all GitHub API calls. curl uses the macOS system certificate store and handles SSL correctly. For POST requests with large payloads, write JSON to a temp file and use `curl -d @tempfile` to avoid shell argument length limits.
+**Lesson**: When Python's urllib/requests has SSL issues on macOS, use `subprocess.run(["curl", ...])` as a reliable fallback. curl always uses the OS certificate store. For large payloads (base64-encoded files), always write to a temp file and use `@filename` syntax — don't pass base64 data as shell arguments. Clean up temp files after each call.
+
+### 120. GitHub REST API Batch Push Pattern — 25 Files Per Commit (v5.9.44)
+**Problem**: Pushing 90+ source files + 500+ audio files (626 total) to GitHub via REST API in a single commit would create a massive tree operation that could timeout.
+**Fix**: Batch files in groups of 25 per commit. Each batch:
+1. Create blobs (base64 encode each file → POST /git/blobs)
+2. Create tree (POST /git/trees with `base_tree` from previous commit)
+3. Create commit (POST /git/commits with parent = previous commit SHA)
+4. Update ref (PATCH /git/refs/heads/main)
+5. Sleep 1s between batches to avoid rate limiting
+Chain batches sequentially: each batch's commit becomes the next batch's parent, each batch's tree becomes the next batch's base_tree.
+**Lesson**: For large pushes via GitHub REST API (>30 files), batch into groups of 25 with sequential commit chaining. The `base_tree` parameter is critical — it tells GitHub to keep all existing files and only add/modify the ones in the current tree. Without `base_tree`, the tree would only contain the files in the current batch (deleting everything else). Add 0.05s sleep between blob creations and 1-2s between batches to avoid GitHub's secondary rate limits.
+
+### 121. Demo Audio Manifest System (v5.9.44)
+**Feature**: Pre-generated MP3 audio clips for all demo narration scenes, stored in `static/audio/demo/` with `manifest.json` tracking metadata.
+**Architecture**: `demo_audio_generator.py` extracts narration text from `guide-system.js` section registry, generates MP3s via edge-tts (neural voice, requires internet) or pyttsx3 (system voices, offline fallback).
+**Manifest format**:
+```json
+{
+  "version": "1.0",
+  "voice": "en-US-JennyNeural",
+  "provider": "edge-tts",
+  "sections": {
+    "section_id": {
+      "steps": [
+        { "file": "section_id__step0.mp3", "text": "...", "hash": "c3c1ae4d", "size": 85536 }
+      ]
+    }
+  }
+}
+```
+**Lookup in guide-system.js**: `_getPregenAudioFile(sectionId, stepIndex, subDemoId)` checks `_audioManifest` for matching section/step, returns `{url, text}` or null (falls back to Web Speech API).
+**Cache invalidation**: Each step has a text hash. If narration text changes in guide-system.js, the hash won't match, and `demo_audio_generator.py` regenerates only changed clips.
+**Lesson**: For TTS-narrated demos, pre-generate audio clips and serve as static MP3s — this gives the best voice quality (neural TTS) and eliminates browser TTS inconsistencies. Use a manifest with text hashes for efficient cache invalidation. The three-tier provider chain (MP3 → Web Speech → silent timer) ensures demos always work even without audio files.
+
+### 122. Interactive HTML Export — Self-Contained Report Pattern (v5.9.42)
+**Pattern**: `proposal_compare_export.py` generates a standalone HTML file with ALL content inline — no external dependencies, no CDN links, no internet required.
+**Architecture**:
+- SVG charts generated server-side as inline `<svg>` elements (tornado chart, stacked bars, horizontal bars, radar chart) — no Chart.js or D3.js dependency
+- CSS embedded in `<style>` tags with dark/light mode toggle via `data-theme` attribute
+- JavaScript embedded for interactivity: tab switching, column sorting, category filtering, animated count-up stats, theme toggle with localStorage persistence
+- Print-optimized `@media print` rules hide navigation and show all sections linearly
+- AEGIS gold (#D6A84A) and dark navy (#1B2838) branding throughout
+- File size typically 150-400 KB depending on line item count — small enough to email
+**Key design decisions**: (1) SVG over Canvas for charts — SVG scales to any resolution and prints cleanly. (2) No framework — vanilla JS keeps the file self-contained. (3) Dark mode default with light toggle — matches AEGIS desktop theme. (4) Sortable tables via vanilla JS `Array.sort()` + DOM reflow — no library needed.
+**Lesson**: For exportable HTML reports, generate ALL content server-side as inline SVG/CSS/JS. Never reference external CDNs — the file must work offline and behind corporate firewalls. SVG charts are preferred over Canvas because they scale, print cleanly, and can be styled with CSS. Keep total file size under 500KB for email-friendly distribution.
+
+### 123. PDF Viewer HiDPI Rendering + Zoom + Magnifier (v5.9.42)
+**Feature**: Enhanced PDF.js viewer in Proposal Compare's review phase with zoom controls and magnifier loupe.
+**Architecture** (in `pdf-viewer.js` and `proposal-compare.js`):
+- Canvas rendering at `window.devicePixelRatio` × scale (e.g., 2× on Retina) for crisp text
+- Zoom controls: +/− buttons (25% increments, range 50%–300%), fit-width button
+- Magnifier loupe: 150px circle following cursor at 3× zoom, rendered by redrawing a zoomed region of the PDF page onto a small canvas overlay
+- Canvas CSS sizing: `canvas.width = viewport.width * dpr`, `canvas.style.width = viewport.width + 'px'` — physical pixels vs CSS pixels
+**Lesson**: For HiDPI PDF rendering, always multiply canvas dimensions by `devicePixelRatio` and set CSS dimensions to the logical size. Without this, text appears blurry on Retina/4K displays. The magnifier loupe pattern uses a second canvas positioned at cursor coordinates, drawing a zoomed region from the main canvas via `drawImage(mainCanvas, sx, sy, sw, sh, 0, 0, dw, dh)`.
+
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
 1. **Changelog update** in `version.json` (and copy to `static/version.json`)
