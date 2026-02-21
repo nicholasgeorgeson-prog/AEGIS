@@ -888,6 +888,60 @@ The actual logic lives in `repair_aegis.py` (500 lines) where Python's error han
 **Key insight**: Blob URLs are unreliable for libraries that `fetch()` from them asynchronously (PDF.js, video players, etc.). Server URLs via `send_file()` are always available as long as the file exists on disk.
 **Lesson**: When a module needs to display uploaded files (PDF, images, etc.), ALWAYS use server-side file serving with `send_file()` — never blob URLs. The pattern is: (1) save uploaded file to a temp directory with timestamp prefix, (2) add a GET endpoint that serves the file, (3) add periodic cleanup of old files, (4) frontend constructs server URL from filename returned in upload response. This is the standard AEGIS pattern and should be used for any future file viewer features.
 
+### 101. Contract Term Detection — Regex Patterns for Government Proposals (v5.9.41)
+**Feature**: `extract_contract_term(text)` in `proposal_compare/parser.py` detects contract period/term from proposal text.
+**Regex priority**: (1) "X-year contract/period/term", (2) "base year plus N option(s)", (3) "period of performance: N months", (4) "BY / OY1 / OY2" abbreviation patterns, (5) XLSX sheet tab names ("Year 1", "BY", "OY1").
+**Output**: `contract_term` string on `ProposalData` (e.g., "3 Year", "Base + 4 Options", "36 Months") and `contract_periods` list of dicts.
+**Used for**: Multi-term vendor disambiguation in `analyzer.py` — when two proposals share `company_name`, appends `contract_term` for unique IDs (e.g., "Acme Corp (3 Year)" vs "Acme Corp (5 Year)").
+**Lesson**: Government proposals use highly varied terminology for contract periods. The regex chain must try the most specific patterns first (exact "X-year" matches) before falling back to abbreviation patterns (BY/OY) which have more false positives.
+
+### 102. Indirect Rate Detection — Overhead, G&A, Fringe, Fee Patterns (v5.9.41)
+**Feature**: `detect_indirect_rates()` in `proposal_compare/analyzer.py` identifies overhead, G&A, fringe, and fee/profit line items from proposal data.
+**Pattern matching**: Checks line item descriptions for keywords: "overhead"/"OH"/"indirect", "G&A"/"general and administrative", "fringe"/"benefits", "fee"/"profit"/"margin". Calculates implied rates when dollar amounts are given (e.g., `fringe_rate = fringe$ / labor$`).
+**Flag thresholds**: Fringe 25-45%, OH 40-120%, G&A 10-25%, fee 8-15%. Rates outside these ranges generate red flag warnings.
+**Lesson**: Indirect rate analysis requires careful base-cost identification — the denominator matters. Fringe is typically against direct labor only, while G&A is against total direct + OH costs. Always flag rates outside typical ranges but never auto-reject — government contracts can have legitimate outlier rates.
+
+### 103. Auto-Calculation of Missing Financial Fields (v5.9.41)
+**Feature**: `_auto_calculate_line_items(items)` in `proposal_compare/parser.py` fills missing financial fields:
+- qty + unit_price → amount = qty * unit_price
+- amount + qty → unit_price = amount / qty
+- amount + unit_price → qty = amount / unit_price
+**Called at**: End of each parser (XLSX ~line 935, DOCX ~line 1044, PDF ~line 1314).
+**Frontend mirror**: `proposal-compare.js` has matching `input` event delegation on `.pc-li-amount`, `.pc-li-qty`, `.pc-li-unit` fields. When 2 of 3 are filled, auto-computes the third with `.pc-auto-calc` CSS class (italic, info color).
+**Lesson**: Financial auto-calc should happen in BOTH backend (parser) and frontend (live editing). Backend handles extraction gaps; frontend handles user edits. Always mark auto-calculated values distinctly (CSS class, confidence field) so users know which values are computed vs extracted.
+
+### 104. Click-to-Populate from Document Viewer (v5.9.41)
+**Pattern**: In Proposal Compare's Review phase, users can select text in the document viewer and populate form fields.
+**Architecture**: Three event listeners on the review container:
+1. `focusin` on `.pc-review-edit-panel` tracks `State._lastFocusedField` (last focused input)
+2. `mouseup` on `#pc-doc-viewer` checks `window.getSelection()`, shows positioned "Use" popover button
+3. `scroll` on `#pc-doc-viewer` removes popover on scroll
+**Popover**: Fixed-position button at click coordinates (`e.clientX`, `e.clientY - 36`), auto-removes after 3 seconds. On click, populates field with optional currency formatting for amount/unit fields.
+**Lesson**: Click-to-populate UX requires tracking TWO things independently: which field the user wants to fill (via focus tracking) and what text they want to use (via selection detection). The popover must be `position: fixed` (not absolute) because the click coordinates are viewport-relative. Always auto-remove the popover after a short timeout to prevent stale popovers.
+
+### 105. HV Auth Diagnostic Endpoint and Badge Pattern (v5.9.41)
+**Feature**: `POST /api/hyperlink-validator/diagnose-auth` returns Windows SSO auth status: `windows_auth_available`, `auth_method`, `auth_init_error`, `platform`. Optional `test_url` in body probes a URL with fresh SSO session.
+**Frontend badge**: `_fetchAuthBadge()` called on HV modal open. Shows green "Shield-check: Windows SSO" or red "Shield-off: Anonymous" badge in modal header. Uses Lucide icons.
+**Module variables**: `_auth_method` (string: 'negotiate-sspi', 'ntlm', 'none'), `_auth_init_error` (string or None) added to `validator.py` for diagnostic reporting.
+**Lesson**: Auth diagnostic endpoints are essential for corporate environments where SSO can fail silently. The badge gives users immediate visual feedback about their auth state before they run a validation. Always expose the `init_error` so the user can report it to IT.
+
+### 106. Headless-First Routing for .mil/.gov Domains (v5.9.41)
+**Pattern**: In `hyperlink_validator/validator.py`, before the standard retry loop, check if the domain is `.mil` or `.gov`. If yes AND headless validator is available, immediately mark as `BLOCKED` with message "Government site — routed to headless browser validation" and return. This skips the 10-30s timeout from HEAD/GET requests that always fail on DoD WAFs.
+**Why**: Government sites use aggressive bot protection (Cloudflare, Akamai, DoD WAF) that rejects ALL Python `requests` attempts regardless of headers/auth. Only a real browser TLS fingerprint (headless Chromium) passes.
+**Performance impact**: Saves 10-30s per .mil/.gov URL by skipping doomed HTTP attempts. For documents with 50+ .mil links, this saves 8-25 minutes of validation time.
+**Lesson**: When a class of URLs is KNOWN to always fail with standard HTTP clients, short-circuit before the retry loop. Don't waste time on strategies that can't work. The BLOCKED status feeds into the headless retest phase which handles them correctly.
+
+### 107. SharePoint Corporate Domain Auto-Detection Pattern (v5.9.41)
+**Pattern**: In `sharepoint_connector.py __init__()`, auto-detect corporate domains:
+```python
+_corp_patterns = ('sharepoint.us', 'sharepoint.com', '.ngc.', '.myngc.', '.northgrum.', '.northropgrumman.')
+_is_corp = any(p in site_url.lower() for p in _corp_patterns)
+self.ssl_verify = not _is_corp
+```
+Auto-disables SSL verification for corporate SharePoint because Python's `certifi` bundle doesn't trust internal CA certificates.
+**404 retry**: `download_file()` on 404 → creates fresh `requests.Session()` with `HttpNegotiateAuth()` → retries once. SharePoint returns transient 404s especially under load or after session timeout.
+**Lesson**: For corporate SharePoint connectors, assume SSL will fail and default to `verify=False` for known corporate domains. Transient 404s are common on SharePoint — always retry file downloads once with a fresh session before reporting failure.
+
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
 1. **Changelog update** in `version.json` (and copy to `static/version.json`)
