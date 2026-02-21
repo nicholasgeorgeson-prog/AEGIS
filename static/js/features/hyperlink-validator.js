@@ -382,6 +382,35 @@ window.HyperlinkValidator = (function() {
 
         // Update capabilities display
         updateCapabilitiesDisplay();
+
+        // v5.9.41: Fetch auth diagnostic and show badge
+        _fetchAuthBadge();
+    }
+
+    function _fetchAuthBadge() {
+        const badge = document.getElementById('hv-auth-badge');
+        if (!badge) return;
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        fetch('/api/hyperlink-validator/diagnose-auth', {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+            body: JSON.stringify({}), credentials: 'same-origin'
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success || !res.data) { badge.style.display = 'none'; return; }
+            const d = res.data;
+            if (d.windows_auth_available) {
+                badge.innerHTML = '<i data-lucide="shield-check"></i> Windows SSO';
+                badge.className = 'hv-auth-badge hv-auth-ok';
+            } else {
+                badge.innerHTML = '<i data-lucide="shield-off"></i> Anonymous';
+                badge.className = 'hv-auth-badge hv-auth-warn';
+                badge.title = d.auth_init_error || 'Windows authentication not available';
+            }
+            badge.style.display = 'inline-flex';
+            if (window.lucide) window.lucide.createIcons();
+        })
+        .catch(() => { badge.style.display = 'none'; });
     }
 
     function close() {

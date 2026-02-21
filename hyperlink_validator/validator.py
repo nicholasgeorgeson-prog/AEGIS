@@ -93,10 +93,15 @@ except ImportError:
 # Windows SSO authentication support
 WINDOWS_AUTH_AVAILABLE = False
 HttpNegotiateAuth = None
+_auth_init_error = None  # Diagnostic: stores why auth failed to initialize
+_auth_method = 'none'    # Diagnostic: 'negotiate_sspi', 'ntlm', or 'none'
 try:
     from requests_negotiate_sspi import HttpNegotiateAuth
     WINDOWS_AUTH_AVAILABLE = True
-except ImportError:
+    _auth_method = 'negotiate_sspi'
+    logger.info('[AEGIS HV Auth] Windows SSO initialized via requests-negotiate-sspi (Negotiate/Kerberos)')
+except ImportError as e:
+    logger.warning(f'[AEGIS HV Auth] requests-negotiate-sspi not available: {e}')
     try:
         from requests_ntlm import HttpNtlmAuth
 
@@ -115,8 +120,18 @@ except ImportError:
                 return self.auth(r)
 
         WINDOWS_AUTH_AVAILABLE = True
-    except ImportError:
-        pass
+        _auth_method = 'ntlm'
+        logger.info('[AEGIS HV Auth] Windows SSO initialized via requests-ntlm (NTLM fallback)')
+    except ImportError as e2:
+        _auth_init_error = f'negotiate-sspi: {e}, ntlm: {e2}'
+        logger.error(f'[AEGIS HV Auth] NO Windows authentication available! '
+                     f'Neither requests-negotiate-sspi nor requests-ntlm could be imported. '
+                     f'All corporate/internal link validation will use anonymous requests. '
+                     f'Install: pip install requests-negotiate-sspi (preferred) or requests-ntlm. '
+                     f'Errors: negotiate-sspi=[{e}], ntlm=[{e2}]')
+except Exception as e:
+    _auth_init_error = f'Unexpected error: {e}'
+    logger.error(f'[AEGIS HV Auth] Unexpected error during auth initialization: {e}', exc_info=True)
 
 # SharePoint connector for REST API validation (v5.9.35)
 SHAREPOINT_CONNECTOR_AVAILABLE = False
@@ -1233,6 +1248,18 @@ class StandaloneHyperlinkValidator:
             result.message = error
             result.response_time_ms = (time.time() - start_time) * 1000
             return result
+
+        # v5.9.41: Headless-first for .mil/.gov — skip the 10-30s timeout that always
+        # results in BLOCKED anyway. Route directly to headless browser queue.
+        _parsed_hf = urlparse(url)
+        _host_hf = _parsed_hf.netloc.lower()
+        if any(_host_hf.endswith(d) for d in ('.mil', '.gov')):
+            if HEADLESS_VALIDATOR_AVAILABLE:
+                result.status = 'BLOCKED'
+                result.message = 'Government site — routed to headless browser validation'
+                result.response_time_ms = (time.time() - start_time) * 1000
+                logger.debug(f"Headless-first route for .mil/.gov: {url}")
+                return result
 
         # Try to validate with retries
         # Government sites often need more patience - use longer connect timeout

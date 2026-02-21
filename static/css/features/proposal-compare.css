@@ -685,6 +685,38 @@
 
 select.pc-li-input { padding: 4px 3px; cursor: pointer; }
 
+/* Auto-calculated field indicator */
+.pc-auto-calc {
+    font-style: italic;
+    color: var(--info, #3b82f6) !important;
+    border-color: var(--info, #3b82f6) !important;
+}
+
+/* Click-to-populate popover button */
+.pc-use-popover-btn {
+    position: fixed;
+    z-index: 15100;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--accent, #D6A84A);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    transform: translateX(-50%);
+    animation: pc-pop-in 0.15s ease-out;
+    white-space: nowrap;
+}
+.pc-use-popover-btn:hover {
+    background: var(--accent-hover, #B8743A);
+}
+@keyframes pc-pop-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(4px) scale(0.9); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
 .pc-li-del-btn {
     background: none;
     border: none;

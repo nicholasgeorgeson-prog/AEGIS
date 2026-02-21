@@ -71,6 +71,29 @@
     color: var(--text-secondary, #6b7280);
 }
 
+/* v5.9.41: Auth status badge */
+.hv-auth-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: 8px;
+    vertical-align: middle;
+}
+.hv-auth-badge svg { width: 14px; height: 14px; }
+.hv-auth-ok {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+}
+.hv-auth-warn {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    cursor: help;
+}
+
 /* v5.9.35: Push mode selector to right, prevent crowding title */
 .hv-mode-selector {
     display: flex;

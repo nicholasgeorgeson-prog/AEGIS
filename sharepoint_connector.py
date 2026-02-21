@@ -47,17 +47,33 @@ except (ImportError, AttributeError):
 # Windows SSO auth — same pattern as hyperlink_validator/validator.py
 WINDOWS_AUTH_AVAILABLE = False
 HttpNegotiateAuth = None
+_sp_auth_init_error = None
+_sp_auth_method = 'none'
 try:
     if sys.platform == 'win32':
         from requests_negotiate_sspi import HttpNegotiateAuth
         WINDOWS_AUTH_AVAILABLE = True
-except ImportError:
+        _sp_auth_method = 'negotiate_sspi'
+        logger.info('[AEGIS SharePoint] Windows SSO initialized via requests-negotiate-sspi')
+    else:
+        _sp_auth_init_error = f'Platform is {sys.platform}, not win32 — Windows SSO not applicable'
+        logger.info(f'[AEGIS SharePoint] Skipping Windows auth: platform={sys.platform}')
+except ImportError as e:
+    logger.warning(f'[AEGIS SharePoint] requests-negotiate-sspi not available: {e}')
     try:
         if sys.platform == 'win32':
-            from requests_ntlm import HttpNtlmAuth
-            # Fallback: NTLM with empty creds (not as good as Negotiate)
-    except ImportError:
-        pass
+            from requests_ntlm import HttpNtlmAuth as HttpNegotiateAuth
+            WINDOWS_AUTH_AVAILABLE = True
+            _sp_auth_method = 'ntlm'
+            logger.info('[AEGIS SharePoint] Windows SSO initialized via requests-ntlm (NTLM fallback)')
+    except ImportError as e2:
+        _sp_auth_init_error = f'negotiate-sspi: {e}, ntlm: {e2}'
+        logger.error(f'[AEGIS SharePoint] NO Windows authentication available! '
+                     f'SharePoint connections will fail on corporate networks. '
+                     f'Errors: negotiate-sspi=[{e}], ntlm=[{e2}]')
+except Exception as e:
+    _sp_auth_init_error = f'Unexpected: {e}'
+    logger.error(f'[AEGIS SharePoint] Auth init error: {e}', exc_info=True)
 
 logger = logging.getLogger('aegis.sharepoint')
 
@@ -154,8 +170,16 @@ class SharePointConnector:
 
         self.site_url = site_url.rstrip('/')
         self.timeout = timeout
-        self.ssl_verify = True  # Start with SSL verification enabled
-        self._ssl_fallback_used = False
+
+        # v5.9.41: Auto-detect corporate domains and bypass SSL verification
+        # Corporate CAs are not in Python's certifi bundle (Lesson 81)
+        _corp_patterns = ('sharepoint.us', 'sharepoint.com', '.ngc.', '.myngc.',
+                          '.northgrum.', '.northropgrumman.')
+        _is_corp = any(p in site_url.lower() for p in _corp_patterns)
+        self.ssl_verify = not _is_corp
+        self._ssl_fallback_used = _is_corp
+        if _is_corp:
+            logger.info(f"SharePoint connector: Corporate domain detected — SSL verification disabled (certifi CA mismatch)")
         self._last_error_detail = ''  # v5.9.38: detailed error for diagnostics
         self.session = requests.Session()
 
@@ -385,13 +409,17 @@ class SharePointConnector:
 
         except requests.exceptions.SSLError as e:
             # v5.9.35: SSL error that persisted even after verify=False fallback
+            logger.error(f"SharePoint SSLError for {self.site_url}: {str(e)[:300]}")
+            self._last_error_detail = str(e)[:500]
             return {
                 'success': False,
                 'title': '',
                 'url': self.site_url,
                 'auth_method': self.auth_method,
+                'ssl_bypassed': self._ssl_fallback_used,
                 'message': f'SSL certificate error — corporate CA not trusted. Details: {str(e)[:150]}',
                 'status_code': 0,
+                'error_category': 'ssl',
             }
         except requests.exceptions.ConnectionError as e:
             # v5.9.38: Enhanced error diagnostics with categorized messages
@@ -735,6 +763,34 @@ class SharePointConnector:
                     'message': f'Access denied ({resp.status_code})',
                 }
             elif resp.status_code == 404:
+                # v5.9.41: Retry once with fresh session — SP returns transient 404s
+                logger.info(f"SharePoint 404 for {server_relative_url} — retrying with fresh session")
+                try:
+                    fresh = requests.Session()
+                    fresh.headers.update(self.session.headers)
+                    if WINDOWS_AUTH_AVAILABLE and HttpNegotiateAuth:
+                        fresh.auth = HttpNegotiateAuth()
+                    retry_resp = fresh.get(
+                        f"{self.site_url}/_api/web/GetFileByServerRelativeUrl('{encoded_url}')/$value",
+                        timeout=self.timeout, verify=self.ssl_verify, stream=True
+                    )
+                    if retry_resp.status_code == 200:
+                        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                        total_bytes = 0
+                        with open(dest_path, 'wb') as f:
+                            for chunk in retry_resp.iter_content(chunk_size=8192):
+                                if chunk:
+                                    f.write(chunk)
+                                    total_bytes += len(chunk)
+                        fresh.close()
+                        return {
+                            'success': True, 'path': dest_path, 'size': total_bytes,
+                            'message': f'Downloaded {total_bytes:,} bytes (retry after transient 404)',
+                        }
+                    fresh.close()
+                except Exception as retry_e:
+                    logger.debug(f"SharePoint 404 retry also failed: {retry_e}")
+
                 return {
                     'success': False,
                     'path': dest_path,

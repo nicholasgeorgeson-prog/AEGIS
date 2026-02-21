@@ -68,6 +68,9 @@ class ProposalData:
     total_raw: str = ''
     currency: str = 'USD'
 
+    # Contract term
+    contract_term: str = ''    # e.g., "3 Year", "Base + 4 Options", "36 Months"
+
     # Metadata
     page_count: int = 0
     extraction_notes: List[str] = field(default_factory=list)
@@ -112,6 +115,7 @@ class ProposalData:
             'total_amount': self.total_amount,
             'total_raw': self.total_raw,
             'currency': self.currency,
+            'contract_term': self.contract_term,
             'page_count': self.page_count,
             'extraction_notes': self.extraction_notes,
             'extraction_text': self.extraction_text,
@@ -318,6 +322,62 @@ def extract_dates_from_text(text: str, max_chars: int = 3000) -> str:
     matches = DATE_PATTERN.findall(search_text)
     if matches:
         return matches[0]
+    return ''
+
+
+def extract_contract_term(text: str, sheet_names: List[str] = None) -> str:
+    """Extract contract term/period from proposal text and/or sheet names.
+
+    Detects patterns like:
+    - "3 year contract", "5-year period"
+    - "Base Year plus 4 Option Years"
+    - "Period of Performance: 36 months"
+    - Sheet tabs named "Year 1", "BY", "OY1", etc.
+    """
+    search_text = text[:5000].lower() if text else ''
+
+    # Pattern 1: X-year contract/period/term
+    m = re.search(r'(\d+)\s*[-‐]?\s*year\s*(contract|period|term|agreement|effort)', search_text)
+    if m:
+        return f'{m.group(1)} Year'
+
+    # Pattern 2: Base Year + Option Years
+    m = re.search(r'base\s*year\s*(?:plus|with|\+|and)\s*(\d+)\s*option', search_text)
+    if m:
+        return f'Base + {m.group(1)} Options'
+
+    # Pattern 3: Period of performance in months
+    m = re.search(r'period\s*of\s*performance\s*:?\s*(\d+)\s*months?', search_text)
+    if m:
+        months = int(m.group(1))
+        if months % 12 == 0:
+            return f'{months // 12} Year'
+        return f'{months} Months'
+
+    # Pattern 4: BY/OY abbreviations in text
+    oy_matches = re.findall(r'\bOY\s*(\d+)\b', search_text, re.IGNORECASE)
+    if oy_matches:
+        max_oy = max(int(n) for n in oy_matches)
+        return f'Base + {max_oy} Options'
+
+    # Pattern 5: Detect from Excel sheet tab names
+    if sheet_names:
+        year_tabs = []
+        option_tabs = []
+        for name in sheet_names:
+            nl = name.lower().strip()
+            if re.match(r'year\s*\d+', nl) or re.match(r'yr\s*\d+', nl):
+                year_tabs.append(nl)
+            elif re.match(r'oy\s*\d+', nl) or 'option' in nl:
+                option_tabs.append(nl)
+            elif nl in ('by', 'base year', 'base'):
+                option_tabs.append(nl)  # Base year = part of option structure
+
+        if year_tabs:
+            return f'{len(year_tabs)} Year'
+        if option_tabs:
+            return f'Base + {len(option_tabs) - 1} Options' if len(option_tabs) > 1 else 'Base Year'
+
     return ''
 
 
@@ -833,6 +893,35 @@ def _extract_with_inferred_columns(table: ExtractedTable, inferred: Dict[str, Op
 
 
 # ──────────────────────────────────────────────
+# Auto-Calculation Helper
+# ──────────────────────────────────────────────
+
+def _auto_calculate_line_items(items: list) -> int:
+    """Auto-calculate missing financial fields when 2 of 3 (qty, unit_price, amount) are present.
+
+    Returns the number of items that were auto-calculated.
+    """
+    calculated = 0
+    for item in items:
+        qty = item.quantity
+        unit = item.unit_price
+        amt = item.amount
+
+        if qty and unit and not amt:
+            item.amount = round(qty * unit, 2)
+            item.amount_raw = f'${item.amount:,.2f}'
+            calculated += 1
+        elif amt and qty and not unit:
+            item.unit_price = round(amt / qty, 2)
+            calculated += 1
+        elif amt and unit and not qty:
+            item.quantity = round(amt / unit, 2)
+            calculated += 1
+
+    return calculated
+
+
+# ──────────────────────────────────────────────
 # Excel Parser
 # ──────────────────────────────────────────────
 
@@ -918,6 +1007,16 @@ def parse_excel(filepath: str) -> ProposalData:
     if not proposal.date:
         proposal.date = extract_dates_from_text(full_text)
 
+    # Contract term detection (from text + sheet tab names)
+    proposal.contract_term = extract_contract_term(full_text, sheet_names=list(wb.sheetnames))
+    if proposal.contract_term:
+        proposal.extraction_notes.append(f'Contract term: {proposal.contract_term}')
+
+    # Auto-calculate missing fields (qty * unit_price = amount, etc.)
+    auto_calced = _auto_calculate_line_items(proposal.line_items)
+    if auto_calced:
+        proposal.extraction_notes.append(f'Auto-calculated {auto_calced} missing financial fields')
+
     # If no total found from total rows, sum line items
     if proposal.total_amount is None and proposal.line_items:
         proposal.total_amount = sum(li.amount for li in proposal.line_items if li.amount)
@@ -955,7 +1054,7 @@ def parse_docx(filepath: str) -> ProposalData:
         full_text_parts.append(para.text)
 
     # Extract title from first heading or large text
-    for para in doc.paragraphs[:20]:
+    for para in doc.paragraphs[:50]:
         if para.style and 'heading' in (para.style.name or '').lower():
             if not proposal.proposal_title and len(para.text.strip()) > 5:
                 proposal.proposal_title = para.text.strip()
@@ -1005,32 +1104,47 @@ def parse_docx(filepath: str) -> ProposalData:
     full_text = '\n'.join(full_text_parts)
     for match in DOLLAR_PATTERN.finditer(full_text):
         amount = parse_dollar_amount(match.group())
-        if amount and amount > 1000:  # Only significant amounts
+        if amount and amount > 50:  # Capture amounts $50+
             # Get surrounding context
             start = max(0, match.start() - 80)
             end = min(len(full_text), match.end() + 40)
             context = full_text[start:end].replace('\n', ' ').strip()
             inline_amounts.append((amount, match.group(), context))
 
-    if inline_amounts and not proposal.line_items:
-        proposal.extraction_notes.append(f'Found {len(inline_amounts)} dollar amounts in body text (no tables)')
-        # If no table-based items, create items from inline amounts
+    if inline_amounts:
+        existing_amounts = {li.amount for li in proposal.line_items if li.amount}
+        added_inline = 0
         for idx, (amount, raw, context) in enumerate(inline_amounts[:50]):
+            if amount in existing_amounts:
+                continue
             proposal.line_items.append(LineItem(
                 description=context,
                 amount=amount,
                 amount_raw=raw,
                 category=classify_line_item(context),
                 row_index=idx,
-                source_sheet='Body Text',
-                confidence=0.7,
+                source_sheet='Body Text' if not proposal.tables else 'Body Text Supplementary',
+                confidence=0.7 if not proposal.tables else 0.5,
             ))
+            added_inline += 1
+        if added_inline:
+            proposal.extraction_notes.append(f'Found {added_inline} additional dollar amounts in body text')
 
     # Company and date
     if not proposal.company_name:
         proposal.company_name = extract_company_from_text(full_text, filename=proposal.filename)
     if not proposal.date:
         proposal.date = extract_dates_from_text(full_text)
+
+    # Contract term detection
+    proposal.contract_term = extract_contract_term(full_text)
+    if proposal.contract_term:
+        proposal.extraction_notes.append(f'Contract term: {proposal.contract_term}')
+
+    # Auto-calculate missing fields (qty * unit_price = amount, etc.)
+    auto_calced = _auto_calculate_line_items(proposal.line_items)
+    if auto_calced:
+        proposal.extraction_notes.append(f'Auto-calculated {auto_calced} missing financial fields')
 
     # Total
     if proposal.total_amount is None and proposal.line_items:
@@ -1071,7 +1185,7 @@ def parse_pdf(filepath: str) -> ProposalData:
             if not proposal.page_count:
                 proposal.page_count = len(pdf.pages)
             text_parts = []
-            for page in pdf.pages[:10]:
+            for page in pdf.pages[:50]:
                 text = page.extract_text()
                 if text:
                     text_parts.append(text)
@@ -1086,7 +1200,7 @@ def parse_pdf(filepath: str) -> ProposalData:
             import fitz
             doc = fitz.open(filepath)
             text_parts = []
-            for page in doc[:10]:
+            for page in doc[:50]:
                 text = page.get_text()
                 if text:
                     text_parts.append(text)
@@ -1097,12 +1211,15 @@ def parse_pdf(filepath: str) -> ProposalData:
         except Exception as e:
             logger.debug(f'[AEGIS ProposalParser] fitz text pre-extraction failed: {e}')
 
-    # Extract company name and date from text BEFORE table extraction
+    # Extract company name, date, and contract term from text BEFORE table extraction
     if full_text:
         proposal.company_name = extract_company_from_text(full_text, filename=proposal.filename)
         proposal.date = extract_dates_from_text(full_text)
+        proposal.contract_term = extract_contract_term(full_text)
         if proposal.company_name:
             proposal.extraction_notes.append(f'Company: {proposal.company_name}')
+        if proposal.contract_term:
+            proposal.extraction_notes.append(f'Contract term: {proposal.contract_term}')
     elif proposal.filename:
         # No text extracted yet — try filename as last resort for company name
         proposal.company_name = extract_company_from_text('', filename=proposal.filename)
@@ -1285,23 +1402,40 @@ def parse_pdf(filepath: str) -> ProposalData:
             proposal.extraction_notes.append(f'pymupdf4llm fallback error: {e}')
             logger.warning(f'[AEGIS ProposalParser] pymupdf4llm fallback failed: {e}')
 
-    # ── Final fallback: inline dollar amounts from text if no tables extracted ──
-    if not proposal.line_items and full_text:
-        proposal.extraction_notes.append('No tables found — extracting inline dollar amounts from text')
+    # ── Inline dollar amounts from text (always capture, dedup against table amounts) ──
+    if full_text:
+        inline_amounts = []
         for match in DOLLAR_PATTERN.finditer(full_text):
             amount = parse_dollar_amount(match.group())
-            if amount and amount > 100:
+            if amount and amount > 10:
                 start = max(0, match.start() - 80)
                 end = min(len(full_text), match.end() + 40)
                 context = full_text[start:end].replace('\n', ' ').strip()
+                inline_amounts.append((amount, match.group(), context))
+
+        if inline_amounts:
+            existing_amounts = {li.amount for li in proposal.line_items if li.amount}
+            added_inline = 0
+            for idx, (amount, raw, context) in enumerate(inline_amounts[:50]):
+                if amount in existing_amounts:
+                    continue
                 proposal.line_items.append(LineItem(
                     description=context,
                     amount=amount,
-                    amount_raw=match.group(),
+                    amount_raw=raw,
                     category=classify_line_item(context),
-                    source_sheet='PDF Text',
-                    confidence=0.4,
+                    row_index=idx,
+                    source_sheet='PDF Text' if not proposal.tables else 'PDF Text Supplementary',
+                    confidence=0.5 if not proposal.tables else 0.4,
                 ))
+                added_inline += 1
+            if added_inline:
+                proposal.extraction_notes.append(f'Found {added_inline} additional dollar amounts in PDF text')
+
+    # Auto-calculate missing fields (qty * unit_price = amount, etc.)
+    auto_calced = _auto_calculate_line_items(proposal.line_items)
+    if auto_calced:
+        proposal.extraction_notes.append(f'Auto-calculated {auto_calced} missing financial fields')
 
     # ── Compute total ──
     if proposal.total_amount is None and proposal.line_items:

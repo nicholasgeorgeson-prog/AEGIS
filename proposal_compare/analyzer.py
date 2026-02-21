@@ -93,6 +93,7 @@ class ComparisonResult:
     red_flags: Dict[str, List[Dict]] = field(default_factory=dict)
     heatmap: Dict[str, Any] = field(default_factory=dict)
     rate_analysis: Dict[str, Any] = field(default_factory=dict)
+    indirect_rates: Dict[str, Any] = field(default_factory=dict)
     cost_breakdown: Dict[str, Any] = field(default_factory=dict)
     vendor_scores: Dict[str, Dict] = field(default_factory=dict)
     executive_summary: Dict[str, Any] = field(default_factory=dict)
@@ -113,6 +114,7 @@ class ComparisonResult:
             'red_flags': self.red_flags,
             'heatmap': self.heatmap,
             'rate_analysis': self.rate_analysis,
+            'indirect_rates': self.indirect_rates,
             'cost_breakdown': self.cost_breakdown,
             'vendor_scores': self.vendor_scores,
             'executive_summary': self.executive_summary,
@@ -178,10 +180,24 @@ def _generate_proposal_ids(proposals: List[ProposalData]) -> List[str]:
     """Generate unique proposal IDs from company names or filenames.
 
     Centralized to ensure consistent IDs across align_line_items() and compare_proposals().
+    When two proposals share the same company name but have different contract terms,
+    appends the contract term for disambiguation (e.g., "Acme Corp (3 Year)").
     """
+    # First pass: detect company name collisions
+    name_counts: Dict[str, int] = {}
+    for p in proposals:
+        name = p.company_name or p.filename
+        name_counts[name] = name_counts.get(name, 0) + 1
+
     prop_ids = []
     for p in proposals:
         pid = p.company_name or p.filename
+
+        # If same company appears multiple times AND contract terms differ, use term for disambiguation
+        if name_counts.get(pid, 0) > 1 and p.contract_term:
+            pid = f'{pid} ({p.contract_term})'
+
+        # Dedup fallback (numeric suffix)
         counter = 1
         base_pid = pid
         while pid in prop_ids:
@@ -342,6 +358,7 @@ def compare_proposals(proposals: List[ProposalData]) -> ComparisonResult:
             'company_name': p.company_name,
             'proposal_title': p.proposal_title,
             'date': p.date,
+            'contract_term': p.contract_term,
             'file_type': p.file_type,
             'total_amount': p.total_amount,
             'total_raw': p.total_raw,
@@ -385,6 +402,9 @@ def compare_proposals(proposals: List[ProposalData]) -> ComparisonResult:
 
     # Rate analysis
     result.rate_analysis = build_rate_analysis(proposals, prop_ids)
+
+    # Indirect rate analysis (fringe, overhead, G&A, fee)
+    result.indirect_rates = detect_indirect_rates(proposals, prop_ids, result.aligned_items)
 
     # Cost element breakdown (waterfall chart data)
     result.cost_breakdown = build_cost_breakdown(result.category_summaries, prop_ids, result.totals)
@@ -755,6 +775,114 @@ def build_rate_analysis(
                 sum(r['variance_pct'] for r in results) / len(results), 1
             ) if results else 0,
         }
+    }
+
+
+# ──────────────────────────────────────────────
+# Indirect Rate Analysis
+# ──────────────────────────────────────────────
+
+# Common indirect rate categories and their typical ranges
+_INDIRECT_PATTERNS = {
+    'fringe': {
+        'patterns': [r'\bfringe\b', r'\bbenefits?\b', r'\bFBR\b'],
+        'typical_range': (25, 45),
+        'label': 'Fringe Benefits',
+    },
+    'overhead': {
+        'patterns': [r'\boverhead\b', r'\bOH\b(?!io)', r'\bOHR\b', r'\bindirect\s*cost\b'],
+        'typical_range': (40, 120),
+        'label': 'Overhead',
+    },
+    'ga': {
+        'patterns': [r'\bG\s*&\s*A\b', r'\bgeneral\s*(?:and|&)\s*admin', r'\bGA\b'],
+        'typical_range': (10, 25),
+        'label': 'G&A',
+    },
+    'fee': {
+        'patterns': [r'\b(?:fee|profit)\b', r'\bfixed\s*fee\b', r'\bAWAF\b', r'\bCPFF\b'],
+        'typical_range': (8, 15),
+        'label': 'Fee/Profit',
+    },
+}
+
+
+def detect_indirect_rates(
+    proposals: List[ProposalData],
+    prop_ids: List[str],
+    aligned_items: List['AlignedItem'],
+) -> Dict[str, Any]:
+    """Detect and analyze indirect rates (fringe, overhead, G&A, fee) across proposals."""
+    rates_by_vendor: Dict[str, Dict[str, Dict]] = {pid: {} for pid in prop_ids}
+
+    for p_idx, (proposal, pid) in enumerate(zip(proposals, prop_ids)):
+        # Find labor base amount (denominator for rate calculation)
+        labor_total = 0
+        for li in proposal.line_items:
+            desc_lower = li.description.lower()
+            if any(kw in desc_lower for kw in ['direct labor', 'labor cost', 'labor base', 'direct cost']):
+                labor_total += (li.amount or 0)
+
+        for li in proposal.line_items:
+            desc_lower = li.description.lower()
+            for rate_key, rate_info in _INDIRECT_PATTERNS.items():
+                for pattern in rate_info['patterns']:
+                    if re.search(pattern, li.description, re.IGNORECASE):
+                        rate_amount = li.amount or 0
+                        implied_rate = None
+                        if labor_total > 0 and rate_amount > 0:
+                            implied_rate = round(rate_amount / labor_total * 100, 1)
+
+                        rates_by_vendor[pid][rate_key] = {
+                            'label': rate_info['label'],
+                            'amount': rate_amount,
+                            'amount_formatted': f'${rate_amount:,.2f}' if rate_amount else 'N/A',
+                            'implied_rate_pct': implied_rate,
+                            'typical_range': rate_info['typical_range'],
+                            'outside_range': (
+                                implied_rate is not None and
+                                (implied_rate < rate_info['typical_range'][0] or
+                                 implied_rate > rate_info['typical_range'][1])
+                            ),
+                            'labor_base': labor_total,
+                        }
+                        break  # Only match first pattern per rate category
+
+    # Build comparison table
+    all_rate_keys = set()
+    for vendor_rates in rates_by_vendor.values():
+        all_rate_keys.update(vendor_rates.keys())
+
+    comparison = []
+    flags = []
+    for rate_key in sorted(all_rate_keys):
+        info = _INDIRECT_PATTERNS.get(rate_key, {})
+        row = {
+            'rate_type': info.get('label', rate_key),
+            'typical_range': info.get('typical_range', (0, 100)),
+            'vendors': {},
+        }
+        for pid in prop_ids:
+            vendor_rate = rates_by_vendor[pid].get(rate_key)
+            row['vendors'][pid] = vendor_rate
+
+            # Flag rates outside typical ranges
+            if vendor_rate and vendor_rate.get('outside_range'):
+                flags.append({
+                    'vendor': pid,
+                    'rate_type': row['rate_type'],
+                    'implied_rate': vendor_rate['implied_rate_pct'],
+                    'typical_range': info.get('typical_range', (0, 100)),
+                    'severity': 'warning',
+                })
+
+        comparison.append(row)
+
+    return {
+        'rates_by_vendor': rates_by_vendor,
+        'comparison': comparison,
+        'flags': flags,
+        'has_data': len(all_rate_keys) > 0,
     }
 
 

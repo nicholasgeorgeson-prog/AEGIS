@@ -268,6 +268,51 @@ def health_check():
     })
 
 
+@hv_blueprint.route('/diagnose-auth', methods=['POST'])
+@handle_hv_errors
+def diagnose_auth():
+    """
+    Diagnostic endpoint for Windows SSO authentication status.
+    Optionally tests auth against a provided URL.
+    """
+    import platform
+    from . import validator as _val_mod
+
+    result = {
+        'platform': platform.system(),
+        'windows_auth_available': getattr(_val_mod, 'WINDOWS_AUTH_AVAILABLE', False),
+        'auth_method': getattr(_val_mod, '_auth_method', 'none'),
+        'auth_init_error': getattr(_val_mod, '_auth_init_error', None),
+    }
+
+    # Optionally test a URL with fresh auth
+    data = request.get_json(silent=True) or {}
+    test_url = data.get('test_url', '')
+    if test_url:
+        try:
+            import requests as req_lib
+            sess = req_lib.Session()
+            auth_cls = getattr(_val_mod, 'HttpNegotiateAuth', None)
+            if auth_cls:
+                sess.auth = auth_cls()
+            resp = sess.get(test_url, timeout=15, verify=False, stream=True, allow_redirects=True)
+            result['test_result'] = {
+                'url': test_url,
+                'status_code': resp.status_code,
+                'auth_header': resp.request.headers.get('Authorization', '')[:30] if resp.request else '',
+                'server': resp.headers.get('Server', ''),
+            }
+            resp.close()
+            sess.close()
+        except Exception as e:
+            result['test_result'] = {
+                'url': test_url,
+                'error': str(e)[:200],
+            }
+
+    return jsonify({'success': True, 'data': result})
+
+
 @hv_blueprint.route('/capabilities', methods=['GET'])
 @handle_hv_errors
 def get_capabilities():

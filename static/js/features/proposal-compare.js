@@ -40,6 +40,8 @@ window.ProposalCompare = (function() {
         _lineItemEditorOpen: [], // track which proposals have line item editor open
         // Chart instances (for cleanup)
         _charts: [],
+        // Click-to-populate: last focused form field
+        _lastFocusedField: null,
     };
 
     // CSRF token
@@ -733,10 +735,12 @@ window.ProposalCompare = (function() {
 
         var companyEl = document.getElementById('pc-edit-company');
         var dateEl = document.getElementById('pc-edit-date');
+        var termEl = document.getElementById('pc-edit-term');
         var totalEl = document.getElementById('pc-edit-total');
 
         if (companyEl) p.company_name = companyEl.value.trim() || p.filename;
         if (dateEl) p.date = dateEl.value.trim();
+        if (termEl) p.contract_term = termEl.value.trim();
         if (totalEl) {
             var parsed = _parseCurrency(totalEl.value);
             if (parsed !== null) {
@@ -932,6 +936,10 @@ window.ProposalCompare = (function() {
                             '<input type="text" id="pc-edit-date" class="pc-edit-input" value="' + escHtml(p.date || '') + '" placeholder="e.g. February 15, 2026">' +
                         '</div>' +
                         '<div class="pc-edit-field">' +
+                            '<label>Contract Term</label>' +
+                            '<input type="text" id="pc-edit-term" class="pc-edit-input" value="' + escHtml(p.contract_term || '') + '" placeholder="e.g. 3 Year, Base + 4 Options">' +
+                        '</div>' +
+                        '<div class="pc-edit-field">' +
                             '<label>Total Amount</label>' +
                             '<input type="text" id="pc-edit-total" class="pc-edit-input" value="' + escHtml(totalDisplay) + '" placeholder="$0.00">' +
                         '</div>' +
@@ -974,6 +982,124 @@ window.ProposalCompare = (function() {
                 if (e.target.classList.contains('pc-li-del-btn')) {
                     e.target.closest('.pc-li-row')?.remove();
                 }
+            });
+        }
+
+        // Currency auto-format on blur for total field
+        var totalInput = document.getElementById('pc-edit-total');
+        if (totalInput) {
+            totalInput.addEventListener('blur', function() {
+                var val = _parseCurrency(this.value);
+                if (val !== null) this.value = _formatCurrency(val);
+            });
+        }
+
+        // Currency auto-format + auto-calc on blur for line item fields (event delegation)
+        var liEditor = document.getElementById('pc-li-editor');
+        if (liEditor) {
+            liEditor.addEventListener('blur', function(e) {
+                var el = e.target;
+                // Auto-format currency fields on blur
+                if (el.classList.contains('pc-li-amount') || el.classList.contains('pc-li-unit')) {
+                    var val = _parseCurrency(el.value);
+                    if (val !== null) el.value = _formatCurrency(val);
+                }
+            }, true); // capture phase for blur
+
+            liEditor.addEventListener('input', function(e) {
+                var el = e.target;
+                if (!el.classList.contains('pc-li-amount') && !el.classList.contains('pc-li-qty') && !el.classList.contains('pc-li-unit')) return;
+                var row = el.closest('.pc-li-row');
+                if (!row) return;
+
+                var amtEl = row.querySelector('.pc-li-amount');
+                var qtyEl = row.querySelector('.pc-li-qty');
+                var unitEl = row.querySelector('.pc-li-unit');
+
+                var amt = _parseCurrency(amtEl?.value);
+                var qty = parseFloat(qtyEl?.value) || null;
+                var unit = _parseCurrency(unitEl?.value);
+
+                // Auto-calc missing third field when 2 of 3 are present
+                if (qty && unit && amt === null && amtEl) {
+                    amtEl.value = _formatCurrency(qty * unit);
+                    amtEl.classList.add('pc-auto-calc');
+                } else if (amtEl) {
+                    amtEl.classList.remove('pc-auto-calc');
+                }
+
+                if (amt && qty && unit === null && unitEl) {
+                    unitEl.value = _formatCurrency(amt / qty);
+                    unitEl.classList.add('pc-auto-calc');
+                } else if (unitEl && el !== unitEl) {
+                    unitEl.classList.remove('pc-auto-calc');
+                }
+
+                if (amt && unit && qty === null && qtyEl) {
+                    qtyEl.value = (amt / unit).toFixed(1);
+                    qtyEl.classList.add('pc-auto-calc');
+                } else if (qtyEl && el !== qtyEl) {
+                    qtyEl.classList.remove('pc-auto-calc');
+                }
+            });
+        }
+
+        // Click-to-populate: track last focused input in the edit panel
+        var editPanel = container.querySelector('.pc-review-edit-panel');
+        if (editPanel) {
+            editPanel.addEventListener('focusin', function(e) {
+                if (e.target.matches('input.pc-edit-input, input.pc-li-input')) {
+                    State._lastFocusedField = e.target;
+                }
+            });
+        }
+
+        // Click-to-populate: mouseup on doc viewer shows "Use" popover when text selected
+        var docViewer = document.getElementById('pc-doc-viewer');
+        if (docViewer) {
+            docViewer.addEventListener('mouseup', function(e) {
+                // Remove any existing popover
+                var old = document.getElementById('pc-use-popover');
+                if (old) old.remove();
+
+                var sel = window.getSelection();
+                var text = (sel ? sel.toString() : '').trim();
+                if (!text || !State._lastFocusedField) return;
+
+                // Create the micro "Use" button
+                var btn = document.createElement('button');
+                btn.id = 'pc-use-popover';
+                btn.className = 'pc-use-popover-btn';
+                btn.textContent = 'Use';
+                btn.style.left = e.clientX + 'px';
+                btn.style.top = (e.clientY - 36) + 'px';
+                document.body.appendChild(btn);
+
+                btn.addEventListener('click', function(ev) {
+                    ev.stopPropagation();
+                    var field = State._lastFocusedField;
+                    if (field) {
+                        // Apply currency formatting if it's a currency field
+                        if (field.id === 'pc-edit-total' || field.classList.contains('pc-li-amount') || field.classList.contains('pc-li-unit')) {
+                            var parsed = _parseCurrency(text);
+                            field.value = parsed !== null ? _formatCurrency(parsed) : text;
+                        } else {
+                            field.value = text;
+                        }
+                        field.focus();
+                        field.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                    btn.remove();
+                });
+
+                // Auto-remove after 3 seconds
+                setTimeout(function() { if (btn.parentNode) btn.remove(); }, 3000);
+            });
+
+            // Remove popover on scroll or click elsewhere
+            docViewer.addEventListener('scroll', function() {
+                var old = document.getElementById('pc-use-popover');
+                if (old) old.remove();
             });
         }
 
@@ -2647,6 +2773,15 @@ window.ProposalCompare = (function() {
             }
 
             var result = json.data;
+
+            // v5.9.41: Backend wraps comparison data in a .result key
+            // (get_comparison returns {id, project_id, created_at, notes, result: {...}})
+            // Unwrap to get the actual comparison data
+            if (result && result.result && typeof result.result === 'object') {
+                var compMeta = { id: result.id, project_id: result.project_id, created_at: result.created_at, notes: result.notes };
+                result = result.result;
+                result._comparisonMeta = compMeta;
+            }
 
             // If the result has _proposals_input, restore State.proposals for Back to Review
             if (result._proposals_input && Array.isArray(result._proposals_input)) {

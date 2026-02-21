@@ -5120,6 +5120,8 @@ HelpDocs.content['pc-overview'] = {
     <li><strong>Tables</strong> — All tables with financial data are detected and preserved</li>
     <li><strong>Grand total</strong> — Identified from total/sum rows or computed from line items</li>
     <li><strong>Categories</strong> — Line items classified as Labor, Material, Travel, ODC, Overhead, or Fee</li>
+    <li><strong>Contract term</strong> — Period extracted (e.g., "3 Year", "Base + 4 Options") from text and sheet tabs</li>
+    <li><strong>Indirect rates</strong> — Fringe, overhead, G&amp;A, and fee/profit detected and flagged if outside typical ranges</li>
 </ul>
 
 <h2><i data-lucide="target"></i> Quick Start</h2>
@@ -7774,6 +7776,18 @@ HelpDocs.content['version-history'] = {
             <li><strong>ENH: Weight sliders</strong> — Drag evaluation weights and vendor scores recalculate in real-time</li>
             <li><strong>ENH: Sort &amp; filter</strong> — Comparison table supports column sorting, category filter, and variance threshold filter</li>
             <li><strong>ENH: Enhanced red flags</strong> — FAR 15.404 reasonableness, identical pricing detection, missing category gaps</li>
+            <li><strong>NEW: Contract term detection</strong> — Auto-extracts period (3 Year, Base + 4 Options, 36 Months) from proposal text and Excel sheet tabs</li>
+            <li><strong>NEW: Multi-term vendor disambiguation</strong> — Same company with different terms gets unique IDs (e.g., "Acme Corp (3 Year)" vs "Acme Corp (5 Year)")</li>
+            <li><strong>NEW: Indirect rate analysis</strong> — Detects fringe, overhead, G&amp;A, fee/profit and flags rates outside typical ranges</li>
+            <li><strong>NEW: Click-to-populate</strong> — Select text in doc viewer, click "Use" button to populate the last-focused form field</li>
+            <li><strong>ENH: Auto-calculation</strong> — Missing qty, unit price, or amount auto-computed when 2 of 3 fields present (parser + live frontend)</li>
+            <li><strong>ENH: Currency auto-format</strong> — Dollar amounts format with $ and commas on blur</li>
+            <li><strong>ENH: Parser thresholds</strong> — Lowered capture thresholds and expanded page limits (10→50) for comprehensive extraction</li>
+            <li><strong>NEW: HV auth diagnostic</strong> — Auth status badge in HV header shows "Windows SSO" (green) or "Anonymous" (red)</li>
+            <li><strong>ENH: Headless-first .mil/.gov</strong> — Government URLs route directly to headless browser, bypassing 10-30s timeout</li>
+            <li><strong>ENH: SharePoint SSL auto-bypass</strong> — Corporate domains auto-detected, SSL verification disabled (certifi CA mismatch fix)</li>
+            <li><strong>FIX: Auth logging</strong> — Replaced silent ImportError catch with verbose logging for authentication module init</li>
+            <li><strong>FIX: SharePoint download 404 retry</strong> — Fresh session retry for transient 404 errors</li>
             <li><strong>FIX: Centralized ID generation</strong> — Prevents mismatched proposal IDs between align and compare functions</li>
             <li><strong>FIX: Totals from aligned items</strong> — Accurate comparison totals computed from actual matched line items</li>
             <li><strong>ENH: Guided demos</strong> — 2 new sub-demos (Review &amp; Edit, History) covering new workflows</li>
