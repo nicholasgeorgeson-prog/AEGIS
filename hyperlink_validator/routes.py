@@ -77,7 +77,10 @@ def _hv_increase_upload_limit():
     """Disable upload limit for export-highlighted endpoints.
     v5.9.34: Belt-and-suspenders — app.py already sets MAX_CONTENT_LENGTH=None globally,
     but we also force it here in case any middleware re-sets it. Also directly patches
-    request.max_content_length to None for this specific request."""
+    request.max_content_length to None for this specific request.
+    v5.9.41: Pre-cache the raw request body BEFORE any form parsing happens.
+    This is critical for the manual multipart fallback — once Werkzeug's parser
+    reads the stream and raises 413, the stream is consumed and can't be re-read."""
     if request.path.endswith(('/export-highlighted/excel', '/export-highlighted/docx')):
         # v5.9.40: request.max_content_length is read-only on some Werkzeug versions
         # (Windows embedded Python). Wrap in try/except to handle gracefully.
@@ -86,6 +89,14 @@ def _hv_increase_upload_limit():
         except (AttributeError, TypeError):
             pass  # Read-only property on this Werkzeug version
         current_app.config['MAX_CONTENT_LENGTH'] = None
+        # v5.9.41: Pre-cache the raw body BEFORE Werkzeug's multipart parser touches it.
+        # get_data(cache=True) reads the full wsgi.input and stores it internally.
+        # If Werkzeug's _load_form_data() later raises 413, we can still access the
+        # cached raw bytes via get_data() in our manual parser fallback.
+        try:
+            request.get_data(cache=True, as_text=False, parse_form_data=False)
+        except Exception:
+            pass  # Best effort — if this fails, the manual parser will try other strategies
 
 
 # =============================================================================
@@ -1791,26 +1802,38 @@ def export_highlighted_docx_endpoint():
     request.environ.pop('MAX_CONTENT_LENGTH', None)
 
     # Check for file in request — wrap in try/except for Werkzeug 413
+    file = None
+    results_json = ''
+    _used_manual_parse = False
+
     try:
         if 'file' not in request.files:
             raise ValidationError("No file provided. Send a DOCX file as 'file' in multipart/form-data")
         file = request.files['file']
+        results_json = request.form.get('results', '')
     except RequestEntityTooLarge as rte:
+        # v5.9.41: Manual multipart parse fallback (same as Excel endpoint)
         logger.warning(f"Export DOCX: Werkzeug raised 413 despite MAX_CONTENT_LENGTH=None! "
-                       f"Content-Length={request.content_length}, Error={rte}")
-        raise ProcessingError(
-            f"File upload rejected by server (413). Content-Length: {request.content_length} bytes. "
-            f"Please report this error."
-        )
+                       f"Content-Length={request.content_length}, Error={rte}. "
+                       f"Falling back to manual multipart parsing.")
+        try:
+            file, results_json, _, _ = _manual_parse_multipart(request)
+            _used_manual_parse = True
+            logger.info(f"Export DOCX: manual parse succeeded — file={getattr(file, 'filename', 'unknown')}")
+        except Exception as parse_err:
+            logger.error(f"Export DOCX: manual multipart parse also failed: {parse_err}")
+            raise ProcessingError(
+                f"File upload rejected by server (413) and manual parsing failed. "
+                f"Content-Length: {request.content_length} bytes. Error: {parse_err}"
+            )
 
-    if not file.filename:
+    if not file or not getattr(file, 'filename', None):
         raise ValidationError("No file selected")
 
     if not file.filename.lower().endswith('.docx'):
         raise ValidationError("File must be a DOCX document")
 
     # Get validation results from form data
-    results_json = request.form.get('results', '')
     if not results_json:
         raise ValidationError("Validation results required. Provide 'results' as JSON string.")
 
@@ -1882,6 +1905,120 @@ def export_highlighted_docx_endpoint():
             pass
 
 
+def _manual_parse_multipart(req):
+    """
+    v5.9.41: Manually parse multipart/form-data from raw request stream.
+    Bypasses Werkzeug's MultiPartParser which raises 413 on some embedded
+    Python/Werkzeug versions even when MAX_CONTENT_LENGTH is None.
+
+    Returns: (file_storage, results_json, link_column_str, export_mode)
+    """
+    import io
+    import re
+    from werkzeug.datastructures import FileStorage
+
+    content_type = req.content_type or ''
+    # Extract boundary from Content-Type header
+    boundary_match = re.search(r'boundary=([^\s;]+)', content_type)
+    if not boundary_match:
+        raise ValueError("No multipart boundary found in Content-Type header")
+    boundary = boundary_match.group(1).strip('"')
+    boundary_bytes = ('--' + boundary).encode('utf-8')
+
+    # Read raw data — bypass Werkzeug's parser entirely.
+    # We try multiple strategies because the stream may be partially consumed
+    # by Werkzeug's failed parse attempt.
+    raw_data = None
+
+    # Strategy 1: request.get_data() — Flask may have cached the full body
+    try:
+        raw_data = req.get_data(cache=True, as_text=False)
+    except Exception:
+        pass
+
+    # Strategy 2: Read from wsgi.input directly
+    if not raw_data:
+        try:
+            stream = req.environ.get('wsgi.input')
+            if stream:
+                # Try to seek back to beginning if stream supports it
+                if hasattr(stream, 'seek'):
+                    stream.seek(0)
+                raw_data = stream.read()
+        except Exception:
+            pass
+
+    # Strategy 3: request.data (alias for get_data)
+    if not raw_data:
+        try:
+            raw_data = req.data
+        except Exception:
+            pass
+
+    if not raw_data:
+        raise ValueError(f"Empty request body after all read strategies (Content-Length: {req.content_length})")
+
+    # Split by boundary
+    parts = raw_data.split(boundary_bytes)
+
+    file_obj = None
+    file_filename = None
+    results_json = ''
+    link_column_str = ''
+    export_mode = 'multicolor'
+
+    for part in parts:
+        # Skip empty parts and end boundary marker
+        if not part or part.strip() == b'' or part.strip() == b'--':
+            continue
+        if part.startswith(b'--'):
+            continue
+
+        # Split headers from body (separated by \r\n\r\n)
+        header_body_split = part.split(b'\r\n\r\n', 1)
+        if len(header_body_split) < 2:
+            continue
+
+        headers_raw = header_body_split[0].decode('utf-8', errors='replace')
+        body = header_body_split[1]
+
+        # Remove trailing \r\n from body (boundary delimiter)
+        if body.endswith(b'\r\n'):
+            body = body[:-2]
+
+        # Parse Content-Disposition to get field name and filename
+        name_match = re.search(r'name="([^"]*)"', headers_raw)
+        if not name_match:
+            continue
+        field_name = name_match.group(1)
+
+        filename_match = re.search(r'filename="([^"]*)"', headers_raw)
+        field_filename = filename_match.group(1) if filename_match else None
+
+        if field_name == 'file' and field_filename:
+            # This is the uploaded file
+            file_obj = io.BytesIO(body)
+            file_filename = field_filename
+        elif field_name == 'results':
+            results_json = body.decode('utf-8', errors='replace')
+        elif field_name == 'link_column':
+            link_column_str = body.decode('utf-8', errors='replace').strip()
+        elif field_name == 'mode':
+            export_mode = body.decode('utf-8', errors='replace').strip().lower()
+
+    if file_obj is None or not file_filename:
+        raise ValueError("No 'file' field found in multipart data")
+
+    # Create a FileStorage-like object that has .filename and .save()
+    file_storage = FileStorage(
+        stream=file_obj,
+        filename=file_filename,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+
+    return file_storage, results_json, link_column_str, export_mode
+
+
 @hv_blueprint.route('/export-highlighted/excel', methods=['POST'])
 @handle_hv_errors
 def export_highlighted_excel_endpoint():
@@ -1934,30 +2071,46 @@ def export_highlighted_excel_endpoint():
                 f"Content-Length={request.content_length}")
 
     # Check for file in request — wrap in try/except for Werkzeug 413
+    file = None
+    results_json = ''
+    link_column_str = ''
+    export_mode = 'multicolor'
+    _used_manual_parse = False
+
     try:
         if 'file' not in request.files:
             raise ValidationError("No file provided. Send an Excel file as 'file' in multipart/form-data")
         file = request.files['file']
+        results_json = request.form.get('results', '')
+        link_column_str = request.form.get('link_column', '')
+        export_mode = request.form.get('mode', 'multicolor').lower()
     except RequestEntityTooLarge as rte:
-        # v5.9.34: If Werkzeug STILL raises 413 despite all our overrides,
-        # it means the limit was cached before our override took effect.
-        # Last resort: re-read raw stream with no limit.
+        # v5.9.41: If Werkzeug STILL raises 413 despite all our overrides,
+        # manually parse the multipart data from the raw stream.
+        # This bypasses Werkzeug's MultiPartParser entirely.
         logger.warning(f"Export Excel: Werkzeug raised 413 despite MAX_CONTENT_LENGTH=None! "
-                       f"Content-Length={request.content_length}, Error={rte}")
-        raise ProcessingError(
-            f"File upload rejected by server (413). This is a Werkzeug bug workaround failure. "
-            f"Content-Length: {request.content_length} bytes. "
-            f"Please report this error — it means the upload size limit fix didn't take effect."
-        )
+                       f"Content-Length={request.content_length}, Error={rte}. "
+                       f"Falling back to manual multipart parsing.")
+        try:
+            file, results_json, link_column_str, export_mode = \
+                _manual_parse_multipart(request)
+            _used_manual_parse = True
+            logger.info(f"Export Excel: manual parse succeeded — file={getattr(file, 'filename', 'unknown')}, "
+                        f"results_len={len(results_json)}, mode={export_mode}")
+        except Exception as parse_err:
+            logger.error(f"Export Excel: manual multipart parse also failed: {parse_err}")
+            raise ProcessingError(
+                f"File upload rejected by server (413) and manual parsing failed. "
+                f"Content-Length: {request.content_length} bytes. Error: {parse_err}"
+            )
 
-    if not file.filename:
+    if not file or not getattr(file, 'filename', None):
         raise ValidationError("No file selected")
 
     if not file.filename.lower().endswith(('.xlsx', '.xls')):
         raise ValidationError("File must be an Excel document (.xlsx or .xls)")
 
     # Get validation results from form data
-    results_json = request.form.get('results', '')
     if not results_json:
         raise ValidationError("Validation results required. Provide 'results' as JSON string.")
 
@@ -1977,11 +2130,7 @@ def export_highlighted_excel_endpoint():
         raise ValidationError("No validation results provided")
 
     # Get optional link column
-    link_column_str = request.form.get('link_column', '')
     link_column = int(link_column_str) if link_column_str else None
-
-    # v5.9.33: Get export mode — multicolor (new default) or broken_only (legacy)
-    export_mode = request.form.get('mode', 'multicolor').lower()
 
     # Save file temporarily
     # v5.9.32: Close temp file before saving — Windows can't have two handles on same file
