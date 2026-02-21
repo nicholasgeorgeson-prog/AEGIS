@@ -1315,6 +1315,8 @@ window.ProposalCompare = (function() {
                 if (State.selectedProjectId) {
                     var proj = State.projects.find(function(p) { return p.id === State.selectedProjectId; });
                     State.projectName = proj ? proj.name : '';
+                    // Immediately tag all in-memory proposals to this project
+                    _tagAllProposalsToProject(State.selectedProjectId);
                 }
                 if (window.showToast) {
                     window.showToast(
@@ -1450,6 +1452,9 @@ window.ProposalCompare = (function() {
                                 '<i data-lucide="pencil"></i> Back to Review' +
                               '</button>'
                             : '') +
+                        '<button class="pc-btn pc-btn-ghost" id="pc-results-tag-project">' +
+                            '<i data-lucide="folder-plus"></i> Tag to Project' +
+                        '</button>' +
                         '<button class="pc-btn pc-btn-primary" onclick="ProposalCompare._export()">' +
                             '<i data-lucide="download"></i> Export XLSX' +
                         '</button>' +
@@ -1473,6 +1478,15 @@ window.ProposalCompare = (function() {
                 State.activeTab = tab.dataset.tab;
             });
         });
+
+        // Wire "Tag to Project" button in results header
+        var tagProjBtn = document.getElementById('pc-results-tag-project');
+        if (tagProjBtn) {
+            tagProjBtn.addEventListener('click', function(e) {
+                // Show project dropdown with all proposals from this comparison
+                _showResultsTagToProjectMenu(e.target.closest('#pc-results-tag-project') || tagProjBtn);
+            });
+        }
 
         // Render each tab
         renderExecutiveSummary(propIds, cmp);
@@ -3518,6 +3532,135 @@ window.ProposalCompare = (function() {
             console.error('[PC Dashboard] Edit proposal error:', e);
             if (window.showToast) window.showToast('Failed to load proposal: ' + e.message, 'error');
         }
+    }
+
+    /**
+     * Tag all in-memory proposals to a project. Used when user selects a project
+     * from the review-phase dropdown — immediately persists each proposal.
+     */
+    function _tagAllProposalsToProject(projectId) {
+        if (!projectId || !State.proposals || State.proposals.length === 0) return;
+
+        var tagged = 0;
+        State.proposals.forEach(function(p, idx) {
+            if (p._db_id) {
+                // Already in DB — move to new project
+                fetch('/api/proposal-compare/proposals/' + p._db_id + '/move', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCSRF() },
+                    body: JSON.stringify({ project_id: projectId }),
+                }).then(function(r) { return r.json(); }).then(function(json) {
+                    if (json.success) tagged++;
+                    console.log('[PC] Moved proposal', p._db_id, 'to project', projectId, json.success ? 'OK' : 'FAIL');
+                }).catch(function(e) {
+                    console.warn('[PC] Move proposal error:', e);
+                });
+            } else {
+                // Not yet in DB — add to project
+                fetch('/api/proposal-compare/projects/' + projectId + '/proposals', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCSRF() },
+                    body: JSON.stringify(p),
+                }).then(function(r) { return r.json(); }).then(function(json) {
+                    if (json.success && json.data && json.data.id) {
+                        p._db_id = json.data.id;
+                        tagged++;
+                    }
+                    console.log('[PC] Added proposal', (p.company_name || p.filename), 'to project', projectId, json.success ? 'OK' : 'FAIL');
+                }).catch(function(e) {
+                    console.warn('[PC] Add proposal error:', e);
+                });
+            }
+        });
+    }
+
+    /**
+     * Show project picker from the Results header. Tags ALL proposals
+     * from the current comparison to the selected project.
+     */
+    function _showResultsTagToProjectMenu(anchorEl) {
+        var existing = document.querySelector('.pc-tag-dropdown');
+        if (existing) existing.remove();
+
+        var dropdown = document.createElement('div');
+        dropdown.className = 'pc-tag-dropdown';
+        dropdown.innerHTML = '<div class="pc-tag-dropdown-loading"><div class="pc-spinner" style="width:16px;height:16px"></div> Loading projects...</div>';
+
+        var rect = anchorEl.getBoundingClientRect();
+        dropdown.style.position = 'fixed';
+        dropdown.style.top = (rect.bottom + 4) + 'px';
+        dropdown.style.left = rect.left + 'px';
+        dropdown.style.zIndex = '16000';
+        document.body.appendChild(dropdown);
+
+        function closeDropdown(e) {
+            if (!dropdown.contains(e.target) && e.target !== anchorEl) {
+                dropdown.remove();
+                document.removeEventListener('click', closeDropdown);
+            }
+        }
+        setTimeout(function() { document.addEventListener('click', closeDropdown); }, 50);
+
+        fetch('/api/proposal-compare/projects?status=active', {
+            headers: { 'X-CSRF-Token': getCSRF() },
+        }).then(function(r) { return r.json(); }).then(function(json) {
+            var projects = (json.success && json.data) ? json.data : [];
+
+            var propCount = State.proposals ? State.proposals.length : 0;
+            var html = '<div class="pc-tag-dropdown-header">Tag ' + propCount + ' proposal' + (propCount !== 1 ? 's' : '') + ' to project</div>';
+            html += '<div class="pc-tag-dropdown-list">';
+
+            projects.forEach(function(proj) {
+                html += '<div class="pc-tag-dropdown-item" data-project-id="' + proj.id + '">' +
+                    '<i data-lucide="folder" style="width:14px;height:14px;margin-right:8px;opacity:0.5"></i>' +
+                    escHtml(proj.name) +
+                    '<span class="pc-tag-dropdown-count">' + (proj.proposal_count || 0) + '</span>' +
+                '</div>';
+            });
+
+            html += '<div class="pc-tag-dropdown-item pc-tag-new-project">' +
+                '<i data-lucide="plus" style="width:14px;height:14px;margin-right:8px;opacity:0.5"></i>' +
+                '+ New Project' +
+            '</div>';
+            html += '</div>';
+            dropdown.innerHTML = html;
+            if (window.lucide) window.lucide.createIcons();
+
+            dropdown.addEventListener('click', function(e) {
+                var item = e.target.closest('.pc-tag-dropdown-item');
+                if (!item) return;
+
+                var doTag = function(targetProjId) {
+                    _tagAllProposalsToProject(targetProjId);
+                    State.selectedProjectId = targetProjId;
+                    if (window.showToast) {
+                        var projName = '';
+                        try { projName = projects.find(function(p) { return p.id === targetProjId; }).name; } catch(e) {}
+                        window.showToast('Tagged ' + propCount + ' proposal' + (propCount !== 1 ? 's' : '') + ' to project' + (projName ? ': ' + projName : ''), 'success');
+                    }
+                };
+
+                if (item.classList.contains('pc-tag-new-project')) {
+                    var name = prompt('Enter new project name:');
+                    if (!name || !name.trim()) return;
+                    fetch('/api/proposal-compare/projects', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCSRF() },
+                        body: JSON.stringify({ name: name.trim() }),
+                    }).then(function(r) { return r.json(); }).then(function(result) {
+                        if (result.success && result.data) {
+                            doTag(result.data.id);
+                        }
+                    });
+                } else {
+                    var targetId = parseInt(item.dataset.projectId, 10);
+                    doTag(targetId);
+                }
+
+                dropdown.remove();
+                document.removeEventListener('click', closeDropdown);
+            });
+        });
     }
 
     function _showTagToProjectMenu(anchorEl, proposalIdx, dbId) {
