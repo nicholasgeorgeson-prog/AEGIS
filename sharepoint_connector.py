@@ -44,6 +44,9 @@ try:
 except (ImportError, AttributeError):
     pass
 
+# Logger MUST be created before auth init block (auth init logs messages)
+logger = logging.getLogger('aegis.sharepoint')
+
 # Windows SSO auth — same pattern as hyperlink_validator/validator.py
 WINDOWS_AUTH_AVAILABLE = False
 HttpNegotiateAuth = None
@@ -74,8 +77,6 @@ except ImportError as e:
 except Exception as e:
     _sp_auth_init_error = f'Unexpected: {e}'
     logger.error(f'[AEGIS SharePoint] Auth init error: {e}', exc_info=True)
-
-logger = logging.getLogger('aegis.sharepoint')
 
 
 def parse_sharepoint_url(url: str) -> Dict[str, str]:
