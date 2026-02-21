@@ -877,6 +877,17 @@ The actual logic lives in `repair_aegis.py` (500 lines) where Python's error han
 **Fix**: Added `throw e` after setting the error innerHTML in the catch block, and `throw new Error(...)` after the init failure path. All existing callers updated with try/catch: `proposal-compare.js` uses `.catch()` on the Promise, `statement-history.js` uses `try/await/catch` with fallback to text rendering.
 **Lesson**: Shared rendering utilities should re-throw errors after displaying their own error state, so callers can choose to replace the error with fallback content. The pattern is: (1) render utility shows its own error message, (2) re-throws, (3) caller catches and optionally replaces with richer fallback. Without re-throw, every caller is stuck with the utility's generic error message.
 
+### 100. Server-Side File Serving vs Blob URLs for PDF.js (v5.9.41)
+**Problem**: PDF.js `render()` failed with `"unexpected server response (0)"` when given a blob URL (`blob:http://localhost:5050/...`). The File object backing the blob was garbage collected or the blob was revoked before PDF.js could fetch it.
+**Root Cause**: `URL.createObjectURL(file)` creates a temporary URL that references the in-memory File object. PDF.js uses `fetch()` internally to retrieve the PDF data from that URL. If the File object is GC'd, the browser context changes, or the blob is revoked, the fetch returns status 0 (network-level failure). This is especially unreliable across async operations and module boundaries.
+**Fix**: Switched to server-side file serving — the same pattern used by Statement History (`/api/scan-history/document-file`):
+1. Upload endpoint saves files to `temp/proposals/` with timestamp prefix (instead of deleting after parse)
+2. New `GET /api/proposal-compare/file/<filename>` endpoint serves files via Flask's `send_file()`
+3. Frontend uses `'/api/proposal-compare/file/' + encodeURIComponent(p._server_file)` instead of blob URL
+4. `_cleanup_old_proposal_files()` helper removes files older than 1 hour to prevent disk bloat
+**Key insight**: Blob URLs are unreliable for libraries that `fetch()` from them asynchronously (PDF.js, video players, etc.). Server URLs via `send_file()` are always available as long as the file exists on disk.
+**Lesson**: When a module needs to display uploaded files (PDF, images, etc.), ALWAYS use server-side file serving with `send_file()` — never blob URLs. The pattern is: (1) save uploaded file to a temp directory with timestamp prefix, (2) add a GET endpoint that serves the file, (3) add periodic cleanup of old files, (4) frontend constructs server URL from filename returned in upload response. This is the standard AEGIS pattern and should be used for any future file viewer features.
+
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
 1. **Changelog update** in `version.json` (and copy to `static/version.json`)
