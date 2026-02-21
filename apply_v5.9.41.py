@@ -33,24 +33,36 @@ FILES = [
     "version.json",
     "static/version.json",
 
-    # Proposal Compare backend
+    # Proposal Compare backend (parser + analyzer improvements)
     "proposal_compare/parser.py",
     "proposal_compare/analyzer.py",
     "proposal_compare/routes.py",
     "proposal_compare/projects.py",
 
+    # Hyperlink Validator (auth diagnostics, headless-first .mil/.gov)
+    "hyperlink_validator/validator.py",
+    "hyperlink_validator/routes.py",
+
+    # SharePoint (SSL bypass, error messages, 404 retry)
+    "sharepoint_connector.py",
+
+    # Scan History (for stale bytecode fix on Windows)
+    "scan_history.py",
+
+    # Templates
+    "templates/index.html",
+
     # JavaScript
     "static/js/help-docs.js",
     "static/js/features/proposal-compare.js",
+    "static/js/features/hyperlink-validator.js",
     "static/js/features/guide-system.js",
     "static/js/features/pdf-viewer.js",
     "static/js/features/statement-history.js",
 
     # CSS
     "static/css/features/proposal-compare.css",
-
-    # Docs
-    "CLAUDE.md",
+    "static/css/features/hyperlink-validator.css",
 ]
 
 # Audio narration files for new demo scenes
