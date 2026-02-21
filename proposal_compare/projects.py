@@ -289,6 +289,185 @@ def remove_proposal_from_project(proposal_id: int) -> bool:
         conn.close()
 
 
+def update_proposal_data(proposal_id: int, updated_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Update a proposal's extracted data after user edits in the review phase.
+
+    Updates both the full proposal_data_json blob and the summary columns
+    (company_name, total_amount, line_item_count, etc.) so they stay in sync.
+    Also bumps the parent project's updated_at timestamp.
+    """
+    conn = _get_connection()
+    try:
+        # Verify proposal exists and get project_id
+        row = conn.execute(
+            "SELECT id, project_id FROM pc_proposals WHERE id = ?",
+            (proposal_id,)
+        ).fetchone()
+        if not row:
+            return None
+
+        project_id = row['project_id']
+
+        # Extract summary fields from updated data
+        company_name = updated_data.get('company_name', '')
+        proposal_title = updated_data.get('proposal_title', '')
+        date = updated_data.get('date', '')
+        total_amount = updated_data.get('total_amount')
+        total_raw = updated_data.get('total_raw', '')
+        currency = updated_data.get('currency', 'USD')
+        line_items = updated_data.get('line_items', [])
+        tables = updated_data.get('tables', [])
+
+        conn.execute("""
+            UPDATE pc_proposals SET
+                company_name = ?,
+                proposal_title = ?,
+                date = ?,
+                total_amount = ?,
+                total_raw = ?,
+                currency = ?,
+                line_item_count = ?,
+                table_count = ?,
+                proposal_data_json = ?
+            WHERE id = ?
+        """, (
+            company_name,
+            proposal_title,
+            date,
+            total_amount,
+            total_raw,
+            currency,
+            len(line_items),
+            len(tables),
+            json.dumps(updated_data),
+            proposal_id,
+        ))
+
+        # Bump parent project updated_at
+        conn.execute(
+            "UPDATE pc_projects SET updated_at = datetime('now') WHERE id = ?",
+            (project_id,)
+        )
+        conn.commit()
+
+        logger.info(f"Updated proposal {proposal_id} in project {project_id}")
+        return {
+            'id': proposal_id,
+            'project_id': project_id,
+            'company_name': company_name,
+            'line_item_count': len(line_items),
+            'total_amount': total_amount,
+        }
+    except Exception as e:
+        logger.error(f"Failed to update proposal {proposal_id}: {e}", exc_info=True)
+        raise
+    finally:
+        conn.close()
+
+
+def move_proposal(proposal_id: int, new_project_id: int) -> Optional[Dict[str, Any]]:
+    """Move a proposal from its current project to a different project.
+
+    Updates both the old and new project's updated_at timestamps.
+    Returns the updated proposal summary or None if not found.
+    """
+    conn = _get_connection()
+    try:
+        # Get current project_id
+        row = conn.execute(
+            "SELECT id, project_id, filename, company_name FROM pc_proposals WHERE id = ?",
+            (proposal_id,)
+        ).fetchone()
+        if not row:
+            return None
+
+        old_project_id = row['project_id']
+
+        # Verify new project exists
+        new_project = conn.execute(
+            "SELECT id FROM pc_projects WHERE id = ?",
+            (new_project_id,)
+        ).fetchone()
+        if not new_project:
+            raise ValueError(f"Target project {new_project_id} not found")
+
+        # Move the proposal
+        conn.execute(
+            "UPDATE pc_proposals SET project_id = ? WHERE id = ?",
+            (new_project_id, proposal_id)
+        )
+
+        # Update both projects' timestamps
+        conn.execute(
+            "UPDATE pc_projects SET updated_at = datetime('now') WHERE id IN (?, ?)",
+            (old_project_id, new_project_id)
+        )
+        conn.commit()
+
+        logger.info(f"Moved proposal {proposal_id} from project {old_project_id} to {new_project_id}")
+        return {
+            'id': proposal_id,
+            'old_project_id': old_project_id,
+            'new_project_id': new_project_id,
+            'filename': row['filename'],
+            'company_name': row['company_name'],
+        }
+    except Exception as e:
+        logger.error(f"Failed to move proposal {proposal_id}: {e}", exc_info=True)
+        raise
+    finally:
+        conn.close()
+
+
+def list_comparisons_for_project(project_id: int, limit: int = 20) -> List[Dict[str, Any]]:
+    """List comparisons for a specific project (same format as list_comparisons but filtered)."""
+    conn = _get_connection()
+    try:
+        rows = conn.execute("""
+            SELECT c.id, c.project_id, c.created_at, c.notes,
+                   p.name as project_name
+            FROM pc_comparisons c
+            LEFT JOIN pc_projects p ON p.id = c.project_id
+            WHERE c.project_id = ?
+            ORDER BY c.created_at DESC
+            LIMIT ?
+        """, (project_id, limit)).fetchall()
+
+        results = []
+        for row in rows:
+            try:
+                result_json = conn.execute(
+                    "SELECT result_json FROM pc_comparisons WHERE id = ?",
+                    (row['id'],)
+                ).fetchone()
+                result_data = json.loads(result_json['result_json']) if result_json else {}
+            except (json.JSONDecodeError, TypeError):
+                result_data = {}
+
+            proposals = result_data.get('proposals', [])
+            vendor_names = [p.get('company_name') or p.get('filename', '') for p in proposals]
+            totals = result_data.get('totals', {})
+            total_values = [v for v in totals.values() if v is not None and v > 0]
+
+            results.append({
+                'id': row['id'],
+                'project_id': row['project_id'],
+                'project_name': row['project_name'] or 'Ad-hoc',
+                'created_at': row['created_at'],
+                'notes': row['notes'] or '',
+                'vendor_count': len(proposals),
+                'vendor_names': vendor_names,
+                'total_spread': (
+                    '${:,.0f} - ${:,.0f}'.format(min(total_values), max(total_values))
+                    if len(total_values) >= 2 else 'N/A'
+                ),
+            })
+
+        return results
+    finally:
+        conn.close()
+
+
 # ──────────────────────────────────────────
 # Comparison history
 # ──────────────────────────────────────────

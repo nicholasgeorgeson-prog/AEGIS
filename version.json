@@ -1,13 +1,36 @@
 {
-  "version": "5.9.41",
-  "release_date": "2026-02-20",
-  "core_version": "5.9.41",
+  "version": "5.9.42",
+  "release_date": "2026-02-21",
+  "core_version": "5.9.42",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.42",
+      "date": "2026-02-21",
+      "changes": [
+        "ENH: Proposal Compare v2.2 — License category, vendor color badges, currency formatting, dark mode chart text fixes",
+        "ENH: PDF viewer v2.0 — HiDPI/Retina rendering, zoom controls (+/−/fit), magnifier loupe at 3× zoom on hover",
+        "ENH: Review phase quality indicators — green check/amber warning badges for company, line items, total, contract term",
+        "ENH: Comparison preview card — shows proposal count, vendors identified, total line items, readiness status before Compare",
+        "ENH: Review phase project selector — change/assign project at any point before comparing",
+        "ENH: Enhanced XLSX export — 8 sheets (added Heatmap, Rate Analysis, Raw Line Items), grade coloring, conditional formatting",
+        "ENH: Interactive HTML export — standalone self-contained HTML report with SVG charts, dark/light toggle, sortable tables, tab navigation",
+        "ENH: Export Interactive HTML button — alongside XLSX export with gold accent styling",
+        "ENH: Vendor color badges in comparison table headers, executive ranking, and score cards for disambiguation",
+        "ENH: Expanded category list — Labor, Material, Software, License, Travel, Training, ODC, Subcontract, Overhead, Fee, Other",
+        "FIX: Dark mode chart text — all Chart.js instances now read fresh computed CSS vars via helper functions",
+        "FIX: Currency formatting — explicit en-US locale in formatMoney() for consistent $X,XXX.XX display",
+        "ENH: Project Dashboard — browse projects with proposal/comparison counts, open detail view, edit proposals from dashboard",
+        "ENH: Edit persistence — review phase edits auto-save to database via fire-and-forget PUT, survive modal close/reopen",
+        "ENH: Tag to project — assign any proposal to any project via dropdown, even after review, with move support",
+        "ENH: Live demo scenes — Proposal Compare demos inject simulated results (executive summary, comparison matrix, heatmap, vendor scores, red flags, categories)",
+        "FIX: HV blueprint import — changed except ImportError to except Exception to handle config_logging init failures on Windows (NameError: logger)"
+      ]
+    },
     {
       "version": "5.9.41",
       "date": "2026-02-20",

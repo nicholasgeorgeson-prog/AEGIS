@@ -45,8 +45,8 @@
 'use strict';
 
 const HelpDocs = {
-    version: '5.9.39',
-    lastUpdated: '2026-02-20',
+    version: '5.9.42',
+    lastUpdated: '2026-02-21',
     
     config: {
         searchEnabled: true,
@@ -142,6 +142,7 @@ const HelpDocs = {
             { id: 'pc-comparison', title: 'Comparison View', icon: 'columns' },
             { id: 'pc-analytics', title: 'Analytics Tabs', icon: 'bar-chart-3' },
             { id: 'pc-history', title: 'History', icon: 'history' },
+            { id: 'pc-dashboard', title: 'Project Dashboard', icon: 'layout-dashboard' },
             { id: 'pc-export', title: 'Exporting Results', icon: 'download' }
         ]},
         { id: 'exporting', title: 'Exporting Results', icon: 'download', subsections: [
@@ -5119,7 +5120,7 @@ HelpDocs.content['pc-overview'] = {
     <li><strong>Line items</strong> — Description, amount, quantity, unit price from financial tables</li>
     <li><strong>Tables</strong> — All tables with financial data are detected and preserved</li>
     <li><strong>Grand total</strong> — Identified from total/sum rows or computed from line items</li>
-    <li><strong>Categories</strong> — Line items classified as Labor, Material, Travel, ODC, Overhead, or Fee</li>
+    <li><strong>Categories</strong> — Line items classified into 11 categories: Labor, Material, Software, License, Travel, Training, ODC, Subcontract, Overhead, Fee, or Other</li>
     <li><strong>Contract term</strong> — Period extracted (e.g., "3 Year", "Base + 4 Options") from text and sheet tabs</li>
     <li><strong>Indirect rates</strong> — Fringe, overhead, G&amp;A, and fee/profit detected and flagged if outside typical ranges</li>
 </ul>
@@ -5132,7 +5133,7 @@ HelpDocs.content['pc-overview'] = {
     <li>In the <strong>Review phase</strong>, verify company names, dates, totals, and line items — edit anything that was misdetected</li>
     <li>Click <strong>Compare Proposals</strong> to generate the comparison</li>
     <li>Use 8 tabs to explore results: Executive Summary, Comparison, Categories, Red Flags, Heatmap, Vendor Scores, Details, and Raw Tables</li>
-    <li>Click <strong>Back to Review</strong> to adjust metadata, or <strong>Export XLSX</strong> to download</li>
+    <li>Click <strong>Back to Review</strong> to adjust metadata, or export as <strong>XLSX</strong> (8-sheet workbook) or <strong>Interactive HTML</strong> (standalone browser report)</li>
     <li>All comparisons are auto-saved — click <strong>History</strong> on the upload screen to reload past analyses</li>
 </ol>
 `
@@ -5196,11 +5197,20 @@ HelpDocs.content['pc-review'] = {
 <h2><i data-lucide="file-text"></i> Document Viewer (Left Panel)</h2>
 <p>The left panel renders the source document:</p>
 <ul>
-    <li><strong>PDF files</strong> — Rendered inline via PDF.js with full scroll support</li>
+    <li><strong>PDF files</strong> — Rendered inline via PDF.js at high DPI with zoom controls and optional magnifier loupe</li>
     <li><strong>DOCX files</strong> — Shows extracted text content in a scrollable panel</li>
     <li><strong>Excel files</strong> — Displays parsed tables as formatted HTML tables</li>
 </ul>
 <p>Use the document viewer to cross-reference extracted data with the original source.</p>
+
+<h3><i data-lucide="zoom-in"></i> PDF Zoom Controls (v5.9.42)</h3>
+<p>PDF documents display a zoom toolbar above the page view:</p>
+<ul>
+    <li><strong>Zoom In / Out</strong> — Increase or decrease scale in 25% increments (range: 50%–300%)</li>
+    <li><strong>Fit Width</strong> — Auto-scales to fill the viewer panel width</li>
+    <li><strong>Magnifier</strong> — Toggle a 3× zoom loupe that follows your cursor over the PDF. Ideal for reading small or scanned text</li>
+</ul>
+<p>All rendering uses HiDPI/Retina-aware canvas sizing for crisp text on high-resolution displays.</p>
 
 <h2><i data-lucide="edit-3"></i> Metadata Editor (Right Panel)</h2>
 <p>Editable fields for each proposal:</p>
@@ -5217,11 +5227,31 @@ HelpDocs.content['pc-review'] = {
 <p>Click <strong>Edit Line Items</strong> to expand the accordion editor:</p>
 <ul>
     <li>Each row shows description, category dropdown, amount, quantity, and unit price</li>
-    <li>Change the <strong>category</strong> (Labor, Material, Software, Travel, ODC, Subcontract, Other)</li>
+    <li>Change the <strong>category</strong> (Labor, Material, Software, License, Travel, Training, ODC, Subcontract, Overhead, Fee, Other)</li>
     <li>Click the <strong>× button</strong> to delete a line item</li>
     <li>Click <strong>+ Add Line Item</strong> to add a new empty row</li>
 </ul>
 <p>Edits are saved automatically when you navigate between proposals or click Compare.</p>
+
+<h2><i data-lucide="check-circle"></i> Quality Indicators (v5.9.42)</h2>
+<p>Each proposal in the review phase shows status badges below the header:</p>
+<ul>
+    <li><span style="color:#4caf50">✓</span> <strong>Green badges</strong> — Company detected, line items found, total identified, contract term extracted</li>
+    <li><span style="color:#ff9800">⚠</span> <strong>Amber badges</strong> — Missing company name, no line items, no total, or no term detected</li>
+</ul>
+<p>Use these badges to quickly spot extraction gaps and fix them before comparing.</p>
+
+<h2><i data-lucide="folder"></i> Project Selector (v5.9.42)</h2>
+<p>A compact project dropdown appears at the top of the review phase. Select or change the project that proposals belong to — this associates the upcoming comparison with that project. You can also create new projects from the upload phase.</p>
+
+<h2><i data-lucide="eye"></i> Comparison Preview (v5.9.42)</h2>
+<p>Before clicking Compare, a preview card below the editor shows:</p>
+<ul>
+    <li><strong>Proposals ready</strong> — Count and vendor names</li>
+    <li><strong>Total line items</strong> across all proposals</li>
+    <li><strong>Warnings</strong> — If any proposal has zero line items</li>
+    <li><strong>Ready indicator</strong> — Green check when all data looks good to compare</li>
+</ul>
 
 <h2><i data-lucide="arrow-right"></i> Navigation</h2>
 <p>Use <strong>← Previous</strong> and <strong>Next →</strong> buttons to navigate between proposals. The counter shows "1 of 3" etc. Edits to the current proposal are captured before navigating.</p>
@@ -5380,44 +5410,101 @@ HelpDocs.content['pc-history'] = {
 };
 
 // ============================================================================
+// PROPOSAL COMPARE - PROJECT DASHBOARD
+// ============================================================================
+HelpDocs.content['pc-dashboard'] = {
+    title: 'Project Dashboard',
+    subtitle: 'Organize proposals into projects, browse past work, and edit from a central hub',
+    html: `
+<h2><i data-lucide="layout-dashboard"></i> Opening the Dashboard</h2>
+<p>Click the <strong>Projects</strong> button in the upload phase header to open the Project Dashboard. The dashboard provides a centralized view of all your saved projects and their proposals.</p>
+
+<h2><i data-lucide="grid-2x2"></i> Project Grid View</h2>
+<p>Projects are displayed in a <strong>2-column card grid</strong>. Each card shows:</p>
+<ul>
+    <li><strong>Project name</strong> and description</li>
+    <li><strong>Proposal count</strong> — number of proposals attached to the project</li>
+    <li><strong>Line items count</strong> — total extracted items across all proposals</li>
+    <li><strong>Last updated</strong> — timestamp of most recent activity</li>
+</ul>
+<p>Click any card to drill into the <strong>Project Detail View</strong>.</p>
+
+<h2><i data-lucide="folder-open"></i> Project Detail View</h2>
+<p>The detail view shows everything inside a single project:</p>
+<ul>
+    <li><strong>Proposals list</strong> — each proposal with vendor name, file type, line item count, and grand total</li>
+    <li><strong>Comparisons list</strong> — past comparison runs linked to this project, with date and vendor badges</li>
+</ul>
+<p>From here you can view comparison results, edit proposals, or move proposals between projects.</p>
+
+<h2><i data-lucide="pencil"></i> Edit from Dashboard</h2>
+<p>Click <strong>Edit</strong> on any proposal card to re-enter the split-pane <strong>Review phase</strong> with that proposal loaded. The full document viewer and metadata editor are available. When you finish editing and click <strong>Save &amp; Back</strong>, your changes are automatically persisted to the database.</p>
+
+<h2><i data-lucide="tag"></i> Tag to Project</h2>
+<p>Any proposal — whether freshly uploaded or loaded from history — can be assigned to a project via the <strong>Tag to Project</strong> dropdown. Select an existing project from the list, or create a new project on the fly. Proposals that are already in a project can be reassigned to a different one.</p>
+
+<h2><i data-lucide="move"></i> Move Proposals</h2>
+<p>To reorganize proposals across projects, use the <strong>Move</strong> action on a proposal card in the detail view. Select the destination project from the dropdown and the proposal is transferred immediately.</p>
+
+<h2><i data-lucide="save"></i> Edit Persistence</h2>
+<p>All edits made in the Review phase are <strong>auto-saved</strong> to the database via fire-and-forget writes. You do not need to manually save — changes persist automatically. The in-memory state drives the current session while the database ensures your edits survive across sessions.</p>
+
+<div class="help-tip">
+    <i data-lucide="lightbulb"></i>
+    <span>Use projects to group related proposals (e.g., by contract vehicle, fiscal year, or program). The dashboard makes it easy to revisit and refine past analyses without re-uploading files.</span>
+</div>
+`
+};
+
+// ============================================================================
 // PROPOSAL COMPARE - EXPORT
 // ============================================================================
 HelpDocs.content['pc-export'] = {
     title: 'Exporting Results',
-    subtitle: 'Download comparison as spreadsheet',
+    subtitle: 'Download as Excel workbook or interactive HTML report',
     html: `
-<h2><i data-lucide="download"></i> Excel Export</h2>
-<p>Click <strong>Export XLSX</strong> in the results toolbar to download a formatted Excel workbook with three sheets:</p>
-
-<h3>Sheet 1: Proposal Comparison</h3>
+<h2><i data-lucide="download"></i> Export Options</h2>
+<p>Two export formats are available from the results toolbar:</p>
 <ul>
-    <li>Full side-by-side line item matrix</li>
-    <li>Green fill on lowest-cost cells, red fill on highest-cost cells</li>
-    <li>Variance percentage column</li>
-    <li>Grand total row with AEGIS gold branding</li>
-    <li>Proper currency formatting ($#,##0.00)</li>
-    <li><strong>Frozen panes</strong> — Headers and description column stay visible while scrolling</li>
-    <li><strong>Auto-filter</strong> — Excel dropdown filters on all header columns for quick filtering</li>
+    <li><strong>Export XLSX</strong> — Formatted 8-sheet Excel workbook with conditional formatting and currency styling</li>
+    <li><strong>Export Interactive HTML</strong> — Standalone self-contained HTML report with interactive charts, sort/filter, and dark/light mode toggle</li>
 </ul>
 
-<h3>Sheet 2: Category Summary</h3>
-<ul>
-    <li>Costs grouped by category (Labor, Material, Travel, etc.)</li>
-    <li>Item count per category</li>
-    <li>Per-vendor totals</li>
-</ul>
+<h2><i data-lucide="file-spreadsheet"></i> Excel Export (8 Sheets)</h2>
+<p>The XLSX workbook contains 8 sheets with full AEGIS gold/navy branding:</p>
 
-<h3>Sheet 3: Proposal Details</h3>
+<table class="help-table">
+    <thead><tr><th>Sheet</th><th>Contents</th></tr></thead>
+    <tbody>
+        <tr><td><strong>1. Executive Summary</strong></td><td>Vendor rankings, scores with letter-grade coloring (A=green, F=red), key findings, metadata</td></tr>
+        <tr><td><strong>2. Comparison Matrix</strong></td><td>Side-by-side line items with green (lowest) and red (highest) conditional fills, variance column, frozen panes, auto-filter</td></tr>
+        <tr><td><strong>3. Category Breakdown</strong></td><td>Costs grouped by category (Labor, Material, Software, License, etc.) with item counts and per-vendor totals</td></tr>
+        <tr><td><strong>4. Red Flags</strong></td><td>Risk findings per vendor with severity icons and descriptions</td></tr>
+        <tr><td><strong>5. Vendor Scores</strong></td><td>Letter grades with component scores (Price, Completeness, Risk, Data Quality)</td></tr>
+        <tr><td><strong>6. Heatmap</strong></td><td>Category × Vendor grid with conditional fills — green (below avg), white (neutral), red (above avg)</td></tr>
+        <tr><td><strong>7. Rate Analysis</strong></td><td>Indirect rates (OH, G&amp;A, Fringe, Fee) per vendor with typical ranges and flagged outliers</td></tr>
+        <tr><td><strong>8. Raw Line Items</strong></td><td>All extracted line items per vendor — description, category, amount, quantity, unit price, source sheet — with auto-filter</td></tr>
+    </tbody>
+</table>
+<p>All dollar amounts use <code>$#,##0.00</code> formatting throughout.</p>
+
+<h2><i data-lucide="globe"></i> Interactive HTML Export (v5.9.42)</h2>
+<p>Click <strong>Export Interactive HTML</strong> to download a <em>completely self-contained</em> HTML file — no external dependencies, no internet required. Open it in any browser for a full interactive report.</p>
+<p>Features include:</p>
 <ul>
-    <li>Company name, title, date for each proposal</li>
-    <li>File type and filename</li>
-    <li>Tables found and line items extracted</li>
-    <li>Grand total amounts</li>
+    <li><strong>Tab navigation</strong> — Executive Dashboard, Comparison Matrix, Category Analysis, Vendor Scorecard, Risk Analysis</li>
+    <li><strong>SVG charts</strong> — Tornado chart, stacked bars, donut/pie, radar — all inline SVG (no Chart.js dependency)</li>
+    <li><strong>Sort &amp; filter</strong> — Click column headers to sort the comparison table, filter by category or variance</li>
+    <li><strong>Dark / Light toggle</strong> — Switch between themes, persisted via localStorage</li>
+    <li><strong>Animated count-up</strong> — Hero stat numbers animate on page load</li>
+    <li><strong>Print-optimized</strong> — <code>@media print</code> rules hide navigation, show all sections linearly</li>
+    <li><strong>AEGIS branding</strong> — Gold (#D6A84A) and dark navy (#1B2838) palette throughout</li>
 </ul>
+<p>The HTML file is typically 150-400 KB depending on line item count — small enough to email as an attachment.</p>
 
 <div class="help-tip">
     <i data-lucide="lightbulb"></i>
-    <span>The exported workbook uses AEGIS dark-navy and gold branding. Colors and formatting are preserved when opening in Excel or Google Sheets.</span>
+    <span>Both exports include all comparison data. Use XLSX for stakeholders who prefer Excel; use HTML for browser-based presentations or email distribution.</span>
 </div>
 `
 };
@@ -7763,6 +7850,24 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.9.42 <span class="changelog-date">February 21, 2026</span></h3>
+        <p><strong>Proposal Compare v2.2 — Currency, Vendor Badges, HTML Export, Enhanced XLSX</strong></p>
+        <ul>
+            <li><strong>NEW: Interactive HTML export</strong> — Self-contained standalone HTML report with SVG charts, dark/light toggle, sort/filter, animated stats, and print optimization</li>
+            <li><strong>NEW: License category</strong> — Dedicated category for licenses, subscriptions, annual fees, and maintenance agreements (extracted automatically)</li>
+            <li><strong>NEW: Vendor color badges</strong> — 10-color deterministic palette distinguishes vendors throughout comparison views, charts, and exports</li>
+            <li><strong>NEW: PDF viewer zoom &amp; magnifier</strong> — Zoom controls (+/−/fit-width) and a 3× magnifier loupe for scanned/small-text PDFs. HiDPI-aware canvas rendering</li>
+            <li><strong>NEW: Quality indicator badges</strong> — Green/amber status badges in review phase show extraction completeness at a glance</li>
+            <li><strong>NEW: Comparison preview card</strong> — Before clicking Compare, see proposal count, line item total, and ready status</li>
+            <li><strong>NEW: Review-phase project selector</strong> — Change project association after uploading, directly from the review phase</li>
+            <li><strong>ENH: Enhanced XLSX export (8 sheets)</strong> — Added Heatmap, Rate Analysis, and Raw Line Items sheets. Letter-grade coloring, conditional fills, currency formatting throughout</li>
+            <li><strong>ENH: Currency formatting</strong> — All dollar amounts display as $X,XXX.XX with proper locale formatting. Auto-format on blur in review fields</li>
+            <li><strong>ENH: Dark mode charts</strong> — Chart.js text/grid colors read fresh from CSS variables on each render, adapting correctly to theme changes</li>
+            <li><strong>ENH: Category list expanded</strong> — 11 categories: Labor, Material, Software, License, Travel, Training, ODC, Subcontract, Overhead, Fee, Other</li>
+            <li><strong>ENH: Auto-format currency in review</strong> — Blur handlers on amount/unit price fields format values as $X,XXX.XX</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.9.41 <span class="changelog-date">February 20, 2026</span></h3>
         <p><strong>Proposal Compare v2.1 — Editable Review Phase, Document Viewer &amp; History</strong></p>
         <ul>

@@ -42,6 +42,9 @@ window.ProposalCompare = (function() {
         _charts: [],
         // Click-to-populate: last focused form field
         _lastFocusedField: null,
+        // Dashboard state
+        dashboardProject: null,
+        dashboardComparisons: [],
     };
 
     // CSRF token
@@ -97,9 +100,26 @@ window.ProposalCompare = (function() {
     // Format helpers
     // ──────────────────────────────────────────
 
+    // ── Vendor color palette (deterministic by index) ──
+    var VENDOR_COLORS = [
+        '#D6A84A', '#2196f3', '#219653', '#f44336', '#9b59b6',
+        '#e67e22', '#1abc9c', '#34495e', '#e74c3c', '#2ecc71',
+    ];
+
+    function vendorColor(idx) {
+        return VENDOR_COLORS[idx % VENDOR_COLORS.length];
+    }
+
+    function vendorBadge(propId, idx) {
+        var color = vendorColor(idx);
+        return '<span class="pc-vendor-badge" style="border-color:' + color + '">' +
+            '<span class="pc-vendor-dot" style="background:' + color + '"></span>' +
+            escHtml(propId) + '</span>';
+    }
+
     function formatMoney(amount) {
         if (amount == null) return '\u2014';
-        return '$' + amount.toLocaleString(undefined, {
+        return '$' + amount.toLocaleString('en-US', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         });
@@ -121,6 +141,24 @@ window.ProposalCompare = (function() {
     function formatPct(val) {
         if (val == null) return '\u2014';
         return val.toFixed(1) + '%';
+    }
+
+    // ── Chart dark mode helper ──
+    function _getChartTextColor() {
+        return getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#e6edf3';
+    }
+    function _getChartSecondaryColor() {
+        return getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#8b949e';
+    }
+    function _getChartGridColor() {
+        var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        return isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+    }
+    function _applyChartDefaults() {
+        if (window.Chart) {
+            Chart.defaults.color = _getChartTextColor();
+            Chart.defaults.borderColor = _getChartGridColor();
+        }
     }
 
     function fileIcon(ext) {
@@ -470,6 +508,9 @@ window.ProposalCompare = (function() {
             '<div class="pc-upload-area">' +
                 '<div class="pc-upload-header">' +
                     '<div id="pc-project-selector"></div>' +
+                    '<button class="pc-btn pc-btn-ghost pc-btn-sm" id="pc-btn-projects">' +
+                        '<i data-lucide="layout-dashboard"></i> Projects' +
+                    '</button>' +
                     '<button class="pc-btn pc-btn-ghost pc-btn-sm" id="pc-btn-history">' +
                         '<i data-lucide="history"></i> History' +
                     '</button>' +
@@ -523,6 +564,11 @@ window.ProposalCompare = (function() {
         });
 
         extractBtn.addEventListener('click', startExtraction);
+
+        var projectsBtn = document.getElementById('pc-btn-projects');
+        if (projectsBtn) {
+            projectsBtn.addEventListener('click', renderProjectDashboard);
+        }
 
         var historyBtn = document.getElementById('pc-btn-history');
         if (historyBtn) {
@@ -653,6 +699,8 @@ window.ProposalCompare = (function() {
                 var statusEl = document.getElementById('pc-extract-status-' + idx);
 
                 if (r.success && r.data) {
+                    // Track db_id for edit persistence (Part A)
+                    if (r.db_id) r.data._db_id = r.db_id;
                     State.proposals.push(r.data);
                     var items = r.data.line_items?.length || 0;
                     var tables = r.data.tables?.length || 0;
@@ -773,6 +821,23 @@ window.ProposalCompare = (function() {
             });
             p.line_items = items;
         }
+
+        // v5.9.42: Auto-persist edits to DB if proposal has _db_id
+        if (p._db_id) {
+            fetch('/api/proposal-compare/proposals/' + p._db_id, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': getCSRF(),
+                },
+                body: JSON.stringify(p),
+            }).then(function(r) {
+                if (!r.ok) console.warn('[PC] Edit persist failed for proposal', p._db_id);
+                else console.log('[PC] Edits persisted for proposal', p._db_id);
+            }).catch(function(e) {
+                console.warn('[PC] Edit persist error:', e);
+            });
+        }
     }
 
     function _renderDocViewer(idx) {
@@ -795,7 +860,7 @@ window.ProposalCompare = (function() {
             if (serverFile && window.TWR && window.TWR.PDFViewer) {
                 var fileUrl = '/api/proposal-compare/file/' + encodeURIComponent(serverFile);
                 console.log('[PC DocViewer] Rendering PDF from server: ' + fileUrl);
-                TWR.PDFViewer.render(container, fileUrl, { scale: 1.0 }).catch(function(err) {
+                TWR.PDFViewer.render(container, fileUrl, { scale: 2.0, showZoomBar: true, showMagnifier: true }).catch(function(err) {
                     console.warn('[PC DocViewer] PDF.js render failed:', err);
                     if (textContent) {
                         container.innerHTML = '<div class="pc-doc-notice"><i data-lucide="info"></i> ' +
@@ -859,7 +924,7 @@ window.ProposalCompare = (function() {
     function _renderLineItemEditor(idx) {
         var p = State.proposals[idx];
         var items = p.line_items || [];
-        var cats = ['Labor', 'Material', 'Software', 'Travel', 'ODC', 'Subcontract', 'Other'];
+        var cats = ['Labor', 'Material', 'Software', 'License', 'Travel', 'Training', 'ODC', 'Subcontract', 'Overhead', 'Fee', 'Other'];
 
         var html = '<div class="pc-li-editor" id="pc-li-editor">' +
             '<div class="pc-li-table-wrap"><table class="pc-li-table">' +
@@ -943,9 +1008,19 @@ window.ProposalCompare = (function() {
                             '<label>Total Amount</label>' +
                             '<input type="text" id="pc-edit-total" class="pc-edit-input" value="' + escHtml(totalDisplay) + '" placeholder="$0.00">' +
                         '</div>' +
-                        '<div class="pc-edit-stats">' +
-                            '<span class="pc-edit-stat"><strong>' + items + '</strong> Line Items</span>' +
-                            '<span class="pc-edit-stat"><strong>' + tables + '</strong> Tables</span>' +
+                        '<div class="pc-quality-badges">' +
+                            (p.company_name
+                                ? '<span class="pc-qb pc-qb-ok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Company detected</span>'
+                                : '<span class="pc-qb pc-qb-warn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> No company name</span>') +
+                            (items > 0
+                                ? '<span class="pc-qb pc-qb-ok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> ' + items + ' line items</span>'
+                                : '<span class="pc-qb pc-qb-warn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> No line items detected</span>') +
+                            (p.total_amount != null
+                                ? '<span class="pc-qb pc-qb-ok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Total: ' + formatMoney(p.total_amount) + '</span>'
+                                : '<span class="pc-qb pc-qb-warn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> No total found</span>') +
+                            (p.contract_term
+                                ? '<span class="pc-qb pc-qb-ok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> ' + escHtml(p.contract_term) + '</span>'
+                                : '<span class="pc-qb pc-qb-info"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> No term detected</span>') +
                         '</div>' +
                         '<button class="pc-btn pc-btn-sm pc-btn-ghost pc-li-toggle" id="pc-toggle-line-items">' +
                             '<i data-lucide="' + (editorOpen ? 'chevron-down' : 'chevron-right') + '"></i> ' +
@@ -973,7 +1048,7 @@ window.ProposalCompare = (function() {
             document.getElementById('pc-add-line-item')?.addEventListener('click', function() {
                 var tbody = document.getElementById('pc-line-item-tbody');
                 if (!tbody) return;
-                var cats = ['Labor', 'Material', 'Software', 'Travel', 'ODC', 'Subcontract', 'Other'];
+                var cats = ['Labor', 'Material', 'Software', 'License', 'Travel', 'Training', 'ODC', 'Subcontract', 'Overhead', 'Fee', 'Other'];
                 var newRow = _renderLineItemRow({ description: '', category: 'Other', amount: null, amount_raw: '', quantity: null, unit_price: null }, tbody.children.length, cats);
                 tbody.insertAdjacentHTML('beforeend', newRow);
             });
@@ -1106,6 +1181,54 @@ window.ProposalCompare = (function() {
         if (window.lucide) window.lucide.createIcons();
     }
 
+    function _buildComparePreview() {
+        var totalProps = State.proposals.length;
+        var companies = State.proposals.filter(function(p) { return p.company_name; });
+        var totalItems = State.proposals.reduce(function(sum, p) { return sum + (p.line_items?.length || 0); }, 0);
+        var emptyProps = State.proposals.filter(function(p) { return !p.line_items || p.line_items.length === 0; });
+        var allReady = companies.length === totalProps && emptyProps.length === 0 && totalItems > 0;
+
+        var html = '<div class="pc-compare-preview">';
+
+        // Proposals ready
+        html += '<span class="pc-cp-stat">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> ' +
+            '<strong>' + totalProps + '</strong> proposals' +
+        '</span>';
+        html += '<span class="pc-cp-divider"></span>';
+
+        // Companies detected
+        html += '<span class="pc-cp-stat">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg> ' +
+            '<strong>' + companies.length + '</strong> vendors identified' +
+        '</span>';
+        html += '<span class="pc-cp-divider"></span>';
+
+        // Total line items
+        html += '<span class="pc-cp-stat">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> ' +
+            '<strong>' + totalItems + '</strong> total line items' +
+        '</span>';
+
+        // Warning or ready indicator
+        if (emptyProps.length > 0) {
+            html += '<span class="pc-cp-divider"></span>';
+            html += '<span class="pc-cp-stat pc-cp-warn">' +
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ' +
+                emptyProps.length + ' proposal' + (emptyProps.length > 1 ? 's' : '') + ' with no line items' +
+            '</span>';
+        } else if (allReady) {
+            html += '<span class="pc-cp-divider"></span>';
+            html += '<span class="pc-cp-stat pc-cp-ready">' +
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ' +
+                'Ready to compare' +
+            '</span>';
+        }
+
+        html += '</div>';
+        return html;
+    }
+
     function renderReviewPhase() {
         State.phase = 'review';
         State._reviewIdx = State._reviewIdx || 0;
@@ -1122,8 +1245,25 @@ window.ProposalCompare = (function() {
         var total = State.proposals.length;
         var idx = State._reviewIdx;
 
+        // Build compact project selector for review phase
+        var projectBar = '';
+        if (State.projects && State.projects.length > 0) {
+            var projOpts = '<option value="">No project (ad-hoc)</option>';
+            for (var pi = 0; pi < State.projects.length; pi++) {
+                var proj = State.projects[pi];
+                var psel = State.selectedProjectId === proj.id ? ' selected' : '';
+                projOpts += '<option value="' + proj.id + '"' + psel + '>' + escHtml(proj.name) + '</option>';
+            }
+            projectBar = '<div class="pc-review-project-bar">' +
+                '<i data-lucide="folder-open" style="width:14px;height:14px;color:#D6A84A"></i> ' +
+                '<span style="font-size:12px;color:var(--text-secondary,#888)">Project:</span> ' +
+                '<select id="pc-review-project-select" class="pc-project-select-sm">' + projOpts + '</select>' +
+            '</div>';
+        }
+
         body.innerHTML =
             renderPhaseIndicator(3) +
+            projectBar +
             '<div class="pc-review-nav">' +
                 '<button class="pc-btn pc-btn-sm pc-btn-ghost" id="pc-review-prev"' +
                     (idx <= 0 ? ' disabled' : '') + '>' +
@@ -1136,6 +1276,7 @@ window.ProposalCompare = (function() {
                 '</button>' +
             '</div>' +
             '<div id="pc-review-content"></div>' +
+            _buildComparePreview() +
             '<div class="pc-upload-actions">' +
                 '<button class="pc-btn pc-btn-secondary" onclick="ProposalCompare._restart()">' +
                     '<i data-lucide="arrow-left"></i> Start Over' +
@@ -1164,6 +1305,28 @@ window.ProposalCompare = (function() {
             }
         });
         document.getElementById('pc-btn-compare')?.addEventListener('click', startComparison);
+
+        // Bind review-phase project selector
+        var reviewProjSelect = document.getElementById('pc-review-project-select');
+        if (reviewProjSelect) {
+            reviewProjSelect.addEventListener('change', function() {
+                var val = this.value;
+                State.selectedProjectId = val ? parseInt(val) : null;
+                if (State.selectedProjectId) {
+                    var proj = State.projects.find(function(p) { return p.id === State.selectedProjectId; });
+                    State.projectName = proj ? proj.name : '';
+                }
+                if (window.showToast) {
+                    window.showToast(
+                        State.selectedProjectId
+                            ? 'Proposals will be saved to project: ' + (State.projectName || 'Selected')
+                            : 'No project selected — ad-hoc comparison',
+                        'info'
+                    );
+                }
+            });
+        }
+
         if (window.lucide) window.lucide.createIcons();
     }
 
@@ -1290,6 +1453,9 @@ window.ProposalCompare = (function() {
                         '<button class="pc-btn pc-btn-primary" onclick="ProposalCompare._export()">' +
                             '<i data-lucide="download"></i> Export XLSX' +
                         '</button>' +
+                        '<button class="pc-btn pc-btn-gold" onclick="ProposalCompare._exportHTML()">' +
+                            '<i data-lucide="globe"></i> Export Interactive HTML' +
+                        '</button>' +
                     '</div>' +
                 '</div>' +
                 '<div class="pc-tabs" id="pc-tabs-bar">' + tabsHtml + '</div>' +
@@ -1358,9 +1524,10 @@ window.ProposalCompare = (function() {
             priceRanking.forEach(function(pr) {
                 var medalClass = pr.rank === 1 ? 'pc-rank-gold' : pr.rank === 2 ? 'pc-rank-silver' : 'pc-rank-bronze';
                 var deltaStr = pr.delta_pct > 0 ? '+' + pr.delta_pct.toFixed(1) + '%' : '\u2014';
+                var vidx = propIds.indexOf(pr.vendor);
                 html += '<div class="pc-rank-card ' + medalClass + '">' +
                     '<div class="pc-rank-num">#' + pr.rank + '</div>' +
-                    '<div class="pc-rank-vendor">' + escHtml(pr.vendor) + '</div>' +
+                    '<div class="pc-rank-vendor">' + vendorBadge(pr.vendor, vidx >= 0 ? vidx : pr.rank - 1) + '</div>' +
                     '<div class="pc-rank-total">' + (pr.total_formatted || formatMoney(pr.total)) + '</div>' +
                     '<div class="pc-rank-delta">' + deltaStr + '</div>' +
                 '</div>';
@@ -1376,9 +1543,10 @@ window.ProposalCompare = (function() {
             html += '<div class="pc-exec-ranking">';
             scoreRanking.forEach(function(sr) {
                 var gc = gradeColor(sr.grade);
+                var vidx = propIds.indexOf(sr.vendor);
                 html += '<div class="pc-rank-card">' +
                     '<div class="pc-rank-num" style="color:' + gc + '">#' + sr.rank + '</div>' +
-                    '<div class="pc-rank-vendor">' + escHtml(sr.vendor) + '</div>' +
+                    '<div class="pc-rank-vendor">' + vendorBadge(sr.vendor, vidx >= 0 ? vidx : sr.rank - 1) + '</div>' +
                     '<div class="pc-score-badge" style="background:' + gc + '">' + sr.grade + '</div>' +
                     '<div class="pc-rank-delta">' + sr.overall_score + '/100</div>' +
                 '</div>';
@@ -1644,8 +1812,9 @@ window.ProposalCompare = (function() {
         var barHeight = items.length > 8 ? 30 : 36;
         canvas.height = Math.max(200, items.length * barHeight + 80);
 
-        var textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#333';
-        var secondaryColor = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#666';
+        _applyChartDefaults();
+        var textColor = _getChartTextColor();
+        var secondaryColor = _getChartSecondaryColor();
 
         try {
             var chart = new Chart(canvas.getContext('2d'), {
@@ -1820,8 +1989,8 @@ window.ProposalCompare = (function() {
             '<thead><tr>' +
                 '<th class="pc-sortable" data-sort="description" style="min-width:200px">Line Item' + sortIcon('description') + '</th>' +
                 '<th class="pc-sortable" data-sort="category">Category' + sortIcon('category') + '</th>' +
-                propIds.map(function(id) {
-                    return '<th class="pc-sortable" data-sort="' + escHtml(id) + '" style="min-width:130px">' + escHtml(id) + sortIcon(id) + '</th>';
+                propIds.map(function(id, idx) {
+                    return '<th class="pc-sortable" data-sort="' + escHtml(id) + '" style="min-width:150px">' + vendorBadge(id, idx) + sortIcon(id) + '</th>';
                 }).join('') +
                 '<th class="pc-sortable" data-sort="variance">Variance' + sortIcon('variance') + '</th>' +
             '</tr></thead>' +
@@ -2003,8 +2172,9 @@ window.ProposalCompare = (function() {
             };
         });
 
-        var textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#333';
-        var secondaryColor = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#666';
+        _applyChartDefaults();
+        var textColor = _getChartTextColor();
+        var secondaryColor = _getChartSecondaryColor();
 
         try {
             var chart = new Chart(canvas.getContext('2d'), {
@@ -2396,6 +2566,11 @@ window.ProposalCompare = (function() {
             });
         }
 
+        _applyChartDefaults();
+        var radarTextColor = _getChartTextColor();
+        var radarSecondary = _getChartSecondaryColor();
+        var radarGrid = _getChartGridColor();
+
         try {
             var chart = new Chart(canvas.getContext('2d'), {
                 type: 'radar',
@@ -2410,7 +2585,7 @@ window.ProposalCompare = (function() {
                         legend: {
                             position: 'bottom',
                             labels: {
-                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#333',
+                                color: radarTextColor,
                                 usePointStyle: true,
                                 padding: 16,
                                 font: { size: 11 },
@@ -2419,7 +2594,7 @@ window.ProposalCompare = (function() {
                         title: {
                             display: true,
                             text: 'Vendor Comparison Radar',
-                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#333',
+                            color: radarTextColor,
                             font: { size: 14, weight: '600' },
                             padding: { bottom: 12 },
                         },
@@ -2431,16 +2606,16 @@ window.ProposalCompare = (function() {
                             ticks: {
                                 stepSize: 20,
                                 display: true,
-                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#666',
+                                color: radarSecondary,
                                 font: { size: 10 },
                                 backdropColor: 'transparent',
                             },
-                            grid: { color: 'rgba(128,128,128,0.15)' },
+                            grid: { color: radarGrid },
                             pointLabels: {
-                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#333',
+                                color: radarTextColor,
                                 font: { size: 12, weight: '600' },
                             },
-                            angleLines: { color: 'rgba(128,128,128,0.15)' },
+                            angleLines: { color: radarGrid },
                         },
                     },
                 },
@@ -2474,6 +2649,10 @@ window.ProposalCompare = (function() {
             };
         });
 
+        _applyChartDefaults();
+        var scTextColor = _getChartTextColor();
+        var scSecondary = _getChartSecondaryColor();
+
         try {
             var chart = new Chart(canvas.getContext('2d'), {
                 type: 'bar',
@@ -2488,7 +2667,7 @@ window.ProposalCompare = (function() {
                         legend: {
                             position: 'top',
                             labels: {
-                                color: 'var(--text-primary, #333)',
+                                color: scTextColor,
                                 usePointStyle: true,
                                 pointStyleWidth: 12,
                                 padding: 16,
@@ -2498,7 +2677,7 @@ window.ProposalCompare = (function() {
                         title: {
                             display: true,
                             text: 'Vendor Score Components',
-                            color: 'var(--text-primary, #333)',
+                            color: scTextColor,
                             font: { size: 14, weight: '600' },
                             padding: { bottom: 16 },
                         },
@@ -2508,14 +2687,14 @@ window.ProposalCompare = (function() {
                             beginAtZero: true,
                             max: 100,
                             ticks: {
-                                color: 'var(--text-secondary, #666)',
+                                color: scSecondary,
                                 font: { size: 11 },
                             },
-                            grid: { color: 'rgba(128,128,128,0.1)' },
+                            grid: { color: _getChartGridColor() },
                         },
                         x: {
                             ticks: {
-                                color: 'var(--text-secondary, #666)',
+                                color: scSecondary,
                                 font: { size: 11 },
                             },
                             grid: { display: false },
@@ -2897,6 +3076,564 @@ window.ProposalCompare = (function() {
         }
     }
 
+    async function exportHTML() {
+        if (!State.comparison) return;
+
+        try {
+            if (window.showToast) {
+                window.showToast('Generating interactive HTML report...', 'info');
+            }
+
+            var exportData = Object.assign({}, State.comparison, {
+                metadata: Object.assign({}, State.comparison.metadata || {}, {
+                    project_name: State.projectId ? (State.projectName || 'Comparison') : 'Comparison',
+                    compared_at: new Date().toISOString(),
+                }),
+            });
+
+            var resp = await fetch('/api/proposal-compare/export-html', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': getCSRF(),
+                },
+                body: JSON.stringify(exportData),
+            });
+
+            if (!resp.ok) {
+                var err = {};
+                try { err = await resp.json(); } catch(e) {}
+                throw new Error(err.error?.message || 'HTML export failed (' + resp.status + ')');
+            }
+
+            var blob = await resp.blob();
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            var cd = resp.headers.get('content-disposition') || '';
+            var fname = 'AEGIS_Proposal_Comparison.html';
+            var match = cd.match(/filename="?([^"]+)"?/);
+            if (match) fname = match[1];
+            a.download = fname;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function() {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
+
+            if (window.showToast) {
+                window.showToast('Interactive HTML report exported!', 'success');
+            }
+
+        } catch (err) {
+            console.error('[AEGIS ProposalCompare] HTML export error:', err);
+            if (window.showToast) {
+                window.showToast('HTML export failed: ' + err.message, 'error');
+            }
+        }
+    }
+
+    // ──────────────────────────────────────────
+    // Project Dashboard
+    // ──────────────────────────────────────────
+
+    async function renderProjectDashboard() {
+        var body = document.getElementById('pc-body');
+        if (!body) return;
+
+        body.innerHTML =
+            '<div class="pc-dashboard">' +
+                '<div class="pc-dashboard-header">' +
+                    '<h3><i data-lucide="layout-dashboard" style="width:20px;height:20px;vertical-align:-3px;margin-right:6px"></i>Project Dashboard</h3>' +
+                    '<div class="pc-dashboard-actions">' +
+                        '<button class="pc-btn pc-btn-ghost pc-btn-sm" onclick="ProposalCompare._restart()">' +
+                            '<i data-lucide="arrow-left"></i> Back' +
+                        '</button>' +
+                        '<button class="pc-btn pc-btn-primary pc-btn-sm" id="pc-dash-new-project">' +
+                            '<i data-lucide="plus"></i> New Project' +
+                        '</button>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="pc-project-grid" id="pc-project-grid">' +
+                    '<div class="pc-loading"><div class="pc-spinner"></div> Loading projects...</div>' +
+                '</div>' +
+            '</div>';
+        if (window.lucide) window.lucide.createIcons();
+
+        // Wire new project button
+        var newBtn = document.getElementById('pc-dash-new-project');
+        if (newBtn) {
+            newBtn.addEventListener('click', async function() {
+                var name = prompt('Enter project name:');
+                if (!name || !name.trim()) return;
+                try {
+                    var resp = await fetch('/api/proposal-compare/projects', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCSRF() },
+                        body: JSON.stringify({ name: name.trim() }),
+                    });
+                    var json = await resp.json();
+                    if (json.success) {
+                        if (window.showToast) window.showToast('Project created', 'success');
+                        renderProjectDashboard(); // refresh
+                    }
+                } catch(e) {
+                    console.error('[PC Dashboard] Create project error:', e);
+                }
+            });
+        }
+
+        // Fetch projects
+        try {
+            var resp = await fetch('/api/proposal-compare/projects?status=all', {
+                headers: { 'X-CSRF-Token': getCSRF() },
+            });
+            var json = await resp.json();
+            var grid = document.getElementById('pc-project-grid');
+            if (!grid) return;
+
+            if (!json.success || !json.data || json.data.length === 0) {
+                grid.innerHTML =
+                    '<div class="pc-empty" style="grid-column:1/-1">' +
+                        '<i data-lucide="folder-plus" style="width:48px;height:48px;opacity:0.3"></i>' +
+                        '<h4>No projects yet</h4>' +
+                        '<p>Create a project to organize and track your proposal comparisons.</p>' +
+                    '</div>';
+                if (window.lucide) window.lucide.createIcons();
+                return;
+            }
+
+            var projects = json.data;
+            grid.innerHTML = projects.map(function(proj) {
+                var dateStr = '';
+                try {
+                    var d = new Date(proj.updated_at);
+                    dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                } catch(e) { dateStr = proj.updated_at || ''; }
+
+                return '<div class="pc-project-card" data-project-id="' + proj.id + '">' +
+                    '<div class="pc-project-card-header">' +
+                        '<div class="pc-project-card-icon"><i data-lucide="folder-open"></i></div>' +
+                        '<div class="pc-project-card-title">' + escHtml(proj.name) + '</div>' +
+                        '<div class="pc-project-card-status ' + (proj.status === 'active' ? 'active' : 'archived') + '">' +
+                            proj.status +
+                        '</div>' +
+                    '</div>' +
+                    (proj.description ? '<div class="pc-project-card-desc">' + escHtml(proj.description) + '</div>' : '') +
+                    '<div class="pc-project-card-stats">' +
+                        '<div class="pc-project-stat">' +
+                            '<span class="pc-project-stat-value">' + (proj.proposal_count || 0) + '</span>' +
+                            '<span class="pc-project-stat-label">Proposals</span>' +
+                        '</div>' +
+                        '<div class="pc-project-stat">' +
+                            '<span class="pc-project-stat-value">' + (proj.total_line_items || 0) + '</span>' +
+                            '<span class="pc-project-stat-label">Line Items</span>' +
+                        '</div>' +
+                        '<div class="pc-project-stat">' +
+                            '<span class="pc-project-stat-value">' + dateStr + '</span>' +
+                            '<span class="pc-project-stat-label">Last Updated</span>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="pc-project-card-actions">' +
+                        '<button class="pc-btn pc-btn-primary pc-btn-sm pc-proj-open">' +
+                            '<i data-lucide="external-link"></i> Open' +
+                        '</button>' +
+                        '<button class="pc-btn pc-btn-ghost pc-btn-sm pc-proj-delete" title="Delete project">' +
+                            '<i data-lucide="trash-2"></i>' +
+                        '</button>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+            if (window.lucide) window.lucide.createIcons();
+
+            // Event delegation
+            grid.addEventListener('click', function(e) {
+                var card = e.target.closest('.pc-project-card');
+                if (!card) return;
+                var projId = parseInt(card.dataset.projectId, 10);
+
+                if (e.target.closest('.pc-proj-delete')) {
+                    e.stopPropagation();
+                    if (confirm('Delete this project and all its proposals?')) {
+                        fetch('/api/proposal-compare/projects/' + projId, {
+                            method: 'DELETE',
+                            headers: { 'X-CSRF-Token': getCSRF() },
+                        }).then(function() {
+                            card.style.transition = 'opacity 0.3s, transform 0.3s';
+                            card.style.opacity = '0';
+                            card.style.transform = 'scale(0.95)';
+                            setTimeout(function() { card.remove(); }, 300);
+                            if (window.showToast) window.showToast('Project deleted', 'success');
+                        });
+                    }
+                    return;
+                }
+
+                if (e.target.closest('.pc-proj-open') || e.target.closest('.pc-project-card-header')) {
+                    renderProjectDetail(projId);
+                }
+            });
+
+        } catch (err) {
+            console.error('[PC Dashboard] Fetch projects error:', err);
+            var grid = document.getElementById('pc-project-grid');
+            if (grid) grid.innerHTML = '<div class="pc-empty"><h4>Failed to load projects</h4><p>' + escHtml(err.message) + '</p></div>';
+        }
+    }
+
+    async function renderProjectDetail(projectId) {
+        var body = document.getElementById('pc-body');
+        if (!body) return;
+
+        State.dashboardProject = projectId;
+
+        body.innerHTML =
+            '<div class="pc-dashboard">' +
+                '<div class="pc-dashboard-header">' +
+                    '<h3 id="pc-detail-title"><i data-lucide="folder-open" style="width:20px;height:20px;vertical-align:-3px;margin-right:6px"></i>Loading...</h3>' +
+                    '<div class="pc-dashboard-actions">' +
+                        '<button class="pc-btn pc-btn-ghost pc-btn-sm" onclick="ProposalCompare._openDashboard()">' +
+                            '<i data-lucide="arrow-left"></i> Dashboard' +
+                        '</button>' +
+                        '<button class="pc-btn pc-btn-secondary pc-btn-sm" id="pc-detail-add">' +
+                            '<i data-lucide="upload"></i> Add Proposals' +
+                        '</button>' +
+                        '<button class="pc-btn pc-btn-primary pc-btn-sm" id="pc-detail-compare">' +
+                            '<i data-lucide="git-compare-arrows"></i> Compare All' +
+                        '</button>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="pc-detail-section" id="pc-detail-proposals">' +
+                    '<h4><i data-lucide="file-text" style="width:16px;height:16px;vertical-align:-2px;margin-right:4px"></i>Proposals</h4>' +
+                    '<div class="pc-detail-list" id="pc-prop-list"><div class="pc-loading"><div class="pc-spinner"></div> Loading...</div></div>' +
+                '</div>' +
+                '<div class="pc-detail-section" id="pc-detail-comparisons">' +
+                    '<h4><i data-lucide="history" style="width:16px;height:16px;vertical-align:-2px;margin-right:4px"></i>Comparison History</h4>' +
+                    '<div class="pc-detail-list" id="pc-comp-list"><div class="pc-loading"><div class="pc-spinner"></div> Loading...</div></div>' +
+                '</div>' +
+            '</div>';
+        if (window.lucide) window.lucide.createIcons();
+
+        // Wire Add Proposals button — switch to upload phase with project pre-selected
+        var addBtn = document.getElementById('pc-detail-add');
+        if (addBtn) {
+            addBtn.addEventListener('click', function() {
+                State.selectedProjectId = projectId;
+                renderUploadPhase();
+            });
+        }
+
+        // Wire Compare All button
+        var compareBtn = document.getElementById('pc-detail-compare');
+        if (compareBtn) {
+            compareBtn.addEventListener('click', async function() {
+                compareBtn.disabled = true;
+                compareBtn.innerHTML = '<div class="pc-spinner" style="width:14px;height:14px"></div> Comparing...';
+                try {
+                    var resp = await fetch('/api/proposal-compare/projects/' + projectId + '/compare', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCSRF() },
+                        body: JSON.stringify({}),
+                    });
+                    var json = await resp.json();
+                    if (!json.success) throw new Error(json.error?.message || 'Compare failed');
+                    State.comparison = json.data;
+                    State.activeTab = 'executive';
+                    renderResults();
+                } catch(e) {
+                    if (window.showToast) window.showToast('Compare failed: ' + e.message, 'error');
+                    compareBtn.disabled = false;
+                    compareBtn.innerHTML = '<i data-lucide="git-compare-arrows"></i> Compare All';
+                    if (window.lucide) window.lucide.createIcons();
+                }
+            });
+        }
+
+        // Fetch project info + proposals + comparisons in parallel
+        try {
+            var [projResp, propsResp, compsResp] = await Promise.all([
+                fetch('/api/proposal-compare/projects/' + projectId, { headers: { 'X-CSRF-Token': getCSRF() } }),
+                fetch('/api/proposal-compare/projects/' + projectId + '/proposals', { headers: { 'X-CSRF-Token': getCSRF() } }),
+                fetch('/api/proposal-compare/projects/' + projectId + '/comparisons', { headers: { 'X-CSRF-Token': getCSRF() } }),
+            ]);
+
+            var projData = await projResp.json();
+            var propsData = await propsResp.json();
+            var compsData = await compsResp.json();
+
+            // Update title
+            var titleEl = document.getElementById('pc-detail-title');
+            if (titleEl && projData.success && projData.data) {
+                titleEl.innerHTML = '<i data-lucide="folder-open" style="width:20px;height:20px;vertical-align:-3px;margin-right:6px"></i>' +
+                    escHtml(projData.data.name);
+                if (window.lucide) window.lucide.createIcons();
+            }
+
+            // Render proposals
+            var propList = document.getElementById('pc-prop-list');
+            if (propList) {
+                var props = (propsData.success && propsData.data) ? propsData.data : [];
+                if (props.length === 0) {
+                    propList.innerHTML = '<div class="pc-empty-sm">No proposals yet. Click "Add Proposals" to get started.</div>';
+                } else {
+                    propList.innerHTML = props.map(function(prop) {
+                        return '<div class="pc-prop-card" data-prop-id="' + prop.id + '">' +
+                            '<div class="pc-prop-card-main">' +
+                                '<div class="pc-prop-card-icon"><i data-lucide="building-2"></i></div>' +
+                                '<div class="pc-prop-card-info">' +
+                                    '<div class="pc-prop-card-name">' + escHtml(prop.company_name || prop.filename) + '</div>' +
+                                    '<div class="pc-prop-card-meta">' +
+                                        escHtml(prop.filename) + ' \u2022 ' +
+                                        (prop.line_item_count || 0) + ' items' +
+                                        (prop.total_amount ? ' \u2022 ' + formatMoney(prop.total_amount) : '') +
+                                    '</div>' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="pc-prop-card-actions">' +
+                                '<button class="pc-btn pc-btn-ghost pc-btn-sm pc-prop-edit" title="Edit">' +
+                                    '<i data-lucide="pencil"></i>' +
+                                '</button>' +
+                                '<button class="pc-btn pc-btn-ghost pc-btn-sm pc-prop-move" title="Move to another project">' +
+                                    '<i data-lucide="move"></i>' +
+                                '</button>' +
+                                '<button class="pc-btn pc-btn-ghost pc-btn-sm pc-prop-remove" title="Remove">' +
+                                    '<i data-lucide="x"></i>' +
+                                '</button>' +
+                            '</div>' +
+                        '</div>';
+                    }).join('');
+                    if (window.lucide) window.lucide.createIcons();
+
+                    // Event delegation for proposal actions
+                    propList.addEventListener('click', function(e) {
+                        var card = e.target.closest('.pc-prop-card');
+                        if (!card) return;
+                        var propId = parseInt(card.dataset.propId, 10);
+
+                        if (e.target.closest('.pc-prop-edit')) {
+                            e.stopPropagation();
+                            _editProposalFromDashboard(propId, projectId);
+                        } else if (e.target.closest('.pc-prop-move')) {
+                            e.stopPropagation();
+                            _showTagToProjectMenu(e.target.closest('.pc-prop-move'), null, propId);
+                        } else if (e.target.closest('.pc-prop-remove')) {
+                            e.stopPropagation();
+                            if (confirm('Remove this proposal from the project?')) {
+                                fetch('/api/proposal-compare/proposals/' + propId, {
+                                    method: 'DELETE',
+                                    headers: { 'X-CSRF-Token': getCSRF() },
+                                }).then(function() {
+                                    card.style.transition = 'opacity 0.3s';
+                                    card.style.opacity = '0';
+                                    setTimeout(function() { card.remove(); }, 300);
+                                    if (window.showToast) window.showToast('Proposal removed', 'success');
+                                });
+                            }
+                        }
+                    });
+                }
+            }
+
+            // Render comparisons
+            var compList = document.getElementById('pc-comp-list');
+            if (compList) {
+                var comps = (compsData.success && compsData.data) ? compsData.data : [];
+                if (comps.length === 0) {
+                    compList.innerHTML = '<div class="pc-empty-sm">No comparisons yet. Add 2+ proposals and click "Compare All".</div>';
+                } else {
+                    compList.innerHTML = comps.map(function(comp) {
+                        var vendors = (comp.vendor_names || []).map(function(v) {
+                            return '<span class="pc-history-vendor">' + escHtml(v) + '</span>';
+                        }).join('');
+                        var dateStr = '';
+                        try {
+                            var d = new Date(comp.created_at);
+                            dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+                                ' at ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                        } catch(e) { dateStr = comp.created_at; }
+
+                        return '<div class="pc-comp-card" data-comp-id="' + comp.id + '">' +
+                            '<div class="pc-comp-card-main">' +
+                                '<div class="pc-comp-card-info">' +
+                                    '<div class="pc-comp-card-vendors">' + vendors + '</div>' +
+                                    '<div class="pc-comp-card-meta">' +
+                                        (comp.vendor_count || 0) + ' proposals' +
+                                        (comp.total_spread !== 'N/A' ? ' \u2022 ' + comp.total_spread : '') +
+                                        ' \u2022 ' + dateStr +
+                                    '</div>' +
+                                '</div>' +
+                                '<div class="pc-comp-card-actions">' +
+                                    '<button class="pc-btn pc-btn-primary pc-btn-sm pc-comp-view">' +
+                                        '<i data-lucide="eye"></i> View' +
+                                    '</button>' +
+                                    '<button class="pc-btn pc-btn-ghost pc-btn-sm pc-comp-delete">' +
+                                        '<i data-lucide="trash-2"></i>' +
+                                    '</button>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>';
+                    }).join('');
+                    if (window.lucide) window.lucide.createIcons();
+
+                    compList.addEventListener('click', function(e) {
+                        var card = e.target.closest('.pc-comp-card');
+                        if (!card) return;
+                        var compId = card.dataset.compId;
+
+                        if (e.target.closest('.pc-comp-delete')) {
+                            e.stopPropagation();
+                            _deleteHistoryItem(compId, card);
+                        } else if (e.target.closest('.pc-comp-view')) {
+                            _loadHistoryItem(compId);
+                        }
+                    });
+                }
+            }
+
+        } catch(err) {
+            console.error('[PC Dashboard] Detail fetch error:', err);
+            if (window.showToast) window.showToast('Failed to load project: ' + err.message, 'error');
+        }
+    }
+
+    async function _editProposalFromDashboard(proposalId, projectId) {
+        try {
+            var resp = await fetch('/api/proposal-compare/proposals/' + proposalId, {
+                headers: { 'X-CSRF-Token': getCSRF() },
+            });
+            var json = await resp.json();
+            if (!json.success || !json.data) throw new Error(json.error?.message || 'Not found');
+
+            var fullData = json.data;
+            fullData._db_id = proposalId;
+            fullData._dashboardProjectId = projectId;
+            State.proposals = [fullData];
+            State.files = []; // no files for dashboard edit
+            State._reviewIdx = 0;
+            State._lineItemEditorOpen = [];
+            State.selectedProjectId = projectId;
+            renderReviewPhase();
+        } catch(e) {
+            console.error('[PC Dashboard] Edit proposal error:', e);
+            if (window.showToast) window.showToast('Failed to load proposal: ' + e.message, 'error');
+        }
+    }
+
+    function _showTagToProjectMenu(anchorEl, proposalIdx, dbId) {
+        // Remove any existing dropdown
+        var existing = document.querySelector('.pc-tag-dropdown');
+        if (existing) existing.remove();
+
+        var dropdown = document.createElement('div');
+        dropdown.className = 'pc-tag-dropdown';
+        dropdown.innerHTML = '<div class="pc-tag-dropdown-loading"><div class="pc-spinner" style="width:16px;height:16px"></div> Loading projects...</div>';
+
+        // Position near anchor
+        var rect = anchorEl.getBoundingClientRect();
+        dropdown.style.position = 'fixed';
+        dropdown.style.top = (rect.bottom + 4) + 'px';
+        dropdown.style.left = rect.left + 'px';
+        dropdown.style.zIndex = '16000';
+        document.body.appendChild(dropdown);
+
+        // Close on outside click
+        function closeDropdown(e) {
+            if (!dropdown.contains(e.target) && e.target !== anchorEl) {
+                dropdown.remove();
+                document.removeEventListener('click', closeDropdown);
+            }
+        }
+        setTimeout(function() { document.addEventListener('click', closeDropdown); }, 50);
+
+        // Fetch projects
+        fetch('/api/proposal-compare/projects?status=active', {
+            headers: { 'X-CSRF-Token': getCSRF() },
+        }).then(function(r) { return r.json(); }).then(function(json) {
+            var projects = (json.success && json.data) ? json.data : [];
+
+            var html = '<div class="pc-tag-dropdown-header">Move to Project</div>';
+            html += '<div class="pc-tag-dropdown-list">';
+
+            projects.forEach(function(proj) {
+                html += '<div class="pc-tag-dropdown-item" data-project-id="' + proj.id + '">' +
+                    '<i data-lucide="folder" style="width:14px;height:14px;margin-right:8px;opacity:0.5"></i>' +
+                    escHtml(proj.name) +
+                    '<span class="pc-tag-dropdown-count">' + (proj.proposal_count || 0) + '</span>' +
+                '</div>';
+            });
+
+            html += '<div class="pc-tag-dropdown-item pc-tag-new-project">' +
+                '<i data-lucide="plus" style="width:14px;height:14px;margin-right:8px;opacity:0.5"></i>' +
+                '+ New Project' +
+            '</div>';
+            html += '</div>';
+            dropdown.innerHTML = html;
+            if (window.lucide) window.lucide.createIcons();
+
+            // Handle clicks
+            dropdown.addEventListener('click', function(e) {
+                var item = e.target.closest('.pc-tag-dropdown-item');
+                if (!item) return;
+
+                if (item.classList.contains('pc-tag-new-project')) {
+                    var name = prompt('Enter new project name:');
+                    if (!name || !name.trim()) return;
+                    fetch('/api/proposal-compare/projects', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCSRF() },
+                        body: JSON.stringify({ name: name.trim() }),
+                    }).then(function(r) { return r.json(); }).then(function(result) {
+                        if (result.success && result.data) {
+                            _doMoveOrTag(proposalIdx, dbId, result.data.id);
+                        }
+                    });
+                } else {
+                    var targetId = parseInt(item.dataset.projectId, 10);
+                    _doMoveOrTag(proposalIdx, dbId, targetId);
+                }
+
+                dropdown.remove();
+                document.removeEventListener('click', closeDropdown);
+            });
+        });
+    }
+
+    function _doMoveOrTag(proposalIdx, dbId, targetProjectId) {
+        if (dbId) {
+            // Proposal already in DB — use move endpoint
+            fetch('/api/proposal-compare/proposals/' + dbId + '/move', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCSRF() },
+                body: JSON.stringify({ project_id: targetProjectId }),
+            }).then(function(r) { return r.json(); }).then(function(json) {
+                if (json.success) {
+                    if (window.showToast) window.showToast('Proposal moved', 'success');
+                    // Refresh dashboard if we're on it
+                    if (State.dashboardProject) renderProjectDetail(State.dashboardProject);
+                } else {
+                    if (window.showToast) window.showToast('Move failed: ' + (json.error?.message || 'Unknown'), 'error');
+                }
+            });
+        } else if (proposalIdx !== null && State.proposals[proposalIdx]) {
+            // In-memory proposal — add to project
+            var p = State.proposals[proposalIdx];
+            fetch('/api/proposal-compare/projects/' + targetProjectId + '/proposals', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCSRF() },
+                body: JSON.stringify(p),
+            }).then(function(r) { return r.json(); }).then(function(json) {
+                if (json.success) {
+                    // Track the db_id for future edits
+                    if (json.data && json.data.id) p._db_id = json.data.id;
+                    if (window.showToast) window.showToast('Proposal tagged to project', 'success');
+                } else {
+                    if (window.showToast) window.showToast('Tag failed: ' + (json.error?.message || 'Unknown'), 'error');
+                }
+            });
+        }
+    }
+
     // ──────────────────────────────────────────
     // Public API
     // ──────────────────────────────────────────
@@ -2909,6 +3646,11 @@ window.ProposalCompare = (function() {
         _restart: function() { _cleanupBlobUrls(); State._reviewIdx = 0; State._lineItemEditorOpen = []; renderUploadPhase(); },
         _backToReview: function() { renderReviewPhase(); },
         _export: exportXLSX,
+        _exportHTML: exportHTML,
         _loadHistory: renderHistoryView,
+        // Project dashboard (Part B)
+        _openDashboard: renderProjectDashboard,
+        _openProjectDetail: renderProjectDetail,
+        _tagToProject: _showTagToProjectMenu,
     };
 })();

@@ -28,7 +28,7 @@ from typing import Optional
 try:
     from config_logging import get_logger, ValidationError, ProcessingError
     logger = get_logger('hyperlink_validator')
-except ImportError:
+except Exception:
     import logging
     logger = logging.getLogger('hyperlink_validator')
 

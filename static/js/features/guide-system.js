@@ -1929,14 +1929,16 @@ const AEGISGuide = {
                     preAction: async () => {
                         try {
                             if (window.ProposalCompare) ProposalCompare.open();
-                            await AEGISGuide._wait(600);
-                        } catch(e) { console.warn('[AEGIS Guide] preAction error:', e); }
+                            await AEGISGuide._wait(300);
+                            AEGISGuide._injectPCDemo('upload');
+                            await AEGISGuide._wait(200);
+                        } catch(e) { console.warn('[AEGIS Guide] PC demo preAction error:', e); }
                     },
                     scenes: [
-                        { target: '#pc-modal', narration: 'The upload screen has a project selector at the top left and a History button at the top right. Select an existing project to add proposals to it, or create a new one. Click History to browse past comparisons.', duration: 8500, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Drop files onto the upload dropzone or click to browse. AEGIS accepts DOCX, PDF, and Excel formats. You need at least two files to run a comparison, and you can upload up to ten proposals at once.', duration: 8000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Excel files have the richest extraction since data is already structured. PDF extraction uses a multi-strategy pipeline with automatic data-pattern column inference for tables without proper headers. DOCX files use mammoth for table parsing.', duration: 9000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'After extraction, AEGIS enters the Review phase where you verify and edit all metadata before comparison. The four-step progress indicator shows Upload, Extract, Review, and Compare phases.', duration: 8500, navigate: 'proposal-compare' }
+                        { target: '.pc-upload-container', narration: 'The upload screen has a project selector at the top left and a History button at the top right. Select an existing project to add proposals to it, or create a new one. Click History to browse past comparisons.', duration: 8500, navigate: 'proposal-compare' },
+                        { target: '.pc-upload-container', narration: 'Drop files onto the upload dropzone or click to browse. AEGIS accepts DOCX, PDF, and Excel formats. You need at least two files to run a comparison, and you can upload up to ten proposals at once.', duration: 8000, navigate: 'proposal-compare' },
+                        { target: '.pc-upload-container', narration: 'Excel files have the richest extraction since data is already structured. PDF extraction uses a multi-strategy pipeline with automatic data-pattern column inference for tables without proper headers. DOCX files use mammoth for table parsing.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '.pc-upload-container', narration: 'After extraction, AEGIS enters the Review phase where you verify and edit all metadata before comparison. The four-step progress indicator shows Upload, Extract, Review, and Compare phases.', duration: 8500, navigate: 'proposal-compare' }
                     ]
                 },
                 review_edit: {
@@ -1947,14 +1949,16 @@ const AEGISGuide = {
                     preAction: async () => {
                         try {
                             if (window.ProposalCompare) ProposalCompare.open();
-                            await AEGISGuide._wait(600);
-                        } catch(e) { console.warn('[AEGIS Guide] preAction error:', e); }
+                            await AEGISGuide._wait(300);
+                            AEGISGuide._injectPCDemo('review');
+                            await AEGISGuide._wait(200);
+                        } catch(e) { console.warn('[AEGIS Guide] PC demo preAction error:', e); }
                     },
                     scenes: [
-                        { target: '#pc-modal', narration: 'The Review phase shows one proposal at a time with a split-pane layout. On the left, a document viewer renders the source file — PDFs display inline via PDF.js, DOCX files show extracted text, and Excel files show parsed tables.', duration: 9000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'On the right, editable fields let you correct the company name, date, and total amount. These values are pre-filled from extraction but you can change them to match the actual document content.', duration: 8500, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Click Edit Line Items to expand the line item editor. Each row shows description, category dropdown, amount, quantity, and unit price. Delete rows with the X button or add new rows with the plus button at the bottom.', duration: 9000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Navigate between proposals using the previous and next buttons. Your edits are saved automatically as you navigate. When all proposals look correct, click Compare Proposals to run the analysis.', duration: 8500, navigate: 'proposal-compare' }
+                        { target: '.pc-doc-viewer-pane', narration: 'The Review phase shows one proposal at a time with a split-pane layout. On the left, a document viewer renders the source file — PDFs display inline via PDF.js, DOCX files show extracted text, and Excel files show parsed tables.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '.pc-edit-pane', narration: 'On the right, editable fields let you correct the company name, date, and total amount. These values are pre-filled from extraction but you can change them to match the actual document content.', duration: 8500, navigate: 'proposal-compare' },
+                        { target: '.pc-edit-pane', narration: 'Click Edit Line Items to expand the line item editor. Each row shows description, category dropdown, amount, quantity, and unit price. Delete rows with the X button or add new rows with the plus button at the bottom.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '.pc-review-container', narration: 'Navigate between proposals using the previous and next buttons. Your edits are saved automatically as you navigate. When all proposals look correct, click Compare Proposals to run the analysis.', duration: 8500, navigate: 'proposal-compare' }
                     ]
                 },
                 comparison_history: {
@@ -1965,13 +1969,15 @@ const AEGISGuide = {
                     preAction: async () => {
                         try {
                             if (window.ProposalCompare) ProposalCompare.open();
-                            await AEGISGuide._wait(600);
-                        } catch(e) { console.warn('[AEGIS Guide] preAction error:', e); }
+                            await AEGISGuide._wait(300);
+                            AEGISGuide._injectPCDemo('upload');
+                            await AEGISGuide._wait(200);
+                        } catch(e) { console.warn('[AEGIS Guide] PC demo preAction error:', e); }
                     },
                     scenes: [
-                        { target: '#pc-modal', narration: 'Every comparison you run is automatically saved to history. Click the History button on the upload screen to browse all past analyses with vendor names, proposal counts, cost spreads, and timestamps.', duration: 8500, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Click the View button on any history card to reload the full comparison results — all eight analysis tabs are restored exactly as they were. Click the trash icon to delete a comparison you no longer need.', duration: 8500, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'From the results view, click Back to Review to return to the split-pane editor with your original proposals preserved. Adjust metadata or line items, then re-run the comparison. Back to Upload starts fresh with new files.', duration: 9000, navigate: 'proposal-compare' }
+                        { target: '.pc-upload-container', narration: 'Every comparison you run is automatically saved to history. Click the History button on the upload screen to browse all past analyses with vendor names, proposal counts, cost spreads, and timestamps.', duration: 8500, navigate: 'proposal-compare' },
+                        { target: '.pc-upload-container', narration: 'Click the View button on any history card to reload the full comparison results — all eight analysis tabs are restored exactly as they were. Click the trash icon to delete a comparison you no longer need.', duration: 8500, navigate: 'proposal-compare' },
+                        { target: '.pc-upload-container', narration: 'From the results view, click Back to Review to return to the split-pane editor with your original proposals preserved. Adjust metadata or line items, then re-run the comparison. Back to Upload starts fresh with new files.', duration: 9000, navigate: 'proposal-compare' }
                     ]
                 },
                 exec_summary: {
@@ -1982,14 +1988,16 @@ const AEGISGuide = {
                     preAction: async () => {
                         try {
                             if (window.ProposalCompare) ProposalCompare.open();
-                            await AEGISGuide._wait(600);
-                        } catch(e) { console.warn('[AEGIS Guide] preAction error:', e); }
+                            await AEGISGuide._wait(300);
+                            AEGISGuide._injectPCDemo('results', 'executive');
+                            await AEGISGuide._wait(200);
+                        } catch(e) { console.warn('[AEGIS Guide] PC demo preAction error:', e); }
                     },
                     scenes: [
-                        { target: '#pc-modal', narration: 'The Executive Summary is the first tab shown after comparison. Hero stats at the top show total line items compared, vendor count, red flag count, and potential savings amount — all calculated automatically from the extracted data.', duration: 8500, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Price rankings show vendors ordered by total cost with gold, silver, and bronze medal icons. The overall score ranking shows vendors by their composite score, which factors in price competitiveness, completeness, risk profile, and data quality.', duration: 9000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Key findings are auto-generated observations with severity badges. These highlight the lowest bidder, largest cost gaps, vendors with missing line items, and any pricing anomalies detected during analysis.', duration: 8500, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'A tornado chart visualizes the biggest price spreads as horizontal bars sorted by magnitude. Bars are colored by variance intensity — red for over fifty percent spread, orange for over twenty-five percent. This instantly shows where negotiation effort will have the greatest financial impact.', duration: 9000, navigate: 'proposal-compare' }
+                        { target: '.pc-hero-stat', narration: 'The Executive Summary is the first tab shown after comparison. Hero stats at the top show total line items compared, vendor count, red flag count, and potential savings amount — all calculated automatically from the extracted data.', duration: 8500, navigate: 'proposal-compare' },
+                        { target: '.pc-results-container', narration: 'Price rankings show vendors ordered by total cost with gold, silver, and bronze medal icons. The overall score ranking shows vendors by their composite score, which factors in price competitiveness, completeness, risk profile, and data quality.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '.pc-results-container', narration: 'Key findings are auto-generated observations with severity badges. These highlight the lowest bidder, largest cost gaps, vendors with missing line items, and any pricing anomalies detected during analysis.', duration: 8500, navigate: 'proposal-compare' },
+                        { target: '.pc-results-container', narration: 'A tornado chart visualizes the biggest price spreads as horizontal bars sorted by magnitude. Bars are colored by variance intensity — red for over fifty percent spread, orange for over twenty-five percent. This instantly shows where negotiation effort will have the greatest financial impact.', duration: 9000, navigate: 'proposal-compare' }
                     ]
                 },
                 red_flags: {
@@ -2000,14 +2008,16 @@ const AEGISGuide = {
                     preAction: async () => {
                         try {
                             if (window.ProposalCompare) ProposalCompare.open();
-                            await AEGISGuide._wait(600);
-                        } catch(e) { console.warn('[AEGIS Guide] preAction error:', e); }
+                            await AEGISGuide._wait(300);
+                            AEGISGuide._injectPCDemo('results', 'red_flags');
+                            await AEGISGuide._wait(200);
+                        } catch(e) { console.warn('[AEGIS Guide] PC demo preAction error:', e); }
                     },
                     scenes: [
-                        { target: '#pc-modal', narration: 'The Red Flags tab groups risk findings by vendor. Each vendor section shows a flag count summary and a list of individual flags with severity badges — critical in red, warning in orange, and info in blue.', duration: 8000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Critical flags detect serious issues like pricing anomalies where a line item is more than double the group average. FAR 15.404 price reasonableness checks flag items with z-scores more than two standard deviations from the mean — the same statistical technique used in government source selection.', duration: 9000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Warning flags now include identical pricing detection — when two vendors have suspiciously similar prices on more than sixty percent of items, it may indicate collusion. Missing category detection flags vendors who omit entire cost categories that others include, indicating scope gaps.', duration: 9000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Info flags provide data quality notes. These include extraction confidence indicators, table formatting observations, and vendor-specific patterns. Each flag includes a detailed explanation to help you understand the finding and take action.', duration: 8000, navigate: 'proposal-compare' }
+                        { target: '.pc-red-flags-content', narration: 'The Red Flags tab groups risk findings by vendor. Each vendor section shows a flag count summary and a list of individual flags with severity badges — critical in red, warning in orange, and info in blue.', duration: 8000, navigate: 'proposal-compare' },
+                        { target: '.pc-red-flags-content', narration: 'Critical flags detect serious issues like pricing anomalies where a line item is more than double the group average. FAR 15.404 price reasonableness checks flag items with z-scores more than two standard deviations from the mean — the same statistical technique used in government source selection.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '.pc-red-flags-content', narration: 'Warning flags now include identical pricing detection — when two vendors have suspiciously similar prices on more than sixty percent of items, it may indicate collusion. Missing category detection flags vendors who omit entire cost categories that others include, indicating scope gaps.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '.pc-results-container', narration: 'Info flags provide data quality notes. These include extraction confidence indicators, table formatting observations, and vendor-specific patterns. Each flag includes a detailed explanation to help you understand the finding and take action.', duration: 8000, navigate: 'proposal-compare' }
                     ]
                 },
                 heatmap_view: {
@@ -2018,14 +2028,16 @@ const AEGISGuide = {
                     preAction: async () => {
                         try {
                             if (window.ProposalCompare) ProposalCompare.open();
-                            await AEGISGuide._wait(600);
-                        } catch(e) { console.warn('[AEGIS Guide] preAction error:', e); }
+                            await AEGISGuide._wait(300);
+                            AEGISGuide._injectPCDemo('results', 'heatmap');
+                            await AEGISGuide._wait(200);
+                        } catch(e) { console.warn('[AEGIS Guide] PC demo preAction error:', e); }
                     },
                     scenes: [
-                        { target: '#pc-modal', narration: 'The Heatmap displays a grid where each row is a line item and each column is a vendor. Cell colors indicate how far each amount deviates from the group average for that line item.', duration: 8000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Dark green cells are significantly below the average — these are competitive prices. Light green is slightly below average. Neutral white or light grey means the amount is within five percent of the average.', duration: 8000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Orange cells are moderately above average, and red cells are significantly above — these are premium prices worth questioning. Grey cells indicate the vendor did not quote that line item at all.', duration: 8000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'A legend at the top explains the color scale. Scan the columns vertically to see each vendor overall pattern. Vendors with mostly green columns are generally competitive. Vendors with mostly red are generally expensive.', duration: 8000, navigate: 'proposal-compare' }
+                        { target: '.pc-results-container', narration: 'The Heatmap displays a grid where each row is a line item and each column is a vendor. Cell colors indicate how far each amount deviates from the group average for that line item.', duration: 8000, navigate: 'proposal-compare' },
+                        { target: '.pc-results-container', narration: 'Dark green cells are significantly below the average — these are competitive prices. Light green is slightly below average. Neutral white or light grey means the amount is within five percent of the average.', duration: 8000, navigate: 'proposal-compare' },
+                        { target: '.pc-results-container', narration: 'Orange cells are moderately above average, and red cells are significantly above — these are premium prices worth questioning. Grey cells indicate the vendor did not quote that line item at all.', duration: 8000, navigate: 'proposal-compare' },
+                        { target: '.pc-tab-bar', narration: 'A legend at the top explains the color scale. Scan the columns vertically to see each vendor overall pattern. Vendors with mostly green columns are generally competitive. Vendors with mostly red are generally expensive.', duration: 8000, navigate: 'proposal-compare' }
                     ]
                 },
                 vendor_scores: {
@@ -2036,14 +2048,16 @@ const AEGISGuide = {
                     preAction: async () => {
                         try {
                             if (window.ProposalCompare) ProposalCompare.open();
-                            await AEGISGuide._wait(600);
-                        } catch(e) { console.warn('[AEGIS Guide] preAction error:', e); }
+                            await AEGISGuide._wait(300);
+                            AEGISGuide._injectPCDemo('results', 'vendor_scores');
+                            await AEGISGuide._wait(200);
+                        } catch(e) { console.warn('[AEGIS Guide] PC demo preAction error:', e); }
                     },
                     scenes: [
-                        { target: '#pc-modal', narration: 'Each vendor receives an overall score from zero to one hundred and a letter grade from A through F. A radar chart overlays all vendors on one spider plot with four axes — Price, Completeness, Risk, and Data Quality — for instant visual comparison of strengths and weaknesses.', duration: 9000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Below the vendor score cards, four weight sliders let you customize the evaluation. Drag the Price slider higher for cost-focused analysis, or boost Risk to emphasize compliance. The total display turns green when weights sum to one hundred percent and red otherwise.', duration: 9000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'As you adjust any slider, all vendor scores, letter grades, and rankings recalculate instantly — no need to re-run the comparison. Click Reset to restore the defaults: Price at forty percent, Completeness at twenty-five, Risk at twenty-five, and Data Quality at ten.', duration: 9000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'A grouped bar chart shows component scores side by side for quick visual comparison. Combined with the radar chart overlay, you can instantly identify which vendors have the best overall balance and which have critical weaknesses.', duration: 8500, navigate: 'proposal-compare' }
+                        { target: '.pc-results-container', narration: 'Each vendor receives an overall score from zero to one hundred and a letter grade from A through F. A radar chart overlays all vendors on one spider plot with four axes — Price, Completeness, Risk, and Data Quality — for instant visual comparison of strengths and weaknesses.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '.pc-results-container', narration: 'Below the vendor score cards, four weight sliders let you customize the evaluation. Drag the Price slider higher for cost-focused analysis, or boost Risk to emphasize compliance. The total display turns green when weights sum to one hundred percent and red otherwise.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '.pc-results-container', narration: 'As you adjust any slider, all vendor scores, letter grades, and rankings recalculate instantly — no need to re-run the comparison. Click Reset to restore the defaults: Price at forty percent, Completeness at twenty-five, Risk at twenty-five, and Data Quality at ten.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '.pc-results-container', narration: 'A grouped bar chart shows component scores side by side for quick visual comparison. Combined with the radar chart overlay, you can instantly identify which vendors have the best overall balance and which have critical weaknesses.', duration: 8500, navigate: 'proposal-compare' }
                     ]
                 },
                 comparison_view: {
@@ -2054,13 +2068,15 @@ const AEGISGuide = {
                     preAction: async () => {
                         try {
                             if (window.ProposalCompare) ProposalCompare.open();
-                            await AEGISGuide._wait(600);
-                        } catch(e) { console.warn('[AEGIS Guide] preAction error:', e); }
+                            await AEGISGuide._wait(300);
+                            AEGISGuide._injectPCDemo('results', 'comparison');
+                            await AEGISGuide._wait(200);
+                        } catch(e) { console.warn('[AEGIS Guide] PC demo preAction error:', e); }
                     },
                     scenes: [
-                        { target: '#pc-modal', narration: 'The comparison matrix is now fully interactive. Click any column header to sort ascending or descending — sort by description, any vendor amount, or variance percentage. Sort icons show the current state: neutral arrows for unsorted, gold up or down arrows for active sort.', duration: 9000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Use the filter bar above the table to narrow results. The category dropdown filters by cost type — Labor, Material, Travel, and more. The variance threshold dropdown shows only items with spread above ten, twenty, or fifty percent. The item count updates as you filter.', duration: 9000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Line item alignment uses text similarity matching with category-aware scoring. The Grand Total row sums each vendor column. Green highlights the lowest cost per item, red highlights the highest. Notes below summarize the comparison and lowest bidder.', duration: 8500, navigate: 'proposal-compare' }
+                        { target: '.pc-results-container', narration: 'The comparison matrix is now fully interactive. Click any column header to sort ascending or descending — sort by description, any vendor amount, or variance percentage. Sort icons show the current state: neutral arrows for unsorted, gold up or down arrows for active sort.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '.pc-tab-bar', narration: 'Use the filter bar above the table to narrow results. The category dropdown filters by cost type — Labor, Material, Travel, and more. The variance threshold dropdown shows only items with spread above ten, twenty, or fifty percent. The item count updates as you filter.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '.pc-results-container', narration: 'Line item alignment uses text similarity matching with category-aware scoring. The Grand Total row sums each vendor column. Green highlights the lowest cost per item, red highlights the highest. Notes below summarize the comparison and lowest bidder.', duration: 8500, navigate: 'proposal-compare' }
                     ]
                 },
                 export_results: {
@@ -2071,13 +2087,15 @@ const AEGISGuide = {
                     preAction: async () => {
                         try {
                             if (window.ProposalCompare) ProposalCompare.open();
-                            await AEGISGuide._wait(600);
-                        } catch(e) { console.warn('[AEGIS Guide] preAction error:', e); }
+                            await AEGISGuide._wait(300);
+                            AEGISGuide._injectPCDemo('results', 'executive');
+                            await AEGISGuide._wait(200);
+                        } catch(e) { console.warn('[AEGIS Guide] PC demo preAction error:', e); }
                     },
                     scenes: [
-                        { target: '#pc-modal', narration: 'The Export button generates a formatted Excel workbook with five sheets. The Proposal Comparison sheet has frozen panes so headers and descriptions stay visible while scrolling, plus auto-filter dropdowns on all columns for quick Excel filtering.', duration: 9000, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'Additional sheets include Executive Summary with rankings and findings, Red Flags organized by vendor with severity indicators, Category Summary with per-vendor cost breakdown, and Proposal Details with metadata. All sheets use AEGIS dark-navy and gold branding.', duration: 8500, navigate: 'proposal-compare' },
-                        { target: '#pc-modal', narration: 'You can also print the analysis directly from the browser. The print-optimized CSS hides interactive controls like weight sliders and filter bars, and formats tables for clean paper output. Use browser print or Control-P for a quick hard copy.', duration: 8500, navigate: 'proposal-compare' }
+                        { target: '.pc-results-header', narration: 'The Export button generates a formatted Excel workbook with five sheets. The Proposal Comparison sheet has frozen panes so headers and descriptions stay visible while scrolling, plus auto-filter dropdowns on all columns for quick Excel filtering.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '.pc-results-container', narration: 'Additional sheets include Executive Summary with rankings and findings, Red Flags organized by vendor with severity indicators, Category Summary with per-vendor cost breakdown, and Proposal Details with metadata. All sheets use AEGIS dark-navy and gold branding.', duration: 8500, navigate: 'proposal-compare' },
+                        { target: '.pc-results-container', narration: 'You can also print the analysis directly from the browser. The print-optimized CSS hides interactive controls like weight sliders and filter bars, and formats tables for clean paper output. Use browser print or Control-P for a quick hard copy.', duration: 8500, navigate: 'proposal-compare' }
                     ]
                 }
             }
@@ -4895,6 +4913,8 @@ const AEGISGuide = {
         if (this._scoreCleanup) { this._scoreCleanup(); this._scoreCleanup = null; }
         if (this._funcTagsCleanup) { this._funcTagsCleanup(); this._funcTagsCleanup = null; }
         if (this._helpCleanup) { this._helpCleanup(); this._helpCleanup = null; }
+        // v5.9.42: Cleanup Proposal Compare demo mock content
+        this._cleanupPCDemo();
 
         // v5.9.16-fix: Close ALL open modals when demo stops.
         // This prevents modals opened by demos (e.g., Settings, Roles Studio)
@@ -4948,6 +4968,8 @@ const AEGISGuide = {
         if (this._scoreCleanup) { this._scoreCleanup(); this._scoreCleanup = null; }
         if (this._funcTagsCleanup) { this._funcTagsCleanup(); this._funcTagsCleanup = null; }
         if (this._helpCleanup) { this._helpCleanup(); this._helpCleanup = null; }
+        // v5.9.42: Cleanup Proposal Compare demo mock content
+        this._cleanupPCDemo();
 
         // v5.7.1: Dismiss the landing page for any non-landing section.
         // Without this, modals open BEHIND the landing page overlay.
@@ -5065,6 +5087,304 @@ const AEGISGuide = {
 
         const fn = navMap[sectionId];
         if (fn) fn();
+    },
+
+    // ─── Proposal Compare Demo Mock Injection ────────────────────────
+    // v5.9.42: Injects static representative HTML into #pc-body so demo
+    // scenes can spotlight real-looking content instead of a blank modal.
+
+    _injectPCDemo(phase, tab) {
+        const pcBody = document.getElementById('pc-body');
+        if (!pcBody) { console.warn('[AEGIS Guide] #pc-body not found for PC demo injection'); return; }
+
+        // Shared tab bar builder
+        const _tabBar = (active) => {
+            const tabs = ['Executive','Comparison','Categories','Red Flags','Heatmap','Vendor Scores','Details','Raw Tables'];
+            return `<div class="pc-tab-bar" style="display:flex;gap:4px;border-bottom:2px solid var(--border-color,#e0e0e0);padding-bottom:0;margin-bottom:16px">${
+                tabs.map(t => `<button class="pc-tab${t === active ? ' active' : ''}" style="padding:8px 14px;border:none;background:${t === active ? 'var(--bg-surface,#fff)' : 'transparent'};border-bottom:${t === active ? '2px solid #D6A84A' : '2px solid transparent'};font-weight:${t === active ? '600' : '400'};color:var(--text-primary,#222);cursor:default;font-size:0.85rem">${t}</button>`).join('')
+            }</div>`;
+        };
+
+        // Shared results header
+        const _header = `<div class="pc-results-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <div style="display:flex;gap:8px;align-items:center">
+                <button class="pc-btn pc-btn-ghost pc-btn-sm" disabled style="opacity:0.5;padding:6px 10px;border:1px solid var(--border-color,#ddd);border-radius:6px;background:transparent;color:var(--text-primary,#333);font-size:0.8rem"><i data-lucide="arrow-left" style="width:14px;height:14px"></i> Back to Review</button>
+                <button class="pc-btn pc-btn-ghost pc-btn-sm" disabled style="opacity:0.5;padding:6px 10px;border:1px solid var(--border-color,#ddd);border-radius:6px;background:transparent;color:var(--text-primary,#333);font-size:0.8rem"><i data-lucide="arrow-left" style="width:14px;height:14px"></i> New Comparison</button>
+            </div>
+            <div style="display:flex;gap:8px">
+                <button class="pc-btn pc-btn-primary pc-btn-sm" disabled style="opacity:0.7;padding:6px 12px;border:none;border-radius:6px;background:#D6A84A;color:#fff;font-size:0.8rem"><i data-lucide="download" style="width:14px;height:14px"></i> Export XLSX</button>
+                <button class="pc-btn pc-btn-secondary pc-btn-sm" disabled style="opacity:0.7;padding:6px 12px;border:none;border-radius:6px;background:var(--bg-surface,#f0f0f0);color:var(--text-primary,#333);font-size:0.8rem"><i data-lucide="file-code" style="width:14px;height:14px"></i> Export HTML</button>
+            </div>
+        </div>`;
+
+        // Hero stat card builder
+        const _heroStat = (value, label, color) =>
+            `<div class="pc-hero-stat" style="background:var(--bg-surface,#fff);border:1px solid var(--border-color,#e0e0e0);border-radius:10px;padding:16px;text-align:center">
+                <div style="font-size:2rem;font-weight:700;color:${color}">${value}</div>
+                <div style="font-size:0.8rem;color:var(--text-muted,#888)">${label}</div>
+            </div>`;
+
+        let html = '';
+
+        if (phase === 'results') {
+            if (tab === 'executive' || !tab) {
+                html = `<div class="pc-results-container aegis-pc-demo" style="padding:24px">${_header}${_tabBar('Executive')}
+                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+                        ${_heroStat('47','Line Items Compared','#D6A84A')}
+                        ${_heroStat('3','Vendors Compared','#2196f3')}
+                        ${_heroStat('8','Red Flags','#f44336')}
+                        ${_heroStat('$142K','Potential Savings','#219653')}
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+                        <div><h4 style="margin:0 0 12px;color:var(--text-primary,#222)">Price Ranking</h4>
+                            <div style="display:flex;flex-direction:column;gap:8px">
+                                <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#C6EFCE;border-radius:8px"><span style="font-size:1.4rem">&#129351;</span><span style="font-weight:600;color:var(--text-primary,#222)">Acme Corp</span><span style="margin-left:auto;font-weight:700;color:var(--text-primary,#222)">$1,247,500</span></div>
+                                <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg-surface,#f8f8f8);border:1px solid var(--border-color,#e0e0e0);border-radius:8px"><span style="font-size:1.4rem">&#129352;</span><span style="font-weight:600;color:var(--text-primary,#222)">TechPro Solutions</span><span style="margin-left:auto;font-weight:700;color:var(--text-primary,#222)">$1,389,200</span><span style="color:var(--text-muted,#888);font-size:0.85rem;margin-left:6px">+11.4%</span></div>
+                                <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg-surface,#f8f8f8);border:1px solid var(--border-color,#e0e0e0);border-radius:8px"><span style="font-size:1.4rem">&#129353;</span><span style="font-weight:600;color:var(--text-primary,#222)">Global Defense Inc</span><span style="margin-left:auto;font-weight:700;color:var(--text-primary,#222)">$1,512,800</span><span style="color:var(--text-muted,#888);font-size:0.85rem;margin-left:6px">+21.3%</span></div>
+                            </div>
+                        </div>
+                        <div><h4 style="margin:0 0 12px;color:var(--text-primary,#222)">Key Findings</h4>
+                            <div style="display:flex;flex-direction:column;gap:6px">
+                                <div style="padding:8px 12px;background:#C6EFCE;border-radius:6px;font-size:0.9rem;color:#1a5e1a"><span style="font-weight:600;color:#219653">&#10003;</span> Acme Corp is the lowest overall bidder at $1,247,500</div>
+                                <div style="padding:8px 12px;background:#FFF2CC;border-radius:6px;font-size:0.9rem;color:#7a5e00"><span style="font-weight:600;color:#e67e22">&#9888;</span> Software licensing costs vary by 67% across vendors</div>
+                                <div style="padding:8px 12px;background:#FFC7CE;border-radius:6px;font-size:0.9rem;color:#8b1a1a"><span style="font-weight:600;color:#f44336">&#10007;</span> Global Defense missing 3 line items present in other proposals</div>
+                                <div style="padding:8px 12px;background:#E8F4FD;border-radius:6px;font-size:0.9rem;color:#0d5ea3"><span style="font-weight:600;color:#2196f3">&#8505;</span> Travel costs represent largest negotiation opportunity ($47K spread)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            } else if (tab === 'comparison') {
+                html = `<div class="pc-results-container aegis-pc-demo" style="padding:24px">${_header}${_tabBar('Comparison')}
+                    <div style="display:flex;gap:12px;margin-bottom:12px;align-items:center">
+                        <select disabled style="padding:6px 10px;border:1px solid var(--border-color,#ddd);border-radius:6px;background:var(--bg-surface,#fff);color:var(--text-primary,#333);font-size:0.85rem"><option>All Categories</option></select>
+                        <select disabled style="padding:6px 10px;border:1px solid var(--border-color,#ddd);border-radius:6px;background:var(--bg-surface,#fff);color:var(--text-primary,#333);font-size:0.85rem"><option>Variance &gt; 0%</option></select>
+                        <span style="font-size:0.8rem;color:var(--text-muted,#888);margin-left:auto">Showing 12 of 47 items</span>
+                    </div>
+                    <div style="overflow-x:auto">
+                        <table style="width:100%;border-collapse:collapse;font-size:0.85rem">
+                            <thead><tr style="background:var(--bg-surface,#f5f5f5)">
+                                <th style="text-align:left;padding:10px 12px;border-bottom:2px solid var(--border-color,#ddd);color:var(--text-primary,#222)">Description</th>
+                                <th style="text-align:left;padding:10px 8px;border-bottom:2px solid var(--border-color,#ddd);color:var(--text-primary,#222)">Category</th>
+                                <th style="text-align:right;padding:10px 12px;border-bottom:2px solid var(--border-color,#ddd);color:var(--text-primary,#222)">Acme Corp</th>
+                                <th style="text-align:right;padding:10px 12px;border-bottom:2px solid var(--border-color,#ddd);color:var(--text-primary,#222)">TechPro</th>
+                                <th style="text-align:right;padding:10px 12px;border-bottom:2px solid var(--border-color,#ddd);color:var(--text-primary,#222)">Global Def.</th>
+                                <th style="text-align:right;padding:10px 12px;border-bottom:2px solid var(--border-color,#ddd);color:var(--text-primary,#222)">Variance</th>
+                            </tr></thead>
+                            <tbody>
+                                <tr><td style="padding:8px 12px;border-bottom:1px solid var(--border-color,#eee);color:var(--text-primary,#222)">Sr. Systems Engineer (FTE)</td><td style="padding:8px;color:var(--text-muted,#666)">Labor</td><td style="text-align:right;padding:8px 12px;color:#219653;font-weight:600;border-bottom:1px solid var(--border-color,#eee)">$185,000</td><td style="text-align:right;padding:8px 12px;color:var(--text-primary,#222);border-bottom:1px solid var(--border-color,#eee)">$210,000</td><td style="text-align:right;padding:8px 12px;color:#f44336;font-weight:600;border-bottom:1px solid var(--border-color,#eee)">$242,000</td><td style="text-align:right;padding:8px 12px;color:#e67e22;border-bottom:1px solid var(--border-color,#eee)">30.8%</td></tr>
+                                <tr><td style="padding:8px 12px;border-bottom:1px solid var(--border-color,#eee);color:var(--text-primary,#222)">Cloud Infrastructure</td><td style="padding:8px;color:var(--text-muted,#666)">Software</td><td style="text-align:right;padding:8px 12px;color:var(--text-primary,#222);border-bottom:1px solid var(--border-color,#eee)">$94,500</td><td style="text-align:right;padding:8px 12px;color:#219653;font-weight:600;border-bottom:1px solid var(--border-color,#eee)">$78,200</td><td style="text-align:right;padding:8px 12px;color:#f44336;font-weight:600;border-bottom:1px solid var(--border-color,#eee)">$130,400</td><td style="text-align:right;padding:8px 12px;color:#f44336;border-bottom:1px solid var(--border-color,#eee)">66.8%</td></tr>
+                                <tr><td style="padding:8px 12px;border-bottom:1px solid var(--border-color,#eee);color:var(--text-primary,#222)">Program Travel (12 trips)</td><td style="padding:8px;color:var(--text-muted,#666)">Travel</td><td style="text-align:right;padding:8px 12px;color:#219653;font-weight:600;border-bottom:1px solid var(--border-color,#eee)">$36,000</td><td style="text-align:right;padding:8px 12px;color:var(--text-primary,#222);border-bottom:1px solid var(--border-color,#eee)">$52,800</td><td style="text-align:right;padding:8px 12px;color:#f44336;font-weight:600;border-bottom:1px solid var(--border-color,#eee)">$83,500</td><td style="text-align:right;padding:8px 12px;color:#f44336;border-bottom:1px solid var(--border-color,#eee)">131.9%</td></tr>
+                                <tr style="background:var(--bg-surface,#f5f5f5);font-weight:700"><td style="padding:10px 12px;color:var(--text-primary,#222)">Grand Total</td><td></td><td style="text-align:right;padding:10px 12px;color:#219653">$1,247,500</td><td style="text-align:right;padding:10px 12px;color:var(--text-primary,#222)">$1,389,200</td><td style="text-align:right;padding:10px 12px;color:#f44336">$1,512,800</td><td style="text-align:right;padding:10px 12px;color:var(--text-muted,#888)">21.3%</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`;
+            } else if (tab === 'red_flags') {
+                const _flag = (sev, color, bg, text) =>
+                    `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:${bg};border-radius:8px;margin-bottom:6px">
+                        <span style="font-size:0.75rem;font-weight:700;color:#fff;background:${color};padding:2px 8px;border-radius:4px;white-space:nowrap">${sev}</span>
+                        <span style="font-size:0.88rem;color:var(--text-primary,#222)">${text}</span>
+                    </div>`;
+                html = `<div class="pc-results-container aegis-pc-demo" style="padding:24px">${_header}${_tabBar('Red Flags')}
+                    <div class="pc-red-flags-content">
+                        <div style="margin-bottom:20px">
+                            <h4 style="margin:0 0 10px;color:var(--text-primary,#222);display:flex;align-items:center;gap:8px">Acme Corp <span style="font-size:0.75rem;font-weight:400;padding:2px 8px;background:#FFF2CC;border-radius:10px;color:#7a5e00">2 flags</span></h4>
+                            ${_flag('WARNING','#e67e22','#FFF2CC','Labor rates 12% below market average for Sr. Systems Engineer — verify qualifications and staffing plan')}
+                            ${_flag('INFO','#2196f3','#E8F4FD','Travel estimate uses GSA per-diem rates — generally reliable baseline')}
+                        </div>
+                        <div style="margin-bottom:20px">
+                            <h4 style="margin:0 0 10px;color:var(--text-primary,#222);display:flex;align-items:center;gap:8px">TechPro Solutions <span style="font-size:0.75rem;font-weight:400;padding:2px 8px;background:#FFF2CC;border-radius:10px;color:#7a5e00">3 flags</span></h4>
+                            ${_flag('CRITICAL','#f44336','#FFC7CE','Software licensing cost ($78,200) is 2.1 standard deviations below group mean — FAR 15.404 price reasonableness concern')}
+                            ${_flag('WARNING','#e67e22','#FFF2CC','Missing ODC (Other Direct Costs) category present in 2 of 3 other proposals')}
+                            ${_flag('INFO','#2196f3','#E8F4FD','Extraction confidence 87% — some table cells parsed from merged rows')}
+                        </div>
+                        <div style="margin-bottom:20px">
+                            <h4 style="margin:0 0 10px;color:var(--text-primary,#222);display:flex;align-items:center;gap:8px">Global Defense Inc <span style="font-size:0.75rem;font-weight:400;padding:2px 8px;background:#FFC7CE;border-radius:10px;color:#8b1a1a">3 flags</span></h4>
+                            ${_flag('CRITICAL','#f44336','#FFC7CE','Travel cost ($83,500) is 2.4x the group average — z-score outlier flagged')}
+                            ${_flag('CRITICAL','#f44336','#FFC7CE','3 line items missing that appear in all other proposals: QA Lead, Test Env License, Data Migration')}
+                            ${_flag('WARNING','#e67e22','#FFF2CC','Overhead rate implied at 47% — above typical range (40-120%) threshold')}
+                        </div>
+                    </div>
+                </div>`;
+            } else if (tab === 'heatmap') {
+                const _cell = (val, color) => `<td style="text-align:center;padding:8px;background:${color};border:1px solid var(--border-color,#ddd);font-size:0.8rem;font-weight:600;color:var(--text-primary,#222)">${val}</td>`;
+                html = `<div class="pc-results-container aegis-pc-demo" style="padding:24px">${_header}${_tabBar('Heatmap')}
+                    <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+                        <span style="display:flex;align-items:center;gap:4px;font-size:0.8rem;color:var(--text-muted,#888)"><span style="display:inline-block;width:16px;height:16px;background:#2e7d32;border-radius:3px"></span> Far below avg</span>
+                        <span style="display:flex;align-items:center;gap:4px;font-size:0.8rem;color:var(--text-muted,#888)"><span style="display:inline-block;width:16px;height:16px;background:#81c784;border-radius:3px"></span> Below avg</span>
+                        <span style="display:flex;align-items:center;gap:4px;font-size:0.8rem;color:var(--text-muted,#888)"><span style="display:inline-block;width:16px;height:16px;background:#f5f5f5;border-radius:3px;border:1px solid #ddd"></span> Near avg</span>
+                        <span style="display:flex;align-items:center;gap:4px;font-size:0.8rem;color:var(--text-muted,#888)"><span style="display:inline-block;width:16px;height:16px;background:#ffb74d;border-radius:3px"></span> Above avg</span>
+                        <span style="display:flex;align-items:center;gap:4px;font-size:0.8rem;color:var(--text-muted,#888)"><span style="display:inline-block;width:16px;height:16px;background:#e53935;border-radius:3px"></span> Far above avg</span>
+                        <span style="display:flex;align-items:center;gap:4px;font-size:0.8rem;color:var(--text-muted,#888)"><span style="display:inline-block;width:16px;height:16px;background:#bdbdbd;border-radius:3px"></span> Not quoted</span>
+                    </div>
+                    <div style="overflow-x:auto">
+                        <table style="width:100%;border-collapse:collapse">
+                            <thead><tr style="background:var(--bg-surface,#f5f5f5)">
+                                <th style="text-align:left;padding:10px;border:1px solid var(--border-color,#ddd);color:var(--text-primary,#222);font-size:0.85rem">Line Item</th>
+                                <th style="text-align:center;padding:10px;border:1px solid var(--border-color,#ddd);color:var(--text-primary,#222);font-size:0.85rem;min-width:100px">Acme Corp</th>
+                                <th style="text-align:center;padding:10px;border:1px solid var(--border-color,#ddd);color:var(--text-primary,#222);font-size:0.85rem;min-width:100px">TechPro</th>
+                                <th style="text-align:center;padding:10px;border:1px solid var(--border-color,#ddd);color:var(--text-primary,#222);font-size:0.85rem;min-width:100px">Global Def.</th>
+                            </tr></thead>
+                            <tbody>
+                                <tr><td style="padding:8px 10px;border:1px solid var(--border-color,#ddd);font-size:0.85rem;color:var(--text-primary,#222)">Sr. Systems Engineer</td>${_cell('$185K','#81c784')}${_cell('$210K','#f5f5f5')}${_cell('$242K','#ffb74d')}</tr>
+                                <tr><td style="padding:8px 10px;border:1px solid var(--border-color,#ddd);font-size:0.85rem;color:var(--text-primary,#222)">Cloud Infrastructure</td>${_cell('$94K','#f5f5f5')}${_cell('$78K','#2e7d32')}${_cell('$130K','#e53935')}</tr>
+                                <tr><td style="padding:8px 10px;border:1px solid var(--border-color,#ddd);font-size:0.85rem;color:var(--text-primary,#222)">Program Travel</td>${_cell('$36K','#2e7d32')}${_cell('$53K','#f5f5f5')}${_cell('$84K','#e53935')}</tr>
+                                <tr><td style="padding:8px 10px;border:1px solid var(--border-color,#ddd);font-size:0.85rem;color:var(--text-primary,#222)">QA Lead</td>${_cell('$142K','#81c784')}${_cell('$158K','#ffb74d')}${_cell('--','#bdbdbd')}</tr>
+                                <tr><td style="padding:8px 10px;border:1px solid var(--border-color,#ddd);font-size:0.85rem;color:var(--text-primary,#222)">Data Migration</td>${_cell('$67K','#f5f5f5')}${_cell('$72K','#ffb74d')}${_cell('--','#bdbdbd')}</tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`;
+            } else if (tab === 'vendor_scores') {
+                const _scoreCard = (name, grade, color, score) =>
+                    `<div style="background:var(--bg-surface,#fff);border:1px solid var(--border-color,#e0e0e0);border-radius:10px;padding:16px;text-align:center;min-width:140px">
+                        <div style="font-size:2.5rem;font-weight:800;color:${color}">${grade}</div>
+                        <div style="font-weight:600;color:var(--text-primary,#222);margin:4px 0">${name}</div>
+                        <div style="font-size:0.85rem;color:var(--text-muted,#888)">${score}/100</div>
+                    </div>`;
+                const _slider = (label, value) =>
+                    `<div style="display:flex;align-items:center;gap:10px;padding:8px 0">
+                        <span style="width:110px;font-size:0.85rem;font-weight:500;color:var(--text-primary,#222)">${label}</span>
+                        <div style="flex:1;height:6px;background:var(--border-color,#e0e0e0);border-radius:3px;position:relative">
+                            <div style="height:100%;width:${value}%;background:#D6A84A;border-radius:3px"></div>
+                        </div>
+                        <span style="font-size:0.85rem;font-weight:600;color:var(--text-primary,#222);width:36px;text-align:right">${value}%</span>
+                    </div>`;
+                html = `<div class="pc-results-container aegis-pc-demo" style="padding:24px">${_header}${_tabBar('Vendor Scores')}
+                    <div style="display:flex;gap:16px;justify-content:center;margin-bottom:24px;flex-wrap:wrap">
+                        ${_scoreCard('Acme Corp','A','#219653','87')}
+                        ${_scoreCard('TechPro Solutions','B+','#2196f3','79')}
+                        ${_scoreCard('Global Defense Inc','B-','#e67e22','71')}
+                    </div>
+                    <div style="max-width:500px;margin:0 auto">
+                        <h4 style="margin:0 0 12px;color:var(--text-primary,#222);display:flex;align-items:center;justify-content:space-between">Weight Sliders <span style="font-size:0.8rem;font-weight:400;color:#219653">Total: 100%</span></h4>
+                        ${_slider('Price',40)}
+                        ${_slider('Completeness',25)}
+                        ${_slider('Risk',25)}
+                        ${_slider('Data Quality',10)}
+                    </div>
+                </div>`;
+            } else if (tab === 'categories') {
+                html = `<div class="pc-results-container aegis-pc-demo" style="padding:24px">${_header}${_tabBar('Categories')}
+                    <div style="overflow-x:auto">
+                        <table style="width:100%;border-collapse:collapse;font-size:0.85rem">
+                            <thead><tr style="background:var(--bg-surface,#f5f5f5)">
+                                <th style="text-align:left;padding:10px 12px;border-bottom:2px solid var(--border-color,#ddd);color:var(--text-primary,#222)">Category</th>
+                                <th style="text-align:right;padding:10px 12px;border-bottom:2px solid var(--border-color,#ddd);color:var(--text-primary,#222)">Acme Corp</th>
+                                <th style="text-align:right;padding:10px 12px;border-bottom:2px solid var(--border-color,#ddd);color:var(--text-primary,#222)">TechPro</th>
+                                <th style="text-align:right;padding:10px 12px;border-bottom:2px solid var(--border-color,#ddd);color:var(--text-primary,#222)">Global Def.</th>
+                                <th style="text-align:right;padding:10px 12px;border-bottom:2px solid var(--border-color,#ddd);color:var(--text-primary,#222)">Avg Spread</th>
+                            </tr></thead>
+                            <tbody>
+                                <tr><td style="padding:10px 12px;border-bottom:1px solid var(--border-color,#eee);font-weight:600;color:var(--text-primary,#222)">Labor</td><td style="text-align:right;padding:10px 12px;color:#219653;font-weight:600;border-bottom:1px solid var(--border-color,#eee)">$685,000</td><td style="text-align:right;padding:10px 12px;color:var(--text-primary,#222);border-bottom:1px solid var(--border-color,#eee)">$742,000</td><td style="text-align:right;padding:10px 12px;color:#f44336;font-weight:600;border-bottom:1px solid var(--border-color,#eee)">$810,500</td><td style="text-align:right;padding:10px 12px;color:#e67e22;border-bottom:1px solid var(--border-color,#eee)">18.3%</td></tr>
+                                <tr><td style="padding:10px 12px;border-bottom:1px solid var(--border-color,#eee);font-weight:600;color:var(--text-primary,#222)">Software</td><td style="text-align:right;padding:10px 12px;color:var(--text-primary,#222);border-bottom:1px solid var(--border-color,#eee)">$247,500</td><td style="text-align:right;padding:10px 12px;color:#219653;font-weight:600;border-bottom:1px solid var(--border-color,#eee)">$198,200</td><td style="text-align:right;padding:10px 12px;color:#f44336;font-weight:600;border-bottom:1px solid var(--border-color,#eee)">$331,800</td><td style="text-align:right;padding:10px 12px;color:#f44336;border-bottom:1px solid var(--border-color,#eee)">67.4%</td></tr>
+                                <tr><td style="padding:10px 12px;border-bottom:1px solid var(--border-color,#eee);font-weight:600;color:var(--text-primary,#222)">Travel</td><td style="text-align:right;padding:10px 12px;color:#219653;font-weight:600;border-bottom:1px solid var(--border-color,#eee)">$36,000</td><td style="text-align:right;padding:10px 12px;color:var(--text-primary,#222);border-bottom:1px solid var(--border-color,#eee)">$52,800</td><td style="text-align:right;padding:10px 12px;color:#f44336;font-weight:600;border-bottom:1px solid var(--border-color,#eee)">$83,500</td><td style="text-align:right;padding:10px 12px;color:#f44336;border-bottom:1px solid var(--border-color,#eee)">131.9%</td></tr>
+                                <tr><td style="padding:10px 12px;border-bottom:1px solid var(--border-color,#eee);font-weight:600;color:var(--text-primary,#222)">Material</td><td style="text-align:right;padding:10px 12px;color:var(--text-primary,#222);border-bottom:1px solid var(--border-color,#eee)">$189,000</td><td style="text-align:right;padding:10px 12px;color:#219653;font-weight:600;border-bottom:1px solid var(--border-color,#eee)">$172,400</td><td style="text-align:right;padding:10px 12px;color:var(--text-primary,#222);border-bottom:1px solid var(--border-color,#eee)">$195,000</td><td style="text-align:right;padding:10px 12px;color:var(--text-muted,#888);border-bottom:1px solid var(--border-color,#eee)">13.1%</td></tr>
+                                <tr style="background:var(--bg-surface,#f5f5f5);font-weight:700"><td style="padding:10px 12px;color:var(--text-primary,#222)">Total</td><td style="text-align:right;padding:10px 12px;color:#219653">$1,247,500</td><td style="text-align:right;padding:10px 12px;color:var(--text-primary,#222)">$1,389,200</td><td style="text-align:right;padding:10px 12px;color:#f44336">$1,512,800</td><td style="text-align:right;padding:10px 12px;color:var(--text-muted,#888)">21.3%</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`;
+            }
+        } else if (phase === 'review') {
+            html = `<div class="pc-review-container aegis-pc-demo" style="display:grid;grid-template-columns:1fr 1fr;gap:0;height:100%">
+                <div class="pc-doc-viewer-pane" style="padding:20px;border-right:1px solid var(--border-color,#e0e0e0);overflow-y:auto;background:var(--bg-deep,#fafafa)">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                        <h4 style="margin:0;color:var(--text-primary,#222)">Document Viewer</h4>
+                        <span style="font-size:0.8rem;color:var(--text-muted,#888)">Proposal 1 of 3</span>
+                    </div>
+                    <div style="background:var(--bg-surface,#fff);border:1px solid var(--border-color,#e0e0e0);border-radius:8px;padding:16px;font-size:0.85rem;line-height:1.6;color:var(--text-primary,#333)">
+                        <p style="font-weight:700;font-size:1rem;margin-bottom:12px">Acme Corp — Cost Proposal</p>
+                        <p><strong>Contract:</strong> AEGIS Platform Development Support — 3 Year Base + 2 Options</p>
+                        <p><strong>Submitted:</strong> February 10, 2026</p>
+                        <p style="margin-top:12px"><strong>1. Labor</strong></p>
+                        <table style="width:100%;border-collapse:collapse;font-size:0.82rem;margin:8px 0">
+                            <tr style="background:var(--bg-surface,#f5f5f5)"><th style="text-align:left;padding:6px 8px;border:1px solid var(--border-color,#ddd)">Role</th><th style="text-align:right;padding:6px 8px;border:1px solid var(--border-color,#ddd)">Rate</th><th style="text-align:right;padding:6px 8px;border:1px solid var(--border-color,#ddd)">Hours</th><th style="text-align:right;padding:6px 8px;border:1px solid var(--border-color,#ddd)">Total</th></tr>
+                            <tr><td style="padding:6px 8px;border:1px solid var(--border-color,#eee)">Sr. Systems Engineer</td><td style="text-align:right;padding:6px 8px;border:1px solid var(--border-color,#eee)">$92.50</td><td style="text-align:right;padding:6px 8px;border:1px solid var(--border-color,#eee)">2,000</td><td style="text-align:right;padding:6px 8px;border:1px solid var(--border-color,#eee)">$185,000</td></tr>
+                            <tr><td style="padding:6px 8px;border:1px solid var(--border-color,#eee)">Program Manager</td><td style="text-align:right;padding:6px 8px;border:1px solid var(--border-color,#eee)">$105.00</td><td style="text-align:right;padding:6px 8px;border:1px solid var(--border-color,#eee)">1,500</td><td style="text-align:right;padding:6px 8px;border:1px solid var(--border-color,#eee)">$157,500</td></tr>
+                        </table>
+                        <p style="margin-top:12px"><strong>2. Software Licenses</strong></p>
+                        <p style="margin-left:12px">JIRA Enterprise — $42,000/yr<br>Confluence — $28,500/yr<br>AWS GovCloud — $24,000/yr</p>
+                    </div>
+                </div>
+                <div class="pc-edit-pane" style="padding:20px;overflow-y:auto">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                        <h4 style="margin:0;color:var(--text-primary,#222)">Proposal Metadata</h4>
+                        <div style="display:flex;gap:6px">
+                            <button disabled style="padding:5px 10px;border:1px solid var(--border-color,#ddd);border-radius:6px;background:transparent;color:var(--text-muted,#888);font-size:0.8rem;opacity:0.5">&larr; Prev</button>
+                            <button disabled style="padding:5px 10px;border:1px solid var(--border-color,#ddd);border-radius:6px;background:transparent;color:var(--text-primary,#333);font-size:0.8rem">Next &rarr;</button>
+                        </div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:14px">
+                        <div><label style="font-size:0.8rem;font-weight:600;color:var(--text-muted,#666);display:block;margin-bottom:4px">Company Name</label><input disabled value="Acme Corp" style="width:100%;padding:8px 12px;border:1px solid var(--border-color,#ddd);border-radius:6px;background:var(--bg-surface,#fff);color:var(--text-primary,#222);font-size:0.9rem"></div>
+                        <div><label style="font-size:0.8rem;font-weight:600;color:var(--text-muted,#666);display:block;margin-bottom:4px">Date</label><input disabled value="2026-02-10" style="width:100%;padding:8px 12px;border:1px solid var(--border-color,#ddd);border-radius:6px;background:var(--bg-surface,#fff);color:var(--text-primary,#222);font-size:0.9rem"></div>
+                        <div><label style="font-size:0.8rem;font-weight:600;color:var(--text-muted,#666);display:block;margin-bottom:4px">Total Amount</label><input disabled value="$1,247,500" style="width:100%;padding:8px 12px;border:1px solid var(--border-color,#ddd);border-radius:6px;background:var(--bg-surface,#fff);color:var(--text-primary,#222);font-size:0.9rem"></div>
+                        <div><label style="font-size:0.8rem;font-weight:600;color:var(--text-muted,#666);display:block;margin-bottom:4px">Contract Term</label><input disabled value="3 Year Base + 2 Options" style="width:100%;padding:8px 12px;border:1px solid var(--border-color,#ddd);border-radius:6px;background:var(--bg-surface,#fff);color:var(--text-primary,#222);font-size:0.9rem"></div>
+                        <div style="margin-top:8px">
+                            <button disabled style="display:flex;align-items:center;gap:6px;width:100%;padding:10px 14px;border:1px solid var(--border-color,#ddd);border-radius:8px;background:var(--bg-surface,#fff);color:var(--text-primary,#333);font-size:0.85rem;cursor:default">
+                                <span style="font-size:0.7rem;background:#D6A84A;color:#fff;padding:1px 6px;border-radius:4px">12</span> Edit Line Items <span style="margin-left:auto;color:var(--text-muted,#888)">&#9660;</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div style="margin-top:24px;text-align:center">
+                        <button disabled style="padding:10px 28px;border:none;border-radius:8px;background:#D6A84A;color:#fff;font-size:0.95rem;font-weight:600;opacity:0.8">Compare Proposals</button>
+                    </div>
+                </div>
+            </div>`;
+        } else if (phase === 'upload') {
+            const _fileCard = (name, type, size, status, statusColor) =>
+                `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg-surface,#fff);border:1px solid var(--border-color,#e0e0e0);border-radius:8px">
+                    <div style="width:36px;height:36px;background:${type === 'PDF' ? '#f44336' : type === 'XLSX' ? '#219653' : '#2196f3'};border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:0.7rem">${type}</div>
+                    <div style="flex:1">
+                        <div style="font-weight:600;font-size:0.9rem;color:var(--text-primary,#222)">${name}</div>
+                        <div style="font-size:0.78rem;color:var(--text-muted,#888)">${size}</div>
+                    </div>
+                    <span style="font-size:0.75rem;font-weight:600;padding:3px 10px;border-radius:12px;background:${statusColor};color:#fff">${status}</span>
+                </div>`;
+            html = `<div class="pc-upload-container aegis-pc-demo" style="padding:24px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <select disabled style="padding:6px 10px;border:1px solid var(--border-color,#ddd);border-radius:6px;background:var(--bg-surface,#fff);color:var(--text-primary,#333);font-size:0.85rem"><option>FY2026 AEGIS Support</option></select>
+                        <button disabled style="padding:6px 10px;border:1px solid var(--border-color,#ddd);border-radius:6px;background:transparent;color:var(--text-primary,#333);font-size:0.8rem">+ New Project</button>
+                    </div>
+                    <button disabled style="padding:6px 12px;border:1px solid var(--border-color,#ddd);border-radius:6px;background:transparent;color:var(--text-primary,#333);font-size:0.85rem">&#128337; History</button>
+                </div>
+                <div style="border:2px dashed var(--border-color,#ccc);border-radius:12px;padding:40px 24px;text-align:center;margin-bottom:20px;background:var(--bg-deep,#fafafa)">
+                    <div style="font-size:2rem;color:var(--text-muted,#bbb);margin-bottom:8px">&#128196;</div>
+                    <div style="color:var(--text-muted,#888);font-size:0.9rem">Drop proposal files here or click to browse</div>
+                    <div style="color:var(--text-muted,#aaa);font-size:0.78rem;margin-top:4px">DOCX, PDF, XLSX (2-10 files)</div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                    ${_fileCard('Acme_Corp_Cost_Proposal_FY26.xlsx','XLSX','248 KB','Extracted','#219653')}
+                    ${_fileCard('TechPro_Solutions_Proposal.pdf','PDF','1.2 MB','Extracted','#219653')}
+                    ${_fileCard('Global_Defense_Cost_Volume.docx','DOCX','892 KB','Extracted','#219653')}
+                </div>
+                <div style="text-align:center;margin-top:20px">
+                    <button disabled style="padding:10px 28px;border:none;border-radius:8px;background:#D6A84A;color:#fff;font-size:0.95rem;font-weight:600;opacity:0.8">Continue to Review &rarr;</button>
+                </div>
+            </div>`;
+        }
+
+        if (html) {
+            pcBody.innerHTML = html;
+            // Refresh Lucide icons if available
+            if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                try { lucide.createIcons({ root: pcBody }); } catch(e) {}
+            }
+            console.log('[AEGIS Guide] Injected PC demo:', phase, tab || '');
+        }
+    },
+
+    // Cleanup function for PC demo mock content
+    _cleanupPCDemo() {
+        const pcBody = document.getElementById('pc-body');
+        if (pcBody) {
+            const demo = pcBody.querySelector('.aegis-pc-demo');
+            if (demo) {
+                demo.remove();
+                console.log('[AEGIS Guide] Cleaned up PC demo content');
+            }
+        }
     },
 
     _wait(ms) {

@@ -59,6 +59,7 @@
 | `demo_audio_generator.py` | TTS audio generation for demo narration (edge-tts/pyttsx3) |
 | `static/js/features/demo-simulator.js` | Demo mock data injection IIFE (progress, results, SOW preview) |
 | `graph_export_html.py` | Interactive HTML graph export generator (D3.js, filters, search) |
+| `proposal_compare/projects.py` | SQLite project management + comparison history + proposal CRUD |
 | `install_offline.bat` | Offline wheel installer for air-gapped Windows |
 
 ## CSS Patterns
@@ -941,6 +942,23 @@ self.ssl_verify = not _is_corp
 Auto-disables SSL verification for corporate SharePoint because Python's `certifi` bundle doesn't trust internal CA certificates.
 **404 retry**: `download_file()` on 404 → creates fresh `requests.Session()` with `HttpNegotiateAuth()` → retries once. SharePoint returns transient 404s especially under load or after session timeout.
 **Lesson**: For corporate SharePoint connectors, assume SSL will fail and default to `verify=False` for known corporate domains. Transient 404s are common on SharePoint — always retry file downloads once with a fresh session before reporting failure.
+
+### 108. HV Blueprint Import — except ImportError Too Narrow (v5.9.42)
+**Problem**: Hyperlink Validator returned "resource not found" (404) for all API endpoints on Windows machine.
+**Root Cause**: `routes.py` lines 28-33 caught only `ImportError` when importing `config_logging`. On the Windows machine, `config_logging.get_logger()` → `StructuredLogger._setup_logger()` → `RotatingFileHandler()` failed with a non-ImportError exception (likely `PermissionError` or `OSError` from OneDrive path). Since the except clause only caught `ImportError`, `logger` was never assigned, causing `NameError: name 'logger' is not defined` when any module-level code tried to use it. This prevented the entire HV blueprint from registering.
+**Fix**: Changed `except ImportError:` to `except Exception:` in the config_logging import block. This ensures `logger` always gets assigned via the fallback `logging.getLogger()` path.
+**Lesson**: When importing optional modules with initialization side effects (creating file handlers, connecting to services, etc.), ALWAYS use `except Exception`, not just `except ImportError`. The module may import fine but fail during initialization with `OSError`, `PermissionError`, `TypeError`, etc. Especially critical on Windows where OneDrive path locking and permission issues are common.
+
+### 109. Edit Persistence — Fire-and-Forget DB Writes (v5.9.42)
+**Pattern**: When users edit proposal data in the review phase (`_captureReviewEdits()`), edits are persisted to the database via a fire-and-forget `fetch()` PUT call. The edits travel in-memory to the comparison regardless of DB write success. The `_db_id` is tracked from the upload response and attached to the proposal data object.
+**Lesson**: For real-time editing UX, always persist edits asynchronously (fire-and-forget) so the UI doesn't block. Track the database ID from the initial save so subsequent edits can be persisted. The in-memory state is always the source of truth for the current session; the DB is the persistence layer for cross-session survival.
+
+### 110. Project Dashboard Architecture (v5.9.42)
+**Pattern**: The Project Dashboard is a new "phase" within the Proposal Compare IIFE, accessible via a "Projects" button in the upload phase header. It has two views:
+1. **Grid View** (`renderProjectDashboard()`) — 2-column CSS grid of project cards
+2. **Detail View** (`renderProjectDetail(projectId)`) — proposals list + comparisons list for a specific project
+**Tag-to-Project** uses a fixed-position dropdown (`_showTagToProjectMenu()`) that supports both in-memory proposals (add to project) and DB-backed proposals (move between projects).
+**Edit from Dashboard** fetches full proposal data via GET, enters review phase with a "Save & Back" button, and auto-persists changes on save.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

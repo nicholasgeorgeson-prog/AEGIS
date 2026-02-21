@@ -5,6 +5,7 @@ Endpoints:
 - POST /api/proposal-compare/upload          — Upload proposal files, extract data
 - POST /api/proposal-compare/compare         — Compare extracted proposals
 - POST /api/proposal-compare/export          — Export comparison as XLSX
+- POST /api/proposal-compare/export-html     — Export comparison as interactive HTML
 
 Project Management:
 - GET  /api/proposal-compare/projects        — List all projects
@@ -14,8 +15,17 @@ Project Management:
 - DELETE /api/proposal-compare/projects/<id> — Delete project
 - GET  /api/proposal-compare/projects/<id>/proposals — List proposals in project
 - POST /api/proposal-compare/projects/<id>/proposals — Add proposal to project
+- GET  /api/proposal-compare/proposals/<id>          — Get full proposal data
+- PUT  /api/proposal-compare/proposals/<id>          — Update proposal data (edit persistence)
 - DELETE /api/proposal-compare/proposals/<id>        — Remove proposal from project
+- POST /api/proposal-compare/proposals/<id>/move     — Move proposal to different project
 - POST /api/proposal-compare/projects/<id>/compare   — Compare proposals in a project
+- GET  /api/proposal-compare/projects/<id>/comparisons — List comparisons for project
+
+History:
+- GET  /api/proposal-compare/history         — List recent comparisons
+- GET  /api/proposal-compare/history/<id>    — Get comparison detail
+- DELETE /api/proposal-compare/history/<id>  — Delete comparison
 
 Metrics:
 - GET  /api/proposal-compare/metrics         — Aggregated metrics for M&A dashboard
@@ -750,6 +760,166 @@ def export_comparison():
             col_letter = openpyxl.utils.get_column_letter(2 + p_idx)
             ws5.column_dimensions[col_letter].width = 30
 
+        # ── Sheet 6: Heatmap ──
+        heatmap_data = data.get('heatmap', {})
+        heatmap_categories = heatmap_data.get('categories', [])
+        heatmap_vendors = heatmap_data.get('vendors', [])
+        heatmap_grid = heatmap_data.get('grid', {})
+        if heatmap_categories and heatmap_vendors:
+            ws6 = wb.create_sheet('Heatmap')
+            # Header row
+            ws6.cell(row=1, column=1, value='Category / Vendor').fill = header_fill
+            ws6.cell(row=1, column=1).font = header_font
+            ws6.cell(row=1, column=1).border = border
+            for v_idx, vendor in enumerate(heatmap_vendors):
+                c = ws6.cell(row=1, column=2 + v_idx, value=vendor)
+                c.fill = header_fill
+                c.font = header_font
+                c.border = border
+            # Data rows
+            heatmap_low = PatternFill(start_color='C6EFCE', end_color='C6EFCE', fill_type='solid')
+            heatmap_mid = PatternFill(start_color='FFF2CC', end_color='FFF2CC', fill_type='solid')
+            heatmap_high = PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid')
+            for c_idx, cat in enumerate(heatmap_categories):
+                ws6.cell(row=2 + c_idx, column=1, value=cat).border = border
+                ws6.cell(row=2 + c_idx, column=1).font = Font(bold=True)
+                cat_grid = heatmap_grid.get(cat, {})
+                for v_idx, vendor in enumerate(heatmap_vendors):
+                    cell = ws6.cell(row=2 + c_idx, column=2 + v_idx)
+                    cell.border = border
+                    cell_data = cat_grid.get(vendor, {})
+                    amount = cell_data.get('amount', 0) if isinstance(cell_data, dict) else cell_data
+                    deviation = cell_data.get('deviation', 0) if isinstance(cell_data, dict) else 0
+                    if amount and isinstance(amount, (int, float)):
+                        cell.value = amount
+                        cell.number_format = money_fmt
+                        # Color by deviation from average
+                        if deviation <= -10:
+                            cell.fill = heatmap_low  # Below average (green = good)
+                        elif deviation >= 10:
+                            cell.fill = heatmap_high  # Above average (red = expensive)
+                        elif deviation != 0:
+                            cell.fill = heatmap_mid  # Near average
+                    else:
+                        cell.value = '—'
+                        cell.alignment = Alignment(horizontal='center')
+            ws6.column_dimensions['A'].width = 20
+            for v_idx in range(len(heatmap_vendors)):
+                ws6.column_dimensions[openpyxl.utils.get_column_letter(2 + v_idx)].width = 20
+
+        # ── Sheet 7: Rate Analysis ──
+        rate_analysis = data.get('rate_analysis', {})
+        indirect_rates = data.get('indirect_rates', {})
+        if indirect_rates:
+            ws7 = wb.create_sheet('Rate Analysis')
+            ws7.merge_cells(start_row=1, start_column=1, end_row=1, end_column=2 + len(prop_ids))
+            c = ws7.cell(row=1, column=1, value='Indirect Rate Analysis')
+            c.fill = gold_fill
+            c.font = gold_font
+            c.alignment = Alignment(horizontal='center')
+
+            rate_types = ['overhead_rate', 'ga_rate', 'fringe_rate', 'fee_rate']
+            rate_labels = ['Overhead Rate', 'G&A Rate', 'Fringe Rate', 'Fee / Profit Rate']
+            typical_ranges = {
+                'overhead_rate': (0.40, 1.20),
+                'ga_rate': (0.10, 0.25),
+                'fringe_rate': (0.25, 0.45),
+                'fee_rate': (0.08, 0.15),
+            }
+
+            # Headers
+            rate_headers = ['Rate Type', 'Typical Range'] + prop_ids
+            for col, h in enumerate(rate_headers, 1):
+                c = ws7.cell(row=3, column=col, value=h)
+                c.fill = header_fill
+                c.font = header_font
+                c.border = border
+
+            for r_idx, (rtype, rlabel) in enumerate(zip(rate_types, rate_labels)):
+                row = 4 + r_idx
+                ws7.cell(row=row, column=1, value=rlabel).border = border
+                typical = typical_ranges.get(rtype, (0, 1))
+                ws7.cell(row=row, column=2, value=f'{typical[0]*100:.0f}% - {typical[1]*100:.0f}%').border = border
+
+                for p_idx, pid in enumerate(prop_ids):
+                    cell = ws7.cell(row=row, column=3 + p_idx)
+                    cell.border = border
+                    vendor_rates = indirect_rates.get(pid, {})
+                    rate_val = vendor_rates.get(rtype)
+                    if rate_val is not None:
+                        cell.value = rate_val
+                        cell.number_format = pct_fmt
+                        # Flag outside typical range
+                        if rate_val < typical[0] or rate_val > typical[1]:
+                            cell.fill = warning_fill
+                    else:
+                        cell.value = '—'
+                        cell.alignment = Alignment(horizontal='center')
+
+            ws7.column_dimensions['A'].width = 22
+            ws7.column_dimensions['B'].width = 18
+            for p_idx in range(len(prop_ids)):
+                ws7.column_dimensions[openpyxl.utils.get_column_letter(3 + p_idx)].width = 20
+
+        # ── Sheet 8: Raw Line Items ──
+        ws8 = wb.create_sheet('Raw Line Items')
+        raw_headers = ['Vendor', 'Description', 'Category', 'Amount', 'Quantity', 'Unit Price', 'Source Sheet']
+        for col, h in enumerate(raw_headers, 1):
+            c = ws8.cell(row=1, column=col, value=h)
+            c.fill = header_fill
+            c.font = header_font
+            c.border = border
+        raw_row = 2
+        for p_idx, p in enumerate(proposals):
+            pid = prop_ids[p_idx]
+            for li in p.get('line_items', []):
+                ws8.cell(row=raw_row, column=1, value=pid).border = border
+                ws8.cell(row=raw_row, column=2, value=li.get('description', '')).border = border
+                ws8.cell(row=raw_row, column=3, value=li.get('category', 'Other')).border = border
+                amt_cell = ws8.cell(row=raw_row, column=4)
+                amt_val = li.get('amount')
+                if amt_val is not None and isinstance(amt_val, (int, float)):
+                    amt_cell.value = amt_val
+                    amt_cell.number_format = money_fmt
+                else:
+                    amt_cell.value = '—'
+                amt_cell.border = border
+                ws8.cell(row=raw_row, column=5, value=li.get('quantity', '')).border = border
+                up_cell = ws8.cell(row=raw_row, column=6)
+                up_val = li.get('unit_price')
+                if up_val is not None and isinstance(up_val, (int, float)):
+                    up_cell.value = up_val
+                    up_cell.number_format = money_fmt
+                else:
+                    up_cell.value = '—'
+                up_cell.border = border
+                ws8.cell(row=raw_row, column=7, value=li.get('source_sheet', '')).border = border
+                raw_row += 1
+
+        ws8.column_dimensions['A'].width = 25
+        ws8.column_dimensions['B'].width = 50
+        ws8.column_dimensions['C'].width = 15
+        ws8.column_dimensions['D'].width = 16
+        ws8.column_dimensions['E'].width = 10
+        ws8.column_dimensions['F'].width = 16
+        ws8.column_dimensions['G'].width = 20
+        ws8.auto_filter.ref = f'A1:G{raw_row - 1}'
+        ws8.freeze_panes = 'A2'
+
+        # Add grade coloring to vendor scores section in Exec Summary
+        grade_fills = {
+            'A': PatternFill(start_color='C6EFCE', end_color='C6EFCE', fill_type='solid'),
+            'B': PatternFill(start_color='D5F5E3', end_color='D5F5E3', fill_type='solid'),
+            'C': PatternFill(start_color='FFF2CC', end_color='FFF2CC', fill_type='solid'),
+            'D': PatternFill(start_color='FCE4D6', end_color='FCE4D6', fill_type='solid'),
+            'F': PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid'),
+        }
+        # Walk exec summary vendor scores to colorize grade cells
+        for r in range(1, ws_exec.max_row + 1):
+            grade_val = ws_exec.cell(row=r, column=3).value
+            if grade_val in grade_fills:
+                ws_exec.cell(row=r, column=3).fill = grade_fills[grade_val]
+
         # Save to temp file
         temp_path = os.path.join(tempfile.gettempdir(), 'aegis_proposal_comparison.xlsx')
         wb.save(temp_path)
@@ -766,6 +936,57 @@ def export_comparison():
         return jsonify({
             'success': False,
             'error': {'message': f'Export error: {str(e)}', 'traceback': traceback.format_exc()}
+        }), 500
+
+
+# ──────────────────────────────────────────
+# HTML Export Endpoint
+# ──────────────────────────────────────────
+
+@pc_blueprint.route('/api/proposal-compare/export-html', methods=['POST'])
+def export_html():
+    """Export comparison results as interactive standalone HTML."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': {'message': 'Missing comparison data'}
+            }), 400
+
+        try:
+            from proposal_compare_export import generate_proposal_compare_html
+        except ImportError:
+            return jsonify({
+                'success': False,
+                'error': {'message': 'HTML export module not available (proposal_compare_export.py)'}
+            }), 500
+
+        html_content = generate_proposal_compare_html(data)
+
+        # Create temp file
+        project_name = data.get('metadata', {}).get('project_name', 'Comparison')
+        safe_name = ''.join(c if c.isalnum() or c in ' _-' else '' for c in project_name).strip()
+        from datetime import datetime as dt
+        timestamp = dt.now().strftime('%Y%m%d')
+        filename = f'AEGIS_Proposal_Comparison_{safe_name}_{timestamp}.html'
+
+        temp_path = os.path.join(tempfile.gettempdir(), filename)
+        with open(temp_path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+
+        return send_file(
+            temp_path,
+            mimetype='text/html',
+            as_attachment=True,
+            download_name=filename
+        )
+
+    except Exception as e:
+        logger.error(f'HTML export error: {e}', exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': {'message': f'HTML export error: {str(e)}', 'traceback': traceback.format_exc()}
         }), 500
 
 
@@ -889,6 +1110,96 @@ def remove_proposal(proposal_id):
         return jsonify({'success': True})
     except Exception as e:
         logger.error(f'Remove proposal error: {e}', exc_info=True)
+        return jsonify({'success': False, 'error': {'message': str(e)}}), 500
+
+
+@pc_blueprint.route('/api/proposal-compare/proposals/<int:proposal_id>', methods=['GET'])
+def get_proposal_data(proposal_id):
+    """Get the full extracted data for a single proposal (for editing from dashboard)."""
+    try:
+        from .projects import get_proposal_full_data
+        data = get_proposal_full_data(proposal_id)
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': {'message': 'Proposal not found'}
+            }), 404
+        # Include the db_id so frontend can track it
+        data['_db_id'] = proposal_id
+        return jsonify({'success': True, 'data': data})
+    except Exception as e:
+        logger.error(f'Get proposal data error: {e}', exc_info=True)
+        return jsonify({'success': False, 'error': {'message': str(e)}}), 500
+
+
+@pc_blueprint.route('/api/proposal-compare/proposals/<int:proposal_id>', methods=['PUT'])
+def update_proposal(proposal_id):
+    """Update a proposal's extracted data after user edits.
+
+    Persists changes from the review phase editor (company name, line items,
+    totals, etc.) back to the database so they survive modal close/reopen.
+    """
+    try:
+        from .projects import update_proposal_data
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': {'message': 'Updated proposal data required'}
+            }), 400
+        result = update_proposal_data(proposal_id, data)
+        if not result:
+            return jsonify({
+                'success': False,
+                'error': {'message': 'Proposal not found'}
+            }), 404
+        return jsonify({'success': True, 'data': result})
+    except Exception as e:
+        logger.error(f'Update proposal error: {e}', exc_info=True)
+        return jsonify({'success': False, 'error': {'message': str(e)}}), 500
+
+
+@pc_blueprint.route('/api/proposal-compare/proposals/<int:proposal_id>/move', methods=['POST'])
+def move_proposal_endpoint(proposal_id):
+    """Move a proposal to a different project.
+
+    JSON body: { "project_id": <int> }
+    """
+    try:
+        from .projects import move_proposal
+        data = request.get_json()
+        if not data or not data.get('project_id'):
+            return jsonify({
+                'success': False,
+                'error': {'message': 'Target project_id is required'}
+            }), 400
+        result = move_proposal(proposal_id, int(data['project_id']))
+        if not result:
+            return jsonify({
+                'success': False,
+                'error': {'message': 'Proposal not found'}
+            }), 404
+        return jsonify({'success': True, 'data': result})
+    except ValueError as ve:
+        return jsonify({
+            'success': False,
+            'error': {'message': str(ve)}
+        }), 404
+    except Exception as e:
+        logger.error(f'Move proposal error: {e}', exc_info=True)
+        return jsonify({'success': False, 'error': {'message': str(e)}}), 500
+
+
+@pc_blueprint.route('/api/proposal-compare/projects/<int:project_id>/comparisons', methods=['GET'])
+def get_project_comparisons(project_id):
+    """List comparisons for a specific project."""
+    try:
+        from .projects import list_comparisons_for_project
+        limit = request.args.get('limit', 20, type=int)
+        comparisons = list_comparisons_for_project(project_id, limit=limit)
+        return jsonify({'success': True, 'data': comparisons})
+    except Exception as e:
+        logger.error(f'Get project comparisons error: {e}', exc_info=True)
         return jsonify({'success': False, 'error': {'message': str(e)}}), 500
 
 
