@@ -81,13 +81,15 @@ except Exception as e:
 
 def parse_sharepoint_url(url: str) -> Dict[str, str]:
     """
-    Parse a SharePoint URL into site_url and library_path components.
+    v5.9.42: Parse a SharePoint URL into site_url and library_path components.
 
-    Handles various formats:
+    Handles various formats users might copy from their browser:
         https://ngc.sharepoint.us/sites/MyTeam/Shared Documents/Subfolder
         https://ngc.sharepoint.us/sites/MyTeam/Shared%20Documents
         https://ngc.sharepoint.us/:f:/s/MyTeam/Shared%20Documents
         https://ngc.sharepoint.us/sites/MyTeam
+        https://ngc.sharepoint.us/sites/MyTeam/Shared%20Documents/Forms/AllItems.aspx?...
+        https://ngc.sharepoint.us/:f:/r/sites/MyTeam/Shared%20Documents/Subfolder?csf=1&web=1
 
     Returns:
         {'site_url': str, 'library_path': str, 'host': str}
@@ -97,21 +99,57 @@ def parse_sharepoint_url(url: str) -> Dict[str, str]:
     host = parsed.netloc
     path = unquote(parsed.path)
 
-    # Handle /:f:/s/ short URLs
-    if '/:f:/s/' in path or '/:f:/r/' in path:
-        # Extract site and path from short URL
-        # e.g., /:f:/s/MyTeam/Shared Documents → /sites/MyTeam, /sites/MyTeam/Shared Documents
+    # Strip query params and fragments — they're SharePoint UI state, not path
+    # But first check for ?id= or ?RootFolder= params which contain the actual folder path
+    query_path = ''
+    if parsed.query:
+        from urllib.parse import parse_qs
+        qp = parse_qs(parsed.query)
+        # SharePoint modern UI: ?id=/sites/Team/Shared Documents/Subfolder
+        if 'id' in qp:
+            query_path = unquote(qp['id'][0])
+        # SharePoint classic UI: ?RootFolder=/sites/Team/Shared Documents/Subfolder
+        elif 'RootFolder' in qp:
+            query_path = unquote(qp['RootFolder'][0])
+
+    # Handle /:f:/s/ and /:f:/r/ short URLs (SharePoint sharing links)
+    # Format: /:f:/[s|r|g]/sites/SiteName/LibraryName/SubFolder
+    #      or /:f:/[s|r|g]/SiteName/LibraryName/SubFolder  (legacy)
+    if '/:f:/s/' in path or '/:f:/r/' in path or '/:f:/g/' in path:
         short_match = path.split('/:f:/')
         if len(short_match) > 1:
             after = short_match[1].lstrip('/')
+            # Remove the leading type indicator (s/, r/, g/)
+            if '/' in after:
+                type_prefix, rest = after.split('/', 1)
+                if type_prefix in ('s', 'r', 'g'):
+                    after = rest
+            # Now after might be "sites/MyTeam/Shared Documents" or just "MyTeam/Shared Documents"
+            site_prefix = '/sites/'
+            if after.lower().startswith('sites/'):
+                after = after[len('sites/'):]  # strip "sites/" → "MyTeam/Shared Documents"
+            elif after.lower().startswith('teams/'):
+                site_prefix = '/teams/'
+                after = after[len('teams/'):]
             parts = after.split('/', 1)
-            site_name = parts[0].lstrip('s/')
-            site_url = f"{parsed.scheme}://{host}/sites/{site_name}"
-            lib_path = f"/sites/{site_name}/{parts[1]}" if len(parts) > 1 else ''
+            site_name = parts[0]
+            site_url = f"{parsed.scheme}://{host}{site_prefix}{site_name}"
+            lib_path = f"{site_prefix}{site_name}/{parts[1]}" if len(parts) > 1 else ''
+            # Clean up: remove /Forms/AllItems.aspx if present
+            if '/Forms/' in lib_path:
+                lib_path = lib_path[:lib_path.index('/Forms/')]
             return {'site_url': site_url, 'library_path': lib_path, 'host': host}
 
+    # Clean up the path — remove SharePoint UI artifacts
+    # /sites/MyTeam/Shared Documents/Forms/AllItems.aspx → /sites/MyTeam/Shared Documents
+    clean_path = path
+    if '/Forms/AllItems.aspx' in clean_path:
+        clean_path = clean_path[:clean_path.index('/Forms/AllItems.aspx')]
+    elif '/Forms/' in clean_path and clean_path.endswith('.aspx'):
+        clean_path = clean_path[:clean_path.index('/Forms/')]
+
     # Standard URL: find the /sites/XXX or /teams/XXX boundary
-    path_lower = path.lower()
+    path_lower = clean_path.lower()
     site_url = f"{parsed.scheme}://{host}"
     library_path = ''
 
@@ -119,7 +157,7 @@ def parse_sharepoint_url(url: str) -> Dict[str, str]:
         idx = path_lower.find(prefix)
         if idx >= 0:
             # Find end of site name (next / after the site name)
-            after_prefix = path[idx + len(prefix):]
+            after_prefix = clean_path[idx + len(prefix):]
             slash_idx = after_prefix.find('/')
             if slash_idx >= 0:
                 site_name = after_prefix[:slash_idx]
@@ -131,6 +169,14 @@ def parse_sharepoint_url(url: str) -> Dict[str, str]:
                 site_name = after_prefix
                 site_url = f"{parsed.scheme}://{host}{prefix}{site_name}"
             break
+
+    # If we got a folder path from query params (?id= or ?RootFolder=), prefer that
+    if query_path and not library_path:
+        library_path = query_path
+    elif query_path and library_path:
+        # query_path is usually more specific (deeper subfolder)
+        if len(query_path) > len(library_path):
+            library_path = query_path
 
     return {'site_url': site_url, 'library_path': library_path, 'host': host}
 
@@ -520,7 +566,26 @@ class SharePointConnector:
 
         title = probe.get('title', '')
 
-        # Step 2: Auto-detect library path if not provided
+        # Step 2: Resolve library path
+        # Priority: provided path (from URL parse or user) → validate it → auto-detect
+        if library_path:
+            # Validate the URL-parsed path actually exists
+            if not self.validate_folder_path(library_path):
+                logger.info(f"SharePoint URL path '{library_path}' not found as folder, trying auto-detect")
+                # The URL path might be the library root — try trimming subdirectories
+                parts = library_path.rstrip('/').split('/')
+                found = False
+                for i in range(len(parts), 2, -1):
+                    candidate = '/'.join(parts[:i])
+                    if self.validate_folder_path(candidate):
+                        library_path = candidate
+                        found = True
+                        logger.info(f"SharePoint validated truncated path: {library_path}")
+                        break
+                if not found:
+                    logger.info(f"SharePoint URL path not valid, falling back to auto-detect")
+                    library_path = ''
+
         if not library_path:
             try:
                 detected = self.auto_detect_library_path()
@@ -569,14 +634,45 @@ class SharePointConnector:
 
     def auto_detect_library_path(self) -> Optional[str]:
         """
-        v5.9.35: Auto-detect the default document library path for this SharePoint site.
+        v5.9.42: Enhanced auto-detect — tries 3 strategies:
+        1. Query SharePoint Lists API to discover ALL document libraries
+        2. Probe common library names (Shared Documents, Documents)
+        3. Fall back to None (caller should use URL-parsed path)
 
-        Tries common library names: "Shared Documents", "Documents".
         Returns the server-relative path if found, or None.
         """
         parsed = urlparse(self.site_url)
         site_path = parsed.path.rstrip('/')  # e.g., /sites/MyTeam
 
+        # Strategy 1: Query Lists API for all document libraries
+        try:
+            lists_url = (
+                f"{self.site_url}/_api/web/Lists"
+                f"?$filter=BaseTemplate eq 101 and Hidden eq false"
+                f"&$select=Title,RootFolder/ServerRelativeUrl"
+                f"&$expand=RootFolder"
+            )
+            resp = self.session.get(
+                lists_url,
+                timeout=self.timeout,
+                verify=self.ssl_verify,
+                headers={**self.session.headers, 'Accept': 'application/json;odata=verbose'}
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                results = data.get('d', {}).get('results', [])
+                if results:
+                    # Return the first document library (usually "Shared Documents" or "Documents")
+                    for lib in results:
+                        root = lib.get('RootFolder', {})
+                        srv_url = root.get('ServerRelativeUrl', '')
+                        if srv_url:
+                            logger.info(f"SharePoint Lists API detected library: {srv_url} ({lib.get('Title', '')})")
+                            return srv_url
+        except Exception as e:
+            logger.debug(f"SharePoint Lists API query failed: {e}")
+
+        # Strategy 2: Probe common library names
         for lib_name in self.DEFAULT_LIBRARIES:
             test_path = f"{site_path}/{lib_name}"
             encoded = quote(test_path, safe='/:')
@@ -588,14 +684,30 @@ class SharePointConnector:
                     verify=self.ssl_verify,
                 )
                 if resp.status_code == 200:
-                    logger.info(f"SharePoint auto-detected library: {test_path}")
+                    logger.info(f"SharePoint probe detected library: {test_path}")
                     return test_path
             except Exception as e:
                 logger.debug(f"SharePoint library probe failed for {lib_name}: {e}")
                 continue
 
-        logger.info(f"SharePoint: No default library found — user must specify path")
+        logger.info(f"SharePoint: No library found via Lists API or probing")
         return None
+
+    def validate_folder_path(self, folder_path: str) -> bool:
+        """
+        v5.9.42: Check if a folder path exists on this SharePoint site.
+        Used to validate URL-extracted paths before scanning.
+        """
+        encoded = quote(folder_path, safe='/:')
+        try:
+            resp = self.session.get(
+                f"{self.site_url}/_api/web/GetFolderByServerRelativeUrl('{encoded}')",
+                timeout=self.timeout,
+                verify=self.ssl_verify,
+            )
+            return resp.status_code == 200
+        except Exception:
+            return False
 
     def list_files(
         self,

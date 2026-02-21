@@ -11586,35 +11586,20 @@ STEPS TO REPRODUCE
         const spConnectionStatus = document.getElementById('sp-connection-status');
         const spFilePreview = document.getElementById('sp-file-preview');
 
-        // v5.9.38: Auto-parse library path from site URL when user pastes/types full URL
-        // Also split the site URL from the library path component
+        // v5.9.42: Don't split the URL client-side — send the full URL to the backend.
+        // The server-side parse_sharepoint_url() handles all URL formats including
+        // ?id=, ?RootFolder=, /:f:/s/, /Forms/AllItems.aspx, etc.
+        // Just clean up obvious junk from the pasted URL.
         if (spSiteUrl) {
-            const _spAutoParseUrl = () => {
-                const url = spSiteUrl.value.trim();
+            const _spCleanUrl = () => {
+                let url = spSiteUrl.value.trim();
                 if (!url) return;
-                try {
-                    // Simple heuristic: if URL contains Shared Documents or a deep path, extract library
-                    const patterns = ['/Shared Documents', '/Shared%20Documents', '/Documents/'];
-                    for (const p of patterns) {
-                        const idx = url.indexOf(p);
-                        if (idx > 0) {
-                            const parsed = new URL(url);
-                            const decodedPath = decodeURIComponent(parsed.pathname);
-                            const pathParts = decodedPath.split(p.replace('%20', ' '));
-                            if (pathParts.length > 1) {
-                                const sitePath = pathParts[0];
-                                spSiteUrl.value = `${parsed.protocol}//${parsed.host}${sitePath}`;
-                                spLibraryPath.value = `${sitePath}${p.replace('%20', ' ')}${pathParts[1] || ''}`.replace(/\/$/, '');
-                            }
-                            break;
-                        }
-                    }
-                } catch (e) {
-                    // Not a valid URL yet — that's fine
-                }
+                // Remove trailing hash fragments (#) that SharePoint adds
+                url = url.replace(/#.*$/, '').trim().replace(/\/+$/, '');
+                spSiteUrl.value = url;
             };
-            spSiteUrl.addEventListener('change', _spAutoParseUrl);
-            spSiteUrl.addEventListener('paste', () => setTimeout(_spAutoParseUrl, 100));
+            spSiteUrl.addEventListener('change', _spCleanUrl);
+            spSiteUrl.addEventListener('paste', () => setTimeout(_spCleanUrl, 100));
         }
 
         // Test Connection button
@@ -11646,9 +11631,11 @@ STEPS TO REPRODUCE
                             let connMsg = `<strong>✓ Connected</strong> — ${escapeHtml(json.data.title || 'SharePoint site')} (${json.data.auth_method})`;
                             if (json.data.ssl_fallback) connMsg += ' <span style="opacity:0.7;font-size:11px">[SSL bypass active]</span>';
                             spConnectionStatus.innerHTML = connMsg;
-                            // v5.9.35: Auto-fill library path from server auto-detection or URL parsing
+                            // v5.9.42: Auto-fill library path from server auto-detection
                             if (json.data.parsed_library_path) {
                                 spLibraryPath.value = json.data.parsed_library_path;
+                                const spLibVis = document.getElementById('sp-library-path-visible');
+                                if (spLibVis) spLibVis.value = json.data.parsed_library_path;
                             }
                             if (btnSpDiscover) btnSpDiscover.disabled = false;
                             window.showToast?.(`Connected to "${json.data.title}"`, 'success');
@@ -11715,9 +11702,11 @@ STEPS TO REPRODUCE
                     if (json.success && json.data) {
                         const d = json.data;
 
-                        // Auto-fill the library path field
+                        // Auto-fill the library path fields (hidden + visible advanced)
                         if (d.library_path && spLibraryPath) {
                             spLibraryPath.value = d.library_path;
+                            const spLibVis = document.getElementById('sp-library-path-visible');
+                            if (spLibVis) spLibVis.value = d.library_path;
                         }
 
                         // Show connection success

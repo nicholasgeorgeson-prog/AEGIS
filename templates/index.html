@@ -1189,36 +1189,44 @@ if (document.documentElement.classList.contains('dark-mode')) {
                             </div>
                             <div class="folder-scan-input-row" style="flex-wrap:wrap;gap:6px;">
                                 <input type="text" id="sp-site-url" class="folder-scan-input"
-                                       placeholder="Paste SharePoint URL — folder will auto-detect (e.g. https://ngc.sharepoint.us/sites/MyTeam/Shared Documents)"
-                                       aria-label="SharePoint site URL"
-                                       style="flex:1 1 100%;">
-                                <input type="text" id="sp-library-path" class="folder-scan-input"
-                                       placeholder="Library path (auto-detected)"
-                                       aria-label="SharePoint document library path"
-                                       style="flex:1 1 50%;">
+                                       placeholder="Paste any SharePoint link (e.g. https://ngc.sharepoint.us/sites/MyTeam/Shared Documents/Subfolder)"
+                                       aria-label="SharePoint URL"
+                                       style="flex:1 1 70%;">
                                 <button type="button" class="btn btn-primary btn-sm" id="btn-sp-connect-scan"
                                         aria-label="Connect to SharePoint and scan all documents"
                                         style="white-space:nowrap;">
                                     <i data-lucide="cloud" aria-hidden="true"></i> Connect &amp; Scan
                                 </button>
-                                <button type="button" class="btn btn-secondary btn-sm" id="btn-sp-test"
-                                        aria-label="Test connection to SharePoint" title="Test connection only">
-                                    <i data-lucide="plug" aria-hidden="true"></i> Test
-                                </button>
                                 <button type="button" class="btn btn-secondary btn-sm" id="btn-sp-discover"
-                                        aria-label="Preview files in SharePoint library" title="Preview files only">
+                                        aria-label="Preview files in SharePoint library" title="Preview files without scanning">
                                     <i data-lucide="search" aria-hidden="true"></i> Preview
+                                </button>
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-sp-test"
+                                        aria-label="Test connection to SharePoint" title="Test connection only"
+                                        style="display:none;">
+                                    <i data-lucide="plug" aria-hidden="true"></i> Test
                                 </button>
                                 <button type="button" class="btn btn-secondary btn-sm" id="btn-sp-scan"
                                         aria-label="Scan already-discovered files" disabled style="display:none;">
                                     <i data-lucide="scan-line" aria-hidden="true"></i> Scan All
                                 </button>
                             </div>
-                            <div style="margin-top:4px;">
+                            <!-- v5.9.42: Library path hidden by default — auto-detected from URL -->
+                            <input type="hidden" id="sp-library-path" value="">
+                            <div style="margin-top:4px;display:flex;align-items:center;gap:12px;">
                                 <label style="font-size:11px;color:var(--text-muted);cursor:pointer;">
                                     <input type="checkbox" id="sp-recursive" checked style="margin-right:4px;">
                                     Include subfolders
                                 </label>
+                                <a href="#" id="sp-show-advanced" style="font-size:11px;color:var(--text-muted);text-decoration:none;"
+                                   onclick="event.preventDefault();var el=document.getElementById('sp-advanced');el.style.display=el.style.display==='none'?'flex':'none';this.textContent=el.style.display==='none'?'Advanced ▸':'Advanced ▾';">Advanced ▸</a>
+                            </div>
+                            <div id="sp-advanced" style="display:none;flex-wrap:wrap;gap:6px;margin-top:4px;">
+                                <input type="text" id="sp-library-path-visible" class="folder-scan-input"
+                                       placeholder="Library path override (leave blank for auto-detect)"
+                                       aria-label="SharePoint document library path override"
+                                       style="flex:1 1 100%;font-size:12px;"
+                                       oninput="document.getElementById('sp-library-path').value=this.value;">
                             </div>
                             <div id="sp-connection-status" class="hidden" style="margin-top:8px;padding:8px 12px;border-radius:6px;font-size:12px;"></div>
                             <div class="folder-scan-preview hidden" id="sp-file-preview">
