@@ -167,11 +167,15 @@ CATEGORY_PATTERNS = {
         r'technical\s+(?:support|staff|writer|lead)|analyst|architect|designer|'
         r'SME|subject\s+matter|test(?:ing|er)?|QA|quality\s+assurance)\b', re.IGNORECASE),
     'Material': re.compile(
-        r'\b(?:material|supplies|equipment|hardware|procurement|license|subscription|'
+        r'\b(?:material|supplies|equipment|hardware|procurement|'
         r'tool(?:ing|s)?|parts?|component|inventory|COTS|GOTS)\b', re.IGNORECASE),
     'Software': re.compile(
         r'\b(?:software\s+license|COTS\s+software|software\s+(?:tool|package|suite|product)|'
         r'SaaS|cloud\s+service|platform\s+license)\b', re.IGNORECASE),
+    'License': re.compile(
+        r'\b(?:licens(?:e|ing)|subscription|annual\s+(?:fee|renewal)|seat\s+(?:fee|license)|'
+        r'user\s+licens|per\s+(?:user|seat)|maintenance\s+(?:agreement|fee|renewal)|'
+        r'support\s+(?:agreement|contract|renewal)|SLA|service\s+level)\b', re.IGNORECASE),
     'Travel': re.compile(
         r'\b(?:travel|per\s*diem|airfare|lodging|mileage|transportation|trip)\b', re.IGNORECASE),
     'Training': re.compile(
