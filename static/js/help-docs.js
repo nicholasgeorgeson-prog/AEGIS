@@ -2,7 +2,7 @@
  * AEGIS Help Documentation System
  * ==========================================
  * Comprehensive documentation for all features.
- * Version: 5.9.53
+ * Version: 6.0.0
  *
  * Complete overhaul with:
  * - Beautiful visual design with icons and illustrations
@@ -182,6 +182,8 @@ const HelpDocs = {
             { id: 'trouble-performance', title: 'Performance', icon: 'gauge' }
         ]},
         { id: 'version-history', title: 'Version History', icon: 'history' },
+        // v6.0.0: Cinema showcase disabled — will be re-enabled when AI video is ready
+        // { id: 'cinema-showcase', title: 'Behind the Scenes', icon: 'clapperboard' },
         { id: 'about', title: 'About', icon: 'info' }
     ],
 
@@ -8030,6 +8032,39 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.0.0 <span class="changelog-date">February 22, 2026</span></h3>
+        <p><strong>Major Release &mdash; 5-Module Learning System, Proposal Compare v2, Enhanced Security</strong></p>
+        <ul>
+            <li><strong>NEW: Universal Learning System (v5.9.50)</strong> &mdash; 5 independent learning modules (Document Review, Statement Forge, Roles, HV, Proposal Compare) that remember your corrections. All data stays 100% local</li>
+            <li><strong>NEW: Settings Learning Tab (v5.9.52)</strong> &mdash; dedicated management dashboard with per-module View/Export/Clear, global toggle, and pattern viewer</li>
+            <li><strong>NEW: Proposal Compare v2 (v5.9.40)</strong> &mdash; 8-tab analysis (executive summary, comparison matrix, categories, red flags, heatmap, vendor scores, details, raw tables)</li>
+            <li><strong>NEW: Multi-Term Comparison (v5.9.46)</strong> &mdash; auto-groups proposals by contract term, separate analysis per term group, All Terms Summary cross-comparison</li>
+            <li><strong>NEW: Proposal Structure Analyzer (v5.9.47)</strong> &mdash; privacy-safe parser diagnostics with redacted structural reports</li>
+            <li><strong>NEW: Local Pattern Learning (v5.9.49)</strong> &mdash; learned category overrides, company patterns, and financial table signatures from user corrections</li>
+            <li><strong>NEW: Interactive HTML Export</strong> &mdash; self-contained HTML reports with inline SVG charts, sortable tables, dark/light toggle, print support</li>
+            <li><strong>NEW: PDF HiDPI Rendering + Zoom + Magnifier</strong> &mdash; crisp text on Retina/4K, zoom controls, magnifier loupe for document review</li>
+            <li><strong>NEW: Project Management Dashboard</strong> &mdash; create projects, group proposals, tag-to-project, project financial summary</li>
+            <li><strong>NEW: SharePoint Connector</strong> &mdash; browse and scan SharePoint document libraries with Windows SSO authentication</li>
+            <li><strong>NEW: Headless Browser Rewrite (v5.9.44)</strong> &mdash; resource blocking, parallel validation (5 concurrent), Windows SSO passthrough, login page detection</li>
+            <li><strong>NEW: Per-Domain Rate Limiting</strong> &mdash; thread-safe semaphores prevent 429 errors during batch validation</li>
+            <li><strong>NEW: OS Truststore Integration</strong> &mdash; Python truststore module uses OS certificate store, eliminating corporate SSL errors</li>
+            <li><strong>NEW: Content-Type Mismatch Detection</strong> &mdash; catches silent login redirects where document URLs return HTML instead of the expected file type</li>
+            <li><strong>NEW: Multi-Strategy SSL Fallback</strong> &mdash; cascade of verify-false + fresh SSO + headless for corporate CA certificates</li>
+            <li><strong>NEW: /api/capabilities Endpoint</strong> &mdash; reports server capabilities (excel, pdf, docling, mammoth, spacy, proposal_compare, sharepoint)</li>
+            <li><strong>NEW: Batch Scan Minimize/Restore</strong> &mdash; floating badge with progress ring when batch modal is minimized</li>
+            <li><strong>NEW: Metrics &amp; Analytics Proposals Tab</strong> &mdash; cross-module dashboard with lazy-loaded proposal metrics</li>
+            <li><strong>ENH: 79 overview demo scenes + 93 sub-demos with ~471 deep-dive scenes across all modules</strong></li>
+            <li><strong>ENH: Voice narration with 545+ pre-generated MP3 clips (JennyNeural) + Web Speech API fallback</strong></li>
+            <li><strong>ENH: Guided Tour auto-advance, demo picker UI, sub-demo breadcrumbs</strong></li>
+            <li><strong>ENH: Persistent Docling Worker Pool for batch performance (3-6x faster)</strong></li>
+            <li><strong>FIX: Export Highlighted Windows Werkzeug 413 compatibility (read-only property workaround)</strong></li>
+            <li><strong>FIX: Batch scan time window mismatch (card vs detail view)</strong></li>
+            <li><strong>FIX: Update button display:none never toggled visible</strong></li>
+            <li><strong>FIX: Cross-checker dedup with category normalization</strong></li>
+            <li><strong>FIX: coreferee compatibility guard for spaCy 3.6+</strong></li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.9.53 <span class="changelog-date">February 22, 2026</span></h3>
         <p><strong>Project Financial Dashboard</strong></p>
         <ul>
@@ -10163,6 +10198,63 @@ HelpDocs.content['version-history'] = {
 };
 
 // ============================================================================
+// CINEMATIC TECHNOLOGY SHOWCASE
+// ============================================================================
+HelpDocs.content['cinema-showcase'] = {
+    title: 'Behind the Scenes',
+    subtitle: 'Watch AEGIS come alive in an animated cinematic showcase',
+    html: `
+<div class="help-hero">
+    <div class="help-hero-icon"><i data-lucide="clapperboard"></i></div>
+    <h2>Cinematic Technology Showcase</h2>
+    <p>A full-screen animated video that tells the AEGIS story — from the problem it solves to every module in action. Built entirely with HTML5 Canvas, no pre-recorded video files needed.</p>
+</div>
+
+<div class="help-section">
+    <h3><i data-lucide="play-circle"></i> Launching the Showcase</h3>
+    <p>Click the <strong>Behind the Scenes</strong> tile on the AEGIS landing page. The cinematic opens in full-screen overlay with animated Canvas visuals and voice narration.</p>
+    <div class="help-tip">
+        <strong>Screen Recording:</strong> Use QuickTime Player (Mac) or OBS (Windows) to capture the showcase as a shareable .mp4 video.
+    </div>
+</div>
+
+<div class="help-section">
+    <h3><i data-lucide="film"></i> Story Structure (6 Acts, 18 Scenes)</h3>
+    <ul>
+        <li><strong>Act 1 — The Problem:</strong> Document chaos, endless standards, breaking point</li>
+        <li><strong>Act 2 — The Solution:</strong> AEGIS boot sequence, HUD activation, document scanning</li>
+        <li><strong>Act 3 — Deep Dive:</strong> Review engine, Statement Forge, Roles Studio, Proposal Compare, Hyperlink Validator, Learning System</li>
+        <li><strong>Act 4 — The Numbers:</strong> Stats cascade, architecture overview</li>
+        <li><strong>Act 5 — Air-Gapped:</strong> Fortress security, classified readiness</li>
+        <li><strong>Act 6 — Finale:</strong> Module convergence, logo reveal</li>
+    </ul>
+    <p>Total runtime: approximately 6-8 minutes at 1x speed.</p>
+</div>
+
+<div class="help-section">
+    <h3><i data-lucide="monitor"></i> Controls</h3>
+    <ul>
+        <li><strong>Play/Pause:</strong> Click the play button or press <kbd>Space</kbd></li>
+        <li><strong>Seek:</strong> Click anywhere on the progress bar to jump to that point</li>
+        <li><strong>Volume:</strong> Adjust the slider or mute narration</li>
+        <li><strong>Fullscreen:</strong> Toggle browser fullscreen mode</li>
+        <li><strong>Close:</strong> Click X or press <kbd>Escape</kbd></li>
+    </ul>
+    <p>Controls appear on hover and stay visible when paused.</p>
+</div>
+
+<div class="help-section">
+    <h3><i data-lucide="sparkles"></i> Visual Style</h3>
+    <p>Cyberpunk HUD aesthetic — dark backgrounds with glowing gold wireframes, holographic data streams, particle effects, scan lines, and vignette. Every frame is rendered programmatically via Canvas 2D.</p>
+</div>
+
+<div class="help-section">
+    <h3><i data-lucide="volume-2"></i> Voice Narration</h3>
+    <p>Each scene has a pre-generated MP3 narration clip (Microsoft JennyNeural voice). If audio files are unavailable, the system falls back to browser Web Speech API, then silent typewriter subtitles.</p>
+</div>
+`
+};
+
 // ABOUT
 // ============================================================================
 HelpDocs.content['about'] = {
