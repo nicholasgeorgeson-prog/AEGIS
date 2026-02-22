@@ -1,270 +1,338 @@
 {
-  "version": "1.0",
-  "generated_by": "AEGIS Demo Audio Generator",
+  "version": "2.0",
   "voice": "en-US-JennyNeural",
   "provider": "edge-tts",
+  "generated": "2026-02-22 11:05:15",
   "sections": {
-    "upload_extract": {
+    "accessibility_features": {
       "steps": [
         {
-          "file": "upload_extract__step0.mp3",
-          "text": "The upload screen has a project selector at the top left and a History button at the top right. Select an existing project to add proposals to it, or create a new one. Click History to browse past comparisons.",
-          "hash": "c3c1ae4d",
-          "size": 85536
+          "file": "accessibility_features__step0.mp3",
+          "size": 95040
         },
         {
-          "file": "upload_extract__step1.mp3",
-          "text": "Drop files onto the upload dropzone or click to browse. AEGIS accepts DOCX, PDF, and Excel formats. You need at least two files to run a comparison, and you can upload up to ten proposals at once.",
-          "hash": "83e2d05b",
-          "size": 89280
+          "file": "accessibility_features__step1.mp3",
+          "size": 99216
         },
         {
-          "file": "upload_extract__step2.mp3",
-          "text": "Excel files have the richest extraction since data is already structured. PDF extraction uses a multi-strategy pipeline with automatic data-pattern column inference for tables without proper headers. DOCX files use mammoth for table parsing.",
-          "hash": "9a25864a",
-          "size": 97344
+          "file": "accessibility_features__step2.mp3",
+          "size": 103968
         },
         {
-          "file": "upload_extract__step3.mp3",
-          "text": "After extraction, AEGIS enters the Review phase where you verify and edit all metadata before comparison. The four-step progress indicator shows Upload, Extract, Review, and Compare phases.",
-          "hash": "05673fde",
-          "size": 79056
+          "file": "accessibility_features__step3.mp3",
+          "size": 87984
         }
       ]
     },
-    "exec_summary": {
+    "adjudication": {
       "steps": [
         {
-          "file": "exec_summary__step0.mp3",
-          "text": "The Executive Summary is the first tab shown after comparison. Hero stats at the top show total line items compared, vendor count, red flag count, and potential savings amount \u2014 all calculated automatically from the extracted data.",
-          "hash": "d17fc980",
-          "size": 92880
+          "file": "adjudication__step0.mp3",
+          "size": 101088
         },
         {
-          "file": "exec_summary__step1.mp3",
-          "text": "Price rankings show vendors ordered by total cost with gold, silver, and bronze medal icons. The overall score ranking shows vendors by their composite score, which factors in price competitiveness, completeness, risk profile, and data quality.",
-          "hash": "ce0724f2",
-          "size": 96048
+          "file": "adjudication__step1.mp3",
+          "size": 98496
         },
         {
-          "file": "exec_summary__step2.mp3",
-          "text": "Key findings are auto-generated observations with severity badges. These highlight the lowest bidder, largest cost gaps, vendors with missing line items, and any pricing anomalies detected during analysis.",
-          "hash": "c646e9d7",
-          "size": 81504
+          "file": "adjudication__step2.mp3",
+          "size": 100080
         },
         {
-          "file": "exec_summary__step3.mp3",
-          "text": "A tornado chart visualizes the biggest price spreads as horizontal bars sorted by magnitude. Bars are colored by variance intensity \u2014 red for over fifty percent spread, orange for over twenty-five percent. This instantly shows where negotiation effort will have the greatest financial impact.",
-          "hash": "a4575d07",
-          "size": 110880
+          "file": "adjudication__step3.mp3",
+          "size": 95760
+        },
+        {
+          "file": "adjudication__step4.mp3",
+          "size": 97776
+        },
+        {
+          "file": "adjudication__step5.mp3",
+          "size": 91440
         }
       ]
     },
-    "red_flags": {
+    "adjudication_exports": {
       "steps": [
         {
-          "file": "red_flags__step0.mp3",
-          "text": "The Red Flags tab groups risk findings by vendor. Each vendor section shows a flag count summary and a list of individual flags with severity badges \u2014 critical in red, warning in orange, and info in blue.",
-          "hash": "5509b955",
-          "size": 82512
+          "file": "adjudication_exports__step0.mp3",
+          "size": 91296
         },
         {
-          "file": "red_flags__step1.mp3",
-          "text": "Critical flags detect serious issues like pricing anomalies where a line item is more than double the group average. FAR 15.404 price reasonableness checks flag items with z-scores more than two standard deviations from the mean \u2014 the same statistical technique used in government source selection.",
-          "hash": "89283ab8",
-          "size": 112752
+          "file": "adjudication_exports__step1.mp3",
+          "size": 100656
         },
         {
-          "file": "red_flags__step2.mp3",
-          "text": "Warning flags now include identical pricing detection \u2014 when two vendors have suspiciously similar prices on more than sixty percent of items, it may indicate collusion. Missing category detection flags vendors who omit entire cost categories that others include, indicating scope gaps.",
-          "hash": "e8d35520",
-          "size": 109152
+          "file": "adjudication_exports__step2.mp3",
+          "size": 117792
         },
         {
-          "file": "red_flags__step3.mp3",
-          "text": "Info flags provide data quality notes. These include extraction confidence indicators, table formatting observations, and vendor-specific patterns. Each flag includes a detailed explanation to help you understand the finding and take action.",
-          "hash": "5bba2c5e",
-          "size": 97488
+          "file": "adjudication_exports__step3.mp3",
+          "size": 106416
+        },
+        {
+          "file": "adjudication_exports__step4.mp3",
+          "size": 107712
         }
       ]
     },
-    "heatmap_view": {
+    "adjudication_sharing": {
       "steps": [
         {
-          "file": "heatmap_view__step0.mp3",
-          "text": "The Heatmap displays a grid where each row is a line item and each column is a vendor. Cell colors indicate how far each amount deviates from the group average for that line item.",
-          "hash": "3067d544",
-          "size": 66528
+          "file": "adjudication_sharing__step0.mp3",
+          "size": 93168
         },
         {
-          "file": "heatmap_view__step1.mp3",
-          "text": "Dark green cells are significantly below the average \u2014 these are competitive prices. Light green is slightly below average. Neutral white or light grey means the amount is within five percent of the average.",
-          "hash": "eeb9922a",
-          "size": 81216
+          "file": "adjudication_sharing__step1.mp3",
+          "size": 87840
         },
         {
-          "file": "heatmap_view__step2.mp3",
-          "text": "Orange cells are moderately above average, and red cells are significantly above \u2014 these are premium prices worth questioning. Grey cells indicate the vendor did not quote that line item at all.",
-          "hash": "3041ae19",
-          "size": 74016
+          "file": "adjudication_sharing__step2.mp3",
+          "size": 91872
         },
         {
-          "file": "heatmap_view__step3.mp3",
-          "text": "A legend at the top explains the color scale. Scan the columns vertically to see each vendor overall pattern. Vendors with mostly green columns are generally competitive. Vendors with mostly red are generally expensive.",
-          "hash": "b8b978dc",
+          "file": "adjudication_sharing__step3.mp3",
+          "size": 81072
+        }
+      ]
+    },
+    "auto_adjudicate": {
+      "steps": [
+        {
+          "file": "auto_adjudicate__step0.mp3",
+          "size": 93456
+        },
+        {
+          "file": "auto_adjudicate__step1.mp3",
+          "size": 103968
+        },
+        {
+          "file": "auto_adjudicate__step2.mp3",
+          "size": 111312
+        },
+        {
+          "file": "auto_adjudicate__step3.mp3",
+          "size": 118368
+        }
+      ]
+    },
+    "batch": {
+      "steps": [
+        {
+          "file": "batch__step0.mp3",
+          "size": 68976
+        },
+        {
+          "file": "batch__step1.mp3",
+          "size": 86400
+        },
+        {
+          "file": "batch__step2.mp3",
+          "size": 88560
+        },
+        {
+          "file": "batch__step3.mp3",
+          "size": 68256
+        },
+        {
+          "file": "batch__step4.mp3",
+          "size": 91008
+        },
+        {
+          "file": "batch__step5.mp3",
+          "size": 89712
+        }
+      ]
+    },
+    "batch_grouping": {
+      "steps": [
+        {
+          "file": "batch_grouping__step0.mp3",
+          "size": 89856
+        },
+        {
+          "file": "batch_grouping__step1.mp3",
+          "size": 83520
+        },
+        {
+          "file": "batch_grouping__step2.mp3",
+          "size": 78624
+        },
+        {
+          "file": "batch_grouping__step3.mp3",
+          "size": 89712
+        }
+      ]
+    },
+    "change_navigation": {
+      "steps": [
+        {
+          "file": "change_navigation__step0.mp3",
+          "size": 87408
+        },
+        {
+          "file": "change_navigation__step1.mp3",
+          "size": 77040
+        },
+        {
+          "file": "change_navigation__step2.mp3",
+          "size": 78192
+        }
+      ]
+    },
+    "chart_interactions": {
+      "steps": [
+        {
+          "file": "chart_interactions__step0.mp3",
+          "size": 87120
+        },
+        {
+          "file": "chart_interactions__step1.mp3",
+          "size": 95040
+        },
+        {
+          "file": "chart_interactions__step2.mp3",
+          "size": 85104
+        },
+        {
+          "file": "chart_interactions__step3.mp3",
+          "size": 81792
+        },
+        {
+          "file": "chart_interactions__step4.mp3",
+          "size": 98208
+        }
+      ]
+    },
+    "checker_categories": {
+      "steps": [
+        {
+          "file": "checker_categories__step0.mp3",
+          "size": 104832
+        },
+        {
+          "file": "checker_categories__step1.mp3",
+          "size": 109440
+        },
+        {
+          "file": "checker_categories__step2.mp3",
+          "size": 116064
+        },
+        {
+          "file": "checker_categories__step3.mp3",
+          "size": 90720
+        },
+        {
+          "file": "checker_categories__step4.mp3",
+          "size": 102672
+        }
+      ]
+    },
+    "checker_config": {
+      "steps": [
+        {
+          "file": "checker_config__step0.mp3",
+          "size": 78912
+        },
+        {
+          "file": "checker_config__step1.mp3",
+          "size": 107568
+        },
+        {
+          "file": "checker_config__step2.mp3",
+          "size": 118224
+        },
+        {
+          "file": "checker_config__step3.mp3",
+          "size": 110736
+        },
+        {
+          "file": "checker_config__step4.mp3",
+          "size": 83088
+        }
+      ]
+    },
+    "compare": {
+      "steps": [
+        {
+          "file": "compare__step0.mp3",
+          "size": 110016
+        },
+        {
+          "file": "compare__step1.mp3",
+          "size": 113760
+        },
+        {
+          "file": "compare__step2.mp3",
+          "size": 126288
+        },
+        {
+          "file": "compare__step3.mp3",
+          "size": 113904
+        },
+        {
+          "file": "compare__step4.mp3",
+          "size": 100656
+        },
+        {
+          "file": "compare__step5.mp3",
           "size": 91728
         }
       ]
     },
-    "vendor_scores": {
+    "compare_doc_switcher": {
       "steps": [
         {
-          "file": "vendor_scores__step0.mp3",
-          "text": "Each vendor receives an overall score from zero to one hundred and a letter grade from A through F. A radar chart overlays all vendors on one spider plot with four axes \u2014 Price, Completeness, Risk, and Data Quality \u2014 for instant visual comparison of strengths and weaknesses.",
-          "hash": "08c0d189",
-          "size": 108864
+          "file": "compare_doc_switcher__step0.mp3",
+          "size": 86400
         },
         {
-          "file": "vendor_scores__step1.mp3",
-          "text": "Below the vendor score cards, four weight sliders let you customize the evaluation. Drag the Price slider higher for cost-focused analysis, or boost Risk to emphasize compliance. The total display turns green when weights sum to one hundred percent and red otherwise.",
-          "hash": "ab9481cb",
-          "size": 103824
+          "file": "compare_doc_switcher__step1.mp3",
+          "size": 97776
         },
         {
-          "file": "vendor_scores__step2.mp3",
-          "text": "As you adjust any slider, all vendor scores, letter grades, and rankings recalculate instantly \u2014 no need to re-run the comparison. Click Reset to restore the defaults: Price at forty percent, Completeness at twenty-five, Risk at twenty-five, and Data Quality at ten.",
-          "hash": "1860d063",
-          "size": 106848
+          "file": "compare_doc_switcher__step2.mp3",
+          "size": 96624
         },
         {
-          "file": "vendor_scores__step3.mp3",
-          "text": "A grouped bar chart shows component scores side by side for quick visual comparison. Combined with the radar chart overlay, you can instantly identify which vendors have the best overall balance and which have critical weaknesses.",
-          "hash": "4de9e717",
-          "size": 83232
+          "file": "compare_doc_switcher__step3.mp3",
+          "size": 103248
         }
       ]
     },
-    "comparison_view": {
+    "compare_export": {
       "steps": [
         {
-          "file": "comparison_view__step0.mp3",
-          "text": "The comparison matrix is now fully interactive. Click any column header to sort ascending or descending \u2014 sort by description, any vendor amount, or variance percentage. Sort icons show the current state: neutral arrows for unsorted, gold up or down arrows for active sort.",
-          "hash": "1a0aee6b",
-          "size": 108720
+          "file": "compare_export__step0.mp3",
+          "size": 94032
         },
         {
-          "file": "comparison_view__step1.mp3",
-          "text": "Use the filter bar above the table to narrow results. The category dropdown filters by cost type \u2014 Labor, Material, Travel, and more. The variance threshold dropdown shows only items with spread above ten, twenty, or fifty percent. The item count updates as you filter.",
-          "hash": "1e2318a5",
-          "size": 117072
+          "file": "compare_export__step1.mp3",
+          "size": 84096
         },
         {
-          "file": "comparison_view__step2.mp3",
-          "text": "Line item alignment uses text similarity matching with category-aware scoring. The Grand Total row sums each vendor column. Green highlights the lowest cost per item, red highlights the highest. Notes below summarize the comparison and lowest bidder.",
-          "hash": "61816194",
-          "size": 101952
+          "file": "compare_export__step2.mp3",
+          "size": 79920
         }
       ]
     },
-    "export_results": {
+    "compare_viewer": {
       "steps": [
         {
-          "file": "export_results__step0.mp3",
-          "text": "The Export button generates a formatted Excel workbook with five sheets. The Proposal Comparison sheet has frozen panes so headers and descriptions stay visible while scrolling, plus auto-filter dropdowns on all columns for quick Excel filtering.",
-          "hash": "8376b9f4",
-          "size": 92304
+          "file": "compare_viewer__step0.mp3",
+          "size": 98928
         },
         {
-          "file": "export_results__step1.mp3",
-          "text": "Additional sheets include Executive Summary with rankings and findings, Red Flags organized by vendor with severity indicators, Category Summary with per-vendor cost breakdown, and Proposal Details with metadata. All sheets use AEGIS dark-navy and gold branding.",
-          "hash": "e15da033",
-          "size": 100800
+          "file": "compare_viewer__step1.mp3",
+          "size": 95616
         },
         {
-          "file": "export_results__step2.mp3",
-          "text": "You can also print the analysis directly from the browser. The print-optimized CSS hides interactive controls like weight sliders and filter bars, and formats tables for clean paper output. Use browser print or Control-P for a quick hard copy.",
-          "hash": "37c4a78f",
-          "size": 98064
-        }
-      ]
-    },
-    "proposal-compare": {
-      "steps": [
-        {
-          "file": "proposal-compare__step0.mp3",
-          "text": "Proposal Compare is a full procurement analysis tool. Upload two or more vendor proposals and AEGIS extracts financial data, then lets you review and edit everything before comparison. Eight tabs of analysis include executive summary with tornado chart, red flags, cost heatmap, vendor scores, and comparison history.",
-          "hash": "b841c824",
-          "size": 130320
+          "file": "compare_viewer__step2.mp3",
+          "size": 92592
         },
         {
-          "file": "proposal-compare__step1.mp3",
-          "text": "The workflow has four phases: Upload, Extract, Review, and Compare. Start by selecting or creating a project, then drop files onto the upload area. After extraction, the Review phase lets you verify and correct all metadata before running the comparison.",
-          "hash": "3fe6223b",
-          "size": 108432
-        },
-        {
-          "file": "proposal-compare__step2.mp3",
-          "text": "The Review phase shows a split-pane view for each proposal \u2014 the source document on the left, and an editable metadata panel on the right. You can view PDFs rendered inline, see extracted text from DOCX files, or browse table data from Excel files right alongside the editor.",
-          "hash": "8584e422",
-          "size": 106704
-        },
-        {
-          "file": "proposal-compare__step3.mp3",
-          "text": "In the editor panel, correct company names, dates, and total amounts. Expand the line item editor to add, remove, or modify individual cost items and their categories. Navigate between proposals with previous and next buttons \u2014 edits are preserved automatically.",
-          "hash": "ed9be6a3",
-          "size": 109152
-        },
-        {
-          "file": "proposal-compare__step4.mp3",
-          "text": "The Executive Summary shows hero stats, price rankings with medals, key findings, and a tornado chart visualizing the biggest price spreads. Red Flags include FAR 15.404 price reasonableness checks, identical pricing detection, and missing category warnings.",
-          "hash": "66b46982",
-          "size": 111312
-        },
-        {
-          "file": "proposal-compare__step5.mp3",
-          "text": "The Heatmap shows a color-coded grid of every line item versus every vendor. Vendor Scores feature a radar chart with adjustable weight sliders. The Comparison tab supports sorting, filtering by category, and variance thresholds.",
-          "hash": "e8d5ad0a",
-          "size": 91440
-        },
-        {
-          "file": "proposal-compare__step6.mp3",
-          "text": "Every comparison is automatically saved to history. Click the History button on the upload screen to browse past comparisons with vendor names, dates, and cost spreads. Click any card to reload the full results, or use Back to Review to return and adjust your edits.",
-          "hash": "5af31628",
-          "size": 105408
-        },
-        {
-          "file": "proposal-compare__step7.mp3",
-          "text": "Export to a five-sheet Excel workbook with frozen panes and auto-filter headers. Print directly from the browser with optimized CSS. Projects organize proposals over time, and the Metrics dashboard Proposals tab tracks cross-project analytics.",
-          "hash": "cb49f67e",
-          "size": 99360
-        }
-      ]
-    },
-    "review_edit": {
-      "steps": [
-        {
-          "file": "review_edit__step0.mp3",
-          "text": "The Review phase shows one proposal at a time with a split-pane layout. On the left, a document viewer renders the source file \u2014 PDFs display inline via PDF.js, DOCX files show extracted text, and Excel files show parsed tables.",
-          "hash": "faa9e839",
-          "size": 102240
-        },
-        {
-          "file": "review_edit__step1.mp3",
-          "text": "On the right, editable fields let you correct the company name, date, and total amount. These values are pre-filled from extraction but you can change them to match the actual document content.",
-          "hash": "27017d94",
-          "size": 72144
-        },
-        {
-          "file": "review_edit__step2.mp3",
-          "text": "Click Edit Line Items to expand the line item editor. Each row shows description, category dropdown, amount, quantity, and unit price. Delete rows with the X button or add new rows with the plus button at the bottom.",
-          "hash": "0f29b470",
-          "size": 88704
-        },
-        {
-          "file": "review_edit__step3.mp3",
-          "text": "Navigate between proposals using the previous and next buttons. Your edits are saved automatically as you navigate. When all proposals look correct, click Compare Proposals to run the analysis.",
-          "hash": "7354d1a8",
-          "size": 79632
+          "file": "compare_viewer__step3.mp3",
+          "size": 92160
         }
       ]
     },
@@ -272,49 +340,1151 @@
       "steps": [
         {
           "file": "comparison_history__step0.mp3",
-          "text": "Every comparison you run is automatically saved to history. Click the History button on the upload screen to browse all past analyses with vendor names, proposal counts, cost spreads, and timestamps.",
-          "hash": "4e357a52",
           "size": 79344
         },
         {
           "file": "comparison_history__step1.mp3",
-          "text": "Click the View button on any history card to reload the full comparison results \u2014 all eight analysis tabs are restored exactly as they were. Click the trash icon to delete a comparison you no longer need.",
-          "hash": "3e0e2ec8",
           "size": 77472
         },
         {
           "file": "comparison_history__step2.mp3",
-          "text": "From the results view, click Back to Review to return to the split-pane editor with your original proposals preserved. Adjust metadata or line items, then re-run the comparison. Back to Upload starts fresh with new files.",
-          "hash": "5931aae9",
           "size": 87552
         }
       ]
     },
-    "pattern_learning": {
+    "comparison_view": {
       "steps": [
         {
-          "file": "pattern_learning__step0.mp3",
-          "text": "Every time you upload a proposal, AEGIS takes a snapshot of the raw extraction results before you make any changes. This snapshot is the baseline that the learning system compares against your edits to understand what needs improving.",
-          "hash": "4bc9c570",
+          "file": "comparison_view__step0.mp3",
+          "size": 108720
+        },
+        {
+          "file": "comparison_view_step_0.mp3",
+          "size": 93600
+        },
+        {
+          "file": "comparison_view__step1.mp3",
+          "size": 117072
+        },
+        {
+          "file": "comparison_view_step_1.mp3",
+          "size": 87840
+        },
+        {
+          "file": "comparison_view__step2.mp3",
+          "size": 101952
+        },
+        {
+          "file": "comparison_view_step_2.mp3",
+          "size": 91008
+        }
+      ]
+    },
+    "data_management": {
+      "steps": [
+        {
+          "file": "data_management__step0.mp3",
+          "size": 76464
+        },
+        {
+          "file": "data_management__step1.mp3",
+          "size": 67104
+        },
+        {
+          "file": "data_management__step2.mp3",
+          "size": 87696
+        }
+      ]
+    },
+    "data_mgmt": {
+      "steps": [
+        {
+          "file": "data_mgmt__step0.mp3",
+          "size": 87840
+        },
+        {
+          "file": "data_mgmt__step1.mp3",
+          "size": 97344
+        },
+        {
+          "file": "data_mgmt__step2.mp3",
+          "size": 71856
+        },
+        {
+          "file": "data_mgmt__step3.mp3",
+          "size": 109584
+        }
+      ]
+    },
+    "data_operations": {
+      "steps": [
+        {
+          "file": "data_operations__step0.mp3",
+          "size": 91584
+        },
+        {
+          "file": "data_operations__step1.mp3",
+          "size": 92304
+        },
+        {
+          "file": "data_operations__step2.mp3",
+          "size": 110016
+        },
+        {
+          "file": "data_operations__step3.mp3",
+          "size": 95616
+        },
+        {
+          "file": "data_operations__step4.mp3",
+          "size": 108576
+        }
+      ]
+    },
+    "deep_validate": {
+      "steps": [
+        {
+          "file": "deep_validate__step0.mp3",
+          "size": 91440
+        },
+        {
+          "file": "deep_validate__step1.mp3",
+          "size": 98352
+        },
+        {
+          "file": "deep_validate__step2.mp3",
+          "size": 83088
+        },
+        {
+          "file": "deep_validate__step3.mp3",
+          "size": 86544
+        }
+      ]
+    },
+    "details_source": {
+      "steps": [
+        {
+          "file": "details_source__step0.mp3",
+          "size": 98784
+        },
+        {
+          "file": "details_source__step1.mp3",
+          "size": 91440
+        },
+        {
+          "file": "details_source__step2.mp3",
+          "size": 85968
+        },
+        {
+          "file": "details_source__step3.mp3",
+          "size": 84672
+        }
+      ]
+    },
+    "diagnostics_deep": {
+      "steps": [
+        {
+          "file": "diagnostics_deep__step0.mp3",
+          "size": 100224
+        },
+        {
+          "file": "diagnostics_deep__step1.mp3",
+          "size": 103104
+        },
+        {
+          "file": "diagnostics_deep__step2.mp3",
+          "size": 92448
+        },
+        {
+          "file": "diagnostics_deep__step3.mp3",
+          "size": 78480
+        },
+        {
+          "file": "diagnostics_deep__step4.mp3",
+          "size": 82656
+        }
+      ]
+    },
+    "diagnostics_tab": {
+      "steps": [
+        {
+          "file": "diagnostics_tab__step0.mp3",
+          "size": 88128
+        },
+        {
+          "file": "diagnostics_tab__step1.mp3",
+          "size": 94176
+        },
+        {
+          "file": "diagnostics_tab__step2.mp3",
+          "size": 88992
+        }
+      ]
+    },
+    "dictionary": {
+      "steps": [
+        {
+          "file": "dictionary__step0.mp3",
+          "size": 113184
+        },
+        {
+          "file": "dictionary__step1.mp3",
+          "size": 94032
+        },
+        {
+          "file": "dictionary__step2.mp3",
+          "size": 92592
+        },
+        {
+          "file": "dictionary__step3.mp3",
+          "size": 86400
+        },
+        {
+          "file": "dictionary__step4.mp3",
+          "size": 92448
+        },
+        {
+          "file": "dictionary__step5.mp3",
+          "size": 72432
+        }
+      ]
+    },
+    "dictionary_exports": {
+      "steps": [
+        {
+          "file": "dictionary_exports__step0.mp3",
+          "size": 108720
+        },
+        {
+          "file": "dictionary_exports__step1.mp3",
+          "size": 92592
+        },
+        {
+          "file": "dictionary_exports__step2.mp3",
+          "size": 109872
+        },
+        {
+          "file": "dictionary_exports__step3.mp3",
+          "size": 104832
+        },
+        {
+          "file": "dictionary_exports__step4.mp3",
+          "size": 105552
+        }
+      ]
+    },
+    "dictionary_imports": {
+      "steps": [
+        {
+          "file": "dictionary_imports__step0.mp3",
+          "size": 110304
+        },
+        {
+          "file": "dictionary_imports__step1.mp3",
+          "size": 88848
+        },
+        {
+          "file": "dictionary_imports__step2.mp3",
+          "size": 113472
+        },
+        {
+          "file": "dictionary_imports__step3.mp3",
+          "size": 97488
+        },
+        {
+          "file": "dictionary_imports__step4.mp3",
+          "size": 91152
+        }
+      ]
+    },
+    "diff_views": {
+      "steps": [
+        {
+          "file": "diff_views__step0.mp3",
+          "size": 101520
+        },
+        {
+          "file": "diff_views__step1.mp3",
+          "size": 84672
+        },
+        {
+          "file": "diff_views__step2.mp3",
+          "size": 83520
+        },
+        {
+          "file": "diff_views__step3.mp3",
+          "size": 66528
+        }
+      ]
+    },
+    "display_settings": {
+      "steps": [
+        {
+          "file": "display_settings__step0.mp3",
+          "size": 69696
+        },
+        {
+          "file": "display_settings__step1.mp3",
+          "size": 83376
+        },
+        {
+          "file": "display_settings__step2.mp3",
+          "size": 82656
+        }
+      ]
+    },
+    "document_config": {
+      "steps": [
+        {
+          "file": "document_config__step0.mp3",
+          "size": 81072
+        },
+        {
+          "file": "document_config__step1.mp3",
+          "size": 69264
+        },
+        {
+          "file": "document_config__step2.mp3",
+          "size": 69408
+        },
+        {
+          "file": "document_config__step3.mp3",
+          "size": 78192
+        }
+      ]
+    },
+    "document_selection": {
+      "steps": [
+        {
+          "file": "document_selection__step0.mp3",
+          "size": 80496
+        },
+        {
+          "file": "document_selection__step1.mp3",
+          "size": 78912
+        },
+        {
+          "file": "document_selection__step2.mp3",
+          "size": 85536
+        },
+        {
+          "file": "document_selection__step3.mp3",
           "size": 82800
+        }
+      ]
+    },
+    "document_viewer": {
+      "steps": [
+        {
+          "file": "document_viewer__step0.mp3",
+          "size": 97200
         },
         {
-          "file": "pattern_learning__step1.mp3",
-          "text": "When you correct a company name, change a line item category, or fix an amount in the Review phase, AEGIS records the difference between what it extracted and what you changed it to. These corrections become learned patterns stored in a local file called parser patterns dot json.",
-          "hash": "fc4b165c",
-          "size": 100368
+          "file": "document_viewer__step1.mp3",
+          "size": 95040
         },
         {
-          "file": "pattern_learning__step2.mp3",
-          "text": "After you click Compare, the learning system computes a diff between the original extraction and your edits. Category corrections, company name fixes, and table header patterns are all captured. Patterns activate after two or more consistent corrections to prevent learning from one-off mistakes.",
-          "hash": "f341a3b0",
+          "file": "document_viewer__step2.mp3",
+          "size": 79776
+        },
+        {
+          "file": "document_viewer__step3.mp3",
+          "size": 95904
+        }
+      ]
+    },
+    "documents_analytics": {
+      "steps": [
+        {
+          "file": "documents_analytics__step0.mp3",
+          "size": 83664
+        },
+        {
+          "file": "documents_analytics__step1.mp3",
+          "size": 79488
+        },
+        {
+          "file": "documents_analytics__step2.mp3",
+          "size": 72288
+        },
+        {
+          "file": "documents_analytics__step3.mp3",
+          "size": 80064
+        }
+      ]
+    },
+    "documents_tab": {
+      "steps": [
+        {
+          "file": "documents_tab__step0.mp3",
+          "size": 85536
+        },
+        {
+          "file": "documents_tab__step1.mp3",
+          "size": 84240
+        },
+        {
+          "file": "documents_tab__step2.mp3",
+          "size": 92304
+        },
+        {
+          "file": "documents_tab__step3.mp3",
+          "size": 71856
+        }
+      ]
+    },
+    "domain_analytics": {
+      "steps": [
+        {
+          "file": "domain_analytics__step0.mp3",
+          "size": 104400
+        },
+        {
+          "file": "domain_analytics__step1.mp3",
+          "size": 88272
+        },
+        {
+          "file": "domain_analytics__step2.mp3",
+          "size": 79488
+        }
+      ]
+    },
+    "edit_role": {
+      "steps": [
+        {
+          "file": "edit_role__step0.mp3",
+          "size": 109152
+        },
+        {
+          "file": "edit_role__step1.mp3",
+          "size": 89424
+        },
+        {
+          "file": "edit_role__step2.mp3",
+          "size": 107712
+        },
+        {
+          "file": "edit_role__step3.mp3",
+          "size": 121104
+        }
+      ]
+    },
+    "exclusions": {
+      "steps": [
+        {
+          "file": "exclusions__step0.mp3",
+          "size": 101376
+        },
+        {
+          "file": "exclusions__step1.mp3",
           "size": 112176
         },
         {
-          "file": "pattern_learning__step3.mp3",
-          "text": "On your next upload, learned patterns are applied automatically. The parser checks your saved category overrides before its built-in rules, uses your company name corrections as the first detection strategy, and recognizes table header signatures you have validated. All pattern data stays one hundred percent local on your machine \u2014 nothing is ever uploaded.",
-          "hash": "f9112b9b",
-          "size": 130608
+          "file": "exclusions__step2.mp3",
+          "size": 98496
+        }
+      ]
+    },
+    "exec_summary": {
+      "steps": [
+        {
+          "file": "exec_summary__step0.mp3",
+          "size": 92880
+        },
+        {
+          "file": "exec_summary__step1.mp3",
+          "size": 96048
+        },
+        {
+          "file": "exec_summary__step2.mp3",
+          "size": 81504
+        },
+        {
+          "file": "exec_summary__step3.mp3",
+          "size": 110880
+        }
+      ]
+    },
+    "export_docx": {
+      "steps": [
+        {
+          "file": "export_docx__step0.mp3",
+          "size": 104544
+        },
+        {
+          "file": "export_docx__step1.mp3",
+          "size": 113184
+        },
+        {
+          "file": "export_docx__step2.mp3",
+          "size": 98064
+        },
+        {
+          "file": "export_docx__step3.mp3",
+          "size": 103248
+        }
+      ]
+    },
+    "export_excel_csv": {
+      "steps": [
+        {
+          "file": "export_excel_csv__step0.mp3",
+          "size": 137520
+        },
+        {
+          "file": "export_excel_csv__step1.mp3",
+          "size": 91008
+        },
+        {
+          "file": "export_excel_csv__step2.mp3",
+          "size": 115488
+        },
+        {
+          "file": "export_excel_csv__step3.mp3",
+          "size": 112896
+        }
+      ]
+    },
+    "export_filters": {
+      "steps": [
+        {
+          "file": "export_filters__step0.mp3",
+          "size": 100368
+        },
+        {
+          "file": "export_filters__step1.mp3",
+          "size": 106704
+        },
+        {
+          "file": "export_filters__step2.mp3",
+          "size": 96480
+        },
+        {
+          "file": "export_filters__step3.mp3",
+          "size": 92160
+        },
+        {
+          "file": "export_filters__step4.mp3",
+          "size": 101664
+        }
+      ]
+    },
+    "export_pdf": {
+      "steps": [
+        {
+          "file": "export_pdf__step0.mp3",
+          "size": 89856
+        },
+        {
+          "file": "export_pdf__step1.mp3",
+          "size": 97488
+        },
+        {
+          "file": "export_pdf__step2.mp3",
+          "size": 105408
+        },
+        {
+          "file": "export_pdf__step3.mp3",
+          "size": 90000
+        }
+      ]
+    },
+    "export_results": {
+      "steps": [
+        {
+          "file": "export_results__step0.mp3",
+          "size": 92304
+        },
+        {
+          "file": "export_results_step_0.mp3",
+          "size": 89568
+        },
+        {
+          "file": "export_results__step1.mp3",
+          "size": 100800
+        },
+        {
+          "file": "export_results_step_1.mp3",
+          "size": 86400
+        },
+        {
+          "file": "export_results__step2.mp3",
+          "size": 98064
+        },
+        {
+          "file": "export_results_step_2.mp3",
+          "size": 83808
+        }
+      ]
+    },
+    "export_suite": {
+      "steps": [
+        {
+          "file": "export_suite__step0.mp3",
+          "size": 96912
+        },
+        {
+          "file": "export_suite__step1.mp3",
+          "size": 96480
+        },
+        {
+          "file": "export_suite__step2.mp3",
+          "size": 105840
+        },
+        {
+          "file": "export_suite__step3.mp3",
+          "size": 100656
+        },
+        {
+          "file": "export_suite__step4.mp3",
+          "size": 104688
+        },
+        {
+          "file": "export_suite__step5.mp3",
+          "size": 103248
+        }
+      ]
+    },
+    "extraction": {
+      "steps": [
+        {
+          "file": "extraction__step0.mp3",
+          "size": 108720
+        },
+        {
+          "file": "extraction__step1.mp3",
+          "size": 101376
+        },
+        {
+          "file": "extraction__step2.mp3",
+          "size": 106992
+        },
+        {
+          "file": "extraction__step3.mp3",
+          "size": 100512
+        },
+        {
+          "file": "extraction__step4.mp3",
+          "size": 81072
+        }
+      ]
+    },
+    "family_patterns": {
+      "steps": [
+        {
+          "file": "family_patterns__step0.mp3",
+          "size": 80784
+        },
+        {
+          "file": "family_patterns__step1.mp3",
+          "size": 104400
+        },
+        {
+          "file": "family_patterns__step2.mp3",
+          "size": 98784
+        },
+        {
+          "file": "family_patterns__step3.mp3",
+          "size": 105840
+        }
+      ]
+    },
+    "feature_tiles": {
+      "steps": [
+        {
+          "file": "feature_tiles__step0.mp3",
+          "size": 72864
+        },
+        {
+          "file": "feature_tiles__step1.mp3",
+          "size": 98784
+        },
+        {
+          "file": "feature_tiles__step2.mp3",
+          "size": 77616
+        },
+        {
+          "file": "feature_tiles__step3.mp3",
+          "size": 88416
+        },
+        {
+          "file": "feature_tiles__step4.mp3",
+          "size": 83520
+        }
+      ]
+    },
+    "file_input": {
+      "steps": [
+        {
+          "file": "file_input__step0.mp3",
+          "size": 103392
+        },
+        {
+          "file": "file_input__step1.mp3",
+          "size": 97920
+        },
+        {
+          "file": "file_input__step2.mp3",
+          "size": 86400
+        },
+        {
+          "file": "file_input__step3.mp3",
+          "size": 97200
+        }
+      ]
+    },
+    "file_loading": {
+      "steps": [
+        {
+          "file": "file_loading__step0.mp3",
+          "size": 112320
+        },
+        {
+          "file": "file_loading__step1.mp3",
+          "size": 102384
+        },
+        {
+          "file": "file_loading__step2.mp3",
+          "size": 125568
+        },
+        {
+          "file": "file_loading__step3.mp3",
+          "size": 109872
+        }
+      ]
+    },
+    "fix_assistant": {
+      "steps": [
+        {
+          "file": "fix_assistant__step0.mp3",
+          "size": 104544
+        },
+        {
+          "file": "fix_assistant__step1.mp3",
+          "size": 97344
+        },
+        {
+          "file": "fix_assistant__step2.mp3",
+          "size": 128880
+        },
+        {
+          "file": "fix_assistant__step3.mp3",
+          "size": 93600
+        }
+      ]
+    },
+    "folder_scan": {
+      "steps": [
+        {
+          "file": "folder_scan__step0.mp3",
+          "size": 106848
+        },
+        {
+          "file": "folder_scan__step1.mp3",
+          "size": 116352
+        },
+        {
+          "file": "folder_scan__step2.mp3",
+          "size": 104112
+        },
+        {
+          "file": "folder_scan__step3.mp3",
+          "size": 94608
+        },
+        {
+          "file": "folder_scan__step4.mp3",
+          "size": 97632
+        }
+      ]
+    },
+    "forge": {
+      "steps": [
+        {
+          "file": "forge__step0.mp3",
+          "size": 99648
+        },
+        {
+          "file": "forge__step1.mp3",
+          "size": 136800
+        },
+        {
+          "file": "forge__step2.mp3",
+          "size": 129456
+        },
+        {
+          "file": "forge__step3.mp3",
+          "size": 96912
+        },
+        {
+          "file": "forge__step4.mp3",
+          "size": 105696
+        },
+        {
+          "file": "forge__step5.mp3",
+          "size": 117504
+        },
+        {
+          "file": "forge__step6.mp3",
+          "size": 101232
+        },
+        {
+          "file": "forge__step7.mp3",
+          "size": 171792
+        }
+      ]
+    },
+    "forge_sub_modals": {
+      "steps": [
+        {
+          "file": "forge_sub_modals__step0.mp3",
+          "size": 103824
+        },
+        {
+          "file": "forge_sub_modals__step1.mp3",
+          "size": 92592
+        },
+        {
+          "file": "forge_sub_modals__step2.mp3",
+          "size": 94752
+        },
+        {
+          "file": "forge_sub_modals__step3.mp3",
+          "size": 90720
+        },
+        {
+          "file": "forge_sub_modals__step4.mp3",
+          "size": 101664
+        }
+      ]
+    },
+    "function_tags": {
+      "steps": [
+        {
+          "file": "function_tags__step0.mp3",
+          "size": 119520
+        },
+        {
+          "file": "function_tags__step1.mp3",
+          "size": 114336
+        },
+        {
+          "file": "function_tags__step2.mp3",
+          "size": 107856
+        },
+        {
+          "file": "function_tags__step3.mp3",
+          "size": 112896
+        },
+        {
+          "file": "function_tags__step4.mp3",
+          "size": 97200
+        }
+      ]
+    },
+    "general_tab": {
+      "steps": [
+        {
+          "file": "general_tab__step0.mp3",
+          "size": 88992
+        },
+        {
+          "file": "general_tab__step1.mp3",
+          "size": 70848
+        },
+        {
+          "file": "general_tab__step2.mp3",
+          "size": 88416
+        },
+        {
+          "file": "general_tab__step3.mp3",
+          "size": 64944
+        }
+      ]
+    },
+    "getting_started": {
+      "steps": [
+        {
+          "file": "getting_started__step0.mp3",
+          "size": 92736
+        },
+        {
+          "file": "getting_started__step1.mp3",
+          "size": 73008
+        },
+        {
+          "file": "getting_started__step2.mp3",
+          "size": 76896
+        },
+        {
+          "file": "getting_started__step3.mp3",
+          "size": 95184
+        }
+      ]
+    },
+    "graph_controls": {
+      "steps": [
+        {
+          "file": "graph_controls__step0.mp3",
+          "size": 82512
+        },
+        {
+          "file": "graph_controls__step1.mp3",
+          "size": 112032
+        },
+        {
+          "file": "graph_controls__step2.mp3",
+          "size": 77184
+        },
+        {
+          "file": "graph_controls__step3.mp3",
+          "size": 89424
+        },
+        {
+          "file": "graph_controls__step4.mp3",
+          "size": 107280
+        }
+      ]
+    },
+    "graph_view": {
+      "steps": [
+        {
+          "file": "graph_view__step0.mp3",
+          "size": 90576
+        },
+        {
+          "file": "graph_view__step1.mp3",
+          "size": 109440
+        },
+        {
+          "file": "graph_view__step2.mp3",
+          "size": 93456
+        },
+        {
+          "file": "graph_view__step3.mp3",
+          "size": 100944
+        },
+        {
+          "file": "graph_view__step4.mp3",
+          "size": 91728
+        }
+      ]
+    },
+    "heatmap_view": {
+      "steps": [
+        {
+          "file": "heatmap_view__step0.mp3",
+          "size": 66528
+        },
+        {
+          "file": "heatmap_view__step1.mp3",
+          "size": 81216
+        },
+        {
+          "file": "heatmap_view__step2.mp3",
+          "size": 74016
+        },
+        {
+          "file": "heatmap_view__step3.mp3",
+          "size": 91728
+        }
+      ]
+    },
+    "help_navigation": {
+      "steps": [
+        {
+          "file": "help_navigation__step0.mp3",
+          "size": 93024
+        },
+        {
+          "file": "help_navigation__step1.mp3",
+          "size": 83808
+        },
+        {
+          "file": "help_navigation__step2.mp3",
+          "size": 81792
+        },
+        {
+          "file": "help_navigation__step3.mp3",
+          "size": 85536
+        }
+      ]
+    },
+    "history": {
+      "steps": [
+        {
+          "file": "history__step0.mp3",
+          "size": 94032
+        },
+        {
+          "file": "history__step1.mp3",
+          "size": 88272
+        },
+        {
+          "file": "history__step2.mp3",
+          "size": 103392
+        },
+        {
+          "file": "history__step3.mp3",
+          "size": 96192
+        },
+        {
+          "file": "history__step4.mp3",
+          "size": 115776
+        }
+      ]
+    },
+    "history_actions": {
+      "steps": [
+        {
+          "file": "history_actions__step0.mp3",
+          "size": 101232
+        },
+        {
+          "file": "history_actions__step1.mp3",
+          "size": 79200
+        },
+        {
+          "file": "history_actions__step2.mp3",
+          "size": 97776
+        },
+        {
+          "file": "history_actions__step3.mp3",
+          "size": 107712
+        }
+      ]
+    },
+    "history_overview": {
+      "steps": [
+        {
+          "file": "history_overview__step0.mp3",
+          "size": 97776
+        },
+        {
+          "file": "history_overview__step1.mp3",
+          "size": 89136
+        },
+        {
+          "file": "history_overview__step2.mp3",
+          "size": 78768
+        }
+      ]
+    },
+    "history_table": {
+      "steps": [
+        {
+          "file": "history_table__step0.mp3",
+          "size": 79200
+        },
+        {
+          "file": "history_table__step1.mp3",
+          "size": 95184
+        },
+        {
+          "file": "history_table__step2.mp3",
+          "size": 73728
+        },
+        {
+          "file": "history_table__step3.mp3",
+          "size": 92592
+        }
+      ]
+    },
+    "hv_export_formats": {
+      "steps": [
+        {
+          "file": "hv_export_formats__step0.mp3",
+          "size": 99504
+        },
+        {
+          "file": "hv_export_formats__step1.mp3",
+          "size": 92592
+        },
+        {
+          "file": "hv_export_formats__step2.mp3",
+          "size": 97344
+        },
+        {
+          "file": "hv_export_formats__step3.mp3",
+          "size": 110880
+        },
+        {
+          "file": "hv_export_formats__step4.mp3",
+          "size": 95616
+        }
+      ]
+    },
+    "inline_editing": {
+      "steps": [
+        {
+          "file": "inline_editing__step0.mp3",
+          "size": 105264
+        },
+        {
+          "file": "inline_editing__step1.mp3",
+          "size": 103680
+        },
+        {
+          "file": "inline_editing__step2.mp3",
+          "size": 101232
+        },
+        {
+          "file": "inline_editing__step3.mp3",
+          "size": 74304
+        }
+      ]
+    },
+    "keyboard_shortcuts": {
+      "steps": [
+        {
+          "file": "keyboard_shortcuts__step0.mp3",
+          "size": 81792
+        },
+        {
+          "file": "keyboard_shortcuts__step1.mp3",
+          "size": 99216
+        },
+        {
+          "file": "keyboard_shortcuts__step2.mp3",
+          "size": 87696
+        },
+        {
+          "file": "keyboard_shortcuts__step3.mp3",
+          "size": 105984
+        },
+        {
+          "file": "keyboard_shortcuts__step4.mp3",
+          "size": 97056
+        }
+      ]
+    },
+    "landing": {
+      "steps": [
+        {
+          "file": "landing__step0.mp3",
+          "size": 97056
+        },
+        {
+          "file": "landing__step1.mp3",
+          "size": 104976
+        },
+        {
+          "file": "landing__step2.mp3",
+          "size": 130032
+        },
+        {
+          "file": "landing__step3.mp3",
+          "size": 148752
+        },
+        {
+          "file": "landing__step4.mp3",
+          "size": 98208
+        },
+        {
+          "file": "landing__step5.mp3",
+          "size": 92592
+        },
+        {
+          "file": "landing__step6.mp3",
+          "size": 83232
         }
       ]
     },
@@ -322,41 +1492,1178 @@
       "steps": [
         {
           "file": "learning_system__step0.mp3",
-          "text": "AEGIS learns from every correction you make across all five modules. Each module has its own local pattern file that records what you change and applies those patterns automatically in future sessions. No data is ever uploaded \u2014 everything stays on your machine.",
-          "hash": "199cd834",
           "size": 99792
         },
         {
           "file": "learning_system__step1.mp3",
-          "text": "In Document Review, when you dismiss an issue category or apply a fix through Fix Assistant, the review learner records the pattern. After two consistent dismissals, that issue type is automatically suppressed for similar documents. Severity overrides also carry forward.",
-          "hash": "c7d86085",
           "size": 106848
         },
         {
           "file": "learning_system__step2.mp3",
-          "text": "Statement Forge learning captures directive corrections and role assignments. When you change a statement directive from Shall to Should or reassign a role, the forge remembers. Batch edit preferences and deletion patterns are also tracked with a higher safety threshold of three corrections.",
-          "hash": "8855378b",
           "size": 104400
         },
         {
           "file": "learning_system__step3.mp3",
-          "text": "Roles Studio learning records adjudication decisions. Category assignments, deliverable flags, disposition choices, and role type patterns are all captured. The next time you adjudicate a similar role, AEGIS suggests the category and type based on your previous decisions.",
-          "hash": "8e072607",
           "size": 109440
         },
         {
           "file": "learning_system__step4.mp3",
-          "text": "The Hyperlink Validator learns which domains you trust, which you exclude, and which require headless browser validation. Status overrides from your manual corrections are remembered. Trusted domain patterns activate after two confirmations.",
-          "hash": "5a8658a5",
           "size": 93744
         },
         {
           "file": "learning_system__step5.mp3",
-          "text": "All learned patterns require at least two consistent corrections before activating \u2014 this prevents learning from one-off mistakes. Destructive patterns like auto-deletion require three corrections. You can view and clear learning data from the Data Management tab using the Clear Learning Data button.",
-          "hash": "7d00ee92",
           "size": 108144
         }
       ]
+    },
+    "link_history_export": {
+      "steps": [
+        {
+          "file": "link_history_export__step0.mp3",
+          "size": 89712
+        },
+        {
+          "file": "link_history_export__step1.mp3",
+          "size": 89712
+        },
+        {
+          "file": "link_history_export__step2.mp3",
+          "size": 114912
+        }
+      ]
+    },
+    "metric_cards": {
+      "steps": [
+        {
+          "file": "metric_cards__step0.mp3",
+          "size": 63792
+        },
+        {
+          "file": "metric_cards__step1.mp3",
+          "size": 84096
+        },
+        {
+          "file": "metric_cards__step2.mp3",
+          "size": 93312
+        },
+        {
+          "file": "metric_cards__step3.mp3",
+          "size": 74592
+        },
+        {
+          "file": "metric_cards__step4.mp3",
+          "size": 52848
+        }
+      ]
+    },
+    "metrics": {
+      "steps": [
+        {
+          "file": "metrics__step0.mp3",
+          "size": 96048
+        },
+        {
+          "file": "metrics__step1.mp3",
+          "size": 133200
+        },
+        {
+          "file": "metrics__step2.mp3",
+          "size": 131616
+        },
+        {
+          "file": "metrics__step3.mp3",
+          "size": 136080
+        },
+        {
+          "file": "metrics__step4.mp3",
+          "size": 123264
+        },
+        {
+          "file": "metrics__step5.mp3",
+          "size": 112176
+        },
+        {
+          "file": "metrics__step6.mp3",
+          "size": 136512
+        }
+      ]
+    },
+    "metrics_export": {
+      "steps": [
+        {
+          "file": "metrics_export__step0.mp3",
+          "size": 98928
+        },
+        {
+          "file": "metrics_export__step1.mp3",
+          "size": 99936
+        },
+        {
+          "file": "metrics_export__step2.mp3",
+          "size": 93456
+        },
+        {
+          "file": "metrics_export__step3.mp3",
+          "size": 99936
+        }
+      ]
+    },
+    "modes_settings": {
+      "steps": [
+        {
+          "file": "modes_settings__step0.mp3",
+          "size": 101808
+        },
+        {
+          "file": "modes_settings__step1.mp3",
+          "size": 105264
+        },
+        {
+          "file": "modes_settings__step2.mp3",
+          "size": 94608
+        },
+        {
+          "file": "modes_settings__step3.mp3",
+          "size": 85824
+        }
+      ]
+    },
+    "network_auth": {
+      "steps": [
+        {
+          "file": "network_auth__step0.mp3",
+          "size": 91152
+        },
+        {
+          "file": "network_auth__step1.mp3",
+          "size": 95760
+        },
+        {
+          "file": "network_auth__step2.mp3",
+          "size": 93168
+        }
+      ]
+    },
+    "output_preview": {
+      "steps": [
+        {
+          "file": "output_preview__step0.mp3",
+          "size": 77472
+        },
+        {
+          "file": "output_preview__step1.mp3",
+          "size": 88272
+        },
+        {
+          "file": "output_preview__step2.mp3",
+          "size": 93168
+        }
+      ]
+    },
+    "overview_cards": {
+      "steps": [
+        {
+          "file": "overview_cards__step0.mp3",
+          "size": 89136
+        },
+        {
+          "file": "overview_cards__step1.mp3",
+          "size": 74304
+        },
+        {
+          "file": "overview_cards__step2.mp3",
+          "size": 91872
+        },
+        {
+          "file": "overview_cards__step3.mp3",
+          "size": 93744
+        }
+      ]
+    },
+    "overview_dashboard": {
+      "steps": [
+        {
+          "file": "overview_dashboard__step0.mp3",
+          "size": 95904
+        },
+        {
+          "file": "overview_dashboard__step1.mp3",
+          "size": 97056
+        },
+        {
+          "file": "overview_dashboard__step2.mp3",
+          "size": 91440
+        },
+        {
+          "file": "overview_dashboard__step3.mp3",
+          "size": 86256
+        },
+        {
+          "file": "overview_dashboard__step4.mp3",
+          "size": 85968
+        }
+      ]
+    },
+    "overview_tab": {
+      "steps": [
+        {
+          "file": "overview_tab__step0.mp3",
+          "size": 93024
+        },
+        {
+          "file": "overview_tab__step1.mp3",
+          "size": 95040
+        },
+        {
+          "file": "overview_tab__step2.mp3",
+          "size": 78768
+        },
+        {
+          "file": "overview_tab__step3.mp3",
+          "size": 98208
+        },
+        {
+          "file": "overview_tab__step4.mp3",
+          "size": 96624
+        }
+      ]
+    },
+    "pattern_learning": {
+      "steps": [
+        {
+          "file": "pattern_learning__step0.mp3",
+          "size": 82800
+        },
+        {
+          "file": "pattern_learning__step1.mp3",
+          "size": 100368
+        },
+        {
+          "file": "pattern_learning__step2.mp3",
+          "size": 112176
+        },
+        {
+          "file": "pattern_learning__step3.mp3",
+          "size": 130608
+        }
+      ]
+    },
+    "portfolio": {
+      "steps": [
+        {
+          "file": "portfolio__step0.mp3",
+          "size": 122544
+        },
+        {
+          "file": "portfolio__step1.mp3",
+          "size": 93600
+        },
+        {
+          "file": "portfolio__step2.mp3",
+          "size": 108576
+        },
+        {
+          "file": "portfolio__step3.mp3",
+          "size": 101952
+        },
+        {
+          "file": "portfolio__step4.mp3",
+          "size": 111888
+        }
+      ]
+    },
+    "portfolio_actions": {
+      "steps": [
+        {
+          "file": "portfolio_actions__step0.mp3",
+          "size": 97200
+        },
+        {
+          "file": "portfolio_actions__step1.mp3",
+          "size": 86400
+        },
+        {
+          "file": "portfolio_actions__step2.mp3",
+          "size": 108720
+        }
+      ]
+    },
+    "preview_discovery": {
+      "steps": [
+        {
+          "file": "preview_discovery__step0.mp3",
+          "size": 91152
+        },
+        {
+          "file": "preview_discovery__step1.mp3",
+          "size": 82800
+        },
+        {
+          "file": "preview_discovery__step2.mp3",
+          "size": 83376
+        }
+      ]
+    },
+    "profile_management": {
+      "steps": [
+        {
+          "file": "profile_management__step0.mp3",
+          "size": 97776
+        },
+        {
+          "file": "profile_management__step1.mp3",
+          "size": 89280
+        },
+        {
+          "file": "profile_management__step2.mp3",
+          "size": 84384
+        },
+        {
+          "file": "profile_management__step3.mp3",
+          "size": 98928
+        }
+      ]
+    },
+    "profiles": {
+      "steps": [
+        {
+          "file": "profiles__step0.mp3",
+          "size": 105984
+        },
+        {
+          "file": "profiles__step1.mp3",
+          "size": 93024
+        },
+        {
+          "file": "profiles__step2.mp3",
+          "size": 95328
+        },
+        {
+          "file": "profiles__step3.mp3",
+          "size": 82512
+        }
+      ]
+    },
+    "progress_dashboard": {
+      "steps": [
+        {
+          "file": "progress_dashboard__step0.mp3",
+          "size": 88992
+        },
+        {
+          "file": "progress_dashboard__step1.mp3",
+          "size": 83088
+        },
+        {
+          "file": "progress_dashboard__step2.mp3",
+          "size": 90000
+        },
+        {
+          "file": "progress_dashboard__step3.mp3",
+          "size": 92016
+        }
+      ]
+    },
+    "proposal-compare": {
+      "steps": [
+        {
+          "file": "proposal-compare__step0.mp3",
+          "size": 130320
+        },
+        {
+          "file": "proposal-compare__step1.mp3",
+          "size": 108432
+        },
+        {
+          "file": "proposal-compare__step2.mp3",
+          "size": 106704
+        },
+        {
+          "file": "proposal-compare__step3.mp3",
+          "size": 109152
+        },
+        {
+          "file": "proposal-compare__step4.mp3",
+          "size": 111312
+        },
+        {
+          "file": "proposal-compare__step5.mp3",
+          "size": 91440
+        },
+        {
+          "file": "proposal-compare__step6.mp3",
+          "size": 105408
+        },
+        {
+          "file": "proposal-compare__step7.mp3",
+          "size": 99360
+        }
+      ]
+    },
+    "proposal-compare_overview": {
+      "steps": [
+        {
+          "file": "proposal-compare_overview_step_0.mp3",
+          "size": 86544
+        },
+        {
+          "file": "proposal-compare_overview_step_1.mp3",
+          "size": 98496
+        },
+        {
+          "file": "proposal-compare_overview_step_2.mp3",
+          "size": 100944
+        },
+        {
+          "file": "proposal-compare_overview_step_3.mp3",
+          "size": 74592
+        },
+        {
+          "file": "proposal-compare_overview_step_4.mp3",
+          "size": 99216
+        },
+        {
+          "file": "proposal-compare_overview_step_5.mp3",
+          "size": 108720
+        }
+      ]
+    },
+    "quality_gates": {
+      "steps": [
+        {
+          "file": "quality_gates__step0.mp3",
+          "size": 98928
+        },
+        {
+          "file": "quality_gates__step1.mp3",
+          "size": 98208
+        },
+        {
+          "file": "quality_gates__step2.mp3",
+          "size": 98064
+        }
+      ]
+    },
+    "quality_tab": {
+      "steps": [
+        {
+          "file": "quality_tab__step0.mp3",
+          "size": 75888
+        },
+        {
+          "file": "quality_tab__step1.mp3",
+          "size": 90576
+        },
+        {
+          "file": "quality_tab__step2.mp3",
+          "size": 86256
+        },
+        {
+          "file": "quality_tab__step3.mp3",
+          "size": 70272
+        }
+      ]
+    },
+    "raci_matrix": {
+      "steps": [
+        {
+          "file": "raci_matrix__step0.mp3",
+          "size": 94320
+        },
+        {
+          "file": "raci_matrix__step1.mp3",
+          "size": 115200
+        },
+        {
+          "file": "raci_matrix__step2.mp3",
+          "size": 82512
+        },
+        {
+          "file": "raci_matrix__step3.mp3",
+          "size": 98928
+        },
+        {
+          "file": "raci_matrix__step4.mp3",
+          "size": 91008
+        }
+      ]
+    },
+    "red_flags": {
+      "steps": [
+        {
+          "file": "red_flags__step0.mp3",
+          "size": 82512
+        },
+        {
+          "file": "red_flags__step1.mp3",
+          "size": 112752
+        },
+        {
+          "file": "red_flags__step2.mp3",
+          "size": 109152
+        },
+        {
+          "file": "red_flags__step3.mp3",
+          "size": 97488
+        }
+      ]
+    },
+    "reload_compare": {
+      "steps": [
+        {
+          "file": "reload_compare__step0.mp3",
+          "size": 82080
+        },
+        {
+          "file": "reload_compare__step1.mp3",
+          "size": 73728
+        },
+        {
+          "file": "reload_compare__step2.mp3",
+          "size": 95616
+        }
+      ]
+    },
+    "results_aggregation": {
+      "steps": [
+        {
+          "file": "results_aggregation__step0.mp3",
+          "size": 86976
+        },
+        {
+          "file": "results_aggregation__step1.mp3",
+          "size": 90720
+        },
+        {
+          "file": "results_aggregation__step2.mp3",
+          "size": 81936
+        },
+        {
+          "file": "results_aggregation__step3.mp3",
+          "size": 101088
+        }
+      ]
+    },
+    "results_filtering": {
+      "steps": [
+        {
+          "file": "results_filtering__step0.mp3",
+          "size": 98928
+        },
+        {
+          "file": "results_filtering__step1.mp3",
+          "size": 85104
+        },
+        {
+          "file": "results_filtering__step2.mp3",
+          "size": 81072
+        },
+        {
+          "file": "results_filtering__step3.mp3",
+          "size": 98784
+        },
+        {
+          "file": "results_filtering__step4.mp3",
+          "size": 99072
+        },
+        {
+          "file": "results_filtering__step5.mp3",
+          "size": 87552
+        }
+      ]
+    },
+    "results_filtering_hv": {
+      "steps": [
+        {
+          "file": "results_filtering_hv__step0.mp3",
+          "size": 112032
+        },
+        {
+          "file": "results_filtering_hv__step1.mp3",
+          "size": 89136
+        },
+        {
+          "file": "results_filtering_hv__step2.mp3",
+          "size": 80064
+        },
+        {
+          "file": "results_filtering_hv__step3.mp3",
+          "size": 96336
+        },
+        {
+          "file": "results_filtering_hv__step4.mp3",
+          "size": 103680
+        }
+      ]
+    },
+    "review": {
+      "steps": [
+        {
+          "file": "review__step0.mp3",
+          "size": 102816
+        },
+        {
+          "file": "review__step1.mp3",
+          "size": 133344
+        },
+        {
+          "file": "review__step2.mp3",
+          "size": 154080
+        },
+        {
+          "file": "review__step3.mp3",
+          "size": 141408
+        },
+        {
+          "file": "review__step4.mp3",
+          "size": 140256
+        },
+        {
+          "file": "review__step5.mp3",
+          "size": 122688
+        },
+        {
+          "file": "review__step6.mp3",
+          "size": 125280
+        },
+        {
+          "file": "review__step7.mp3",
+          "size": 126000
+        },
+        {
+          "file": "review__step8.mp3",
+          "size": 168912
+        },
+        {
+          "file": "review__step9.mp3",
+          "size": 113904
+        }
+      ]
+    },
+    "review_edit": {
+      "steps": [
+        {
+          "file": "review_edit__step0.mp3",
+          "size": 102240
+        },
+        {
+          "file": "review_edit__step1.mp3",
+          "size": 72144
+        },
+        {
+          "file": "review_edit__step2.mp3",
+          "size": 88704
+        },
+        {
+          "file": "review_edit__step3.mp3",
+          "size": 79632
+        }
+      ]
+    },
+    "review_options": {
+      "steps": [
+        {
+          "file": "review_options__step0.mp3",
+          "size": 80928
+        },
+        {
+          "file": "review_options__step1.mp3",
+          "size": 92736
+        },
+        {
+          "file": "review_options__step2.mp3",
+          "size": 97344
+        },
+        {
+          "file": "review_options__step3.mp3",
+          "size": 87120
+        }
+      ]
+    },
+    "review_presets": {
+      "steps": [
+        {
+          "file": "review_presets__step0.mp3",
+          "size": 119952
+        },
+        {
+          "file": "review_presets__step1.mp3",
+          "size": 100944
+        },
+        {
+          "file": "review_presets__step2.mp3",
+          "size": 104688
+        },
+        {
+          "file": "review_presets__step3.mp3",
+          "size": 96768
+        },
+        {
+          "file": "review_presets__step4.mp3",
+          "size": 132048
+        }
+      ]
+    },
+    "review_progress": {
+      "steps": [
+        {
+          "file": "review_progress__step0.mp3",
+          "size": 83664
+        },
+        {
+          "file": "review_progress__step1.mp3",
+          "size": 122976
+        },
+        {
+          "file": "review_progress__step2.mp3",
+          "size": 84672
+        },
+        {
+          "file": "review_progress__step3.mp3",
+          "size": 96192
+        },
+        {
+          "file": "review_progress__step4.mp3",
+          "size": 92736
+        }
+      ]
+    },
+    "role_doc_matrix": {
+      "steps": [
+        {
+          "file": "role_doc_matrix__step0.mp3",
+          "size": 81648
+        },
+        {
+          "file": "role_doc_matrix__step1.mp3",
+          "size": 94752
+        },
+        {
+          "file": "role_doc_matrix__step2.mp3",
+          "size": 78336
+        },
+        {
+          "file": "role_doc_matrix__step3.mp3",
+          "size": 91296
+        }
+      ]
+    },
+    "roles": {
+      "steps": [
+        {
+          "file": "roles__step0.mp3",
+          "size": 122688
+        },
+        {
+          "file": "roles__step1.mp3",
+          "size": 115776
+        },
+        {
+          "file": "roles__step2.mp3",
+          "size": 143424
+        },
+        {
+          "file": "roles__step3.mp3",
+          "size": 153648
+        },
+        {
+          "file": "roles__step4.mp3",
+          "size": 106704
+        },
+        {
+          "file": "roles__step5.mp3",
+          "size": 135504
+        },
+        {
+          "file": "roles__step6.mp3",
+          "size": 113472
+        },
+        {
+          "file": "roles__step7.mp3",
+          "size": 145296
+        },
+        {
+          "file": "roles__step8.mp3",
+          "size": 106272
+        },
+        {
+          "file": "roles__step9.mp3",
+          "size": 140112
+        }
+      ]
+    },
+    "roles_analytics": {
+      "steps": [
+        {
+          "file": "roles_analytics__step0.mp3",
+          "size": 75024
+        },
+        {
+          "file": "roles_analytics__step1.mp3",
+          "size": 78192
+        },
+        {
+          "file": "roles_analytics__step2.mp3",
+          "size": 66240
+        },
+        {
+          "file": "roles_analytics__step3.mp3",
+          "size": 72864
+        }
+      ]
+    },
+    "score_breakdown": {
+      "steps": [
+        {
+          "file": "score_breakdown__step0.mp3",
+          "size": 103968
+        },
+        {
+          "file": "score_breakdown__step1.mp3",
+          "size": 104256
+        },
+        {
+          "file": "score_breakdown__step2.mp3",
+          "size": 109152
+        },
+        {
+          "file": "score_breakdown__step3.mp3",
+          "size": 96768
+        }
+      ]
+    },
+    "search_filtering": {
+      "steps": [
+        {
+          "file": "search_filtering__step0.mp3",
+          "size": 90720
+        },
+        {
+          "file": "search_filtering__step1.mp3",
+          "size": 97056
+        },
+        {
+          "file": "search_filtering__step2.mp3",
+          "size": 90720
+        },
+        {
+          "file": "search_filtering__step3.mp3",
+          "size": 82224
+        }
+      ]
+    },
+    "selection_tools": {
+      "steps": [
+        {
+          "file": "selection_tools__step0.mp3",
+          "size": 109440
+        },
+        {
+          "file": "selection_tools__step1.mp3",
+          "size": 102096
+        },
+        {
+          "file": "selection_tools__step2.mp3",
+          "size": 103824
+        },
+        {
+          "file": "selection_tools__step3.mp3",
+          "size": 112176
+        }
+      ]
+    },
+    "settings": {
+      "steps": [
+        {
+          "file": "settings__step0.mp3",
+          "size": 88848
+        },
+        {
+          "file": "settings__step1.mp3",
+          "size": 96480
+        },
+        {
+          "file": "settings__step2.mp3",
+          "size": 116064
+        },
+        {
+          "file": "settings__step3.mp3",
+          "size": 146448
+        },
+        {
+          "file": "settings__step4.mp3",
+          "size": 99792
+        },
+        {
+          "file": "settings__step5.mp3",
+          "size": 109296
+        },
+        {
+          "file": "settings__step6.mp3",
+          "size": 124704
+        },
+        {
+          "file": "settings__step7.mp3",
+          "size": 142416
+        }
+      ]
+    },
+    "sharing_settings": {
+      "steps": [
+        {
+          "file": "sharing_settings__step0.mp3",
+          "size": 67680
+        },
+        {
+          "file": "sharing_settings__step1.mp3",
+          "size": 93312
+        },
+        {
+          "file": "sharing_settings__step2.mp3",
+          "size": 83232
+        }
+      ]
+    },
+    "sorting_filtering": {
+      "steps": [
+        {
+          "file": "sorting_filtering__step0.mp3",
+          "size": 100656
+        },
+        {
+          "file": "sorting_filtering__step1.mp3",
+          "size": 87408
+        },
+        {
+          "file": "sorting_filtering__step2.mp3",
+          "size": 97920
+        }
+      ]
+    },
+    "sow": {
+      "steps": [
+        {
+          "file": "sow__step0.mp3",
+          "size": 83520
+        },
+        {
+          "file": "sow__step1.mp3",
+          "size": 91584
+        },
+        {
+          "file": "sow__step2.mp3",
+          "size": 98496
+        },
+        {
+          "file": "sow__step3.mp3",
+          "size": 104976
+        },
+        {
+          "file": "sow__step4.mp3",
+          "size": 96192
+        }
+      ]
+    },
+    "statement_integration": {
+      "steps": [
+        {
+          "file": "statement_integration__step0.mp3",
+          "size": 96624
+        },
+        {
+          "file": "statement_integration__step1.mp3",
+          "size": 82512
+        },
+        {
+          "file": "statement_integration__step2.mp3",
+          "size": 95616
+        },
+        {
+          "file": "statement_integration__step3.mp3",
+          "size": 87264
+        }
+      ]
+    },
+    "statements_tab": {
+      "steps": [
+        {
+          "file": "statements_tab__step0.mp3",
+          "size": 81936
+        },
+        {
+          "file": "statements_tab__step1.mp3",
+          "size": 91872
+        },
+        {
+          "file": "statements_tab__step2.mp3",
+          "size": 62064
+        }
+      ]
+    },
+    "template_upload": {
+      "steps": [
+        {
+          "file": "template_upload__step0.mp3",
+          "size": 77040
+        },
+        {
+          "file": "template_upload__step1.mp3",
+          "size": 93024
+        },
+        {
+          "file": "template_upload__step2.mp3",
+          "size": 88272
+        }
+      ]
+    },
+    "triage_mode": {
+      "steps": [
+        {
+          "file": "triage_mode__step0.mp3",
+          "size": 111600
+        },
+        {
+          "file": "triage_mode__step1.mp3",
+          "size": 85968
+        },
+        {
+          "file": "triage_mode__step2.mp3",
+          "size": 103680
+        },
+        {
+          "file": "triage_mode__step3.mp3",
+          "size": 99360
+        },
+        {
+          "file": "triage_mode__step4.mp3",
+          "size": 102240
+        }
+      ]
+    },
+    "updates_tab": {
+      "steps": [
+        {
+          "file": "updates_tab__step0.mp3",
+          "size": 60048
+        },
+        {
+          "file": "updates_tab__step1.mp3",
+          "size": 85680
+        },
+        {
+          "file": "updates_tab__step2.mp3",
+          "size": 81936
+        }
+      ]
+    },
+    "upload_extract": {
+      "steps": [
+        {
+          "file": "upload_extract__step0.mp3",
+          "size": 85536
+        },
+        {
+          "file": "upload_extract_step_0.mp3",
+          "size": 91440
+        },
+        {
+          "file": "upload_extract__step1.mp3",
+          "size": 89280
+        },
+        {
+          "file": "upload_extract_step_1.mp3",
+          "size": 91584
+        },
+        {
+          "file": "upload_extract__step2.mp3",
+          "size": 97344
+        },
+        {
+          "file": "upload_extract_step_2.mp3",
+          "size": 86400
+        },
+        {
+          "file": "upload_extract__step3.mp3",
+          "size": 79056
+        },
+        {
+          "file": "upload_extract_step_3.mp3",
+          "size": 89712
+        }
+      ]
+    },
+    "upload_paste": {
+      "steps": [
+        {
+          "file": "upload_paste__step0.mp3",
+          "size": 91440
+        },
+        {
+          "file": "upload_paste__step1.mp3",
+          "size": 94752
+        },
+        {
+          "file": "upload_paste__step2.mp3",
+          "size": 99216
+        },
+        {
+          "file": "upload_paste__step3.mp3",
+          "size": 68400
+        }
+      ]
+    },
+    "validator": {
+      "steps": [
+        {
+          "file": "validator__step0.mp3",
+          "size": 99792
+        },
+        {
+          "file": "validator__step1.mp3",
+          "size": 111168
+        },
+        {
+          "file": "validator__step2.mp3",
+          "size": 117648
+        },
+        {
+          "file": "validator__step3.mp3",
+          "size": 136944
+        },
+        {
+          "file": "validator__step4.mp3",
+          "size": 134064
+        },
+        {
+          "file": "validator__step5.mp3",
+          "size": 132480
+        },
+        {
+          "file": "validator__step6.mp3",
+          "size": 146736
+        }
+      ]
+    },
+    "vendor_scores": {
+      "steps": [
+        {
+          "file": "vendor_scores__step0.mp3",
+          "size": 108864
+        },
+        {
+          "file": "vendor_scores__step1.mp3",
+          "size": 103824
+        },
+        {
+          "file": "vendor_scores__step2.mp3",
+          "size": 106848
+        },
+        {
+          "file": "vendor_scores__step3.mp3",
+          "size": 83232
+        }
+      ]
     }
-  }
+  },
+  "total_clips": 545
 }
