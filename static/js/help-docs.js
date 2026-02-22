@@ -2,7 +2,7 @@
  * AEGIS Help Documentation System
  * ==========================================
  * Comprehensive documentation for all features.
- * Version: 5.9.21
+ * Version: 5.9.53
  *
  * Complete overhaul with:
  * - Beautiful visual design with icons and illustrations
@@ -45,8 +45,8 @@
 'use strict';
 
 const HelpDocs = {
-    version: '5.9.48',
-    lastUpdated: '2026-02-21',
+    version: '5.9.53',
+    lastUpdated: '2026-02-22',
     
     config: {
         searchEnabled: true,
@@ -5552,6 +5552,21 @@ HelpDocs.content['pc-dashboard'] = {
 <h2><i data-lucide="save"></i> Edit Persistence</h2>
 <p>All edits made in the Review phase are <strong>auto-saved</strong> to the database via fire-and-forget writes. You do not need to manually save — changes persist automatically. The in-memory state drives the current session while the database ensures your edits survive across sessions.</p>
 
+<h2><i data-lucide="bar-chart-3"></i> Project Financial Dashboard</h2>
+<p>When you open a project (from the dashboard or the <strong>landing page dropdown</strong>), AEGIS displays a <strong>financial summary dashboard</strong> drawn from the latest comparison. The dashboard includes:</p>
+<ul>
+    <li><strong>Hero stats</strong> — vendor count, total line items, average total, price spread, and risk flag count</li>
+    <li><strong>Vendor Overview cards</strong> — each vendor's total amount, line item count, letter grade, overall score, and contract term. The lowest bidder is highlighted with a trophy badge</li>
+    <li><strong>Price Range bar</strong> — gradient visualization from min to max with an average marker</li>
+    <li><strong>Category Breakdown table</strong> — per-vendor amounts across all cost categories (Labor, Material, Software, etc.)</li>
+    <li><strong>Risk Summary pills</strong> — critical, warning, and info flag counts from the last comparison</li>
+    <li><strong>Contract Terms</strong> — badge pills showing detected contract periods when multi-term proposals exist</li>
+</ul>
+<p>Click <strong>View Full Analysis</strong> to load the complete 8-tab comparison results, or <strong>Export Report</strong> to download an interactive HTML report directly from the project view.</p>
+
+<h2><i data-lucide="home"></i> Landing Page Quick Access</h2>
+<p>The Proposal Compare tile on the AEGIS landing page includes a <strong>project dropdown</strong>. Select a project and click the gold arrow button to jump directly to the project's financial dashboard — no need to open the full module first.</p>
+
 <div class="help-tip">
     <i data-lucide="lightbulb"></i>
     <span>Use projects to group related proposals (e.g., by contract vehicle, fiscal year, or program). The dashboard makes it easy to revisit and refine past analyses without re-uploading files.</span>
@@ -8015,1993 +8030,2132 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
-        <h3>v5.9.48 <span class="changelog-date">February 21, 2026</span></h3>
-        <p><strong>Batch Structure Analysis &mdash; Multi-File Parser Diagnostics</strong></p>
+        <h3>v5.9.53 <span class="changelog-date">February 22, 2026</span></h3>
+        <p><strong>Project Financial Dashboard</strong></p>
         <ul>
-            <li><strong>ENH: Batch structure analysis</strong> &mdash; Analyze Structure button now processes ALL selected files (1-20) and downloads a single combined JSON report with per-file analysis plus cross-file summary</li>
-            <li><strong>ENH: Cross-file summary</strong> &mdash; Aggregates tables found, category distribution, column patterns, extraction quality, and common parser issues across all files</li>
-            <li><strong>ENH: File count on button</strong> &mdash; Button shows "Analyze Structure (3 files)" when multiple files are selected</li>
-            <li><strong>ENH: New batch endpoint</strong> &mdash; POST /api/proposal-compare/analyze-batch-structure accepts multiple files via files[] multipart field</li>
+            <li><strong>NEW: Project Financial Dashboard</strong> &mdash; rich financial summary with vendor cards, price range, categories, risk flags, and contract terms when opening a project from the landing page</li>
+            <li><strong>NEW: Landing page Proposal Compare tile project dropdown</strong> &mdash; select a project and navigate directly to financial analysis</li>
+            <li><strong>NEW: openProject() and openProjectWithResults() public API methods on ProposalCompare IIFE for external navigation</strong></li>
+            <li><strong>NEW: GET /api/proposal-compare/projects/&lt;id&gt;/financial-summary endpoint aggregates vendor totals, grades, categories, and risk flags from latest comparison</strong></li>
+            <li><strong>NEW: View Full Analysis button in project financial dashboard loads complete 8-tab comparison results</strong></li>
+            <li><strong>NEW: Export Report button in financial dashboard exports interactive HTML report directly from project view</strong></li>
+            <li><strong>ENH: Project dashboard cards now show Total Value alongside Proposals, Line Items, and Last Updated</strong></li>
+            <li><strong>ENH: Vendor cards in financial dashboard sorted by total (lowest first) with trophy badge on lowest bidder</strong></li>
+            <li><strong>ENH: Price range visualization with gradient bar and average marker</strong></li>
+            <li><strong>ENH: Category breakdown table shows per-vendor amounts across all cost categories</strong></li>
+            <li><strong>FIX: Learning tab loading spinner stuck when no patterns exist (server restart required)</strong></li>
+            <li><strong>FIX: Settings Clear All Learning Data button missing base btn class</strong> &mdash; now styled correctly</li>
+            <li><strong>FIX: SharePoint Connect &amp; Scan CSRF token stale after debug reload</strong> &mdash; uses _freshCSRF() helper</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.52 <span class="changelog-date">February 22, 2026</span></h3>
+        <p><strong>Learning System UI</strong></p>
+        <ul>
+            <li><strong>NEW: Settings Learning tab</strong> &mdash; dedicated UI for managing the Pattern Learning system across all 5 AEGIS modules</li>
+            <li><strong>NEW: Per-module learning cards with pattern count, last learned date, View/Export/Clear actions</strong></li>
+            <li><strong>NEW: Global 'Enable Pattern Learning' toggle</strong> &mdash; persists to both localStorage and backend config.json</li>
+            <li><strong>NEW: Pattern Viewer modal</strong> &mdash; read-only JSON viewer for inspecting learned patterns per module</li>
+            <li><strong>NEW: Export All Patterns</strong> &mdash; downloads combined JSON of all 5 modules' learned patterns</li>
+            <li><strong>NEW: Clear All Learning Data</strong> &mdash; double-confirmation bulk clear across all modules</li>
+            <li><strong>NEW: 7 backend API endpoints for learning management (GET/DELETE patterns, export per-module and all)</strong></li>
+            <li><strong>ENH: All 5 learner modules respect learning-enabled toggle</strong> &mdash; disabled learning skips all triggers</li>
+            <li><strong>ENH: Data Management 'Clear Learning Data' button now also clears v5.9.50 pattern files</strong></li>
+            <li><strong>FIX: Added is_learning_enabled() utility in routes/_shared.py for backend config checking</strong></li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.51 <span class="changelog-date">February 22, 2026</span></h3>
+        <ul>
+            <li><strong>NEW: Proposal Compare Pattern Learning demo</strong> &mdash; 4-scene sub-demo walks through how AEGIS learns from extraction corrections, snapshots, diffs, and local pattern application</li>
+            <li><strong>NEW: Universal Learning System demo</strong> &mdash; 6-scene sub-demo in Settings covers all 5 learning modules (Review, Forge, Roles, HV, Proposals), safety thresholds, and data management</li>
+            <li><strong>ENH: Updated Hyperlink Validator demo scenes to mention automatic learning for domain exclusions, trusted domains, and headless routing</strong></li>
+            <li><strong>ENH: Updated Settings Data Management overview to describe Learning System pattern files and Clear Learning Data functionality</strong></li>
+            <li><strong>NEW: 10 pre-generated MP3 audio clips (JennyNeural) for new demo scenes</strong> &mdash; pattern_learning (4 clips) + learning_system (6 clips)</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.50 <span class="changelog-date">February 22, 2026</span></h3>
+        <ul>
+            <li><strong>NEW: Universal Learning System</strong> &mdash; AEGIS now learns from user behavior across ALL modules, not just Proposal Compare. Each module has its own local pattern file that never leaves your machine</li>
+            <li><strong>NEW: Document Review Learner</strong> &mdash; learns from dismissed issues and Fix Assistant corrections. Categories you consistently ignore get auto-downgraded to Info severity in future reviews</li>
+            <li><strong>NEW: Statement Forge Learner</strong> &mdash; learns from directive corrections (should→shall), role assignments, and deletion patterns. Extraction results improve with each edit session</li>
+            <li><strong>NEW: Roles Adjudication Learner</strong> &mdash; learns from adjudication decisions. Category assignments, deliverable patterns, and role type predictions improve as you adjudicate more roles</li>
+            <li><strong>NEW: Hyperlink Validator Learner</strong> &mdash; learns from status overrides, exclusion patterns, and Deep Validate results. Domains that need headless validation are auto-prioritized in future scans</li>
+            <li><strong>NEW: Learning Stats API</strong> &mdash; GET /api/learning/stats returns pattern counts across all 5 learner modules for dashboard integration</li>
+            <li><strong>ENH: Review engine applies learned suppressions</strong> &mdash; categories dismissed ≥2 times are auto-downgraded to Info, with document-type-aware context</li>
+            <li><strong>ENH: All learners use safety threshold (count ≥ 2) to prevent learning from one-off mistakes</strong></li>
+            <li><strong>ENH: All pattern files use atomic writes (write to .tmp then os.replace) for crash safety</strong></li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.49 <span class="changelog-date">February 22, 2026</span></h3>
+        <ul>
+            <li><strong>NEW: Local Pattern Learning System</strong> &mdash; AEGIS now learns from your corrections during Proposal Compare and applies them to future parses. All learned data stays in parser_patterns.json on your machine, never uploaded</li>
+            <li><strong>ENH: Expanded Software/License category patterns</strong> &mdash; standalone keywords for VMware, Citrix, Palo Alto, Splunk, CrowdStrike, Office 365, ServiceNow, Jira, Confluence, Tableau, and 20+ more products now auto-categorize correctly</li>
+            <li><strong>ENH: Filename-based contract term detection</strong> &mdash; files named with '3-year', '5-year', etc. now auto-detect contract period without relying on document text</li>
+            <li><strong>ENH: Improved financial table detection</strong> &mdash; column-focused analysis catches tables with dollar columns even when headers are generic (e.g., SHI PDF-from-Excel files)</li>
+            <li><strong>ENH: Relaxed column inference thresholds</strong> &mdash; secondary pass with lower thresholds catches sparse PDF-from-Excel tables that previously failed extraction</li>
+            <li><strong>ENH: Dynamic confidence scoring</strong> &mdash; confidence now reflects how many columns were successfully inferred (0.6-0.85 range) instead of a fixed 0.8</li>
+            <li><strong>ENH: Learned category overrides</strong> &mdash; when you correct a line item category twice, the keyword-to-category mapping is remembered for future files</li>
+            <li><strong>ENH: Learned company name patterns</strong> &mdash; when you correct a detected company name, the filename-to-company mapping is saved locally</li>
+            <li><strong>ENH: Learned financial table headers</strong> &mdash; header signatures from verified tables are remembered so similar tables are auto-detected in future parses</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.48 <span class="changelog-date">February 21, 2026</span></h3>
+        <ul>
+            <li><strong>ENH: Batch Structure Analysis</strong> &mdash; Analyze Structure button now processes ALL selected files (1-20) and downloads a single combined JSON report</li>
+            <li><strong>ENH: New batch endpoint POST /api/proposal-compare/analyze-batch-structure accepts multiple files via files[] multipart field</strong></li>
+            <li><strong>ENH: Cross-file summary in batch analysis</strong> &mdash; aggregates tables found, category distribution, column patterns, extraction quality, and common parser issues across all files</li>
+            <li><strong>ENH: Analyze Structure button shows file count when multiple files selected (e.g., 'Analyze Structure (3 files)')</strong></li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.47 <span class="changelog-date">February 21, 2026</span></h3>
-        <p><strong>Proposal Structure Analyzer &mdash; Privacy-Safe Parser Diagnostics</strong></p>
         <ul>
-            <li><strong>ENH: Proposal Structure Analyzer</strong> &mdash; New privacy-safe tool that parses proposals and reports table shapes, column patterns, category distribution, and extraction diagnostics without exposing dollar amounts, company names, or proprietary content</li>
-            <li><strong>ENH: Analyze Structure button</strong> &mdash; Available in Proposal Compare upload phase. Select a file, click the button, and a .json structural report downloads automatically</li>
-            <li><strong>ENH: API endpoint</strong> &mdash; POST /api/proposal-compare/analyze-structure accepts a single file and returns redacted JSON (add ?download=1 for file download)</li>
-            <li><strong>ENH: Smart redaction</strong> &mdash; Dollar amounts bucketed ($1K-$9.9K, $100K-$999K, etc.), descriptions analyzed by pattern (length, word count, structural type), company names stripped, file paths removed from errors</li>
+            <li><strong>ENH: Proposal Structure Analyzer</strong> &mdash; privacy-safe structural analysis tool that parses proposals and reports table shapes, column patterns, category distribution, and extraction diagnostics WITHOUT exposing dollar amounts, company names, or proprietary content</li>
+            <li><strong>ENH: Analyze Structure button in Proposal Compare upload phase</strong> &mdash; select a file and click to download a .json structural report safe for sharing with developers</li>
+            <li><strong>ENH: API endpoint POST /api/proposal-compare/analyze-structure</strong> &mdash; accepts a single proposal file, returns redacted structural JSON with ?download=1 option for file download</li>
+            <li><strong>ENH: Structure report includes per-table column data patterns, line item confidence histograms, amount bucket distributions, description pattern analysis, field coverage percentages, and parser improvement suggestions</strong></li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.46 <span class="changelog-date">February 21, 2026</span></h3>
-        <p><strong>Multi-Term Proposal Comparison — Automatic Grouping by Contract Term</strong></p>
         <ul>
-            <li><strong>ENH: Multi-term comparison</strong> — Proposals are now automatically grouped by contract term (e.g., "3 Year", "5 Year") and compared separately within each term group. Vendors are only compared against other vendors with the same contract term, producing separate analysis for each term</li>
-            <li><strong>ENH: Term selector UI</strong> — Gold pill-based selector bar above the 8-tab results panel lets you switch between term groups. Each pill shows the vendor count for that term</li>
-            <li><strong>ENH: All Terms Summary</strong> — Special summary view with cross-term vendor comparison table showing cost per vendor per term, lowest-term highlighting with green badges, and vendor presence matrix showing coverage across terms</li>
-            <li><strong>ENH: Review phase indicators</strong> — "Multi-term detected" preview bar appears during review phase when 2+ distinct terms are found, showing term badges with proposal counts per group</li>
-            <li><strong>ENH: Smart Compare button</strong> — Button text changes to "Compare by Term (N groups)" when multi-term is detected, "Compare All X Proposals" otherwise</li>
-            <li><strong>ENH: Excluded proposals</strong> — Term groups with only a single vendor are excluded from comparison with a visible notice explaining why</li>
-            <li><strong>ENH: Export term labeling</strong> — XLSX and HTML exports include the term label in the filename when exporting from a multi-term comparison</li>
-            <li><strong>ENH: History integration</strong> — Each term group saves as a separate comparison in history with "Term: X" label in the notes field for easy identification</li>
+            <li><strong>ENH: Multi-term comparison</strong> &mdash; proposals are automatically grouped by contract term (e.g., '3 Year', '5 Year') and compared separately within each term group</li>
+            <li><strong>ENH: Term selector bar</strong> &mdash; gold pill-based UI above 8-tab results lets you switch between term groups or view All Terms Summary</li>
+            <li><strong>ENH: All Terms Summary view</strong> &mdash; cross-term vendor comparison table showing cost per vendor per term, lowest-term highlighting, and vendor presence matrix</li>
+            <li><strong>ENH: Review phase term indicator</strong> &mdash; 'Multi-term detected' preview bar with term badges and group counts shown before comparison</li>
+            <li><strong>ENH: Compare button adapts</strong> &mdash; shows 'Compare by Term (N groups)' when multi-term is detected, 'Compare All' otherwise</li>
+            <li><strong>ENH: Excluded proposals notice</strong> &mdash; single-vendor term groups are excluded from comparison with visible explanation</li>
+            <li><strong>ENH: Export support</strong> &mdash; XLSX and HTML exports include term label suffix in filename when in multi-term mode</li>
+            <li><strong>ENH: History integration</strong> &mdash; each term comparison saves independently with 'Term: X' label in history notes</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.45 <span class="changelog-date">February 21, 2026</span></h3>
-        <p><strong>Proposal Compare Chart &amp; Scoring Fixes + Pre-Comparison Validation + Docling Fix</strong></p>
         <ul>
-            <li><strong>FIX: Heatmap single-vendor display</strong> — Cells for items with only one vendor now show "only vendor" label instead of empty deviation. Heatmap legend updated with "Only Vendor" swatch and all colors use runtime dark mode functions</li>
-            <li><strong>FIX: Categories chart layout</strong> — Switched from stacked to grouped bar chart so small vendor values are visible alongside large ones instead of being hidden inside the stack</li>
-            <li><strong>FIX: Tornado chart empty state</strong> — When no items have multi-vendor price data, shows a styled message with icon instead of silently hiding the chart container</li>
-            <li><strong>FIX: Radar chart readability</strong> — Increased canvas height (300→380px), switched from hard max to suggestedMax scale, improved point label font sizing and padding, removed label backdrop overlays</li>
-            <li><strong>FIX: Score bar N/A state</strong> — Vendor scores of zero now display "N/A" with muted grid-color fill instead of an invisible empty bar</li>
-            <li><strong>FIX: Score components chart</strong> — Vendor names truncated at 25 characters with full name shown in tooltip on hover. X-axis rotation capped at 35° for readability</li>
-            <li><strong>FIX: Chart dark mode grid lines</strong> — All Chart.js charts now use the _getChartGridColor() helper function, ensuring correct grid line colors in both light and dark mode</li>
-            <li><strong>ENH: Pre-comparison validation</strong> — New _validateBeforeCompare() function checks for fewer than 2 proposals, empty line items, missing company names, duplicate vendor names, and very low item counts. Shows a confirm dialog listing all warnings before proceeding</li>
-            <li><strong>FIX: Statement review stats</strong> — get_statement_review_stats() method now uses PRAGMA table_info to check column existence, handles missing scan_statements table and missing review_status/confirmed columns gracefully without 500 errors</li>
-            <li><strong>FIX: Docling artifacts_path cleanup</strong> — Invalid DOCLING_ARTIFACTS_PATH environment variables are now auto-cleared from os.environ so Docling's internal initialization doesn't re-read stale test paths</li>
-            <li><strong>ENH: New demo sub-demos</strong> — Added Category Breakdown and Project Dashboard sub-demos to the Proposal Compare demo system. Export sub-demo expanded to cover Interactive HTML export with 4 scenes</li>
+            <li><strong>FIX: Proposal Compare heatmap</strong> &mdash; single-vendor cells now show 'only vendor' label instead of empty deviation; legend uses runtime dark mode color functions with 'Only Vendor' swatch</li>
+            <li><strong>FIX: Proposal Compare categories chart</strong> &mdash; switched from stacked to grouped bars so small vendor values are visible alongside large ones</li>
+            <li><strong>FIX: Proposal Compare tornado chart</strong> &mdash; styled empty state message with icon instead of silently hiding parent element; improved bar sizing (barPercentage 0.85)</li>
+            <li><strong>FIX: Proposal Compare radar chart</strong> &mdash; increased canvas height (300→380), suggestedMax instead of hard max, better point label sizing and padding, removed label backdrops</li>
+            <li><strong>FIX: Proposal Compare score bars</strong> &mdash; zero-value scores now show 'N/A' with muted fill instead of an invisible empty bar</li>
+            <li><strong>FIX: Proposal Compare score components chart</strong> &mdash; vendor name truncation (25 chars) with tooltip for full name, controlled axis rotation (35° max)</li>
+            <li><strong>FIX: Proposal Compare chart grid colors</strong> &mdash; all Chart.js charts now use _getChartGridColor() helper for correct dark mode grid lines</li>
+            <li><strong>ENH: Pre-comparison validation</strong> &mdash; _validateBeforeCompare() checks for &lt;2 proposals, empty line items, missing company names, duplicate vendor names, and very low item counts with confirm dialog</li>
+            <li><strong>FIX: get_statement_review_stats()</strong> &mdash; defensive method with PRAGMA table_info introspection; handles missing scan_statements table, missing review_status/confirmed columns gracefully</li>
+            <li><strong>FIX: Docling artifacts_path</strong> &mdash; invalid env var paths now auto-cleared from os.environ so Docling internals don't re-read stale DOCLING_ARTIFACTS_PATH values</li>
+            <li><strong>ENH: Demo system</strong> &mdash; added 2 new Proposal Compare sub-demos (Category Breakdown, Project Dashboard) and expanded Export sub-demo to cover Interactive HTML export</li>
+            <li><strong>ENH: Help docs</strong> &mdash; added v5.9.45 features to Proposal Compare analytics, export, and review sections with pre-comparison validation details</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.44 <span class="changelog-date">February 21, 2026</span></h3>
-        <p><strong>Hyperlink Validator Headless Rewrite + Rate Limiting + OS Truststore + Voice Narration</strong></p>
         <ul>
-            <li><strong>ENH: HV headless browser rewrite</strong> — Complete rewrite of headless validation: resource blocking (images/CSS/fonts skipped for speed), parallel validation at 5× throughput, Windows SSO passthrough via auth-server-allowlist Chromium flags, login page detection (ADFS/Azure AD/SAML), and soft 404 detection for pages that return 200 with error content</li>
-            <li><strong>ENH: Per-domain rate limiting</strong> — Thread-safe semaphore-based limiter (max 3 concurrent requests per domain, 0.2s minimum delay between requests) prevents HTTP 429 responses and IP blocks during large batch validation runs</li>
-            <li><strong>ENH: Content-type mismatch detection</strong> — Catches silent login redirects where document URLs (.pdf, .docx) return text/html instead of the expected document content type, flagging them as AUTH_REQUIRED rather than WORKING</li>
-            <li><strong>ENH: Login page URL detection</strong> — Identifies SSO redirects to ADFS, Azure AD, and SAML login pages that return HTTP 200 instead of 302, preventing false positives on authenticated sites</li>
-            <li><strong>ENH: OS truststore integration</strong> — Uses the operating system's certificate store when available (via truststore module), eliminating most corporate SSL certificate errors without needing verify=False</li>
-            <li><strong>ENH: Voice narration for all demos</strong> — Pre-generated MP3 audio clips (Jenny Neural voice via edge-tts) for all 11 sections with 37+ audio files. Three-tier provider chain: MP3 → Web Speech API → silent timer fallback</li>
-            <li><strong>ENH: Audio manifest system</strong> — manifest.json tracks all pre-generated audio files with text hashes for cache invalidation. Automatic regeneration when narration text changes</li>
-            <li><strong>FIX: Role Doc Matrix API URL</strong> — Corrected /api/roles/function-categories (404) to /api/function-categories in the boot sequence</li>
-            <li><strong>FIX: Role Doc Matrix safety valve</strong> — Auto-truncates matrices over 10,000 cells (shows top N roles by document coverage) to prevent browser freeze on large datasets</li>
+            <li><strong>FIX: Role Doc Matrix</strong> &mdash; wrong API URL /api/roles/function-categories (404) corrected to /api/function-categories in app.js boot sequence</li>
+            <li><strong>ENH: Role Doc Matrix safety valve</strong> &mdash; auto-truncates matrices over 10,000 cells (shows top N roles by document coverage) to prevent browser freeze on large datasets</li>
+            <li><strong>ENH: HV headless browser rewrite</strong> &mdash; resource blocking (images/CSS/fonts), parallel validation (5x throughput), Windows SSO passthrough via auth-server-allowlist flags, login page detection, soft 404 detection</li>
+            <li><strong>ENH: HV per-domain rate limiting</strong> &mdash; thread-safe semaphore-based limiter (max 3 concurrent per domain, 0.2s min delay) prevents 429/IP blocks during batch validation</li>
+            <li><strong>ENH: HV content-type mismatch detection</strong> &mdash; catches login redirects where document URLs (.pdf/.docx) return text/html instead of expected content type</li>
+            <li><strong>ENH: HV login page URL detection</strong> &mdash; identifies silent SSO redirects to ADFS/Azure AD/SAML login pages that return HTTP 200 instead of 302</li>
+            <li><strong>ENH: HV truststore integration</strong> &mdash; uses OS certificate store when available, eliminating most corporate SSL errors without verify=False</li>
+            <li><strong>ENH: Voice narration for all demos</strong> &mdash; Pre-generated MP3 audio clips (Jenny Neural voice via edge-tts) for all 11 sections with 37+ audio files. Three-tier provider chain: MP3 → Web Speech API → silent timer</li>
+            <li><strong>ENH: Audio manifest system</strong> &mdash; manifest.json tracks all pre-generated audio with text hashes for cache invalidation and automatic regeneration when narration text changes</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.43 <span class="changelog-date">February 21, 2026</span></h3>
-        <p><strong>HV Export URL Matching Fix + Proposal Compare Multi-Term Accuracy</strong></p>
         <ul>
-            <li><strong>FIX: HV export URL matching</strong> — 3-strategy matching (row-level source map, sheet-level hyperlinks, cell fallback) resolves 3,742 'No URL' rows caused by openpyxl hyperlink access discrepancy</li>
-            <li><strong>FIX: Validation summary counting</strong> — AUTH_REQUIRED, SSL_WARNING, and RATE_LIMITED statuses now counted correctly instead of falling to 'unknown'</li>
-            <li><strong>FIX: Contract term preserved</strong> — Review phase edits to contract term now flow through to comparison (was silently dropped during ProposalData reconstruction)</li>
-            <li><strong>FIX: Multi-term comparison awareness</strong> — Same-company proposals with different terms (e.g. 3-year vs 5-year) no longer falsely flag term-specific items as "missing". Shows info-level "Term-Specific Items" instead</li>
-            <li><strong>FIX: Vendor count accuracy</strong> — Unique vendors computed by company name dedup (case-insensitive), shows "Unique Vendors" separately from "Proposals" when counts differ</li>
-            <li><strong>FIX: Proposal ID disambiguation</strong> — Falls back to filename when no contract term exists, preventing confusing numeric suffixes for same-company proposals</li>
-            <li><strong>FIX: HTML export readability</strong> — Replaced confusing donut chart ("Category Mix") with clear horizontal category bars; improved stacked bar chart label sizes and truncation; fixed heatmap cell text contrast</li>
+            <li><strong>FIX: HV export URL matching</strong> &mdash; 3-strategy approach (row-level source map, sheet-level hyperlinks, cell fallback) fixes 3,742 'No URL' rows from openpyxl ws.hyperlinks vs cell.hyperlink discrepancy</li>
+            <li><strong>FIX: HV ValidationSummary counting</strong> &mdash; AUTH_REQUIRED, SSL_WARNING, RATE_LIMITED now have explicit counters instead of falling to 'unknown'</li>
+            <li><strong>FIX: Proposal contract term preserved through comparison</strong> &mdash; routes.py ProposalData reconstruction now includes contract_term and extraction_text fields</li>
+            <li><strong>FIX: False 'missing line items' flags</strong> &mdash; multi-term comparison awareness detects same-company proposals (e.g. 3-year vs 5-year) and marks term-specific items as info, not critical</li>
+            <li><strong>FIX: Vendor count accuracy</strong> &mdash; unique vendors computed by company name dedup (case-insensitive), separate from proposal count</li>
+            <li><strong>FIX: HTML export readability</strong> &mdash; replaced confusing donut chart with horizontal category bars, improved stacked bar label sizes, fixed heatmap cell text contrast</li>
+            <li><strong>FIX: Proposal ID disambiguation</strong> &mdash; falls back to filename when no contract term exists for same-company proposals</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.42 <span class="changelog-date">February 21, 2026</span></h3>
-        <p><strong>Proposal Compare v2.2 — Project Dashboard, Edit Persistence, HTML Export, Live Demos</strong></p>
         <ul>
-            <li><strong>NEW: Project Dashboard</strong> — Centralized hub for browsing all projects with 2-column card grid showing proposal counts, line items, and last updated timestamps. Click to drill into project detail view with proposals and comparison history</li>
-            <li><strong>NEW: Edit persistence</strong> — Review phase edits (company name, line items, totals, contract term) auto-save to the database via fire-and-forget PUT requests. Changes survive modal close/reopen and persist across sessions</li>
-            <li><strong>NEW: Tag to project</strong> — Assign any proposal to any project via positioned dropdown menu. Available from review phase, project detail, and results. Supports both fresh uploads and database-backed proposals with move support between projects</li>
-            <li><strong>NEW: Project detail view</strong> — View all proposals and comparison history for a project. Edit proposals in-place, move between projects, delete, or start new comparisons directly from the detail view</li>
-            <li><strong>NEW: Interactive HTML export</strong> — Self-contained standalone HTML report with SVG charts, dark/light toggle, sort/filter, animated stats, and print optimization. No external dependencies or internet required</li>
-            <li><strong>NEW: License category</strong> — Dedicated category for licenses, subscriptions, annual fees, and maintenance agreements (extracted automatically from proposals)</li>
-            <li><strong>NEW: Vendor color badges</strong> — 10-color deterministic palette distinguishes vendors throughout comparison views, charts, and exports</li>
-            <li><strong>NEW: PDF viewer zoom &amp; magnifier</strong> — Zoom controls (+/−/fit-width) and a 3× magnifier loupe for scanned/small-text PDFs. HiDPI-aware canvas rendering</li>
-            <li><strong>NEW: Quality indicator badges</strong> — Green/amber status badges in review phase show extraction completeness at a glance for company, line items, total, and contract term</li>
-            <li><strong>NEW: Comparison preview card</strong> — Before clicking Compare, see proposal count, vendors identified, line item total, and readiness status</li>
-            <li><strong>NEW: Review-phase project selector</strong> — Change or assign project at any point during review, directly from the review phase header</li>
-            <li><strong>NEW: Live demo scenes</strong> — Proposal Compare demos now inject simulated results showing executive summary hero stats, comparison matrix with vendor data, heatmap grid, vendor score cards, red flags, and category breakdowns</li>
-            <li><strong>ENH: Enhanced XLSX export (8 sheets)</strong> — Added Heatmap, Rate Analysis, and Raw Line Items sheets. Letter-grade coloring, conditional fills, currency formatting throughout</li>
-            <li><strong>ENH: Currency formatting</strong> — All dollar amounts display as $X,XXX.XX with proper locale formatting. Auto-format on blur in review fields</li>
-            <li><strong>ENH: Dark mode charts</strong> — Chart.js text/grid colors read fresh from CSS variables on each render, adapting correctly to theme changes</li>
-            <li><strong>ENH: Category list expanded</strong> — 11 categories: Labor, Material, Software, License, Travel, Training, ODC, Subcontract, Overhead, Fee, Other</li>
-            <li><strong>FIX: HV blueprint import</strong> — Changed except ImportError to except Exception in hyperlink_validator/routes.py to handle config_logging initialization failures on Windows (PermissionError from OneDrive paths). Prevents "resource not found" 404 for all HV API endpoints</li>
-            <li><strong>FIX: fresh_install.py</strong> — New comprehensive installer that downloads all ~230 code files from GitHub without touching dependencies, databases, or user config. SSL fallback chain for corporate networks</li>
+            <li><strong>ENH: Project Dashboard</strong> &mdash; centralized hub for browsing all projects with 2-column card grid, drill-down to project detail with proposals and comparison history</li>
+            <li><strong>ENH: Project Detail View</strong> &mdash; view all proposals and comparisons for a project, edit in-place, move between projects, start new comparisons</li>
+            <li><strong>ENH: Edit persistence</strong> &mdash; review phase edits (company name, line items, totals, contract term) auto-save to database via fire-and-forget PUT, survive modal close/reopen</li>
+            <li><strong>ENH: Tag to project</strong> &mdash; assign any proposal to any project via positioned dropdown, even after review, with move support between projects</li>
+            <li><strong>ENH: Proposal Compare v2.2</strong> &mdash; License category, vendor color badges, currency formatting, dark mode chart text fixes</li>
+            <li><strong>ENH: PDF viewer v2.0</strong> &mdash; HiDPI/Retina rendering, zoom controls (+/−/fit), magnifier loupe at 3× zoom on hover</li>
+            <li><strong>ENH: Review phase quality indicators</strong> &mdash; green check/amber warning badges for company, line items, total, contract term</li>
+            <li><strong>ENH: Comparison preview card</strong> &mdash; shows proposal count, vendors identified, total line items, readiness status before Compare</li>
+            <li><strong>ENH: Review phase project selector</strong> &mdash; change/assign project at any point before comparing</li>
+            <li><strong>ENH: Enhanced XLSX export</strong> &mdash; 8 sheets (added Heatmap, Rate Analysis, Raw Line Items), grade coloring, conditional formatting</li>
+            <li><strong>ENH: Interactive HTML export</strong> &mdash; standalone self-contained HTML report with SVG charts, dark/light toggle, sortable tables, tab navigation</li>
+            <li><strong>ENH: Export Interactive HTML button</strong> &mdash; alongside XLSX export with gold accent styling</li>
+            <li><strong>ENH: Vendor color badges in comparison table headers, executive ranking, and score cards for disambiguation</strong></li>
+            <li><strong>ENH: Expanded category list</strong> &mdash; Labor, Material, Software, License, Travel, Training, ODC, Subcontract, Overhead, Fee, Other</li>
+            <li><strong>ENH: Live demo scenes</strong> &mdash; Proposal Compare demos inject simulated results (executive summary, comparison matrix, heatmap, vendor scores, red flags, categories)</li>
+            <li><strong>ENH: fresh_install.py</strong> &mdash; comprehensive installer downloads ~230 code files from GitHub without touching dependencies, databases, or config</li>
+            <li><strong>FIX: Dark mode chart text</strong> &mdash; all Chart.js instances now read fresh computed CSS vars via helper functions</li>
+            <li><strong>FIX: Currency formatting</strong> &mdash; explicit en-US locale in formatMoney() for consistent $X,XXX.XX display</li>
+            <li><strong>FIX: HV blueprint import</strong> &mdash; changed except ImportError to except Exception to handle config_logging init failures on Windows (PermissionError/OSError from OneDrive paths)</li>
+            <li><strong>FIX: Tag-to-project bug</strong> &mdash; proposals now correctly attach to selected project instead of previously-selected project</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.41 <span class="changelog-date">February 20, 2026</span></h3>
-        <p><strong>Proposal Compare v2.1 — Editable Review Phase, Document Viewer &amp; History</strong></p>
         <ul>
-            <li><strong>NEW: Review phase</strong> — Split-pane view with inline document viewer (PDF.js, DOCX text, XLSX tables) alongside editable metadata panel</li>
-            <li><strong>NEW: Line item editor</strong> — Expand accordion to add/remove/edit individual cost items with category dropdowns, amounts, quantities</li>
-            <li><strong>NEW: Comparison history</strong> — Auto-save all comparisons, browse past analyses with vendor badges, reload full results, delete old entries</li>
-            <li><strong>NEW: Back to Review</strong> — Return from results to the review phase with proposals preserved; adjust metadata and re-compare</li>
-            <li><strong>ENH: Four-phase workflow</strong> — Upload → Extract → Review → Compare with visual progress indicator</li>
-            <li><strong>ENH: PDF extraction</strong> — Text extraction before tables, 5-strategy company name detection with filename fallback</li>
-            <li><strong>ENH: Radar chart</strong> — Spider plot in Vendor Scores tab overlaying all vendors for at-a-glance comparison</li>
-            <li><strong>ENH: Weight sliders</strong> — Drag evaluation weights and vendor scores recalculate in real-time</li>
-            <li><strong>ENH: Sort &amp; filter</strong> — Comparison table supports column sorting, category filter, and variance threshold filter</li>
-            <li><strong>ENH: Enhanced red flags</strong> — FAR 15.404 reasonableness, identical pricing detection, missing category gaps</li>
-            <li><strong>NEW: Contract term detection</strong> — Auto-extracts period (3 Year, Base + 4 Options, 36 Months) from proposal text and Excel sheet tabs</li>
-            <li><strong>NEW: Multi-term vendor disambiguation</strong> — Same company with different terms gets unique IDs (e.g., "Acme Corp (3 Year)" vs "Acme Corp (5 Year)")</li>
-            <li><strong>NEW: Indirect rate analysis</strong> — Detects fringe, overhead, G&amp;A, fee/profit and flags rates outside typical ranges</li>
-            <li><strong>NEW: Click-to-populate</strong> — Select text in doc viewer, click "Use" button to populate the last-focused form field</li>
-            <li><strong>ENH: Auto-calculation</strong> — Missing qty, unit price, or amount auto-computed when 2 of 3 fields present (parser + live frontend)</li>
-            <li><strong>ENH: Currency auto-format</strong> — Dollar amounts format with $ and commas on blur</li>
-            <li><strong>ENH: Parser thresholds</strong> — Lowered capture thresholds and expanded page limits (10→50) for comprehensive extraction</li>
-            <li><strong>NEW: HV auth diagnostic</strong> — Auth status badge in HV header shows "Windows SSO" (green) or "Anonymous" (red)</li>
-            <li><strong>ENH: Headless-first .mil/.gov</strong> — Government URLs route directly to headless browser, bypassing 10-30s timeout</li>
-            <li><strong>ENH: SharePoint SSL auto-bypass</strong> — Corporate domains auto-detected, SSL verification disabled (certifi CA mismatch fix)</li>
-            <li><strong>FIX: Auth logging</strong> — Replaced silent ImportError catch with verbose logging for authentication module init</li>
-            <li><strong>FIX: SharePoint download 404 retry</strong> — Fresh session retry for transient 404 errors</li>
-            <li><strong>FIX: Centralized ID generation</strong> — Prevents mismatched proposal IDs between align and compare functions</li>
-            <li><strong>FIX: Totals from aligned items</strong> — Accurate comparison totals computed from actual matched line items</li>
-            <li><strong>ENH: Guided demos</strong> — 2 new sub-demos (Review &amp; Edit, History) covering new workflows</li>
+            <li><strong>ENH: Proposal Compare Review Phase</strong> &mdash; split-pane view with inline document viewer (PDF.js, DOCX text, XLSX tables) and editable metadata panel</li>
+            <li><strong>ENH: Line item editor</strong> &mdash; expand accordion to add/remove/edit individual cost items with category dropdowns, amounts, quantities</li>
+            <li><strong>ENH: Comparison History</strong> &mdash; auto-save all comparisons, browse past analyses, reload full results, delete old entries</li>
+            <li><strong>ENH: Back to Review</strong> &mdash; return from results to the review phase with proposals preserved, adjust metadata and re-compare</li>
+            <li><strong>ENH: Four-phase workflow</strong> &mdash; Upload → Extract → Review → Compare with visual progress indicator</li>
+            <li><strong>ENH: PDF extraction overhaul</strong> &mdash; text extraction before tables, 5-strategy company name detection with filename fallback</li>
+            <li><strong>ENH: Radar chart in Vendor Scores tab</strong> &mdash; overlays all vendors on spider plot for at-a-glance comparison</li>
+            <li><strong>ENH: Tornado chart in Executive Summary</strong> &mdash; horizontal bar chart showing biggest price spreads for negotiation focus</li>
+            <li><strong>ENH: Stacked bar chart in Categories tab</strong> &mdash; shows cost structure breakdown per vendor with tooltip totals</li>
+            <li><strong>ENH: Configurable evaluation weight sliders</strong> &mdash; drag Price/Completeness/Risk/Data Quality weights, scores recalculate in real-time</li>
+            <li><strong>ENH: Sortable comparison table</strong> &mdash; click any column header to sort, category/variance dropdown filters, item count display</li>
+            <li><strong>ENH: Enhanced red flags</strong> &mdash; identical pricing detection, missing category gaps, FAR 15.404 price reasonableness (z-score outliers)</li>
+            <li><strong>ENH: Guided demos updated</strong> &mdash; 2 new sub-demos (Review &amp; Edit, History) covering editable review phase and comparison history</li>
+            <li><strong>ENH: Contract term detection</strong> &mdash; auto-extracts 'X Year', 'Base + N Options', 'N Months' from proposal text and Excel sheet tabs</li>
+            <li><strong>ENH: Multi-term vendor disambiguation</strong> &mdash; same company with 3yr vs 5yr proposals get unique IDs in comparison</li>
+            <li><strong>ENH: Indirect rate analysis</strong> &mdash; detects fringe, overhead, G&amp;A, fee/profit and flags rates outside typical ranges</li>
+            <li><strong>ENH: Auto-calculation of missing financial fields</strong> &mdash; qty × unit_price = amount (and inverse) in parser and frontend</li>
+            <li><strong>ENH: Currency auto-format</strong> &mdash; dollar amounts auto-format on blur with $ prefix and commas</li>
+            <li><strong>ENH: Click-to-populate</strong> &mdash; select text in doc viewer, click 'Use' button to populate last-focused form field</li>
+            <li><strong>ENH: HV auth diagnostic endpoint</strong> &mdash; POST /api/hyperlink-validator/diagnose-auth reports SSO status, method, and init errors</li>
+            <li><strong>ENH: HV auth status badge</strong> &mdash; green 'Windows SSO' or red 'Anonymous' badge in HV modal header</li>
+            <li><strong>ENH: Headless-first routing for .mil/.gov</strong> &mdash; bypasses 10-30s timeout, routes directly to headless browser queue</li>
+            <li><strong>ENH: SharePoint auto-SSL bypass for corporate domains (sharepoint.us, .ngc., .myngc., .northgrum.)</strong></li>
+            <li><strong>ENH: SharePoint download retry on 404</strong> &mdash; fresh session retry for transient 404s</li>
+            <li><strong>FIX: Parser thresholds lowered</strong> &mdash; DOCX inline $1000→$50, PDF inline $100→$10, captures more financial data</li>
+            <li><strong>FIX: PDF/DOCX page limits expanded from 10→50 pages for long proposals</strong></li>
+            <li><strong>FIX: Inline amounts always captured (even when tables found) with dedup against table-derived items</strong></li>
+            <li><strong>FIX: Auth logging</strong> &mdash; replaced silent ImportError catch with verbose logging in validator.py and sharepoint_connector.py</li>
+            <li><strong>FIX: Comparison history loading</strong> &mdash; unwraps nested result.result from get_comparison() response</li>
+            <li><strong>FIX: Centralized proposal ID generation prevents mismatched IDs between align and compare functions</strong></li>
+            <li><strong>FIX: Totals computed from aligned items instead of raw extraction total for accurate comparison</strong></li>
+            <li><strong>FIX: Frontend ID fallback prevents undefined errors when comparison results lack proposal IDs</strong></li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.40 <span class="changelog-date">February 20, 2026</span></h3>
-        <p><strong>Proposal Compare v2.0 + Bug Fixes</strong></p>
         <ul>
-            <li><strong>NEW: Proposal Compare v2.0</strong> — Upload 2–10 vendor proposals (DOCX, PDF, XLSX) for automated financial extraction and side-by-side comparison with 8 result tabs</li>
-            <li><strong>NEW: Executive Summary tab</strong> — Auto-generated overview with key findings, cost ranges, and recommendation highlights</li>
-            <li><strong>NEW: Red Flags tab</strong> — Automated detection of pricing anomalies, missing line items, unusual cost structures, and outlier values across proposals</li>
-            <li><strong>NEW: Heatmap tab</strong> — Visual cost comparison matrix with color-coded cells showing relative pricing across vendors and categories</li>
-            <li><strong>NEW: Vendor Scores tab</strong> — Composite scoring across cost competitiveness, completeness, detail level, and consistency metrics</li>
-            <li><strong>NEW: Project Management</strong> — Group related proposals into projects for organized comparison — persistent across sessions</li>
-            <li><strong>NEW: M&amp;A Dashboard integration</strong> — Proposal Compare results feed into Metrics &amp; Analytics with dedicated Proposals tab</li>
-            <li><strong>FIX: Boot error</strong> — Added missing /api/capabilities endpoint that caused console errors on startup</li>
-            <li><strong>FIX: Proposal Compare z-index</strong> — Modal now opens above dashboard tiles on Windows Chrome (backdrop-filter stacking context fix)</li>
-            <li><strong>FIX: Export Highlighted crash</strong> — Resolved 413 upload limit and Windows file path issues for multicolor Excel export</li>
-            <li><strong>FIX: Apply Updates button</strong> — "Check for Updates" now shows the Apply button when updates are available</li>
-            <li><strong>ENH: Help &amp; Demo coverage</strong> — Proposal Compare added to help documentation (5 sections), guided tour, and live demo system (8 scenes + 7 sub-demos)</li>
+            <li><strong>ENH: Proposal Compare v2.0</strong> &mdash; expanded from 4 to 8 result tabs with executive summary, red flags, heatmap, and vendor scores</li>
+            <li><strong>ENH: Executive Summary tab with hero stats, price/score rankings, key findings, and negotiation opportunities table</strong></li>
+            <li><strong>ENH: Red Flags tab showing automated risk checks per vendor with critical/warning/info severity badges</strong></li>
+            <li><strong>ENH: Heatmap tab with color-coded deviation grid (green=below avg, red=above avg) and legend</strong></li>
+            <li><strong>ENH: Vendor Scores tab with letter grades (A-F), overall scores, and 4 weighted component bars (Price 40%, Completeness 25%, Risk 25%, Data Quality 10%)</strong></li>
+            <li><strong>ENH: Project management</strong> &mdash; create named projects, group proposals, add new proposals to existing projects</li>
+            <li><strong>ENH: Chart.js integration</strong> &mdash; optional bar charts in Categories and Vendor Scores tabs (graceful degradation)</li>
+            <li><strong>ENH: Full CSS suite for all new components with dark mode support</strong></li>
+            <li><strong>ENH: Metrics &amp; Analytics Proposals tab</strong> &mdash; 4 hero stats, value distribution, file types, vendor frequency, category doughnut, and recent activity table with drill-down</li>
+            <li><strong>ENH: Proposal metrics API endpoint (/api/proposal-compare/metrics) with lazy loading and 5-minute cache in M&amp;A dashboard</strong></li>
+            <li><strong>FIX: Batch scan performance</strong> &mdash; Docling persistent worker daemon=False for Windows (daemon procs can't spawn children)</li>
+            <li><strong>FIX: Docling artifacts_path validation with auto-detection fallback when env var points to invalid directory</strong></li>
+            <li><strong>FIX: Session-broken flag prevents repeated 60s Docling timeouts across batch files (skip instantly after first failure)</strong></li>
+            <li><strong>FIX: Folder scan chunk size reduced from 8→5 and workers from 4→3 for stable Windows+OneDrive performance</strong></li>
+            <li><strong>FIX: Export Highlighted crash on Windows</strong> &mdash; request.max_content_length is read-only on some Werkzeug versions (wrapped in try/except at 3 locations)</li>
+            <li><strong>FIX: Boot error</strong> &mdash; added missing /api/capabilities endpoint (checkCapabilities() was silently failing, export buttons showed disabled)</li>
+            <li><strong>FIX: Proposal Compare z-index bumped from 10001 to 15000</strong> &mdash; modal was behind landing page tiles on Windows Chrome with backdrop-filter</li>
+            <li><strong>ENH: Guide system updated with comprehensive Proposal Compare v2.0 demos</strong> &mdash; 8 overview scenes + 7 sub-demos covering all new tabs</li>
+            <li><strong>FIX: Apply Updates button in Settings never appeared</strong> &mdash; update-functions.js now toggles #btn-apply-updates visible when updates detected</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.39 <span class="changelog-date">February 20, 2026</span></h3>
-        <p><strong>Batch Scan Minimize &amp; Portfolio Fix</strong></p>
         <ul>
-            <li><strong>ENH: Batch scan minimize/restore</strong> — Minimize button in modal header hides the scan to a floating progress badge with SVG ring showing completion percentage</li>
-            <li><strong>ENH: Floating mini badge</strong> — Click the bottom-right badge to restore the full scan dashboard at any time — works for batch, folder, and SharePoint scans</li>
-            <li><strong>ENH: Auto-minimize on outside click</strong> — Clicking outside the scan modal during an active scan minimizes instead of closing (prevents accidental data loss)</li>
-            <li><strong>FIX: Portfolio batch doc count</strong> — Detail view showed more documents than the card because it used a 5-minute window vs the card's 30-second batch grouping — now consistent</li>
+            <li><strong>ENH: Batch scan minimize/restore</strong> &mdash; minimize button in modal header hides to floating progress badge</li>
+            <li><strong>ENH: Floating mini badge with SVG progress ring shows scan % while working in other areas</strong></li>
+            <li><strong>ENH: Click mini badge to restore full scan dashboard</strong> &mdash; works for batch, folder, and SharePoint scans</li>
+            <li><strong>ENH: Auto-minimize when clicking outside scan modal during active scan (prevents accidental close)</strong></li>
+            <li><strong>FIX: Portfolio batch document count mismatch</strong> &mdash; detail view used ±5min window vs card's 30sec window</li>
+            <li><strong>FIX: Portfolio batch detail now uses consistent 30-second batch grouping window</strong></li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.38 <span class="changelog-date">February 20, 2026</span></h3>
-        <p><strong>SharePoint Scan Improvements</strong></p>
         <ul>
-            <li><strong>FIX: SharePoint connection</strong> — Enhanced error diagnostics with categorized messages (SSL, DNS, proxy, timeout, reset) and better recovery on corporate networks</li>
-            <li><strong>FIX: Connection resilience</strong> — Auto-tries SSL bypass on all connection errors (not just SSL-specific), creates fresh SSO session on retry, increased timeout to 45 seconds</li>
-            <li><strong>ENH: One-click Connect &amp; Scan</strong> — New button combines connection test, library auto-detection, file discovery, and scan start into a single action</li>
-            <li><strong>ENH: Auto-populate folder</strong> — Library path auto-fills from URL paste and server-side detection — no manual path entry required</li>
-            <li><strong>ENH: SharePoint batch mode</strong> — SharePoint scans now use batch_mode for faster processing (skips html_preview generation during batch)</li>
+            <li><strong>FIX: SharePoint connector</strong> &mdash; improved error diagnostics with categorized messages (SSL, DNS, proxy, timeout, reset)</li>
+            <li><strong>FIX: SharePoint connector</strong> &mdash; increased default timeout from 30s→45s for corporate networks</li>
+            <li><strong>FIX: SharePoint connector</strong> &mdash; auto-tries verify=False on all ConnectionErrors (not just SSL-related ones)</li>
+            <li><strong>FIX: SharePoint connector</strong> &mdash; creates fresh session with SSO on connection retry for better recovery</li>
+            <li><strong>ENH: One-click 'Connect &amp; Scan' button combines test + auto-detect library + discover files + start scan</strong></li>
+            <li><strong>ENH: Library path auto-populates from URL paste and server-side detection</strong> &mdash; no manual entry needed</li>
+            <li><strong>ENH: SharePoint batch scans now use batch_mode for faster processing (skips html_preview generation)</strong></li>
+            <li><strong>ENH: New /api/review/sharepoint-connect-and-scan endpoint replaces multi-step Test → Preview → Scan flow</strong></li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.37 <span class="changelog-date">February 20, 2026</span></h3>
-        <p><strong>Batch Scan Performance Optimization</strong></p>
         <ul>
-            <li><strong>PERF: Persistent Docling worker</strong> — Eliminates 15-30 second Python startup overhead per document during batch/folder scans by keeping a long-lived Docling process</li>
-            <li><strong>PERF: One-time initialization</strong> — Docling, torch, transformers, and DocumentConverter initialize ONCE instead of per-document — massive speed improvement for large batches</li>
-            <li><strong>PERF: Batch mode optimization</strong> — Skips non-essential html_preview and clean_full_text generation during batch scans (normal single-doc scans unaffected)</li>
-            <li><strong>PERF: Larger worker pool</strong> — Folder scan workers increased from 3→4 and chunk size from 5→8 for better throughput</li>
-            <li><strong>FIX: Timeout handling</strong> — Per-file timeout increased from 5→8 minutes to prevent false timeout errors on complex PDFs</li>
-            <li><strong>ENH: Auto-restart</strong> — Persistent Docling worker auto-restarts if it dies, with seamless fallback to legacy per-document subprocess</li>
+            <li><strong>PERF: Persistent Docling worker pool</strong> &mdash; eliminates 15-30s Python startup overhead per document during batch scans</li>
+            <li><strong>PERF: Docling initialization (torch, transformers, DocumentConverter) happens ONCE, not per-document</strong></li>
+            <li><strong>PERF: batch_mode option skips html_preview and clean_full_text generation during batch/folder scans</strong></li>
+            <li><strong>PERF: Increased folder scan workers from 3→4 and chunk size from 5→8 for better throughput</strong></li>
+            <li><strong>FIX: Increased per-file timeout from 300s→480s to prevent false timeout errors on complex PDFs</strong></li>
+            <li><strong>FIX: Persistent worker auto-restarts if it dies, with automatic fallback to legacy per-document subprocess</strong></li>
+            <li><strong>ENH: Docling worker pool is thread-safe</strong> &mdash; multiple batch threads share a single persistent worker</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.36 <span class="changelog-date">February 20, 2026</span></h3>
-        <p><strong>Proposal Compare Tool — Major Feature Release</strong></p>
         <ul>
-            <li><strong>NEW: Proposal Compare</strong> — Upload 2-10 vendor proposals (DOCX/PDF/XLSX) and compare financial data side-by-side with automatic line item alignment</li>
-            <li><strong>NEW: Financial parser</strong> — Extracts tables, dollar amounts, line items, company names, and totals from mixed document types using pure extraction (no AI)</li>
-            <li><strong>NEW: Comparison engine</strong> — Aligns line items across proposals using text similarity matching with category-aware scoring and variance calculation</li>
-            <li><strong>NEW: XLSX export</strong> — Three-sheet workbook with side-by-side comparison, category summary, and proposal details — green/red cost highlighting</li>
-            <li><strong>NEW: Dashboard tile</strong> — Proposal Compare tile on landing page with purple accent</li>
-            <li><strong>NEW: Demo scenes</strong> — 6 overview + 10 sub-demo narrated walkthroughs with pre-generated TTS audio (Jenny Neural voice)</li>
-            <li><strong>NEW: Help documentation</strong> — 4 new help sections covering overview, uploading, comparison view, and export</li>
-            <li><strong>ENH: Batch progress dashboard</strong> — Running Issues and Roles counters now visible during batch scanning</li>
-            <li><strong>ENH: Scan completion lines</strong> — All scan types (batch/folder/SharePoint) show consistent words/issues/roles/score format</li>
+            <li><strong>NEW: Proposal Compare tool</strong> &mdash; upload 2-10 vendor proposals (DOCX/PDF/XLSX) and compare financial data side-by-side</li>
+            <li><strong>NEW: Proposal parser extracts tables, dollar amounts, line items, company names, and totals from mixed document types</strong></li>
+            <li><strong>NEW: Comparison engine aligns line items across proposals using text similarity matching with category-aware scoring</strong></li>
+            <li><strong>NEW: Side-by-side matrix with green/red highlighting for lowest/highest costs and variance percentage column</strong></li>
+            <li><strong>NEW: Category summaries group costs by Labor, Material, Travel, ODC, Overhead, and Fee across all vendors</strong></li>
+            <li><strong>NEW: Export comparison to formatted XLSX with 3 sheets</strong> &mdash; Comparison, Category Summary, and Proposal Details</li>
+            <li><strong>NEW: Proposal Compare landing page tile with purple accent color (#8B5CF6)</strong></li>
+            <li><strong>NEW: Proposal Compare demo scenes</strong> &mdash; 6 overview + 10 sub-demo narrated walkthroughs with pre-generated audio</li>
+            <li><strong>NEW: Batch scan progress dashboard now shows running Issues and Roles counters alongside document count</strong></li>
+            <li><strong>ENH: Batch/folder/SharePoint scan completion lines now show: words • issues • roles • Score format</strong></li>
+            <li><strong>ENH: Guide system _navigateToSection() support for proposal-compare modal</strong></li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.35 <span class="changelog-date">February 20, 2026</span></h3>
-        <p><strong>Batch Dashboard Enhancement</strong></p>
         <ul>
-            <li><strong>ENH: Batch scan stats row</strong> — Added running Issues and Roles counters to batch processing progress dashboard</li>
-            <li><strong>ENH: SharePoint scan completion</strong> — Now shows word count, issue count, roles extracted, and score in consistent format</li>
+            <li><strong>FIX: Batch/folder scan now shows accurate word count instead of 0</strong> &mdash; was reading from wrong location in review results</li>
+            <li><strong>FIX: SharePoint batch scan SSL errors</strong> &mdash; multi-layer SSL fallback for corporate CA certificates (verify=True → verify=False → fresh session)</li>
+            <li><strong>FIX: SharePoint library path auto-detection after successful connection test</strong></li>
+            <li><strong>FIX: Exclusion list removeExclusion() now calls DELETE API</strong> &mdash; removed exclusions no longer reappear after page refresh</li>
+            <li><strong>FIX: ExclusionRule matching improved</strong> &mdash; trailing slash and protocol normalization for exact match type</li>
+            <li><strong>FIX: Export Highlighted error reporting</strong> &mdash; full traceback returned in response for debugging</li>
+            <li><strong>FIX: Loading screen SYSTEMS ONLINE no longer shows before app is ready</strong> &mdash; now triggers at actual boot completion</li>
+            <li><strong>FIX: HV header layout</strong> &mdash; mode/depth selector pushed right with margin-left:auto, title no longer clipped</li>
+            <li><strong>FIX: HV Upload tab now auto-opens file browse dialog when clicked</strong></li>
+            <li><strong>FIX: Statement Forge sub-modal z-index raised to 10500 (above Statement History 10000)</strong></li>
+            <li><strong>FIX: Document Review dropzone click restricted to icon area</strong> &mdash; no more accidental file browse on panel click</li>
+            <li><strong>FIX: Statement Source Viewer save edit now validates required fields and shows warning toast on failure</strong></li>
+            <li><strong>NEW: 478 pre-generated MP3 narration clips with Microsoft Jenny Neural voice for all demo scenes</strong></li>
+            <li><strong>NEW: Voice narration manifest supports sub-demo audio lookup by subDemoId</strong></li>
+            <li><strong>NEW: SharePoint REST API validation strategy added to Hyperlink Validator retest phase</strong></li>
+            <li><strong>NEW: Document viewer toggle</strong> &mdash; switch between Preview (formatted HTML) and Text (plain) views for any document</li>
+            <li><strong>NEW: Start_AEGIS.bat</strong> &mdash; launches server minimized via PowerShell with auto-wait and browser open</li>
+            <li>IMPROVE: HV scan modes simplified from 3 to 2 — removed Quick (Format Only) mode</li>
+            <li>IMPROVE: Loading screen hex grid brighter (6% → 14% opacity) with pulse animation</li>
+            <li>IMPROVE: Real boot progress tracking — modules report loading stages to progress bar</li>
+            <li>IMPROVE: SharePoint URL auto-parse now triggers on paste event in addition to change</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.34 <span class="changelog-date">February 19, 2026</span></h3>
-        <p><strong>413 Upload Limit Fix for Excel/DOCX Export</strong></p>
         <ul>
-            <li><strong>FIX: 413 Request Entity Too Large</strong> — Resolved persistent error that blocked all Excel/DOCX exports on Windows. Removed global upload size limit entirely (AEGIS is local-only, no need for upload restrictions).</li>
-            <li><strong>FIX: Belt-and-suspenders override</strong> — MAX_CONTENT_LENGTH=None set at three levels: app config, before_request hook, and inline before request.files access. Try/except wrapper catches any remaining Werkzeug 413 errors with diagnostic logging.</li>
+            <li><strong>FIX: Resolved persistent 413 Request Entity Too Large error that blocked all Excel/DOCX exports on Windows</strong></li>
+            <li><strong>FIX: Removed global MAX_CONTENT_LENGTH limit entirely</strong> &mdash; AEGIS is a local-only tool with no need for upload size restrictions</li>
+            <li><strong>FIX: Added belt-and-suspenders MAX_CONTENT_LENGTH=None override at 3 levels: app config, before_request hook, and inline before request.files access</strong></li>
+            <li><strong>FIX: Added try/except RequestEntityTooLarge wrapper around request.files access with diagnostic logging</strong></li>
+            <li>IMPROVE: Export endpoints now log MAX_CONTENT_LENGTH state before parsing for easier debugging</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.33 <span class="changelog-date">February 19, 2026</span></h3>
-        <p><strong>Multi-Color Status Highlighting for Excel Export</strong></p>
         <ul>
-            <li><strong>NEW: Multi-color export</strong> — Rows color-coded by validation status: green (working), yellow (SSL/redirect warning), orange (auth/blocked), red (broken/timeout), grey (no URL)</li>
-            <li><strong>NEW: Status columns</strong> — "Link Status" and "Link Details" columns auto-added to exported Excel with status label and error details per row</li>
-            <li><strong>NEW: Summary sheet</strong> — "Link Validation Summary" sheet with category counts, detailed status breakdown, and color legend</li>
-            <li><strong>CHANGE: Export button</strong> — Now enabled whenever results exist (not just when broken links found) — every row gets color-coded</li>
-            <li><strong>FIX: SSL false positives</strong> — Multi-strategy SSL fallback cascade for corporate CA certificates</li>
-            <li><strong>FIX: .mil/.gov bot protection</strong> — DoD WAF 403s now marked BLOCKED (eligible for headless browser retest)</li>
-            <li><strong>FIX: Windows file locking</strong> — Temp file handle closed before save to prevent PermissionError on Windows</li>
+            <li><strong>NEW: Multi-color status highlighting for Excel export</strong> &mdash; rows color-coded by validation status: green (working), yellow (SSL/redirect warning), orange (auth required/blocked), red (broken/timeout/DNS failed), grey (no URL)</li>
+            <li><strong>NEW: 'Link Status' and 'Link Details' columns auto-added to exported Excel with status label and error details per row</strong></li>
+            <li><strong>NEW: Summary sheet ('Link Validation Summary') added to exported Excel with category counts, detailed status breakdown, and color legend</strong></li>
+            <li>CHANGE: Export Highlighted button now enabled whenever results exist (not just broken links) — every row gets color-coded regardless of status</li>
+            <li>CHANGE: Frontend sends ALL validation results to backend for multicolor export (was sending only broken/issue results)</li>
+            <li>CHANGE: Results slimmed to essential fields (url, status, status_code, message) before sending to reduce payload size</li>
+            <li><strong>FIX: Windows NamedTemporaryFile compatibility</strong> &mdash; close temp handle before file.save() to avoid file locking conflicts</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.32 <span class="changelog-date">February 19, 2026</span></h3>
-        <p><strong>Corporate SSL + .mil/.gov Bot Protection + Export Fix</strong></p>
         <ul>
-            <li><strong>FIX: Corporate SSLERROR false positives</strong> — Multi-strategy SSL fallback cascade replaces single HEAD-with-verify=False. Strategy 1: GET with verify=False + stream=True (corporate servers reject HEAD). Strategy 2: Fresh SSO session + verify=False for internal links needing both SSL bypass and Windows auth.</li>
-            <li><strong>FIX: .mil/.gov bot-protected links</strong> — DoD WAF/Cloudflare 403 responses now marked BLOCKED instead of BROKEN. BLOCKED links are eligible for headless browser retest which passes bot protection with a genuine browser TLS fingerprint.</li>
-            <li><strong>FIX: SSL_WARNING messages</strong> — Removed verbose HTTPSConnectionPool error text. Now shows human-readable reasons: "certificate not trusted (corporate/internal CA)", "certificate expired", "self-signed certificate", etc.</li>
-            <li><strong>FIX: Export error handler</strong> — Catches RequestEntityTooLarge (413) specifically with helpful message instead of generic "internal error". Error messages now include exception type.</li>
-            <li><strong>FIX: Windows file locking</strong> — NamedTemporaryFile handle closed before file.save() to prevent PermissionError on Windows when two handles exist on the same file.</li>
-            <li><strong>ARCH: Retest Strategy 2b</strong> — New get_no_ssl_fresh_auth strategy combining verify=False with fresh Windows SSO for corporate SSLERROR links in the retest phase.</li>
-            <li><strong>ARCH: Headless browser priority</strong> — Expanded priority URL list to include NGC corporate domains (.myngc.com, .northgrum.com, ngc.sharepoint.us) so headless Chromium catches remaining SSL errors.</li>
+            <li><strong>FIX: Corporate SSLERROR false positives</strong> &mdash; multi-strategy SSL fallback replaces single HEAD-with-verify=False attempt; Strategy 1: GET with verify=False + stream=True (corporate servers reject HEAD); Strategy 2: fresh SSO session + verify=False for internal links needing both SSL bypass and Windows auth; headless browser priority list expanded to include NGC corporate domains</li>
+            <li><strong>FIX: cyber.mil/STIG and .mil/.gov bot-protected links now marked BLOCKED (not BROKEN)</strong> &mdash; eligible for headless browser retest; DoD WAF/Cloudflare 403s no longer count as broken links</li>
+            <li><strong>FIX: SSL_WARNING messages cleaned up</strong> &mdash; removed verbose HTTPSConnectionPool error text; now shows human-readable reasons (certificate not trusted, expired, self-signed, etc.)</li>
+            <li><strong>FIX: Export Highlighted error handler now catches RequestEntityTooLarge specifically with helpful message instead of generic 'internal error'; error messages now include exception type for easier debugging</strong></li>
+            <li>ARCH: Retest phase gains Strategy 2b (get_no_ssl_fresh_auth) combining verify=False with fresh Windows SSO for corporate SSLERROR links</li>
+            <li>ARCH: urllib3 InsecureRequestWarning suppressed for deliberate verify=False corporate CA bypass</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.30 <span class="changelog-date">February 19, 2026</span></h3>
-        <p><strong>Export 413 Fix + GET Fallback + TTS Voice</strong></p>
         <ul>
-            <li><strong>FIX: Export Highlighted 413 error</strong> — Werkzeug multipart parser rejected large payloads because app-level MAX_CONTENT_LENGTH wasn't disabled. Now temporarily sets both request-level and app-config-level limits to None for export endpoints with automatic restoration.</li>
-            <li><strong>FIX: File download links falsely flagged as BROKEN</strong> — Added GET fallback for 401/403 responses. When HEAD returns auth error, retries with GET+stream to detect Content-Disposition/Content-Type file downloads. Links serving files now correctly marked WORKING.</li>
-            <li><strong>FIX: TTS narration voice</strong> — Changed from robotic male (GuyNeural) to natural female (JennyNeural). Updated edge-tts default, pyttsx3 fallback now prioritizes female voices (Zira/Jenny/Samantha), Web Speech API voice priority rewritten.</li>
-            <li><strong>NEW: Cinematic boot sequence</strong> — Aerospace-themed animated shield assembly, particle field, and terminal readout on startup landing page.</li>
+            <li><strong>FIX: Export Highlighted Excel 413 error</strong> &mdash; Werkzeug multipart parser rejected large payloads because app-level MAX_CONTENT_LENGTH wasn't disabled; now temporarily sets both request-level and app-config-level limits to None for export endpoints with automatic restoration</li>
+            <li><strong>FIX: File download links falsely flagged as BROKEN</strong> &mdash; added GET fallback for 401/403 responses; when HEAD returns auth error, retries with GET+stream to detect Content-Disposition/Content-Type file downloads; links serving files now correctly marked WORKING</li>
+            <li><strong>FIX: TTS narration voice changed from robotic male (GuyNeural) to natural female (JennyNeural)</strong> &mdash; updated edge-tts default, pyttsx3 fallback now prioritizes female voices (Zira/Jenny/Samantha), Web Speech API voice priority rewritten to prefer Windows neural female voices and macOS Samantha</li>
+            <li>ARCH: HV post-validation revised to DNS-only corporate domain downgrades — HTTP errors on corporate domains are now genuine after GET fallback testing; only DNSFAILED and BLOCKED on known corporate domains reclassified to AUTH_REQUIRED</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.29 <span class="changelog-date">February 19, 2026</span></h3>
-        <p><strong>Export Fix + Robust Internal Auth + SharePoint Batch Scan</strong></p>
         <ul>
-            <li><strong>FIX: Export Highlighted</strong> — Button showed 1200+ broken links when only 80 were broken. AUTH_REQUIRED was incorrectly counted as "broken" in 4 locations.</li>
-            <li><strong>Robust Windows SSO Auth</strong> — 6-tier cascade for internal link validation: pre-validation auth probe, per-URL fresh session retry on 401/403, SharePoint login redirect detection, DNS-only corporate domain downgrade, and AUTH_REQUIRED included in retest phase.</li>
-            <li><strong>SharePoint Online Scan</strong> — New SharePoint tab in batch upload modal. Connects via REST API with Windows SSO, discovers documents in SharePoint libraries, downloads and reviews with full AEGIS engine. Real-time progress dashboard.</li>
-            <li><strong>Fresh Session Auth</strong> — NTLM/Negotiate auth is connection-specific; shared sessions across threads corrupt handshake state. New _retry_with_fresh_auth() creates clean sessions per auth retry.</li>
-            <li><strong>DNS-Only Downgrade</strong> — Replaced blanket corporate/document domain downgrades (v5.0.5-v5.9.1) with targeted DNS-only rule. HTTP errors are now genuine after auth retry.</li>
+            <li><strong>FIX: Export Highlighted button showed 1200+ broken links when only 80 were broken</strong> &mdash; AUTH_REQUIRED was incorrectly included in broken status count; removed from 4 locations across JS and Python</li>
+            <li>FEATURE: Robust Windows SSO auth for internal link validation — 6-tier cascade: pre-validation auth probe, per-URL fresh session retry on 401/403, SharePoint login redirect detection, DNS-only corporate domain downgrade (removed blanket downgrades that masked real broken links), AUTH_REQUIRED now included in retest phase</li>
+            <li>FEATURE: SharePoint Online document library scanning — new SharePoint tab in batch upload modal; connects via REST API with Windows SSO (zero new dependencies); discovers documents, downloads to temp, reviews with full AEGIS engine; real-time progress dashboard with per-file status</li>
+            <li>ARCH: New _probe_windows_auth() pre-validation probe tests SSO against internal URLs before bulk validation starts</li>
+            <li>ARCH: New _retry_with_fresh_auth() creates fresh requests.Session per auth retry — NTLM/Negotiate is connection-specific, shared sessions across threads corrupt handshake state</li>
+            <li>ARCH: New _is_login_page_redirect() detects SharePoint/ADFS/Azure AD login page redirects and marks as AUTH_REQUIRED instead of REDIRECT</li>
+            <li>ARCH: Replaced blanket corporate/document domain downgrades (v5.0.5-v5.9.1) with DNS-only — only DNSFAILED on corporate domains gets downgraded to AUTH_REQUIRED; HTTP errors (BROKEN/TIMEOUT/BLOCKED) are now genuine after Tier 2 auth retry</li>
+            <li>ARCH: New sharepoint_connector.py — SharePointConnector class with REST API discovery, file download, and Windows SSO authentication</li>
+            <li>ARCH: SharePoint scan reuses existing folder scan state management and progress polling endpoint — zero frontend infrastructure changes needed for progress tracking</li>
         </ul>
     </div>
     <div class="changelog-version">
-        <h3>v5.9.21 — v5.9.28 <span class="changelog-date">February 19, 2026</span></h3>
-        <p><strong>Windows Deployment QA — 23 Fixes</strong></p>
+        <h3>v5.9.28 <span class="changelog-date">February 19, 2026</span></h3>
         <ul>
-            <li><strong>Settings presets</strong> — 9 checkers in additional_checkers bypassed UI toggles; moved all to option_mapping.</li>
-            <li><strong>Adjudication freeze</strong> — Missing return path when function_tags empty caused 500 error.</li>
-            <li><strong>HV Excel export 413</strong> — Now sends only broken/issue results (reduced payload ~50MB to ~500KB).</li>
-            <li><strong>Annotation alignment</strong> — Document viewer searches adjacent paragraphs when flagged text not found.</li>
-            <li><strong>Rebranding</strong> — Replaced all remaining TechWriter Review references with AEGIS.</li>
-            <li><strong>SSL certificate handling</strong> — 3-tier SSL context for Windows embedded Python (certifi → system → unverified).</li>
-            <li><strong>Update delivery</strong> — Direct apply script (apply_v5.9.28.py) + .bat wrapper for one-click updates.</li>
-            <li><strong>FileRouter fix</strong> — update_manager.py now properly detects and routes .aegis-roles files.</li>
+            <li><strong>FIX: Settings presets not enforced</strong> &mdash; 9 checkers in additional_checkers bypassed UI toggles; moved all to option_mapping so Aerospace/Requirements/General presets properly control checker count</li>
+            <li><strong>FIX: Adjudication freeze on save</strong> &mdash; missing return path in roles_routes.py when function_tags empty caused 500 error; added error handling to frontend fetch call</li>
+            <li><strong>FIX: Link History panel blank</strong> &mdash; API returns data.scans but code expected data.history; added fallback key lookup</li>
+            <li><strong>FIX: Metrics Top Ten Roles blank</strong> &mdash; legacy SQL queried non-existent total_mentions column; rewrote with JOIN through document_roles table</li>
+            <li><strong>FIX: Scan History panel blank when opened from landing page tile</strong> &mdash; added loadHistoryData() call after modal show</li>
+            <li><strong>FIX: HV Excel export 413 payload too large</strong> &mdash; now sends only broken/issue results instead of all results (reduced payload from ~50MB to ~500KB); also raised global upload limit to 200MB</li>
+            <li><strong>FIX: Rebranding</strong> &mdash; replaced all remaining 'TechWriter Review' references with 'AEGIS' in index.html, app.js, config_routes.py, review_routes.py, core.py, report_generator.py</li>
+            <li><strong>FIX: Help tabs blank</strong> &mdash; added 5 missing Settings help sections (Review, Network, Profiles, Display, Data Management) to help-docs.js</li>
+            <li><strong>FIX: HV broken link count mismatch</strong> &mdash; summary tile now groups BROKEN+INVALID+DNSFAILED+SSLERROR consistently with frontend state (backend sent separate counts)</li>
+            <li><strong>FIX: Annotation alignment</strong> &mdash; document viewer now searches adjacent paragraphs (+/-2) when flagged text not found in target paragraph (extraction boundary offset)</li>
+            <li><strong>FIX: Particle effects not updating on nav bar theme toggle</strong> &mdash; exposed updateParticleTheme() from landing page IIFE; alpha, radius, and color all sync on mode switch</li>
+            <li>UI: SOW Generator document selection now shows gold highlight + left border on checked documents for visual feedback</li>
+            <li>UI: Added 2 missing checker toggles for Directive Verb Consistency and Unresolved Cross-References in Settings panel</li>
+            <li>UI: Scan progress dashboard shows default detail text for each phase immediately on activation</li>
+            <li>NLP: Added defense contractor abbreviations (NG, NGC, NGIS, BAE, GD, SAIC, etc.) to spelling skip list and defense dictionary</li>
+            <li>UI: CSS-only loading indicator (gold spinner + AEGIS text) shows during initial page load, auto-dismissed when JS initializes</li>
+            <li>UI: Landing page responsive — added 1200px intermediate breakpoint for smoother grid transitions on tablets/narrow laptops</li>
+            <li>UI: Metrics analytics modal — fixed responsive width (was incorrectly widening to 99vw at 1000px), added 1200px breakpoint and border-radius reduction at small sizes</li>
+            <li>UI: Scan ETA now uses historical step durations for early estimates (blends stored averages with live rate as progress increases)</li>
+            <li>UI: Graph export visual polish — label background rects for readability, smooth CSS transitions for dim/highlight, boundary-aware tooltips, gold glow on highlighted nodes, smart ellipsis truncation</li>
+            <li>UI: Adjudication HTML export — added Category and Function Tag filter dropdowns with checkboxes, active filter badges, and combined filtering (search + status + category + tags)</li>
+            <li>UI: Role extraction pipeline stats shown in scan progress dashboard — candidates found, duplicates removed, unique roles, deliverables (parsed from backend PIPELINE: progress message)</li>
+            <li>BACKEND: core.py sends PIPELINE: progress message with extraction stats (roles_found|dupes|roles|deliverables) during postprocessing phase</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.27 <span class="changelog-date">February 19, 2026</span></h3>
+        <ul>
+            <li><strong>FIX: Roles Studio 403 on save</strong> &mdash; added missing CSRF token (X-CSRF-Token header) to all 3 bulk-update-statements calls in statement-source-viewer.js (review status, notes, text edit)</li>
+            <li><strong>FIX: Hyperlink Validator Excel export 413</strong> &mdash; raised upload limit to 200MB for export-highlighted endpoints (large Excel + results JSON exceeded 50MB default)</li>
+            <li><strong>FIX: /api/version 34-124s delay</strong> &mdash; cached checker count after first AEGISEngine init instead of re-creating engine on every version API call</li>
+            <li><strong>FIX: get_statement_review_stats AttributeError</strong> &mdash; method exists in scan_history.py but Windows deployment had stale copy (5 errors in diagnostics cleared by update)</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.26 <span class="changelog-date">February 19, 2026</span></h3>
+        <ul>
+            <li>FEATURE: SOW Generator API endpoints — added GET /api/sow/data and POST /api/sow/generate backend routes, SOW Generator is now fully functional</li>
+            <li>FEATURE: Document Compare HTML export — standalone HTML report with AEGIS branding, color-coded diff rows, interactive filter buttons, print-optimized styling</li>
+            <li><strong>FIX: Added symspellpy, editdistpy, and en_core_web_sm wheels to wheels/ directory for complete offline installation</strong></li>
+            <li><strong>FIX: Windows MIME type error</strong> &mdash; added explicit MIME type registration for .css, .js, .json, .svg to prevent 'refused to apply style' browser errors</li>
+            <li><strong>FIX: POST /api/diagnostics/frontend 404</strong> &mdash; added endpoint for frontend-logger.js diagnostic log sync (was firing every 60s with no backend route)</li>
+            <li><strong>FIX: POST /api/diagnostics/frontend-logs 404</strong> &mdash; added endpoint for console-capture.js log sync</li>
+            <li><strong>FIX: Created static/audio/demo/manifest.json</strong> &mdash; empty manifest to prevent 404 on every page load</li>
+            <li><strong>FIX: Ensured static/images/logo.svg is included in distribution for proper logo display</strong></li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.25 <span class="changelog-date">February 19, 2026</span></h3>
+        <ul>
+            <li><strong>FIX: install_nlp.py rewritten</strong> &mdash; now installs all 7 required NLP models (spaCy en_core_web_sm + 6 NLTK data packages: punkt, punkt_tab, averaged_perceptron_tagger, averaged_perceptron_tagger_eng, stopwords, wordnet) to match health check requirements</li>
+            <li><strong>FIX: NLTK wordnet zip extraction bug</strong> &mdash; installer now auto-extracts downloaded zip files that NLTK fails to extract, preventing 'wordnet missing' health check failure</li>
+            <li>UPDATE: Install_AEGIS_OneClick.bat v5.9.25 — Step 7 now downloads and verifies all NLTK data packages with fallback extraction, runs NLP health check at end of install</li>
+            <li>UPDATE: install_offline.bat v5.9.25 — added Step 5/6 for NLP model installation with spaCy download + NLTK data download + wordnet extraction fix</li>
+            <li>UPDATE: Install_AEGIS.bat v5.9.25 — added NLTK data download for both offline and online install paths, added install_nlp.py --verify step</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.24 <span class="changelog-date">February 19, 2026</span></h3>
+        <ul>
+            <li><strong>FIX: Overview 'Export All Roles (CSV)' and 'Export All Roles (JSON)' now correctly extract roles from /api/roles/aggregated response</strong> &mdash; data is a direct array, not {roles: [...]}</li>
+            <li><strong>FIX: Overview 'Export Current Document (CSV)' now works</strong> &mdash; Cache.overview was never populated, added assignment in renderOverview() after filter application</li>
+            <li>ENHANCE: 'Export Current Document (CSV)' now includes Documents, Mentions, Responsibilities, Category, Source columns (was only Name, Mentions, Statements) and reflects document filter in filename</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.23 <span class="changelog-date">February 19, 2026</span></h3>
+        <ul>
+            <li>REBUILD: Documents by Owner HTML report — added generate_comprehensive_owners_report() to report_html_generator.py with executive summary, Chart.js charts, search/sort/filter, expandable owner cards, dark mode, print support</li>
+            <li><strong>FIX: Documents by Owner report no longer falls back to basic static HTML</strong> &mdash; the missing advanced generator function has been implemented</li>
+            <li>REBUILD: Relationship diagram HTML export — enhanced with directional relationship arrows (inherits-from, uses-tool, co-performs, supplies-to, receives-from), node sizing by connection count, info panel on click, dark/light theme toggle, link type color coding and dash patterns, relationship data from role_relationships table now included</li>
+            <li><strong>FIX: Graph export endpoint now queries role_relationships table and includes directional relationship links alongside co-occurrence links</strong></li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.22 <span class="changelog-date">February 18, 2026</span></h3>
+        <ul>
+            <li><strong>FIX: Statement editor Save button now works</strong> &mdash; fixed boolean vs dict return type mismatch in routes.py</li>
+            <li><strong>FIX: Acronym checker no longer flags 'NG' from inside words like 'engineering'</strong> &mdash; replaced \b word boundary with negative lookahead/lookbehind in all 3 acronym checker files</li>
+            <li><strong>FIX: Z-index audit</strong> &mdash; Role Source Viewer (50000), Auto Classify overlay (50000) now open ABOVE parent Roles Studio modal (10000)</li>
+            <li><strong>FIX: Blinking text cursors eliminated globally</strong> &mdash; added caret-color: transparent on non-input elements, removed cursor:text from statement-history.css</li>
+            <li><strong>FIX: Issues by Category legend now sticky at bottom of scrollable panel, removed fixed max-height so panels match Fix Analyzer height</strong></li>
+            <li><strong>FIX: Missing get_statement_review_stats() method added to scan_history.py</strong> &mdash; was declared in v4.6.0 changelog but never implemented</li>
+            <li><strong>FIX: Settings Stored Data now populates all 4 spans (scan history, statements, roles, learning data) instead of showing 'Loading'</strong></li>
+            <li><strong>FIX: HV User-Agent updated to Chrome 131 with Sec-Fetch headers</strong> &mdash; fixes false-positive broken links for YouTube, wikis, .mil/.gov sites</li>
+            <li><strong>FIX: Auto Classify modal widened from 520px to 720px, results area expanded from 300px to 50vh for long role names/descriptions</strong></li>
+            <li><strong>FIX: Auto Classify deliverable detection now excludes organizational groups (teams, boards, committees, panels) from being flagged as deliverables</strong></li>
+            <li><strong>FIX: Batch scan now includes Statement Forge extraction</strong> &mdash; statements extracted and persisted during batch/folder scan alongside regular review</li>
+            <li><strong>FIX: Data Explorer 'View in Document'</strong> &mdash; fixed race condition by closing DE first, then opening Role Source Viewer after delay</li>
+            <li><strong>FIX: Statement Forge file picker</strong> &mdash; added .txt/.md to valid types, added fresh CSRF token refresh before upload to prevent stale token failures</li>
+            <li><strong>FIX: Edge bundling node click now triggers drill-down filter (applyDrillDownFilter) in addition to select/highlight</strong></li>
+            <li><strong>FIX: Graph smart search onSelect now also calls selectNode to show details panel with drill-down</strong></li>
+            <li>UX: SIPOC Step 5 'Done' label in step indicator now clickable to close the wizard modal</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.21 <span class="changelog-date">February 18, 2026</span></h3>
+        <ul>
+            <li><strong>ENH: Replaced 5 static PNG diagrams in Help Documentation with animated HTML/CSS diagrams</strong> &mdash; Architecture Overview, Checker Categories, Extraction Pipeline, Docling Backend Selection, NLP Processing Pipeline</li>
+            <li><strong>ENH: Animated diagrams use staggered fade-in + slide-up animations, gold glow title shimmer, hover scale effects, and connector grow-in animations</strong></li>
+            <li><strong>ENH: All diagram CSS scoped with unique prefixes (aao-, acc-, aep-, adb-, anp-) to prevent style conflicts with existing UI</strong></li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.20 <span class="changelog-date">February 18, 2026</span></h3>
-        <p><strong>Production Release — Email Diagnostics, Visual Polish, Demo System</strong></p>
         <ul>
-            <li><strong>Email Diagnostics .eml</strong> — "Email to Support" now generates RFC 2822 .eml files with diagnostic JSON and log files pre-attached. Double-click opens Outlook/Mail as ready-to-send draft.</li>
-            <li><strong>Data Explorer z-index fix</strong> — Stat card drill-downs now open above Roles Studio modal correctly.</li>
-            <li><strong>Global particle canvas</strong> — Particle animation visible through semi-transparent modal backdrops as a subtle background.</li>
-            <li><strong>Light mode metric visibility</strong> — 16 CSS overrides for expanded metric card content using warm stone color palette.</li>
-            <li><strong>Settings scroll indicators</strong> — Gradient fade edges and arrow buttons when settings tabs overflow container.</li>
+            <li><strong>FIX: Data Explorer stat card clicks now open properly above Roles Studio</strong> &mdash; z-index bumped from 10000 to 15000 to layer above modal backdrop (10001)</li>
+            <li><strong>ENH: Particles now visible through Data Explorer backdrop</strong> &mdash; reduced overlay opacity from 0.85 to 0.45 (dark) and 0.6 to 0.4 (light), removed backdrop-filter blur(10px)</li>
+            <li><strong>ENH: Email Diagnostics now generates .eml file with logs ATTACHED</strong> &mdash; replaces old mailto: approach that required manual file drag-drop. Double-clicking the .eml opens Outlook/Mail with diagnostic JSON + aegis.log already attached</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.19 <span class="changelog-date">February 18, 2026</span></h3>
-        <p><strong>Light Mode Polish + Settings Scroll Indicators</strong></p>
         <ul>
-            <li><strong>UI: Light Mode Metric Cards</strong> — 16 CSS overrides for expanded metric card content using warm stone color palette for drill-down panels.</li>
-            <li><strong>UI: Settings Tab Scroll Indicators</strong> — Gradient fade edges and arrow buttons when settings tabs overflow their container.</li>
-            <li><strong>UI: Global Particle Canvas</strong> — Particle animation visible through semi-transparent modal backdrops as a subtle ambient background.</li>
+            <li><strong>FIX: Light mode metric card drill-downs now have proper text visibility</strong> &mdash; added 16 CSS overrides for expanded content (labels, bars, counts, chips, stats, rings) using warm stone color palette instead of white-on-white</li>
+            <li><strong>FIX: Metric cards now properly collapse when clicking outside</strong> &mdash; closeAllDrillDowns() was missing classList.remove('lp-metric-expanded') leaving cards in expanded visual state</li>
+            <li><strong>ENH: Settings tabs now show scroll indicators</strong> &mdash; gradient fades and arrow buttons appear when tabs overflow the container, active tab auto-scrolls into view on switch</li>
+            <li><strong>ENH: Particle canvas moved to body level as global background</strong> &mdash; visible through semi-transparent modal backdrops and any UI gaps. Body background set to transparent with html element as fallback</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.18 <span class="changelog-date">February 18, 2026</span></h3>
-        <p><strong>Help Beacon + Compare Sub-Demo QA</strong></p>
         <ul>
-            <li><strong>FIX: Help Beacon Overlay</strong> — The ? help beacon (z-index:150000) was overlaying the demo bar's X stop button, making it very difficult to click stop during demos. Now hidden during playback.</li>
-            <li><strong>QA: Compare Sub-Demo</strong> — All Document Compare sub-demo scenes verified with correct targets and preActions.</li>
+            <li><strong>FIX: Help beacon (?) now hides during demo playback so it no longer overlays the X stop button and demo controls. Beacon reappears automatically when demo ends or is stopped</strong></li>
+            <li><strong>FIX: All 5 Document Compare sub-demo preActions now use _navigateToSection('compare') to auto-open DocCompare with a real document instead of clicking #nav-compare which showed the picker overlay</strong></li>
+            <li>QA: All 5 Document Compare sub-demos re-verified — document_selection, diff_views, change_navigation, compare_export, compare_doc_switcher all open the actual comparison modal correctly with no picker overlay</li>
         </ul>
     </div>
     <div class="changelog-version">
-        <h3>v5.9.15 — v5.9.17 <span class="changelog-date">February 17-18, 2026</span></h3>
-        <p><strong>Sub-Demo QA Pass + SOW Template Upload</strong></p>
+        <h3>v5.9.17 <span class="changelog-date">February 17, 2026</span></h3>
         <ul>
-            <li><strong>QA: Force-Show Modal Pattern (v5.9.15)</strong> — 9 sub-demos fixed with preActions that force-show their target modals. 5 cleanup functions prevent zombie modals when demo stops.</li>
-            <li><strong>QA: IIFE Public API Exposure (v5.9.14)</strong> — MetricsAnalytics.switchTab(), SowGenerator.open(), Portfolio.open() exposed for programmatic control from demo preActions.</li>
-            <li><strong>QA: Target Selector Audit (v5.9.13)</strong> — 168 unique selectors verified against index.html. Fixed 4 mismatches (#btn-fix-assistant, #format-csv-card, #format-json-card, #sf-btn-sow).</li>
-            <li><strong>QA: CSS .hidden Rules (v5.9.12)</strong> — Added missing .panel-help-content.hidden and .panel-footer.hidden CSS rules for demo picker toggle.</li>
-            <li><strong>FEATURE: SOW Template Upload (v5.9.16)</strong> — Upload DOCX templates for Statement of Work generation. PNG/SVG/HTML export for relationship graphs.</li>
-            <li><strong>FIX: Narration Speed Race (v5.9.17)</strong> — BUG #9 race condition fixed where speed changes during narration caused out-of-sync playback. All 12 sections / 93 sub-demos verified.</li>
+            <li><strong>FIX: BUG #9</strong> &mdash; Narration speed race condition resolved. Changing playback speed mid-demo now properly syncs all active components: Web Speech utterances are cancelled and restarted at new rate, pending step timers are rescheduled with adjusted delays, typewriter effect restarts from current position at new speed, and audio element playbackRate updates immediately</li>
+            <li><strong>FIX: Compare demo now opens the actual Document Comparison modal with auto-selected document instead of showing the document picker overlay</strong></li>
+            <li><strong>FIX: Compare document picker X button not closing</strong> &mdash; duplicate overlay bug caused by repeated openCompareFromNav() calls stacking multiple picker overlays with same ID; now removes existing picker before creating new one</li>
+            <li><strong>FIX: Particle canvas moved inside #aegis-landing-page with z-index:0 so particles render behind all tiles, cards, and modals instead of floating on top (was z-index:100000 on body)</strong></li>
+            <li>QA: Full demo verification complete — all 12 sections (79 overview scenes + 93 sub-demos with ~471 scenes) tested and passing across 4 QA sessions</li>
         </ul>
     </div>
     <div class="changelog-version">
-        <h3>v5.9.9 — v5.9.11 <span class="changelog-date">February 17, 2026</span></h3>
-        <p><strong>Deep-Dive Sub-Demo System</strong></p>
+        <h3>v5.9.16 <span class="changelog-date">February 17, 2026</span></h3>
         <ul>
-            <li><strong>FEATURE: 93 Sub-Demos</strong> — Deep-dive demonstrations for every sub-function, tab, workflow, export, and import across all 11 AEGIS sections.</li>
-            <li><strong>FEATURE: ~471 Total Scenes</strong> — Hierarchical drill-down content covering individual UI elements and step-by-step workflows.</li>
-            <li><strong>UI: Demo Picker</strong> — Help panel transitions to show overview card + 2-column sub-demo card grid when "Watch Demo" is clicked.</li>
-            <li><strong>UI: Breadcrumb Navigation</strong> — Demo bar shows "Section > Sub-demo" during sub-demo playback for orientation.</li>
-            <li><strong>ARCH: preAction Pattern</strong> — Each sub-demo has an async preAction() that clicks the correct tab and waits for render before playing scenes.</li>
+            <li><strong>NEW: SOW Generator template upload</strong> &mdash; upload a DOCX template with {{PLACEHOLDER}} markers ({{TITLE}}, {{REQUIREMENTS}}, {{ROLES}}, etc.) and AEGIS populates it with extracted data, returning a ready-to-use DOCX</li>
+            <li><strong>NEW: Graph View export</strong> &mdash; Export button with dropdown menu for PNG (high-res 3x), SVG (vector), and Interactive HTML formats</li>
+            <li><strong>NEW: Interactive HTML graph export</strong> &mdash; standalone D3.js force-directed graph with pan/zoom, search, tooltip details, and filter by function tag, role type, and org group</li>
+            <li><strong>NEW: SOW Generator promoted to its own guide section with dedicated demoScenes, subDemos (document_config, output_preview, template_upload), and navigation handler</strong></li>
+            <li><strong>NEW: DemoSimulator module</strong> &mdash; IIFE for injecting mock DOM elements during live demos (progress dashboard, simulated results, SOW preview, batch results, graph drag animation)</li>
+            <li><strong>FIX: All 11 overview demoScenes rewritten with diverse targets matching narration content</strong> &mdash; eliminated 'same-target syndrome' where all scenes spotlighted the same element</li>
+            <li><strong>FIX: 20+ sub-demos updated with correct preActions (DemoSimulator data injection, module API calls), diverse scene targets, and proper navigate properties</strong></li>
+            <li><strong>FIX: advanced-settings-panel ID corrected to advanced-panel throughout guide-system.js (global replace)</strong></li>
+            <li><strong>FIX: DemoSimulator.cleanupAll() called in both stopDemo() and _navigateToSection() to remove injected elements</strong></li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.15 <span class="changelog-date">February 17, 2026</span></h3>
+        <ul>
+            <li><strong>FIX: 9 BAD sub-demos now force-show their target modals (export, triage, score breakdown, function tags, 5 portfolio) with preAction display:flex + zIndex:148000 pattern and automatic cleanup on demo stop/section switch</strong></li>
+            <li><strong>FIX: 18 PARTIAL sub-demos updated with varied scene targets instead of all pointing at same trigger button</strong> &mdash; forge (4), HV (5), settings (3), review (1), history (1), batch (2), help (2)</li>
+            <li><strong>FIX: Portfolio sub-demos use Portfolio.open() API instead of nav button click</strong> &mdash; targets now spotlight actual content (.pf-header, #pf-stats-mini, #pf-batch-grid, #pf-singles-grid, #pf-activity-feed)</li>
+            <li><strong>FIX: Function tags sub-demo uses TWR.FunctionTags.showModal() with cleanup that removes dynamically-created modal</strong></li>
+            <li><strong>FIX: Help/keyboard sub-demos force-show #modal-help with cleanup pattern; accessibility sub-demo opens Settings display tab</strong></li>
+            <li><strong>FIX: Forge history_overview target #sf-sidebar corrected to .sf-sidebar (class selector</strong> &mdash; element has no ID)</li>
+            <li><strong>FIX: Added 5 cleanup functions (_exportCleanup, _triageCleanup, _scoreCleanup, _funcTagsCleanup, _helpCleanup) called in both stopDemo() and _navigateToSection()</strong></li>
+            <li>VERIFY: All 27 fixed sub-demo targets confirmed existing in live DOM via browser MCP testing</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.14 <span class="changelog-date">February 17, 2026</span></h3>
+        <ul>
+            <li><strong>FIX: Exposed MetricsAnalytics.switchTab() in public API</strong> &mdash; programmatic .click() on IIFE-scoped tab buttons didn't trigger event delegation, breaking all 5 metrics sub-demo preActions</li>
+            <li><strong>FIX: _navigateToSection('metrics') now uses MetricsAnalytics.open() instead of generic showModal()</strong> &mdash; ensures data is loaded before tab switching</li>
+            <li><strong>FIX: All metrics sub-demo preActions now call MetricsAnalytics.switchTab() directly instead of .click() on tab buttons</strong></li>
+            <li><strong>FIX: Corrected MetricsAnalytics references from TWR.MetricsAnalytics to window.MetricsAnalytics (IIFE is on window, not TWR namespace)</strong></li>
+            <li><strong>FIX: SOW generator sub-demo preAction used non-existent #sf-btn-sow</strong> &mdash; now calls SowGenerator.open() API directly</li>
+            <li><strong>FIX: Fix Assistant sub-demo target #btn-fix-assistant corrected to #btn-open-fix-assistant (actual element ID in HTML)</strong></li>
+            <li><strong>FIX: Added missing id='format-csv-card' and id='format-json-card' to export format cards in index.html for sub-demo spotlight targeting</strong></li>
+            <li><strong>FIX: Fix Assistant sub-demo now shows the actual FA modal (#fav2-modal) with scenes targeting the change preview, action buttons, and progress bar</strong> &mdash; previously all 4 scenes pointed at the small launcher button</li>
+            <li><strong>FIX: FA modal shown via display:flex for demo with automatic cleanup on stopDemo() and section navigation</strong></li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.13 <span class="changelog-date">February 17, 2026</span></h3>
+        <ul>
+            <li><strong>FIX: Comprehensive sub-demo target audit</strong> &mdash; rewrote ALL 93 sub-demo scene targets across 11 sections to spotlight the correct, visible UI elements instead of generic nav buttons or hidden modal elements</li>
+            <li><strong>FIX: Metrics sub-demos</strong> &mdash; 4 preActions were clicking #ma-tab-btn-overview instead of their correct tab buttons (#ma-tab-btn-quality, #ma-tab-btn-statements, #ma-tab-btn-roles, #ma-tab-btn-documents). All scene targets now point to tab-specific chart and content elements</li>
+            <li><strong>FIX: Batch sub-demos</strong> &mdash; all scenes targeted #btn-batch-load. Now target #batch-dropzone, #folder-scan-path, #batch-file-list, #batch-progress, #batch-results for each workflow phase</li>
+            <li><strong>FIX: Compare sub-demos</strong> &mdash; all scenes targeted #nav-compare. Now target #dc-doc-select, #dc-old-scan, #dc-new-scan, #dc-stats, #dc-minimap, #dc-btn-compare</li>
+            <li><strong>FIX: History sub-demos</strong> &mdash; all scenes targeted #nav-history. Now target #scan-history-body, #history-search, #modal-scan-history</li>
+            <li><strong>FIX: Settings sub-demos</strong> &mdash; 9 original sub-demos all targeted #btn-settings with no tab navigation. Each now clicks its specific settings tab (general, review, profiles, network, display, sharing, updates, troubleshoot, data-management) and targets tab-specific elements</li>
+            <li><strong>FIX: Roles sub-demos</strong> &mdash; adjudication_exports/sharing targeted hidden dropdown items. Now target visible toolbar buttons (#adj-export-dropdown, #adj-share-dropdown). dictionary_imports targets #btn-import-dictionary and #dict-content-area. edit_role targets visible dictionary elements</li>
+            <li><strong>FIX: dictionary_exports #hierarchy-export-modal target changed to #btn-export-hierarchy (button is visible, modal is not)</strong></li>
+            <li><strong>FIX: checker_categories #btn-toggle-advanced target changed to [data-tab='review'] (the toggle is in the review sidebar, not settings)</strong></li>
+            <li><strong>FIX: profile_management #btn-preset-reqs target changed to #btn-profile-reset-default (preset buttons are in review sidebar, not settings)</strong></li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.12 <span class="changelog-date">February 17, 2026</span></h3>
+        <ul>
+            <li><strong>FIX: Demo picker sub-demo cards were invisible</strong> &mdash; missing CSS rules for .panel-help-content.hidden and .panel-footer.hidden caused help content to remain visible and push picker cards below the scroll viewport</li>
+            <li>ROOT CAUSE: The JS code used classList.add('hidden') on help content and footer, but no CSS rule existed to set display:none on those elements when the hidden class was applied — only component-specific selectors like .demo-picker.hidden existed</li>
+            <li><strong>FIX: Sub-demos that use navigate property (e.g., graph_view) no longer reset back to Overview tab</strong> &mdash; _showDemoStep now skips redundant _navigateToSection when already in the correct section during sub-demo playback</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.11 <span class="changelog-date">February 17, 2026</span></h3>
+        <ul>
+            <li><strong>FIX: Rewrote all 35 new sub-demo scene targets to use specific UI element selectors instead of generic section containers</strong></li>
+            <li><strong>FIX: Export sub-demos (DOCX, PDF, Excel/CSV, Filters) now spotlight actual export modal elements</strong> &mdash; format cards, filter chips, preview bar, and export button</li>
+            <li><strong>FIX: Export preActions now open the export modal automatically so scenes spotlight elements within it</strong></li>
+            <li><strong>FIX: Adjudication sub-demos target #btn-export-adjudication, .adj-export-item[data-action=csv/html/pdf/import], #btn-share-adjudication, #btn-auto-adjudicate, #btn-undo-adj, #adj-select-all</strong></li>
+            <li><strong>FIX: Dictionary sub-demos target #btn-import-dictionary, .dict-import-option, #btn-export-dictionary, #btn-download-template, #btn-export-hierarchy</strong></li>
+            <li><strong>FIX: Function Tags targets #btn-function-tags, #btn-role-reports; Graph targets #graph-max-nodes, #graph-layout, #graph-labels, #graph-weight-filter, #graph-info-panel</strong></li>
+            <li><strong>FIX: Role Editing targets #edit-role-modal, #edit-role-category, #edit-role-tag-select, #btn-save-role</strong></li>
+            <li><strong>FIX: Forge sub-modals target #sf-btn-add, #sf-btn-renumber, #sf-btn-merge, #sf-btn-split, #modal-sf-role-mapping; SOW targets #modal-sow-generator, #sow-title, #sow-btn-generate</strong></li>
+            <li><strong>FIX: HV Export targets #hv-btn-export-csv, #hv-btn-export-json, #hv-btn-export-html, #hv-btn-export-highlighted</strong></li>
+            <li><strong>FIX: Compare Switcher targets #dc-doc-select, #dc-old-scan, #dc-new-scan, #dc-btn-compare</strong></li>
+            <li><strong>FIX: Metrics targets #severity-chart-card, #category-chart-card, #ma-tab-btn-quality/statements/roles/documents</strong></li>
+            <li><strong>FIX: Settings targets #btn-toggle-advanced, #btn-diag-refresh/health-check/export-json/export-txt/email, #btn-load-backups, #btn-factory-reset, #btn-save-profile</strong></li>
+            <li><strong>FIX: Scan History targets #modal-scan-history; Folder Scan targets #folder-scan-path, #btn-folder-discover, #btn-folder-scan, #folder-scan-dashboard</strong></li>
+            <li><strong>FIX: Triage targets #modal-triage, #btn-triage-keep/prev/next; Score targets #modal-score-breakdown, #score-breakdown-value/grade</strong></li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.10 <span class="changelog-date">February 17, 2026</span></h3>
+        <ul>
+            <li>FEATURE: Total sub-demo coverage expansion — 35 new sub-demos with ~159 new scenes for complete end-to-end feature coverage</li>
+            <li>FEATURE: Document Review deep-dives — Review Presets, Triage Mode, Family Patterns, Score Breakdown, Selection Tools, DOCX/PDF/Excel/CSV export formats, Export Filters</li>
+            <li>FEATURE: Roles Studio deep-dives — Adjudication Exports, Sharing &amp; Collaboration, Auto-Classify &amp; Undo, Dictionary Imports (CSV/SIPOC/Package), Dictionary Exports (CSV/Template/Hierarchy), Function Tags &amp; Reports, Graph Controls, Role Editing</li>
+            <li>FEATURE: Additional deep-dives — Server Folder Scan, Forge Advanced Ops, SOW Generator, HV Export Formats, Doc Compare Switcher, Chart Drill-Down, Metrics Insights, Checker Categories, Profile Management, Diagnostics, Backup &amp; Recovery, Scan Actions, Statement History Link, Batch Groups, Portfolio Actions</li>
+            <li>FEATURE: Help system deep-dives — Keyboard Shortcuts, Help Navigation, Accessibility Features</li>
+            <li>ENHANCED: All new preActions wrapped in try/catch for defensive error handling</li>
+            <li>ARCH: Combined total: 79 overview + ~471 sub-demo scenes = ~550 total demo scenes across 93 sub-demos</li>
+            <li><strong>FIX: Fixed bare 'logger' references in scan_history.py</strong> &mdash; 12+ instances changed to _log() helper</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.9 <span class="changelog-date">February 17, 2026</span></h3>
+        <ul>
+            <li>FEATURE: Deep-dive sub-demo system — 58 sub-demos with ~312 narrated scenes covering every sub-function</li>
+            <li>FEATURE: Demo picker UI — when clicking Watch Demo, users see a picker with overview card + sub-demo grid</li>
+            <li>FEATURE: Sub-demos for all 11 modules: Dashboard (3), Review (6), Batch (4), Roles (8), Forge (6), HV (7), Compare (4), Metrics (5), History (3), Settings (9), Portfolio (3)</li>
+            <li>FEATURE: Each sub-demo has preAction that navigates to the correct tab before scenes play</li>
+            <li>FEATURE: Demo bar shows breadcrumb title during sub-demo playback (e.g. 'Roles Studio › RACI Matrix')</li>
+            <li>FEATURE: Estimated duration display on each sub-demo card in the picker</li>
+            <li><strong>FIX: Replaced offsetParent visibility check with getBoundingClientRect().width for elements inside fixed modals</strong></li>
+            <li>ARCH: guide-system.js v2.3.0 — hierarchical sub-demo architecture with startSubDemo(), _showDemoPicker(), _hideDemoPicker()</li>
+            <li>ARCH: Combined total: 79 overview scenes + 312 sub-demo scenes = ~391 total demo scenes</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.8 <span class="changelog-date">February 17, 2026</span></h3>
-        <p><strong>Super-Detailed Demo Scenes + Double-Start Guard</strong></p>
         <ul>
-            <li><strong>CONTENT: 79 Overview Scenes</strong> — Expanded from 31 to 79 narrated overview scenes across all 11 modules. Every section now has 5-10 detailed scenes.</li>
-            <li><strong>FIX: Tooltip Suppression</strong> — Tour tooltip no longer appears on top of spotlighted elements during demo playback. Uses 400ms delay after 350ms spotlight animation.</li>
-            <li><strong>FIX: Double-Start Guard</strong> — Rapid "Watch Demo" clicks no longer start multiple demos simultaneously.</li>
+            <li>ENHANCED: Super-detailed demo scenes — expanded from 31 to 79 narrated walkthrough scenes across all 11 modules</li>
+            <li>ENHANCED: Full demo now runs ~10 minutes with detailed narration covering every feature and sub-feature in AEGIS</li>
+            <li>ENHANCED: Dashboard demo expanded from 4 to 7 scenes — covers metrics, tiles, getting started, recent docs</li>
+            <li>ENHANCED: Document Review demo expanded from 6 to 10 scenes — covers batch, checkers, Fix Assistant, export suite</li>
+            <li>ENHANCED: Batch Scan demo expanded from 2 to 6 scenes — covers file picker, folder scan, preview, progress, fault tolerance</li>
+            <li>ENHANCED: Roles Studio demo expanded from 5 to 10 scenes — covers all 7 tabs, adjudication export, sharing</li>
+            <li>ENHANCED: Statement Forge demo expanded from 4 to 8 scenes — covers extraction pipeline, filtering, bulk ops, history</li>
+            <li>ENHANCED: Hyperlink Validator demo expanded from 3 to 7 scenes — covers modes, Deep Validate, exclusions, domain filter</li>
+            <li>ENHANCED: Document Compare demo expanded from 1 to 6 scenes — covers auto-compare, diff highlighting, statement tracking</li>
+            <li>ENHANCED: Metrics demo expanded from 3 to 7 scenes — covers all 4 tabs, severity and category analysis</li>
+            <li>ENHANCED: Scan History demo expanded from 1 to 5 scenes — covers reload, progression tracking, data management</li>
+            <li>ENHANCED: Settings demo expanded from 2 to 8 scenes — covers all 9 tabs individually</li>
+            <li>ENHANCED: Portfolio demo expanded from 1 to 5 scenes — covers sorting, filtering, grade visualization</li>
+            <li>ARCH: guide-system.js v2.2.0 — comprehensive narrated walkthrough system</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.7 <span class="changelog-date">February 17, 2026</span></h3>
-        <p><strong>Voice Narration System</strong></p>
         <ul>
-            <li><strong>FEATURE: Voice Narration</strong> — Three-tier audio provider chain: (1) Pre-generated MP3 clips, (2) Web Speech API with sentence chunking, (3) Silent timer fallback.</li>
-            <li><strong>FIX: Chrome 15-Second Bug</strong> — Text split into sentences and chained via onend callbacks to avoid Chrome's SpeechSynthesis timeout.</li>
-            <li><strong>UI: Volume Control</strong> — Slider persisted via localStorage (aegis-narration-volume).</li>
-            <li><strong>UI: Voice Preference</strong> — Voice selector persisted via localStorage (aegis-narration-voice).</li>
-            <li><strong>SYNC: Speed Control</strong> — audio.playbackRate and utterance.rate sync with demo speed selector.</li>
-            <li><strong>BACKEND: TTS Generator</strong> — demo_audio_generator.py with edge-tts (neural, requires internet) and pyttsx3 (system voices, offline) providers.</li>
+            <li>NEW FEATURE: Voice Narration System for Live Demo player — guide-system.js v2.1.0</li>
+            <li><strong>NEW: Audio provider chain</strong> &mdash; Pre-generated MP3 → Web Speech API → Silent timer fallback</li>
+            <li><strong>NEW: Narration toggle button with AEGIS gold pulse indicator in demo bar</strong></li>
+            <li><strong>NEW: Volume slider control with persistent localStorage preferences</strong></li>
+            <li><strong>NEW: Chrome 15-second TTS bug workaround</strong> &mdash; automatic sentence chunking for Web Speech API</li>
+            <li><strong>NEW: Voice selection system</strong> &mdash; auto-detects best available TTS voice (Google US &gt; Samantha &gt; system)</li>
+            <li><strong>NEW: Pre-generated audio manifest system at /static/audio/demo/manifest.json</strong></li>
+            <li><strong>NEW: Server-side TTS generation endpoints</strong> &mdash; /api/demo/audio/status, /api/demo/audio/generate, /api/demo/audio/voices</li>
+            <li><strong>NEW: demo_audio_generator.py</strong> &mdash; supports edge-tts (neural) and pyttsx3 (offline) providers</li>
+            <li><strong>NEW: Audio playback speed syncs with demo speed selector (0.5x to 2x)</strong></li>
+            <li><strong>NEW: Narration pauses/resumes with demo player pause/resume</strong></li>
+            <li>ARCH: Progressive enhancement — demo works identically with or without audio enabled</li>
+            <li>ARCH: Audio narration layer is completely optional — zero new required dependencies</li>
         </ul>
     </div>
     <div class="changelog-version">
-        <h3>v5.9.5 — v5.9.6 <span class="changelog-date">February 17, 2026</span></h3>
-        <p><strong>Warm Color Palette + FOUC Fix</strong></p>
+        <h3>v5.9.6 <span class="changelog-date">February 17, 2026</span></h3>
         <ul>
-            <li><strong>UI: Warm Color Palette</strong> — Complete CSS fallback audit replacing cool gray/white with warm cream/stone/gold across 15+ CSS files. Guide card text, banner text, and all non-dark-mode elements updated.</li>
-            <li><strong>FIX: Body data-theme Sync</strong> — FOUC prevention scripts set data-theme on html AND body, but theme toggle only updated html. Light mode elements inherited dark mode variables from body. Now both elements sync on every toggle.</li>
-            <li><strong>FIX: Help Docs Print</strong> — Replaced window.open() with hidden iframe pattern to avoid Chrome popup blocker (same as Lesson 9).</li>
+            <li>VISUAL: Complete warm palette deep pass — all CSS variable fallback values updated from cool gray to warm stone/cream tones across 15+ CSS files</li>
+            <li>VISUAL: Hyperlink Validator light mode progress bar overhauled — gold gradient replaces blue/purple, warm particles and orbs</li>
+            <li>VISUAL: Roles Studio export dialog, smart search, function tree, and report builder all updated to gold accent palette</li>
+            <li>VISUAL: Data Explorer light mode backgrounds warmed — cards, stats, tables, nav buttons all use cream/stone palette</li>
+            <li>VISUAL: Fix Assistant fallback values updated — borders, backgrounds, tertiary surfaces all use warm tones</li>
+            <li>VISUAL: Charts, components, and layout fallback values synchronized to warm palette</li>
+            <li>VISUAL: 40+ CSS variable fallback values corrected from cool (#f8fafc, #e2e8f0, #e5e7eb) to warm (#f0ebe3, #cfc7b8, #e8e2d8)</li>
+            <li>PRESERVE: Semantic blue preserved for RACI types, directive colors, severity-info badges, redirect status, per-tool icons, and dark mode styles</li>
+            <li><strong>FIX: Body data-theme attribute now synced on theme toggle</strong> &mdash; fixes light mode CSS variable inheritance (Lesson 46)</li>
+            <li><strong>FIX: Help docs print button uses hidden iframe instead of window.open()</strong> &mdash; eliminates popup blocker errors (Lesson 47)</li>
+            <li><strong>FIX: FOUC inline style clearing expanded to cover both html and body elements on light mode initialization</strong></li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.5 <span class="changelog-date">February 17, 2026</span></h3>
+        <ul>
+            <li>VISUAL: Cinematic inline SVG diagrams replace ASCII art in Help docs — NLP Pipeline (7 stages), System Architecture (3-tier), Document Extraction (priority chain)</li>
+            <li>VISUAL: Enterprise Grade callout boxes changed from green to AEGIS gold/bronze branding across all 8 instances</li>
+            <li>VISUAL: Light mode warm palette overhaul — cream/stone/gold tones replace harsh whites across base, landing page, modals, settings</li>
+            <li>VISUAL: Light mode accent colors changed from blue to gold across Roles Studio, settings, hyperlink validator, metrics, export suite</li>
+            <li>VISUAL: Landing page particles increased to 140 count with deep gold coloring and warm gradient background</li>
+            <li><strong>FIX: Windows CSV exports now include UTF-8 BOM and CRLF line endings for Excel compatibility (app.js, roles-tabs-fix.js, hyperlink-validator-state.js, doc-compare.js, roles-export-fix.js)</strong></li>
+            <li><strong>FIX: Settings modal enlarged to 860px with visible gold-accented scrollbar for better navigation</strong></li>
+            <li><strong>FIX: Sharing tab Connection Status now shows actual result instead of stuck 'Checking...' state</strong></li>
+            <li><strong>FIX: Email to Support auto-downloads diagnostic file and includes inline health check data in email body</strong></li>
+            <li><strong>FIX: Dashboard counter accuracy</strong> &mdash; dynamic checker count replaces hardcoded values</li>
+            <li>UPGRADE: Help documentation version updated to 5.9.5 with refreshed content across all sections</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.4 <span class="changelog-date">February 17, 2026</span></h3>
-        <p><strong>Export Suite Complete Rebuild</strong></p>
         <ul>
-            <li><strong>FEATURE: 5 Export Formats</strong> — DOCX (comments), PDF Report (reportlab), XLSX (openpyxl), CSV, JSON — each with a visual card selector.</li>
-            <li><strong>FEATURE: Pre-Export Filters</strong> — Collapsible panel with severity and category chip-based multi-select. Live preview count updates as filters toggle.</li>
-            <li><strong>FEATURE: Server-Side PDF</strong> — ReviewReportGenerator class using reportlab with cover page, executive summary, severity/category tables, and issue details.</li>
-            <li><strong>FEATURE: Export Progress</strong> — Glassmorphism card with animated progress bar during export.</li>
-            <li><strong>FIX: Fix Assistant Integration</strong> — FA opens from export modal, returns with updated stats. _closingForFinish flag prevents double-modal-open.</li>
-            <li><strong>BACKEND: POST /api/export/pdf</strong> — Filter-aware PDF generation endpoint.</li>
+            <li>FLAGSHIP: Complete export suite rebuild — 5 format options (DOCX, PDF Report, Excel, CSV, JSON) with pre-export filtering</li>
+            <li><strong>NEW: PDF Report export</strong> &mdash; server-side reportlab generation with AEGIS branded cover page, executive summary, severity/category breakdown, full issue details</li>
+            <li><strong>NEW: Pre-export filter panel</strong> &mdash; filter by severity and category with chip-based multi-select and live preview count</li>
+            <li><strong>NEW: Excel (XLSX) format card added to export modal</strong> &mdash; detailed multi-sheet workbook with charts and metadata</li>
+            <li><strong>NEW: Export progress overlay</strong> &mdash; glassmorphism card with animated progress bar and format-specific messaging</li>
+            <li><strong>NEW: review_report.py module</strong> &mdash; ReviewReportGenerator class with cover page, severity distribution, category breakdown, issue detail tables</li>
+            <li><strong>NEW: export-suite.css</strong> &mdash; dedicated stylesheet for export modal enhancements, filter chips, progress overlay, dark mode support</li>
+            <li><strong>NEW: POST /api/export/pdf endpoint</strong> &mdash; server-side PDF generation with filter support and AEGIS branding</li>
+            <li><strong>FIX: PDF source files now default to PDF Report format instead of disabled DOCX</strong></li>
+            <li><strong>FIX: Export filters (severity + category) applied client-side before sending to any backend endpoint</strong></li>
+            <li><strong>FIX: JSON export now includes filters_applied metadata when filters are active</strong></li>
+            <li><strong>FIX: Fix Assistant v2 field mapping</strong> &mdash; normalized original_text/replacement_text with safe fallbacks for both v2 and legacy formats</li>
+            <li><strong>FIX: Fix Assistant Done event now properly updates export modal launcher stats (selected count, fixable count)</strong></li>
+            <li><strong>FIX: Fix Assistant close/done now re-shows export modal (was lost because FA's showModal() closes other modals)</strong></li>
+            <li><strong>FIX: Rejected fixes from Fix Assistant now sent as comment_only_issues for DOCX margin comments</strong></li>
+            <li><strong>FIX: Fix Assistant state persistence</strong> &mdash; re-opening export modal restores previous review stats</li>
+            <li><strong>FIX: handleFinishReview() now correctly populates State.selectedFixes using actual fix indices from decisions Map</strong></li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.3 <span class="changelog-date">February 17, 2026</span></h3>
-        <p><strong>Settings Modal Redesign</strong></p>
         <ul>
-            <li><strong>UI: 9-Tab Layout</strong> — Glassmorphism styling with tabs: General, Document Profiles, Review Options, Network &amp; Auth, Guide &amp; Demos, Data Management, Diagnostics, Updates, About.</li>
-            <li><strong>FEATURE: Role Template Import</strong> — JSON import for custom role template configurations.</li>
+            <li>REDESIGN: Settings modal completely rebuilt — 9 organized tabs with card-based layout, toggle switches, glassmorphism styling</li>
+            <li><strong>NEW: Dedicated Network &amp; Auth settings tab</strong> &mdash; SSL/proxy, client certificates, hyperlink validation mode consolidated</li>
+            <li><strong>NEW: Settings use CSS class-based tab switching (.active-tab) instead of inline display styles (Lesson 2)</strong></li>
+            <li><strong>NEW: Data Management tab compact redesign with danger zone for factory reset</strong></li>
+            <li><strong>NEW: Diagnostics tab shows error/warning/request stat cards with health check and email-to-support button</strong></li>
+            <li><strong>NEW: Role template JSON import</strong> &mdash; Import Decisions now accepts role_dictionary_import format from exported HTML templates</li>
+            <li><strong>FIX: Function category grandchild badges show parent code abbreviation (e.g., PS-FFS shows 'PS' not 'PF')</strong></li>
+            <li><strong>FIX: Review page category filters populated correctly</strong> &mdash; legacy dead containers replaced with unified dropdown route</li>
+            <li><strong>FIX: FileRouter now covers routes/, hyperlink_validator/, and nlp/ flat-file prefixes for updates</strong></li>
+            <li><strong>FIX: Role source viewer category change and tag removal now show error toasts on failure</strong></li>
+            <li><strong>FIX: Settings delete buttons show correct short labels in finally blocks matching new compact UI</strong></li>
+            <li><strong>FIX: Installer scripts updated to v5.9.3</strong> &mdash; uses packaging/requirements-windows.txt, verifies auth packages, OneDrive path note added</li>
+            <li><strong>FIX: Offline installer version bumped to v5.9.3 with auth package verification</strong></li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.2 <span class="changelog-date">February 17, 2026</span></h3>
+        <ul>
+            <li><strong>FIX: Scan history 'Load this scan' no longer shows [object Object]</strong> &mdash; structured error objects now properly extracted (Lesson 13)</li>
+            <li><strong>FIX: Statement source viewer edit mode no longer gets stuck after save failure</strong> &mdash; editMode resets on all exit paths</li>
+            <li><strong>FIX: SIPOC role_source column migration uses PRAGMA table_info() check instead of catching ALTER TABLE errors</strong></li>
+            <li><strong>FIX: Fix Impact Analysis text no longer truncated</strong> &mdash; removed overflow:hidden, max-height caps, and nowrap/ellipsis from category names</li>
+            <li><strong>FIX: Scan re-upload now works after first scan completes</strong> &mdash; resetUploadState() called on all completion/failure/cancel paths</li>
+            <li><strong>FIX: Statement Forge auto-extraction now shows toast feedback: count of statements found or warning if module unavailable</strong></li>
+            <li><strong>FIX: Metrics &amp; Analytics shows descriptive empty state messages instead of blank panel when data is missing or API fails</strong></li>
+            <li><strong>FIX: DOCX export now falls back to lxml XML-based comments when COM/Word unavailable, with detailed error propagation</strong></li>
+            <li><strong>FIX: Export error messages now include specific engine errors instead of generic 'Failed to create marked document'</strong></li>
+            <li><strong>FIX: Frontend export handler safely parses non-JSON error responses and validates blob size before download</strong></li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.1 <span class="changelog-date">February 17, 2026</span></h3>
+        <ul>
+            <li><strong>FIX: Corporate network URLs (*.northgrum.com, *.myngc.com) no longer marked BROKEN</strong> &mdash; reclassified as AUTH_REQUIRED with 'requires VPN' message</li>
+            <li><strong>FIX: ConnectionError classification improved</strong> &mdash; timeout-like errors now correctly categorized as TIMEOUT instead of BROKEN</li>
+            <li>ENHANCEMENT: categorize_domain() now recognizes NGC corporate domains (myngc.com, northgrum.com, sharepoint.us) as 'internal'</li>
+            <li>ENHANCEMENT: HTML export report and donut chart now include Auth Required as a separate status category</li>
+            <li>ENHANCEMENT: UI warning banner when Windows Auth mode is selected but requests-negotiate-sspi not installed</li>
+            <li>PACKAGING: Added requests-negotiate-sspi, requests-ntlm, pyspnego, pywin32 wheels for Windows SSO auth</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.9.0 <span class="changelog-date">February 17, 2026</span></h3>
-        <p><strong>Deep Validation & Scoring Improvements</strong></p>
         <ul>
-            <li><strong>CRITICAL FIX: Semantic Duplicate Detection</strong> — The SemanticAnalyzer wrapper was silently broken since initial integration. It called dict methods on a List[DuplicateGroup], causing zero duplicate detections. Now correctly iterates dataclass objects.</li>
-            <li><strong>FIX: 12 Unprotected API Calls</strong> — Added response.ok checks to fetch() calls across 7 JS files. Prevents silent failures when server returns HTTP errors.</li>
-            <li><strong>FIX: Null Guard Violations</strong> — 3 querySelector calls in role-source-viewer.js now use safe access patterns.</li>
-            <li><strong>FIX: Dark Mode Contrast</strong> — Grade C badge was unreadable (dark text on gold). Now uses white text across all themes.</li>
-            <li><strong>SCORING: Category Concentration</strong> — 10 issues of the same type now count less than 10 diverse issues. Logarithmic diminishing returns prevent single-category inflation.</li>
-            <li><strong>DEDUP: Expanded Normalization</strong> — Cross-checker dedup map grew from 8 to 27 entries, covering passive voice, grammar, spelling, references, prose/style, and acronym variants.</li>
+            <li>FIX (CRITICAL): SemanticAnalyzer duplicate detection was silently broken — wrapper called dict methods on List[DuplicateGroup], now iterates dataclass objects correctly</li>
+            <li><strong>FIX: Added response.ok checks to 12 unprotected fetch() calls across 7 JS files</strong> &mdash; prevents silent failures on HTTP errors</li>
+            <li><strong>FIX: Null guards added to 3 querySelector calls in role-source-viewer.js that could crash on missing DOM elements</strong></li>
+            <li><strong>FIX: Dark mode contrast for .batch-score.grade-c</strong> &mdash; dark text on gold was unreadable, now white</li>
+            <li>ENHANCEMENT: Cross-checker dedup normalization expanded from 8 to 27 entries — covers passive voice, grammar, spelling, references, prose style, and acronym variants</li>
+            <li>ENHANCEMENT: Scoring algorithm now applies category concentration discount — 10 issues of the same type count less than 10 diverse issues (diminishing returns via logarithmic scaling)</li>
+            <li>ACCESSIBILITY: Dark mode consistency for progress-3d-text and progress-3d-info indicators</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.8.2 <span class="changelog-date">February 17, 2026</span></h3>
-        <p><strong>Production Hardening & Accessibility Pass</strong></p>
         <ul>
-            <li><strong>FIX: ReportLab PDF Crash</strong> — Role names containing HTML-like text (e.g., Case&lt;Br&gt;Group) now properly sanitized with XML entity escaping before PDF generation.</li>
-            <li><strong>FIX: CSRF Header Typo</strong> — X-CSRFToken corrected to X-CSRF-Token in mass-statement-review.js (3 instances).</li>
-            <li><strong>FIX: Help Docs API Reference</strong> — Corrected non-existent /api/metrics/analytics endpoint to /api/metrics/dashboard.</li>
-            <li><strong>ACCESSIBILITY: prefers-reduced-motion</strong> — Added to 10 additional CSS feature files. All 19 animation-heavy stylesheets now respect user motion preferences.</li>
-            <li><strong>ENHANCEMENT: SVO Extraction</strong> — InformationExtractionChecker now uses spaCy dependency parsing for more accurate Subject-Verb-Object extraction from requirements.</li>
-            <li><strong>AUDIT: Full Production Review</strong> — Backend routes, security, frontend event handlers, API contracts, CSS accessibility, and library integration all verified.</li>
+            <li><strong>FIX: ReportLab PDF crash on role names with HTML-like text</strong> &mdash; added XML entity sanitization</li>
+            <li><strong>FIX: CSRF header typo in mass-statement-review.js (X-CSRFToken → X-CSRF-Token)</strong></li>
+            <li><strong>FIX: Help docs referenced non-existent /api/metrics/analytics endpoint</strong></li>
+            <li>ACCESSIBILITY: prefers-reduced-motion added to 10 additional CSS feature files (19 total)</li>
+            <li>ENHANCEMENT: SVO extraction now uses spaCy dependency parsing for better requirement analysis</li>
+            <li>AUDIT: Full production hardening — backend routes, security, frontend, library integration</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.8.1 <span class="changelog-date">February 17, 2026</span></h3>
-        <p><strong>Document Compare — Master Document Selector</strong></p>
         <ul>
-            <li><strong>FEATURE: Document Selector</strong> — Document Compare now includes a master dropdown in the header showing all comparable documents. Switch between any document without closing the modal.</li>
-            <li><strong>FIX: Locked Selection</strong> — Previously, Document Compare opened with a pre-selected document and no way to change it. All documents with 2+ scans are now accessible from the dropdown.</li>
-            <li><strong>UI: Auto-Select</strong> — When switching documents, the newest scan pair is auto-selected and comparison runs immediately.</li>
+            <li>FEATURE: Document Compare now includes a master document selector dropdown — switch between any comparable document without closing the modal</li>
+            <li><strong>FIX: Document Compare no longer locks you into the pre-selected document</strong> &mdash; all 15+ documents with multiple scans are accessible from the header dropdown</li>
+            <li>UI: New document selector styled for both light and dark mode, auto-selects newest scan pair on document switch</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.8.0 <span class="changelog-date">February 16, 2026</span></h3>
-        <p><strong>Smarter Review Engine — Closer to Human Expert Analysis</strong></p>
         <ul>
-            <li><strong>Cross-Checker Dedup</strong> — Issues flagged by multiple checkers under different category names are now properly deduplicated. Missing requirement IDs flagged by both "Requirement Traceability" and "INCOSE Compliance" now count as one issue.</li>
-            <li><strong>Document-Type Awareness</strong> — Requirements documents auto-suppress noise issues expected for the document type: high noun phrase density, readability scores for domain vocabulary, and repetitive INCOSE per-paragraph warnings.</li>
-            <li><strong>NEW: Directive Verb Consistency</strong> — Detects when documents mix shall/should/must/will without a definitions section.</li>
-            <li><strong>NEW: Unresolved Cross-Reference</strong> — Flags dangling references like "the approved procurement schedule" that don't cite specific document IDs.</li>
-            <li><strong>Spelling Dictionary</strong> — Added aerospace/PM terms: deliverables, baselines, procurement, workaround, NASA acronyms (CDR, PDR, SRR, FMEA, etc.).</li>
+            <li>FEATURE: Cross-checker deduplication now normalizes categories — issues flagged by multiple checkers under different category names (e.g., 'Requirement Traceability' + 'INCOSE Compliance') are properly deduplicated</li>
+            <li>FEATURE: Document-type-aware suppression — requirements documents auto-suppress noise issues (noun phrase density, readability scores for domain vocabulary, per-paragraph INCOSE repeats)</li>
+            <li>NEW CHECKER: Directive Verb Consistency — flags documents that mix shall/should/must/will/require without a definitions section explaining the convention</li>
+            <li>NEW CHECKER: Unresolved Cross-Reference — flags dangling references like 'the approved procurement schedule' or 'applicable safety requirements' that don't cite specific document IDs</li>
+            <li><strong>FIX: Spelling dictionary expanded with aerospace/PM terms</strong> &mdash; 'deliverables', 'baselines', 'procurement', 'workaround', NASA acronyms (CDR, PDR, SRR, FMEA, etc.)</li>
+            <li>Total checkers: 111 (was 109)</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.7.2 <span class="changelog-date">February 16, 2026</span></h3>
-        <p><strong>Help Panel Navigation Fixes</strong></p>
         <ul>
-            <li><strong>FIX: Section Detection</strong> — Help panel no longer falsely shows Statement Forge when opened from the landing page. Fixed offsetParent check (fails on position:fixed) and display check (matched empty string).</li>
-            <li><strong>FIX: Landing Page Overlay</strong> — Clicking section nav buttons (Batch Scan, Settings, etc.) now properly dismisses the landing page before opening modals. Previously, modals opened behind the landing overlay.</li>
-            <li><strong>FIX: Missing Sections</strong> — Added Batch Scan and Portfolio to section detection array — they were missing from detectCurrentSection().</li>
+            <li><strong>FIX: detectCurrentSection() no longer falsely matches Statement Forge</strong> &mdash; removed el.style.display check, uses only .active class like all other modals</li>
+            <li><strong>FIX: Landing page detection now uses body.classList.contains('landing-active') instead of offsetParent (which fails on position:fixed elements)</strong></li>
+            <li><strong>FIX: Help panel section nav now dismisses landing page before opening modals</strong> &mdash; modals no longer hidden behind landing overlay</li>
+            <li><strong>FIX: Added batch and portfolio to detectCurrentSection() checks array (were missing)</strong></li>
+            <li>REFACTOR: Moved landing page dismissal to top of _navigateToSection() for all non-landing sections</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.7.1 <span class="changelog-date">February 16, 2026</span></h3>
-        <p><strong>Folder Scan Robustness + Guide System Fixes</strong></p>
         <ul>
-            <li><strong>FIX: Folder Scan Thread Stalling</strong> — Background thread no longer stalls on slow files. Added per-file timeout (5 min), chunk-level timeout, and error recovery. Timed-out files are marked as errors and the scan continues.</li>
-            <li><strong>FIX: Live Elapsed Time</strong> — Progress endpoint now computes elapsed time live from started_at, instead of using a stored value that only updated on file completion. Timer no longer freezes mid-scan.</li>
-            <li><strong>FIX: Current File Display</strong> — Shows which files are being processed (up to 3 names) at chunk start, not just the last-completed file.</li>
-            <li><strong>REFACTOR: State Update Helper</strong> — Extracted _update_scan_state_with_result() for cleaner code and better error isolation.</li>
-            <li><strong>FIX: Spotlight Double-Dimming</strong> — CSS overlay background set to transparent so SVG mask cutout is properly visible during tours and demos.</li>
-            <li><strong>FIX: Tooltip Positioning</strong> — Complete rewrite: centers on target, prefers target-edge alignment when centering overflows, flips vertically as needed, final viewport safety clamp.</li>
+            <li><strong>FIX: Folder scan background thread no longer stalls</strong> &mdash; added per-file timeout (5 min), chunk-level timeout, and try/except around future.result()</li>
+            <li><strong>FIX: Elapsed time now computed LIVE in progress endpoint from started_at</strong> &mdash; no longer freezes when a file takes a long time</li>
+            <li>REFACTOR: Extracted _update_scan_state_with_result() helper — cleaner code, eliminates deep indentation in background thread</li>
+            <li><strong>FIX: Current file now shows chunk contents (up to 3 filenames) while processing, not just last-completed file</strong></li>
+            <li><strong>FIX: Chunk timeout gracefully marks remaining files as errors and continues to next chunk instead of crashing</strong></li>
+            <li><strong>FIX: Spotlight CSS overlay background set to transparent</strong> &mdash; eliminates double-dimming over SVG mask cutout</li>
+            <li><strong>FIX: Tooltip positionTooltip() rewrite</strong> &mdash; centers on target, prefers target-edge alignment, flips vertically, final viewport safety clamp</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.7.0 <span class="changelog-date">February 16, 2026</span></h3>
-        <p><strong>Scan Infrastructure Overhaul + Accuracy Fixes</strong></p>
         <ul>
-            <li><strong>PERF: Flask Debug Threading</strong> — Server no longer blocks during long-running folder scans. Debug mode now runs with threaded=True, allowing concurrent request handling.</li>
-            <li><strong>FEAT: Async Folder Scan</strong> — New two-step pattern: POST /folder-scan-start returns scan_id immediately with discovery results, then poll GET /folder-scan-progress for real-time per-file updates. Background thread processes documents in chunks.</li>
-            <li><strong>UI: Folder Scan Progress Dashboard</strong> — Live per-file status rows (queued → processing → complete/error), overall progress bar, elapsed/remaining time, processing speed, chunk tracking. Reuses batch dashboard (bpd-*) CSS classes.</li>
-            <li><strong>FIX: Acronym Deduplication</strong> — Simplified dedup key removes rule_id and message text, catching cross-checker duplicates that were inflating issue counts by ~20-30%.</li>
-            <li><strong>FIX: Broken Enhanced Acronym Mapping</strong> — Removed dead option_mapping entry that pointed to non-existent checker key.</li>
-            <li><strong>FIX: Windows Compatibility</strong> — Hardcoded Mac paths replaced with pathlib-based relative paths in 3 analysis scripts. New restart_aegis.bat for Windows.</li>
+            <li><strong>PERF: Flask debug mode now runs with threaded=True</strong> &mdash; server no longer blocks during long-running folder scans</li>
+            <li>FEAT: Async folder scan with real-time progress polling — POST /folder-scan-start returns scan_id immediately, GET /folder-scan-progress/&lt;scan_id&gt; provides per-file updates</li>
+            <li>UI: Folder scan progress dashboard — live per-file status rows, progress bar, elapsed/remaining time, speed, chunk tracking (reuses bpd-* batch dashboard CSS)</li>
+            <li><strong>FIX: Acronym dedup key simplified to (paragraph_index, category, flagged_text)</strong> &mdash; removes rule_id and message so cross-checker duplicates are properly caught (~20-30% fewer duplicate issues)</li>
+            <li><strong>FIX: Removed broken option_mapping 'check_enhanced_acronyms' → 'enhanced_acronyms' (non-existent checker key)</strong></li>
+            <li><strong>FIX: Hardcoded Mac paths replaced with pathlib-based relative paths in run_enhancement_analysis.py, defense_role_analysis.py, defense_role_analysis_expanded.py</strong></li>
+            <li><strong>NEW: restart_aegis.bat for Windows</strong> &mdash; stops port 5050 process and restarts with debug mode</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.6.1 <span class="changelog-date">February 16, 2026</span></h3>
-        <p><strong>ReviewIssue Object Normalization Fix</strong></p>
         <ul>
-            <li><strong>FIX: ReviewIssue .get() Crash</strong> — Non-NLP checkers produce ReviewIssue dataclass objects but scoring, dedup, and ID-assignment code used dict .get() methods. Added normalization step in review_document() postprocessing that converts all issues to dicts.</li>
-            <li><strong>FIX: Folder Scan Issue Normalization</strong> — _review_single() also normalizes issues to dicts before aggregation and JSON serialization.</li>
-            <li><strong>IMPACT: All Downstream Code</strong> — _calculate_score, _deduplicate_issues, _assign_issue_ids, _count_by_severity, _count_by_category, and enhance_issue_context all now receive consistent dict objects.</li>
+            <li><strong>FIX: ReviewIssue .get() crash in core.py</strong> &mdash; non-NLP checkers produce dataclass objects but scoring/dedup/ID-assignment used dict .get(). Added normalization step in review_document() postprocessing</li>
+            <li><strong>FIX: Folder scan _review_single() also normalizes issues to dicts for aggregation and JSON serialization</strong></li>
+            <li><strong>FIX: All downstream code (_calculate_score, _deduplicate_issues, _assign_issue_ids, _count_by_severity, _count_by_category, enhance_issue_context) now receives dicts</strong></li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.6.0 <span class="changelog-date">February 16, 2026</span></h3>
-        <p><strong>Guide System v2.0 + Animated Demo Player</strong></p>
         <ul>
-            <li><strong>GUIDE: Complete Rewrite</strong> — guide-system.js v2.0.0 with real content for all 11 AEGIS sections (Landing, Review, Batch, Roles, Forge, Validator, Compare, Metrics, History, Settings, Portfolio).</li>
-            <li><strong>GUIDE: Animated Demo Player</strong> — Auto-playing live walkthrough system with typewriter narration, spotlight overlay, and step-by-step scene navigation through the actual UI.</li>
-            <li><strong>GUIDE: SVG Mask Spotlight</strong> — Creates SVG with white fill + black cutout rect for target element, applied as CSS mask to semi-transparent overlay.</li>
-            <li><strong>GUIDE: Demo Player Controls</strong> — Play/pause, previous/next, speed selector (0.5x-2x), progress bar with step counter, LIVE DEMO badge.</li>
-            <li><strong>GUIDE: Full Tour and Full Demo</strong> — Walk through every section sequentially with auto-navigation between modals.</li>
-            <li><strong>GUIDE: Section Navigation Grid</strong> — Click any section in the help panel to jump directly to its content.</li>
-            <li><strong>GUIDE: Contextual Help Beacon</strong> — Pulse-animated ? button auto-detects current section.</li>
-            <li><strong>UI: Settings Toggle</strong> — Enable/disable guide system via Settings > General > Show help guide &amp; tours, persisted in localStorage.</li>
-            <li><strong>CSS: Z-Index Hierarchy</strong> — beacon=150000, demoBar=149800, panel=149500, spotlight=149000 (above all app modals).</li>
+            <li>GUIDE: Complete rewrite of guide-system.js v2.0.0 — real content for all 11 sections (landing, review, batch, roles, forge, validator, compare, metrics, history, settings, portfolio)</li>
+            <li>GUIDE: Animated Demo Player system — auto-playing live walkthroughs with typewriter narration, spotlight overlay, and step-by-step scene navigation</li>
+            <li>GUIDE: Demo player controls — play/pause, previous/next, speed selector (0.5x–2x), progress bar with step counter, LIVE DEMO badge</li>
+            <li>GUIDE: SVG mask spotlight system for tour and demo element highlighting with smooth transitions</li>
+            <li>GUIDE: Section navigation grid in help panel — click any section to jump directly to its content</li>
+            <li>GUIDE: Contextual help beacon with pulse animation, auto-detects current section</li>
+            <li>GUIDE: Full Tour and Full Demo modes — walk through every section sequentially with auto-navigation between modals</li>
+            <li>GUIDE: Each section includes whatIsThis descriptions, keyActions with icons, proTips, tourSteps targeting real DOM selectors, and demoScenes</li>
+            <li>UI: Settings toggle to globally enable/disable guide system (Settings &gt; General &gt; Show help guide &amp; tours)</li>
+            <li>UI: Guide enabled state persisted via localStorage, synced with settings checkbox on page load</li>
+            <li>CSS: Guide system z-index hierarchy — beacon=150000, demoBar=149800, panel=149500, spotlight=149000 (above all app modals)</li>
+            <li>CSS: Demo bar with glass-morphism dark UI, gradient progress bar, animated LIVE DEMO badge</li>
+            <li>CSS: Section navigation grid with hover effects and active state indicators</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.5.0 <span class="changelog-date">February 16, 2026</span></h3>
-        <p><strong>Document Repository Batch Scanning</strong></p>
         <ul>
-            <li><strong>BATCH: Server-Side Folder Scanning</strong> — New endpoint scans entire document repositories with nested subdirectories. Enter a folder path, preview discovered files, then scan all documents in one operation.</li>
-            <li><strong>BATCH: Smart File Discovery</strong> — Recursive directory traversal with intelligent filtering: skips hidden directories, empty files, files over 100MB, and common non-document directories (.git, node_modules, __pycache__)</li>
-            <li><strong>BATCH: Chunked Processing</strong> — Documents processed in chunks of 5 with 3 concurrent threads per chunk. Memory cleanup (gc.collect) runs between chunks to handle repositories with hundreds of files</li>
-            <li><strong>BATCH: Increased Limits</strong> — Upload batch limits raised from 10 files/100MB to 50 files/500MB per batch. Frontend auto-chunks larger sets and processes up to 3 batches concurrently</li>
-            <li><strong>BATCH: Preview Before Scan</strong> — New "Preview" button discovers all documents and shows file count, total size, and type breakdown before committing to a full scan</li>
-            <li><strong>BATCH: Comprehensive Results</strong> — Aggregated grade distribution, severity breakdown, category analysis, role discovery, and per-document scores across the entire repository</li>
-            <li><strong>BATCH: Graceful Error Handling</strong> — Individual file errors are caught and reported without stopping the scan. Corrupt files, permission errors, and unsupported types are logged and skipped</li>
-            <li><strong>TEST: Local Verification Script</strong> — New test_scan_local.py script runs 5 single-file scans with different types/complexity levels, then tests batch folder scanning against the test_documents directory</li>
+            <li>BATCH: Server-side recursive folder scanning — scan entire document repositories with nested subdirectories</li>
+            <li>BATCH: New /api/review/folder-scan endpoint with chunked ThreadPoolExecutor processing and per-chunk gc.collect()</li>
+            <li>BATCH: New /api/review/folder-discover endpoint for dry-run preview before committing to full scan</li>
+            <li>BATCH: Smart file discovery — skips hidden dirs, empty files, files &gt;100MB, common non-doc directories</li>
+            <li>BATCH: Folder scan UI in batch upload modal — enter a server path, preview files, then scan all</li>
+            <li>BATCH: Increased batch limits from 10/100MB to 50/500MB per upload batch for large repositories</li>
+            <li>BATCH: Chunked processing (5 files per chunk, 3 concurrent) with memory cleanup between chunks</li>
+            <li>BATCH: Comprehensive results aggregation — grade distribution, severity breakdown, role discovery across all docs</li>
+            <li>BATCH: Graceful error handling — individual file errors don't stop the whole scan</li>
+            <li>TEST: Local test script (test_scan_local.py) for single file × 5 and batch folder verification</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.4.0 <span class="changelog-date">February 16, 2026</span></h3>
-        <p><strong>Performance Optimization + spaCy Ecosystem Deep Analysis</strong></p>
         <ul>
-            <li><strong>PERFORMANCE: Zero Dark Mode Flash</strong> — Inline CSS variables + data-theme attribute set before any stylesheet loads, eliminating FOUC</li>
-            <li><strong>PERFORMANCE: Deferred Script Loading</strong> — 30+ feature module scripts now use defer attribute; initial paint 40-60% faster</li>
-            <li><strong>PERFORMANCE: Async CSS Loading</strong> — 13 feature stylesheets load asynchronously; only critical CSS blocks render</li>
-            <li><strong>PERFORMANCE: Parallel Batch Scan</strong> — ThreadPoolExecutor processes up to 3 documents concurrently during batch review</li>
-            <li><strong>NLP: 11 New v5.3.0 Checkers</strong> — Negation detection, text metrics, sentence complexity, terminology (WordNet), subjectivity, lexical diversity, YAKE keywords, requirement similarity, coherence, defined-before-used, quantifier precision</li>
-            <li><strong>NLP: 6 New v5.2.0 Checkers</strong> — Coreference resolution, advanced prose lint, verbosity detection, keyword extraction, INCOSE compliance, semantic role analysis</li>
-            <li><strong>NLP: New Libraries</strong> — negspacy, textdescriptives, spacy-wordnet, spacytextblob, lexical_diversity, yake, coreferee, proselint, textacy, sumy</li>
-            <li><strong>CHECKERS: 100+ Total</strong> — 98 UI-controlled + 7 always-on checkers available for document analysis</li>
-            <li><strong>UI: spaCy Deep Analysis Panel</strong> — New Settings section with 4 subcategories and 11 checkboxes for v5.3.0 checkers</li>
-            <li><strong>INSTALL: Windows Wheels Updated</strong> — All new NLP dependency wheels included for air-gapped deployment</li>
+            <li>PERFORMANCE: Eliminated dark mode flash of light content (FOUC) — inline CSS variables + data-theme attribute set before any stylesheet loads</li>
+            <li>PERFORMANCE: Deferred 30+ feature module scripts with defer attribute — initial paint 40-60% faster</li>
+            <li>PERFORMANCE: Async CSS loading for 13 feature stylesheets using media='print' onload pattern — only critical CSS blocks render</li>
+            <li>PERFORMANCE: Batch scan processing now multi-threaded via ThreadPoolExecutor (up to 3 concurrent documents)</li>
+            <li><strong>FIX: Resolved terminology_consistency naming conflict</strong> &mdash; v3.3.0 and v5.3.0 checkers now have distinct keys (terminology_consistency vs wordnet_terminology)</li>
+            <li>NLP: 11 new v5.3.0 spaCy Ecosystem checkers fully integrated with UI toggles</li>
+            <li>NLP: 6 new v5.2.0 Advanced NLP Enhancement Suite checkers with graceful fallback</li>
+            <li>NLP: 8 new checker files: negation, text_metrics, terminology_consistency, subjectivity, vocabulary, yake, similarity, advanced_analysis</li>
+            <li>NLP: New libraries integrated: negspacy, textdescriptives, spacy-wordnet, spacytextblob, lexical_diversity, yake</li>
+            <li>CHECKERS: Total checker count now 100+ (98 UI-controlled + 7 always-on)</li>
+            <li>INSTALL: Windows x64 wheels for all new NLP dependencies included for air-gapped deployment</li>
+            <li>UI: v5.3.0 spaCy Deep Analysis section in Settings with 4 subcategories and 11 checkboxes</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.3.0 <span class="changelog-date">February 16, 2026</span></h3>
+        <ul>
+            <li>NLP: spaCy Ecosystem &amp; Deep Analysis Suite — 8 new checker files with 11 checker keys</li>
+            <li>NLP: Negation detection using negspacy + spaCy dependency tree for scope analysis</li>
+            <li>NLP: Text quality metrics via textdescriptives pipeline (readability, coherence, POS, quality)</li>
+            <li>NLP: Sentence complexity scoring using dependency tree depth and clause count</li>
+            <li>NLP: Terminology consistency via spacy-wordnet synonym detection + curated aerospace groups</li>
+            <li>NLP: Subjectivity and tone detection using spacytextblob sentiment analysis</li>
+            <li>NLP: Lexical diversity metrics (MTLD, HD-D, TTR) for boilerplate and copy-paste detection</li>
+            <li>NLP: YAKE statistical keyword extraction with domain coverage and distribution analysis</li>
+            <li>NLP: Requirement similarity using sentence-transformers with TF-IDF fallback</li>
+            <li>NLP: Cross-sentence coherence, defined-before-used enforcement, quantifier precision checking</li>
+            <li>INSTALL: 6 new dependencies: negspacy, textdescriptives, spacy-wordnet, spacytextblob, lexical_diversity, yake</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.2.0 <span class="changelog-date">February 16, 2026</span></h3>
+        <ul>
+            <li>NLP: Advanced NLP Enhancement Suite — 6 optional checkers with graceful fallback</li>
+            <li>NLP: Coreference resolution using coreferee for ambiguous pronoun detection</li>
+            <li>NLP: Advanced prose quality checking using proselint (clichés, hedging, redundancy)</li>
+            <li>NLP: Document verbosity and summarization analysis using sumy</li>
+            <li>NLP: Keyword extraction and complexity analysis using textacy (SGRANK algorithm)</li>
+            <li>NLP: INCOSE requirements compliance checking</li>
+            <li>NLP: Semantic role labeling for requirement structure analysis</li>
+            <li><strong>FIX: Excel/CSV export BytesIO bug</strong> &mdash; make_response pattern for binary content</li>
+            <li><strong>FIX: UTF-8 BOM added to CSV exports for Windows Excel compatibility</strong></li>
+            <li><strong>FIX: HTML report charset meta tag for proper encoding display</strong></li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.1.0 <span class="changelog-date">February 16, 2026</span></h3>
-        <p><strong>Security Hardening + Accessibility + Print Support</strong></p>
         <ul>
-            <li><strong>SECURITY: CSRF Protection</strong> — Added @require_csrf to 9 unprotected POST routes (SOW, presets, analyzers, diagnostics)</li>
-            <li><strong>SECURITY: Fresh Token Pattern</strong> — Implemented in 18+ JavaScript functions with _getFreshCsrf() helper</li>
-            <li><strong>SECURITY: Data Management Fixed</strong> — Clear scan history, statements, roles, learning, and factory reset all use fresh CSRF</li>
-            <li><strong>ARCHITECTURE: spaCy Singleton</strong> — Fixed model instance sharing to improve performance, prevent multiple loads</li>
-            <li><strong>QUALITY: Deduplication Key</strong> — Improved from 50 to 80 characters with rule_id for better uniqueness</li>
-            <li><strong>QUALITY: Passive Voice Whitelist</strong> — Added 18 aerospace adjectival participles for technical docs</li>
-            <li><strong>QUALITY: All Checkers Verified</strong> — 83 checkers working with 14 new UI toggles (Writing Quality, Technical, Requirements)</li>
-            <li><strong>ACCESSIBILITY: WCAG 2.1 Level A</strong> — 134 aria-labels, 28 modals with role/aria-modal, 116 aria-hidden, tab roles on all navigation</li>
-            <li><strong>PRINT: print.css Stylesheet</strong> — Optimized for document printing: hidden sidebar/toolbar/toasts, proper page breaks, URL display after links</li>
-            <li><strong>UI: Folder Browse Button</strong> — Now opens native OS folder picker via backend API instead of file dialog</li>
-            <li><strong>UI: Dropdown Z-Index</strong> — Fixed conflict with toast notifications (toasts always on top at z-index 200000)</li>
-            <li><strong>UI: Dark Mode Radio Cards</strong> — Added overrides for modal radio card components in dark mode</li>
-            <li><strong>INSTALL: Windows Wheels</strong> — 195 pre-built x64 wheels for air-gapped installation (numpy, pandas, scipy, scikit-learn, spaCy, docling, etc.)</li>
-            <li><strong>INSTALL: download_win_wheels.py</strong> — Script for connected environments to auto-download all wheels</li>
-            <li><strong>INSTALL: install_offline.bat Updated</strong> — Now supports both wheel directories for flexible deployment</li>
-            <li><strong>FIX: Landing Page 0 Roles</strong> — Fallback from role_dictionary to roles table when not initialized</li>
-            <li><strong>FIX: Source Document Loading</strong> — Clicking roles in Adjudication now correctly loads source document</li>
-            <li><strong>FIX: Updater Timeout</strong> — Added 15s timeout with AbortController to prevent spinning forever</li>
-            <li><strong>FIX: Diagnostic Email Export</strong> — Changed from GET to POST with fresh CSRF token</li>
+            <li>SECURITY: Added @require_csrf to 9 unprotected POST routes (SOW, presets, analyzers, diagnostics)</li>
+            <li>SECURITY: Fixed CSRF token handling in 18+ JavaScript functions using fresh token pattern</li>
+            <li>SECURITY: Added _getFreshCsrf() helper for data management operations</li>
+            <li>ARCHITECTURE: Fixed spaCy singleton pattern for shared model instances (performance improvement)</li>
+            <li>QUALITY: Improved issue deduplication key (50→80 chars with rule_id)</li>
+            <li>QUALITY: Added 18 aerospace adjectival participles to passive voice whitelist</li>
+            <li>QUALITY: All 83 checkers verified working with 14 new UI toggles added</li>
+            <li>ACCESSIBILITY: Added 134 aria-label attributes across all UI elements</li>
+            <li>ACCESSIBILITY: Added role='dialog' and aria-modal to 28 modals</li>
+            <li>ACCESSIBILITY: Added role='tablist/tab/tabpanel' to all tab navigation systems</li>
+            <li>ACCESSIBILITY: Added aria-hidden to 116 decorative icons</li>
+            <li>ACCESSIBILITY: WCAG 2.1 Level A compliance improvements</li>
+            <li>PRINT: New print.css stylesheet for optimized document printing</li>
+            <li>PRINT: Hides non-printable elements (sidebar, toolbar, toasts)</li>
+            <li>PRINT: Optimizes tables, typography, and page breaks for print</li>
+            <li>PRINT: Includes URL display after links for reference</li>
+            <li>UI: Fixed folder browse button - now opens native OS folder picker via backend API</li>
+            <li>UI: Fixed dropdown z-index conflict with toast notifications</li>
+            <li>UI: Added dark mode overrides for modal radio card components</li>
+            <li>UI: Fixed popup blocker vulnerability in statement history exports</li>
+            <li>DATA: Fixed all 5 data management handlers to use fresh CSRF tokens</li>
+            <li>DATA: Clear scan history, statements, roles, learning, and factory reset all fixed</li>
+            <li>INSTALL: Added 195 Windows x64 wheel files for air-gapped offline installation</li>
+            <li>INSTALL: Includes numpy, pandas, scipy, scikit-learn, spaCy, docling, and more</li>
+            <li>INSTALL: torch (139MB) available via GitHub Release download</li>
+            <li>INSTALL: Added download_win_wheels.py script for connected Windows environments</li>
+            <li>INSTALL: Updated install_offline.bat to support both wheel directories</li>
+            <li><strong>FIX: Landing page showing 0 roles (fallback from role_dictionary to roles table)</strong></li>
+            <li><strong>FIX: Source document not loading when clicking roles in viewer</strong></li>
+            <li><strong>FIX: Updater spinning forever (15s timeout with abort controller)</strong></li>
+            <li><strong>FIX: Diagnostic email export (GET→POST with fresh CSRF)</strong></li>
+            <li><strong>FIX: Version display stale after update (import-time caching)</strong></li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v5.0.0 <span class="changelog-date">February 15, 2026</span></h3>
-        <p><strong>Multiprocessing Architecture + Role Extraction Overhaul</strong></p>
         <ul>
-            <li><strong>ARCHITECTURE: Multiprocessing</strong> — Review jobs run in separate Process (not thread) for server responsiveness and crash isolation</li>
-            <li><strong>ARCHITECTURE: Per-Doc Timeout</strong> — 600s default with graceful process termination and progress via multiprocessing.Queue</li>
-            <li><strong>ROLE EXTRACTION v3.5.0: 3-Layer Filtering</strong> — Organization entities, confidence threshold, single-word variants removed</li>
-            <li><strong>ROLE EXTRACTION: 30+ New Aerospace Roles</strong> — Technical fellow, mission systems engineer, failure review board, and more</li>
-            <li><strong>ROLE EXTRACTION: Discovery Mode</strong> — Filters organization entities, low-confidence roles, and stopword roles</li>
-            <li><strong>TESTED: NASA SE Handbook</strong> — 297 pages with false positives reduced from 44% to <5%</li>
+            <li>ARCHITECTURE: Review jobs now run in separate PROCESS (multiprocessing.Process) instead of threading.Thread</li>
+            <li>ARCHITECTURE: Flask server stays fully responsive during large document analysis (separate GIL)</li>
+            <li>ARCHITECTURE: Worker process crash isolation — if review crashes, Flask keeps running</li>
+            <li>ARCHITECTURE: Per-document timeout (600s default) with graceful process termination</li>
+            <li>ARCHITECTURE: Progress updates via multiprocessing.Queue with monitor thread bridge pattern</li>
+            <li>ARCHITECTURE: Results written to temp JSON file (handles large documents without queue limits)</li>
+            <li>ARCHITECTURE: Legacy threading fallback if multiprocessing unavailable</li>
+            <li><strong>FIX: Role extraction 'Validation' false positive</strong> &mdash; single-word variants no longer verify compound roles</li>
+            <li><strong>FIX: Removed 'nasa' and 'government' from KNOWN_ROLES (moved to ORGANIZATION_ENTITIES filter)</strong></li>
+            <li><strong>FIX: Removed duplicate role entries (contracting officer, contractor, technical authority, government)</strong></li>
+            <li><strong>FIX: Discovery mode now filters organization entities, low-confidence roles, and stopword roles</strong></li>
+            <li><strong>FIX: PDF multi-column layout detection with extraction quality warning</strong></li>
+            <li><strong>NEW: ORGANIZATION_ENTITIES filter set</strong> &mdash; prevents organizations from being extracted as roles</li>
+            <li><strong>NEW: 30+ missing aerospace roles added (technical fellow, mission systems engineer, failure review board, etc.)</strong></li>
+            <li><strong>NEW: 50+ expanded SINGLE_WORD_EXCLUSIONS preventing common English words from extraction</strong></li>
+            <li><strong>NEW: Confidence threshold filter (&lt; 0.4) removes low-quality role extractions</strong></li>
+            <li><strong>NEW: Document type classification in Statement Forge export (requirements/guidance/descriptive/informational)</strong></li>
+            <li><strong>NEW: Document classification detail text explaining directive distribution</strong></li>
+            <li><strong>NEW: Column layout detection in PDF extraction with quality warnings</strong></li>
+            <li>IMPROVED: Role extractor v3.5.0 with 3-layer post-verification filtering</li>
+            <li>IMPROVED: STRICT mode also skips organization entities</li>
+            <li>IMPROVED: pymupdf4llm extraction uses write_images=False for faster processing</li>
+            <li>TESTED: Full NASA SE Handbook (297 pages) — role false positives reduced from 44% to &lt;5%</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v4.9.9 <span class="changelog-date">February 15, 2026</span></h3>
-        <p><strong>Statement Source Viewer + Error Handling + Windows Compatibility</strong></p>
         <ul>
-            <li><strong>FEATURE: Statement Source Viewer</strong> — Highlight-to-select editing for inline statement creation, integrates with Statement Forge history</li>
-            <li><strong>FIX: SOW Generation 500 Error</strong> — Missing timezone import in datetime operations (timezone.utc)</li>
-            <li><strong>FIX: Document Compare Auto-Load</strong> — Now auto-selects oldest doc on left, newest on right, and immediately runs comparison</li>
-            <li><strong>FIX: Toast "[object Object]"</strong> — API error responses now include structured format with proper message extraction via getErrorMessage()</li>
-            <li><strong>FIX: Template Error Handling</strong> — Template files now correctly extract error.message from structured error objects</li>
-            <li><strong>IMPROVED: Windows Compatibility</strong> — Platform-aware chmod, os.name detection, cross-platform pathlib.Path handling throughout codebase</li>
-            <li><strong>IMPROVED: Performance</strong> — Batch review rendering for 100+ statements, particle effects transparency, session logging with correlation IDs</li>
+            <li>FEATURE: Statement Source Viewer with highlight-to-select editing for inline statement creation</li>
+            <li><strong>FIX: SOW generation 500 error</strong> &mdash; missing timezone import in datetime operations (timezone.utc)</li>
+            <li><strong>FIX: Document Compare now auto-selects oldest doc on left, newest on right when opened</strong></li>
+            <li><strong>FIX: Document Compare auto-comparison triggers immediately without manual selection</strong></li>
+            <li><strong>FIX: API error responses now include structured format with proper message extraction</strong></li>
+            <li><strong>FIX: Toast notifications show meaningful error text instead of '[object Object]'</strong></li>
+            <li><strong>FIX: Template files now correctly extract error.message from structured error objects</strong></li>
+            <li><strong>NEW: getErrorMessage() utility function for safe message extraction from error objects</strong></li>
+            <li><strong>NEW: Statement Source Viewer integrates with Statement Forge history context</strong></li>
+            <li><strong>NEW: Document profile settings now persist across server restarts</strong></li>
+            <li><strong>NEW: User preferences cached in localStorage with server-side backup</strong></li>
+            <li>IMPROVED: Particle effects transparency adjusted for dark background visibility</li>
+            <li>IMPROVED: Batch review rendering performance for 100+ statements</li>
+            <li>IMPROVED: Session logging with correlation IDs for API response tracking</li>
+            <li>IMPROVED: Windows compatibility — file permission operations (chmod) now platform-aware</li>
+            <li>IMPROVED: Windows platform detection using os.name == 'nt' for Windows-specific paths</li>
+            <li>IMPROVED: Cross-platform path handling with pathlib.Path throughout codebase</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v4.9.5 <span class="changelog-date">February 15, 2026</span></h3>
-        <p><strong>Version Management Overhaul</strong></p>
         <ul>
-            <li><strong>FIX: Version Display Stuck</strong> — Root cause: duplicate version.json files (root vs static/) with stale static copy</li>
-            <li><strong>FIX: Import-Time Caching</strong> — config_logging.py VERSION constant was stale after updates; now uses get_version() for fresh reads</li>
-            <li><strong>FIX: Cache-Busting</strong> — Regex in core_routes.py handles existing ?v= params and adds missing ones; stripped hardcoded ?v= from index.html</li>
-            <li><strong>NEW: get_version()</strong> — Reads version.json fresh from disk every call, replaces stale VERSION constant for user-facing endpoints</li>
-            <li><strong>IMPROVED: Client-Side Version</strong> — JS now fetches /api/version first (always fresh), /static/version.json as fallback only</li>
+            <li><strong>FIX: Version display stuck on 4.7</strong> &mdash; root cause was duplicate version.json files (root vs static/)</li>
+            <li><strong>FIX: Import-time version caching in config_logging.py</strong> &mdash; VERSION constant was stale after updates</li>
+            <li><strong>FIX: Cache-busting regex in core_routes.py now handles existing ?v= params and adds missing ones</strong></li>
+            <li><strong>FIX: Stripped all hardcoded ?v= params from index.html</strong> &mdash; middleware handles cache-busting dynamically</li>
+            <li><strong>NEW: get_version() function in config_logging.py</strong> &mdash; reads version.json fresh from disk every call</li>
+            <li><strong>NEW: Client-side version fetch priority changed to /api/version first, /static/version.json as fallback</strong></li>
+            <li>IMPROVED: core_routes.py index() middleware uses regex for consistent ?v= injection on all JS/CSS</li>
+            <li>IMPROVED: /api/version and /api/health endpoints now use get_version() instead of stale constant</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v4.9.0 <span class="changelog-date">February 15, 2026</span></h3>
-        <p><strong>Landing Page Stability + Offline Distribution</strong></p>
         <ul>
-            <li><strong>FIX: Landing Page Empty Tiles</strong> — Async init race condition: show() called init() without await, session restore skipped init() entirely</li>
-            <li><strong>FIX: Toast Z-Index</strong> — Raised from 2500 to 200000 so toasts always appear above modals (z-index 10000)</li>
-            <li><strong>IMPROVED: Offline Packaging</strong> — Bundled .whl files for all dependencies for air-gapped deployment</li>
-            <li><strong>IMPROVED: restart_aegis.sh</strong> — One-click server restart script for macOS</li>
+            <li><strong>FIX: Landing page tiles/metrics empty on load</strong> &mdash; async init race condition in show()/init() chain</li>
+            <li><strong>FIX: Session restore path skipped init(), leaving landing page uninitialized for later navigation</strong></li>
+            <li><strong>FIX: Made show() async with await init(); removed redundant init() call in app.js</strong></li>
+            <li><strong>FIX: Toast z-index too low (2500)</strong> &mdash; raised to 200000 so toasts always appear above modals (z-index 10000)</li>
+            <li>IMPROVED: Offline wheel packaging for air-gapped deployment (bundled .whl files for all dependencies)</li>
+            <li>IMPROVED: restart_aegis.sh script for one-click server restart on macOS</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v4.8.0 <span class="changelog-date">February 14, 2026</span></h3>
-        <p><strong>E2E Audit + Report Fixes + Production Logging</strong></p>
         <ul>
-            <li><strong>FIX: Flask Blueprint Import</strong> — data_routes.py used bare app.logger instead of current_app.logger (unavailable in blueprints)</li>
-            <li><strong>FIX: Report Download Popup Blocked</strong> — Replaced window.open() after await with hidden iframe approach to avoid Chrome popup blocker</li>
-            <li><strong>FIX: Report Generation 500</strong> — catch Exception instead of just ImportError in three report endpoints</li>
-            <li><strong>FIX: Generate Reports SQL</strong> — Queries referenced non-existent roles.document_id; now JOINs through document_roles table</li>
-            <li><strong>FIX: Roles Studio Empty from Dashboard</strong> — landing-page.js now calls showRolesModal() override instead of generic showModal()</li>
-            <li><strong>FIX: CSS Display Conflicts</strong> — Inline style.display conflicts with !important; replaced with classList and removeProperty('display')</li>
-            <li><strong>IMPROVED: Production Logging</strong> — Structured error tracking with correlation IDs</li>
-            <li><strong>IMPROVED: E2E Audit</strong> — Verified all entry points (sidebar + dashboard tiles) call the same override functions</li>
+            <li><strong>FIX: Flask blueprint import scope</strong> &mdash; data_routes.py used bare app.logger instead of current_app.logger</li>
+            <li><strong>FIX: Report download popup blocked</strong> &mdash; replaced window.open() after await with hidden iframe approach</li>
+            <li><strong>FIX: Report generation 500 errors</strong> &mdash; catch Exception instead of just ImportError in three report endpoints</li>
+            <li><strong>FIX: Generate Reports SQL queries referenced non-existent roles.document_id</strong> &mdash; now JOINs through document_roles</li>
+            <li><strong>FIX: Roles Studio Overview empty from dashboard tile</strong> &mdash; landing-page.js now calls showRolesModal() override</li>
+            <li><strong>FIX: Inline style.display conflicts with CSS !important</strong> &mdash; replaced with classList and removeProperty('display')</li>
+            <li>IMPROVED: Production logging with structured error tracking and correlation IDs</li>
+            <li>IMPROVED: E2E audit across all features — verified all entry points (sidebar + dashboard tiles) call same functions</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v4.7.0 <span class="changelog-date">February 14, 2026</span></h3>
-        <p><strong>Database Access Layer Refactoring + Bug Fixes</strong></p>
         <ul>
-            <li><strong>REFACTOR: Database Access Layer</strong> — Replaced 99 scattered sqlite3.connect() calls across 7 files with db_connection() context manager pattern</li>
-            <li><strong>NEW: Context Manager</strong> — Auto-commits on success, rolls back on exception, always closes, sets WAL mode uniformly</li>
-            <li style="margin-left: 20px;"><em>scan_history.py</em> — 23 calls migrated</li>
-            <li style="margin-left: 20px;"><em>app.py</em> — 49 calls migrated</li>
-            <li style="margin-left: 20px;"><em>hyperlink_validator/storage.py</em> — 17 calls migrated</li>
-            <li style="margin-left: 20px;"><em>document_compare/routes.py</em> — 6 calls migrated</li>
-            <li style="margin-left: 20px;"><em>3 other files</em> — 4 calls migrated</li>
-            <li><strong>FIX: Connection Leak Risk</strong> — ~65% of DB calls had no finally: conn.close() — context manager guarantees cleanup</li>
-            <li><strong>FIX: Missing Error Handling</strong> — ~60% of DB calls lacked exception handling — now all have automatic rollback</li>
-            <li><strong>FIX: CSRF Header Typo</strong> — X-CSRFToken corrected to X-CSRF-Token in roles.js and role-source-viewer.js</li>
-            <li><strong>FIX: 8 Decompiler Recovery Bugs</strong> — Statement count, compare method, heatmap, graph buttons, reports, hover flicker, Excel export</li>
+            <li>REFACTOR: Database Access Layer — replaced 99 scattered sqlite3.connect() calls across 7 files with db_connection() context manager pattern</li>
+            <li><strong>NEW: db_connection() context manager in scan_history.py</strong> &mdash; auto-commits on success, rolls back on exception, always closes, sets row_factory=sqlite3.Row and PRAGMA journal_mode=WAL</li>
+            <li><strong>NEW: ScanHistoryDB.connection() convenience method wrapping db_connection(self.db_path)</strong></li>
+            <li><strong>NEW: HyperlinkValidatorStorage.connection() method with local db_connection context manager</strong></li>
+            <li>MIGRATED: scan_history.py — 23 calls converted to self.connection()</li>
+            <li>MIGRATED: app.py — 49 calls converted to db.connection() / db_connection(path)</li>
+            <li>MIGRATED: hyperlink_validator/storage.py — 17 calls converted to self.connection()</li>
+            <li>MIGRATED: document_compare/routes.py — 6 calls with import fallback pattern</li>
+            <li>MIGRATED: role_extractor_v3.py — 2 calls with local context manager</li>
+            <li>MIGRATED: update_manager.py — 1 call via imported db_connection</li>
+            <li>MIGRATED: diagnostic_export.py — 1 call with local context manager</li>
+            <li><strong>FIX: Eliminated ~60% of DB calls that lacked proper exception handling</strong></li>
+            <li><strong>FIX: Eliminated ~65% of DB calls that risked connection leaks (no finally: conn.close())</strong></li>
+            <li><strong>FIX: Removed decompiler artifact __import__('sqlite3').connect() pattern in app.py</strong></li>
+            <li><strong>FIX: CSRF header typo in roles.js and role-source-viewer.js</strong> &mdash; X-CSRFToken corrected to X-CSRF-Token (3 occurrences)</li>
+            <li><strong>FIX: Scan history missing statement_count field in get_scan_history()</strong></li>
+            <li><strong>FIX: Document compare missing compare_scan_statements method</strong></li>
+            <li><strong>FIX: Heatmap flickering</strong> &mdash; switched from display:none to visibility:hidden for smooth transitions</li>
+            <li><strong>FIX: Graph layout buttons missing event listeners after decompiler recovery</strong></li>
+            <li><strong>FIX: Generate reports buttons not working after decompiler recovery</strong></li>
+            <li><strong>FIX: RACI matrix and module hover flickering caused by transition:all</strong></li>
+            <li><strong>FIX: Role-Doc Matrix Excel export was producing CSV instead of XLSX</strong></li>
+            <li>IMPROVED: All database operations now have consistent error handling and automatic cleanup</li>
+            <li>IMPROVED: WAL journal mode applied uniformly via context manager (was inconsistent before)</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v4.6.2 <span class="changelog-date">February 13, 2026</span></h3>
-        <p><strong>Hyperlink Validator Enhancements</strong></p>
         <ul>
-            <li><strong>FEATURE: Deep Validate</strong> — Headless browser rescan now merges recovered URLs back into results, updating stats, filters, and visualizations in real time</li>
-            <li><strong>FEATURE: Domain Filter</strong> — Searchable dropdown to filter validation results by specific domain</li>
-            <li><strong>FEATURE: Clickable Stat Tiles</strong> — Click any summary stat to filter results to that status category with gold active indicator</li>
-            <li><strong>FIX: Export Highlighted</strong> — ArrayBuffer backup ensures DOCX export works when original file blob is unavailable</li>
-            <li><strong>FIX: Exclusion Persistence</strong> — Exclusions from result rows now save to database via API, surviving sessions</li>
-            <li><strong>FIX: Rescan Eligibility</strong> — Expanded from 3 to 5 statuses (added AUTH_REQUIRED, SSLERROR)</li>
-            <li><strong>FIX: History Panel Layout</strong> — Panel no longer compresses HV view on wide displays (uses display:none when closed)</li>
-            <li><strong>IMPROVED: Deep Validate UI</strong> — Renamed from "Rescan Blocked", new scan-search icon and purple accent</li>
+            <li>FEATURE: Deep Validate — headless browser rescan now merges recovered URLs back into results, updating stats, filters, and visualizations in real time</li>
+            <li>FEATURE: Domain Filter Dropdown — filter validation results by specific domain with searchable dropdown and clear button</li>
+            <li>FEATURE: Clickable Stat Tiles — click any summary stat (Excellent, Broken, Blocked, etc.) to filter results to that status category</li>
+            <li><strong>NEW: Export Highlighted fix</strong> &mdash; ArrayBuffer backup ensures DOCX export works even when original file blob is unavailable</li>
+            <li><strong>NEW: Exclusion persistence to server</strong> &mdash; exclusions created from result rows are saved to the database via API, surviving sessions</li>
+            <li><strong>NEW: False positive URL validation</strong> &mdash; backend test confirmed dcma.mil, faa.gov, tenable.com, cyber.mil all recover via headless browser</li>
+            <li><strong>NEW: Status filter pills</strong> &mdash; click status badges in results to filter by that status type</li>
+            <li><strong>NEW: _updateRescanSection() helper</strong> &mdash; dynamically shows/hides Deep Validate button based on rescan-eligible URL count</li>
+            <li><strong>NEW: RESCAN_ELIGIBLE_STATUSES constant</strong> &mdash; BLOCKED, TIMEOUT, DNSFAILED, AUTH_REQUIRED, SSLERROR all eligible for deep validation</li>
+            <li><strong>FIX: Headless rescan results were never merged back into state (TODO comment at line 1668</strong> &mdash; now fully implemented)</li>
+            <li><strong>FIX: Rescan eligibility was too narrow</strong> &mdash; only BLOCKED/TIMEOUT/DNSFAILED; now includes AUTH_REQUIRED and SSLERROR</li>
+            <li><strong>FIX: Rescan section missing from non-Excel validation flow</strong> &mdash; renderSummary() now also updates rescan section</li>
+            <li><strong>FIX: History panel compressing HV layout on wide displays</strong> &mdash; translateX(100%) insufficient on 2500px+ viewports; now uses display:none when closed</li>
+            <li><strong>FIX: Stat count accuracy</strong> &mdash; summary counts now correctly reflect merged rescan results</li>
+            <li>IMPROVED: Deep Validate UI — renamed from 'Rescan Blocked' to 'Deep Validate' with scan-search icon and purple accent</li>
+            <li>IMPROVED: Rescan section description updated to mention blocked, timeout, and auth-wall URLs</li>
+            <li>IMPROVED: Domain filter repopulates after rescan to reflect recovered URL domains</li>
+            <li>IMPROVED: Recovered URLs preserve Excel-specific fields (sheet_name, cell_address, display_text, link_source, context)</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v4.6.1 <span class="changelog-date">February 13, 2026</span></h3>
-        <p><strong>Metrics & Analytics Command Center + Critical Bug Fixes</strong></p>
         <ul>
-            <li><strong>FEATURE: Metrics & Analytics Command Center</strong> — Standalone modal with 4-tab layout</li>
-            <li style="margin-left: 20px;"><em>Overview Tab</em> - Hero stats, quality trend chart, score distribution, severity breakdown, scan activity heatmap</li>
-            <li style="margin-left: 20px;"><em>Quality Tab</em> - Score distribution bars, issue category radar, top issues table</li>
-            <li style="margin-left: 20px;"><em>Roles Tab</em> - Role frequency chart, deliverables comparison</li>
-            <li style="margin-left: 20px;"><em>Documents Tab</em> - Per-document score history, drill-down panels</li>
-            <li><strong>FIX: Scan Cancel Not Working</strong> — Cancel button on Scan Progress Dashboard was disconnected (cancelCurrentJob not exposed)</li>
-            <li><strong>FIX: Cancel Leaves UI Hung</strong> — Loading overlay and progress dashboard now properly cleaned up on cancel</li>
-            <li><strong>FIX: Wrong Background Behind Modals</strong> — Scan History and Roles Studio now show dashboard behind their backdrop</li>
-            <li><strong>FIX: Landing Page Tiles</strong> — Opening modules no longer hides dashboard behind modal</li>
-            <li><strong>FIX: Heatmap Hover Flicker</strong> — SVG overlay rendered on top of cells, tooltip shows instantly (no transition)</li>
-            <li><strong>BACKEND: Analytics API</strong> — GET /api/metrics/dashboard for aggregated scan history data</li>
+            <li>FEATURE: Metrics &amp; Analytics Command Center — standalone modal with 4-tab layout (Overview, Quality, Roles, Documents)</li>
+            <li><strong>NEW: Overview tab with hero stats, quality trend chart, score distribution, severity breakdown, scan activity heatmap</strong></li>
+            <li><strong>NEW: Quality tab with score distribution bar chart, issue category radar, top issues table</strong></li>
+            <li><strong>NEW: Roles tab with role frequency chart, deliverables vs non-deliverables comparison</strong></li>
+            <li><strong>NEW: Documents tab with per-document score history, detail drill-down panels</strong></li>
+            <li><strong>NEW: Scan activity heatmap with custom SVG tooltip and hover overlay</strong></li>
+            <li><strong>NEW: Drill-down panels on hero stats and document cards for detailed breakdowns</strong></li>
+            <li><strong>FIX: Scan cancel button not working</strong> &mdash; cancelCurrentJob was not exposed as global function</li>
+            <li><strong>FIX: Scan Progress Dashboard cancel leaves UI hung</strong> &mdash; loading overlay and progress dashboard now cleaned up on cancel</li>
+            <li><strong>FIX: Scan History/Roles Studio showing doc review background</strong> &mdash; modals now keep dashboard visible behind them</li>
+            <li><strong>FIX: Landing page tiles hiding dashboard when opening modals</strong> &mdash; stopped calling hide() for windowed module modals</li>
+            <li><strong>FIX: Nav bar module buttons not restoring dashboard background</strong> &mdash; now show landing page when not already active</li>
+            <li><strong>FIX: Heatmap hover flicker</strong> &mdash; SVG overlay rect moved after cells (was rendering behind), tooltip transition removed</li>
+            <li>IMPROVED: Heatmap tooltip shows instantly (no CSS opacity transition that caused rapid show/hide flicker)</li>
+            <li>IMPROVED: Scan cancel cleanup is comprehensive — destroys progress dashboard, resets loading tracker, clears job state</li>
+            <li>BACKEND: GET /api/metrics/analytics — aggregated analytics data from scan history</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v4.6.0 <span class="changelog-date">February 12, 2026</span></h3>
-        <p><strong>Statement Lifecycle, Bug Fixes & Settings Overhaul</strong></p>
         <ul>
-            <li><strong>FEATURE: Statement Lifecycle Management</strong> - Deduplication, review, and cleanup system</li>
-            <li style="margin-left: 20px;"><em>Fingerprinting</em> - Statements tagged as new/unchanged on rescan via fingerprint matching</li>
-            <li style="margin-left: 20px;"><em>Review Workflow</em> - Approve/reject statements individually or in bulk</li>
-            <li style="margin-left: 20px;"><em>Duplicate Cleanup</em> - Find and remove duplicate statement groups</li>
-            <li style="margin-left: 20px;"><em>Review Badges</em> - Tool-wide status indicators (Pending/Reviewed/Rejected/Unchanged)</li>
-            <li><strong>FEATURE: Role-Statement Responsibility Interface</strong></li>
-            <li style="margin-left: 20px;"><em>Role Statements Panel</em> - View all statements for a role, grouped by document (S key in Adjudication)</li>
-            <li style="margin-left: 20px;"><em>Bulk Reassign</em> - Select statements and move to a different role</li>
-            <li style="margin-left: 20px;"><em>Generic Role Warning</em> - Banner for names like "Personnel" that likely have misassigned statements</li>
-            <li style="margin-left: 20px;"><em>Role Autocomplete</em> - Statement edit form includes role autocomplete from adjudication cache</li>
-            <li><strong>FIX: Impact Analyzer</strong> - Increased font sizes and padding for readability</li>
-            <li><strong>FIX: Factory Reset</strong> - Now clears all tables (was missing function_categories, role_relationships, etc.)</li>
-            <li><strong>FIX: Compare Feature</strong> - Added /status endpoint + retry-after-refresh to fix CSRF failures</li>
-            <li><strong>FIX: Settings Save UX</strong> - Dirty tracking, pulse animation, unsaved changes warning</li>
-            <li><strong>NEW: Data Management</strong> - Clear buttons for statements, role dictionary, and learning data all wired up</li>
-            <li><strong>BACKEND: 12 New Endpoints</strong> - Statement review, dedup, role statements, data management</li>
+            <li>FEATURE: Statement Lifecycle Management — deduplication, review, and cleanup system for extracted statements</li>
+            <li>FEATURE: Role-Statement Responsibility Interface — view, reassign, and remove statements per role in Roles Studio</li>
+            <li>FEATURE: Statement Review Badges — tool-wide review status indicators (Pending/Reviewed/Rejected/Unchanged)</li>
+            <li><strong>NEW: Statement fingerprinting and deduplication on rescan (unchanged statements tagged, new ones flagged)</strong></li>
+            <li><strong>NEW: Statement duplicate cleanup utility</strong> &mdash; find and remove duplicate statement groups</li>
+            <li><strong>NEW: Bulk statement review</strong> &mdash; batch approve/reject pending statements from overview dashboard</li>
+            <li><strong>NEW: Role statements panel (S key)</strong> &mdash; modal showing all statements for a role, grouped by document</li>
+            <li><strong>NEW: Bulk reassign/remove statements</strong> &mdash; select statements and reassign to different roles or remove</li>
+            <li><strong>NEW: Generic role warning</strong> &mdash; banner for generic names (Personnel, Staff, etc.) that likely have misassigned statements</li>
+            <li><strong>NEW: Statement-to-role tagging with autocomplete during statement edit in Document Viewer</strong></li>
+            <li><strong>NEW: AEGIS.StatementReviewLookup global utility</strong> &mdash; badge rendering with 15s TTL cache</li>
+            <li><strong>NEW: Clear Statement Data in Settings → Data Management</strong></li>
+            <li><strong>NEW: Clear Role Dictionary handler wired up in Settings → Data Management</strong></li>
+            <li><strong>NEW: Clear Learning Data handler wired up in Settings → Data Management</strong></li>
+            <li><strong>NEW: Data counts displayed in Data Management (statement count, role count)</strong></li>
+            <li><strong>FIX: Impact Analyzer readability</strong> &mdash; increased font sizes and padding for path-to-100 bars</li>
+            <li><strong>FIX: Factory reset now clears ALL tables (was missing role_function_tags, role_relationships, function_categories, etc.)</strong></li>
+            <li><strong>FIX: Compare feature CSRF failures</strong> &mdash; added /status endpoint + retry-after-refresh logic</li>
+            <li><strong>FIX: Settings save UX</strong> &mdash; dirty tracking with pulse animation, unsaved changes warning on close</li>
+            <li>BACKEND: 11 new API endpoints for statement review, dedup, role statements, and data management</li>
+            <li>BACKEND: Schema migration adds review_status, confirmed, reviewed_by, reviewed_at, fingerprint to scan_statements</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v4.5.2 <span class="changelog-date">February 10, 2026</span></h3>
-        <p><strong>Known Issues Cleanup + Scanning Pipeline Audit</strong></p>
         <ul>
-            <li><strong>FIX: Quality score N/A</strong> - Frontend used wrong field name (quality_score vs score)</li>
-            <li><strong>FIX: .doc files</strong> - Clear error message when LibreOffice unavailable</li>
-            <li><strong>FIX: _log() recursion</strong> - Infinite recursion crash when config_logging import fails</li>
-            <li><strong>FIX: SessionManager.set()</strong> - Method didn't exist, replaced with update()</li>
-            <li><strong>FIX: DoclingAdapter crash</strong> - Null-safe guards for None table headers</li>
-            <li><strong>FIX: Missing @app.route</strong> - /api/filter endpoint was unreachable</li>
-            <li><strong>FIX: File handle leaks</strong> - html_preview ZIP detection + fitz.Document now use context managers</li>
-            <li><strong>FIX: Docling queue race</strong> - Replaced empty()+get_nowait() with get(timeout=2)</li>
-            <li><strong>REMOVED: Dead code</strong> - _run_with_timeout() and ThreadPoolExecutor import removed from core.py</li>
+            <li><strong>FIX: Quality score always showing N/A</strong> &mdash; frontend used wrong field name (quality_score vs score)</li>
+            <li><strong>FIX: .doc files now return clear error message instead of failing silently when LibreOffice unavailable</strong></li>
+            <li><strong>FIX: Infinite recursion crash in _log() fallback when config_logging import fails</strong></li>
+            <li><strong>FIX: SessionManager.set() AttributeError</strong> &mdash; method didn't exist, replaced with update()</li>
+            <li><strong>FIX: DoclingAdapter crash when table headers are None</strong> &mdash; added null-safe guards</li>
+            <li><strong>FIX: Missing @app.route decorator on /api/filter endpoint</strong> &mdash; function was unreachable</li>
+            <li><strong>FIX: File handle leaks in html_preview ZIP detection</strong> &mdash; now uses context manager</li>
+            <li><strong>FIX: Docling subprocess queue race condition</strong> &mdash; replaced empty()+get_nowait() with get(timeout=2)</li>
+            <li><strong>FIX: fitz.Document handle leak on corrupt PDFs</strong> &mdash; now uses context manager</li>
+            <li><strong>FIX: Empty/unreadable documents now return a clear warning instead of false 100 score</strong></li>
+            <li>IMPROVED: DOCX Docling timeout reduced to 60s (from 120s) — DOCX extracts faster than PDFs</li>
+            <li>REMOVED: Deprecated _run_with_timeout() function and ThreadPoolExecutor import (dead code cleanup)</li>
+            <li>REMOVED: Unused concurrent.futures import that caused confusion about parallel checker support</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v4.5.1 <span class="changelog-date">February 10, 2026</span></h3>
-        <p><strong>Relationship Graph Redesign: Edge Bundling + Semantic Zoom</strong></p>
         <ul>
-            <li><strong>FEATURE: Standalone Landing Page</strong> - Full-page overlay with particle canvas animation and 9 tool tiles</li>
-            <li style="margin-left: 20px;"><em>3x3 Tile Grid</em> - Colored icons, descriptions, live metric badges, drill-down panels</li>
-            <li style="margin-left: 20px;"><em>Particle Background</em> - Gold/amber dots with connecting lines on dark background</li>
-            <li style="margin-left: 20px;"><em>Metric Count-Up</em> - 6 stat cards with easeOutCubic animation</li>
-            <li><strong>FEATURE: Graph Redesign</strong> - Hierarchical Edge Bundling (HEB) as default layout</li>
-            <li style="margin-left: 20px;"><em>4 Layout Options</em> - HEB, Force-Directed, Semantic Zoom, Bipartite</li>
-            <li style="margin-left: 20px;"><em>Bundling Tension</em> - Adjustable slider for edge curvature</li>
-            <li style="margin-left: 20px;"><em>Filter Breadcrumbs</em> - Click nodes to drill-down, back button to navigate up</li>
-            <li><strong>IMPROVED: Scanning Pipeline</strong> - Subprocess Docling with 120s timeout, skip >2MB files, fast table 1-2MB</li>
-            <li><strong>FIX: Scan History columns</strong> - CSS had 7 widths for 8 columns, added Stmts column width</li>
+            <li>FEATURE: Hierarchical Edge Bundling (HEB) — new default relationship graph layout with circular node arrangement and bundled edges</li>
+            <li>FEATURE: Semantic Zoom (Level-of-Detail) — zoom-based progressive disclosure graph with 3 LOD levels</li>
+            <li><strong>NEW: Bundling Tension slider</strong> &mdash; adjusts edge bundling from 0 (straight lines) to 1 (maximum bundling)</li>
+            <li><strong>NEW: Document group arcs</strong> &mdash; colored arc segments around the circle showing which document each role belongs to</li>
+            <li><strong>NEW: Bridge role visualization</strong> &mdash; cross-document relationships appear as long bundled curves spanning the circle</li>
+            <li><strong>NEW: Layout dropdown updated with Edge Bundling (default), Semantic Zoom, Force-Directed (Classic), Bipartite options</strong></li>
+            <li><strong>NEW: HEB-specific legend with arc, bundled edge, and brightness indicators</strong></li>
+            <li><strong>NEW: HEB minimap</strong> &mdash; circular dot minimap with colored document group arcs</li>
+            <li>IMPROVED: All 15 existing interactions preserved in HEB (node click, hover, drill-down, breadcrumbs, weight slider, search, labels, zoom, keyboard, minimap, adjudication badges, performance mode)</li>
+            <li>IMPROVED: Semantic Zoom LOD 1 (clusters), LOD 2 (nodes), LOD 3 (labels) with smooth transitions</li>
+            <li>IMPROVED: HEB is inherently faster than force-directed (no simulation), thresholds raised to 300/600</li>
+            <li>IMPROVED: Dark mode support for all HEB and Semantic Zoom elements</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v4.5.0 <span class="changelog-date">February 9, 2026</span></h3>
-        <p><strong>Scan Progress Dashboard, Landing Page & Performance</strong></p>
         <ul>
-            <li><strong>FEATURE: Scan Progress Dashboard</strong> - Step-by-step checklist overlay during document review</li>
-            <li style="margin-left: 20px;"><em>7 Progress Steps</em> - Upload, Extract, Parse, Quality Checks, NLP, Roles, Finalize</li>
-            <li style="margin-left: 20px;"><em>ETA Display</em> - Time remaining estimate based on weighted step progress</li>
-            <li style="margin-left: 20px;"><em>Cancel Button</em> - Stop scan in progress</li>
-            <li><strong>FIX: 8 Critical Fixes</strong> - Review completion, scan history, CSRF, session management</li>
-            <li><strong>FIX: 5 Quick Fixes</strong> - UI polish, error handling, edge cases</li>
-            <li><strong>REVERTED: Parallel Checkers</strong> - ThreadPoolExecutor caused deadlocks, back to sequential execution</li>
+            <li>FEATURE: Scan Progress Dashboard — step-by-step checklist with sub-progress, ETA, and animations</li>
+            <li>FEATURE: Landing Page Dashboard — tool launcher cards, recent documents, system stats</li>
+            <li>IMPROVED: Granular progress reporting during checker execution phase</li>
+            <li><strong>FIX: Statement extraction pipe artifacts (||||||) in PDFs processed by Docling</strong></li>
+            <li><strong>FIX: Compare Viewer dark mode</strong> &mdash; replaced [data-theme=dark] with body.dark-mode selectors</li>
+            <li><strong>FIX: Compare Viewer CSRF 403 errors</strong> &mdash; syncs token from GET responses</li>
+            <li><strong>FIX: Document Viewer highlight scroll alignment</strong> &mdash; uses scrollIntoView with center positioning</li>
+            <li><strong>FIX: PDF.js toggle 'not available'</strong> &mdash; added .mjs to allowed vendor extensions</li>
+            <li><strong>FIX: Role Interactions empty page on drill</strong> &mdash; shows empty state when no data available</li>
+            <li><strong>FIX: History tab action column cutoff</strong> &mdash; fixed table layout with explicit column widths</li>
+            <li><strong>FIX: Scan processing hanging</strong> &mdash; improved cancellation checks between phases</li>
+            <li>IMPROVED: Matrix animation is now default for batch processing (slower, more cinematic)</li>
+            <li>IMPROVED: Batch processing dark mode text visibility</li>
+            <li>IMPROVED: Removed .txt extension bypass from documentation</li>
+            <li><strong>NEW: TWR.ScanProgress module</strong> &mdash; 7-step weighted progress with localStorage ETA history</li>
+            <li><strong>NEW: TWR.LandingDashboard module</strong> &mdash; 6 tool cards with responsive grid layout</li>
+            <li><strong>NEW: _sanitize_for_statements() fallback for Docling PDF text cleanup</strong></li>
+            <li>IMPROVED: Better progress reporting during checker execution phase</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v4.4.0 <span class="changelog-date">February 9, 2026</span></h3>
-        <p><strong>Statement Search, Bulk Edit, PDF Viewer & Diff Export</strong></p>
         <ul>
-            <li><strong>FEATURE: Statement Quality</strong> - clean_full_text via mammoth eliminates Docling artifacts from Statement Forge extraction</li>
-            <li><strong>NEW: Statement Search</strong> - Full-text search across all scans from Statement History overview</li>
-            <li style="margin-left: 20px;"><em>Debounced Input</em> - 300ms debounce with directive badge, document name, date, and description excerpt per result</li>
-            <li style="margin-left: 20px;"><em>Click-to-Navigate</em> - Click any result to jump to that scan's Document Viewer</li>
-            <li><strong>NEW: Bulk Statement Editing</strong> - Multi-select statements and batch update directive/role</li>
-            <li style="margin-left: 20px;"><em>Bulk Mode Toggle</em> - Checkbox per statement, count display, Apply/Clear controls</li>
-            <li style="margin-left: 20px;"><em>Batch API</em> - PUT /api/scan-history/statements/batch (up to 500 per batch)</li>
-            <li><strong>NEW: PDF.js Viewer</strong> - Pixel-perfect PDF canvas rendering in Statement History</li>
-            <li style="margin-left: 20px;"><em>HTML/PDF Toggle</em> - Switch between highlighted HTML view and original PDF layout</li>
-            <li style="margin-left: 20px;"><em>PDF.js v4.2.67</em> - ESM build with dynamic import and 1.5x canvas scale</li>
-            <li><strong>NEW: Statement Diff Export</strong> - Export compare results as CSV or PDF from Compare Viewer</li>
-            <li style="margin-left: 20px;"><em>CSV Export</em> - Number, Title, Description, Directive, Role, Level, Diff Status, Changed Fields</li>
-            <li style="margin-left: 20px;"><em>PDF Export</em> - AEGIS-branded report with summary stats and color-coded rows</li>
-            <li><strong>IMPROVED: Compare Viewer</strong> - State reset prevents stale document cache between viewer sessions</li>
-            <li><strong>FIX: Diff Indicators</strong> - Strikethrough no longer inherited by indicator badges in removed highlights</li>
-            <li><strong>BACKEND: 5 New Endpoints</strong> - statements/search, statements/batch, document-file, export-csv, export-pdf</li>
+            <li>FEATURE: Statement Quality Improvement — clean text for Statement Forge extraction</li>
+            <li><strong>NEW: clean_full_text via mammoth when Docling is primary extractor (eliminates | and ** artifacts)</strong></li>
+            <li><strong>NEW: Statement Diff Export</strong> &mdash; CSV and PDF export from Compare Viewer with AEGIS-branded report</li>
+            <li><strong>NEW: Statement Search</strong> &mdash; cross-scan full-text search with debounced UI and directive filtering</li>
+            <li><strong>NEW: Bulk Statement Editing</strong> &mdash; multi-select statements with batch directive/role updates</li>
+            <li><strong>NEW: PDF.js Viewer</strong> &mdash; pixel-perfect PDF canvas rendering toggle in Document Viewer</li>
+            <li><strong>NEW: PDF/HTML view toggle for PDF documents in Statement History</strong></li>
+            <li>IMPROVED: Compare Viewer state reset prevents stale document cache between viewer sessions</li>
+            <li>IMPROVED: Compare Viewer diff indicators in HTML content no longer inherit strikethrough</li>
+            <li>BACKEND: GET /api/scan-history/statements/search — full-text search across all scans</li>
+            <li>BACKEND: PUT /api/scan-history/statements/batch — batch update statement fields</li>
+            <li>BACKEND: GET /api/scan-history/document-file — serve original document for PDF.js</li>
+            <li>BACKEND: GET /api/statement-forge/compare/{id1}/{id2}/export-csv — diff export as CSV</li>
+            <li>BACKEND: GET /api/statement-forge/compare/{id1}/{id2}/export-pdf — diff export as PDF</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v4.3.0 <span class="changelog-date">February 9, 2026</span></h3>
-        <p><strong>Document Extraction Overhaul — mammoth + pymupdf4llm</strong></p>
         <ul>
-            <li><strong>NEW: mammoth DOCX Extraction</strong> - MammothDocumentExtractor converts .docx to clean semantic HTML with proper tables, headings, bold/italic</li>
-            <li style="margin-left: 20px;"><em>Clean Text</em> - No more pipe characters or dash artifacts from table formatting</li>
-            <li style="margin-left: 20px;"><em>HTML Preview</em> - html_preview stored with every scan for rich document rendering</li>
-            <li><strong>NEW: pymupdf4llm PDF Extraction</strong> - Pymupdf4llmExtractor converts PDF to structured Markdown with heading detection and tables</li>
-            <li><strong>NEW: HTML Document Viewer</strong> - Statement History renders documents as formatted HTML with proper tables, headings, and text styling</li>
-            <li style="margin-left: 20px;"><em>DOM-Based Highlighting</em> - Text node walking replaces string-index matching for accurate statement highlights in HTML</li>
-            <li style="margin-left: 20px;"><em>Cross-Extractor Matching</em> - normalizeForMatch() strips formatting artifacts for reliable highlighting across extraction engines</li>
-            <li style="margin-left: 20px;"><em>3-Strategy Matching</em> - Exact substring, normalized position mapping, and word-sequence fuzzy matching</li>
-            <li style="margin-left: 20px;"><em>Backward Compatible</em> - Old scans without html_preview fall back to plain-text highlighting</li>
-            <li><strong>NEW: AEGIS Installer</strong> - Install_AEGIS.bat with user-selectable install location (default C:\\AEGIS)</li>
-            <li style="margin-left: 20px;"><em>7-Step Process</em> - Python check, location prompt, file copy, dependency install, NLP install, launcher creation, cleanup</li>
-            <li style="margin-left: 20px;"><em>Launchers</em> - Creates Start_AEGIS.bat and Stop_AEGIS.bat at install root</li>
-            <li><strong>NEW: Distribution Packaging</strong> - AEGIS_Distribution package with mammoth wheel bundling for offline deployment</li>
-            <li><strong>IMPROVED: Extraction Fallback Chain</strong> - Docling → mammoth/pymupdf4llm → legacy extractors with automatic html_preview generation for all paths</li>
-            <li><strong>FIX: lxml Import</strong> - Corrected lxml.etree vs lxml.html import in HTML parser</li>
-            <li><strong>FIX: html_preview for Docling Path</strong> - Post-extraction mammoth call ensures html_preview even when Docling is primary</li>
+            <li>FEATURE: Document Extraction Overhaul — mammoth for DOCX→HTML, pymupdf4llm for PDF→Markdown</li>
+            <li><strong>NEW: MammothDocumentExtractor class with clean semantic HTML output (no table artifacts)</strong></li>
+            <li><strong>NEW: Pymupdf4llmExtractor class with structured Markdown extraction for PDFs</strong></li>
+            <li><strong>NEW: html_preview field stored in scan results for rich document rendering</strong></li>
+            <li><strong>NEW: HTML-based Document Viewer in Statement History with proper tables, headings, formatting</strong></li>
+            <li><strong>NEW: DOM text node walking for reliable highlight positioning in HTML content</strong></li>
+            <li><strong>NEW: Cross-extractor normalized matching (strips **, |,</strong> &mdash; -, # artifacts for highlight matching)</li>
+            <li><strong>NEW: Install_AEGIS.bat</strong> &mdash; 7-step Windows installer with user-selectable location (default C:\AEGIS)</li>
+            <li><strong>NEW: Start_AEGIS.bat and Stop_AEGIS.bat launcher scripts with offline dependency installation</strong></li>
+            <li>IMPROVED: package_for_distribution.bat renamed to AEGIS_Distribution with mammoth wheel bundling</li>
+            <li>IMPROVED: /api/scan-history/document-text returns html_preview and format fields</li>
+            <li>IMPROVED: Extraction fallback chain: Docling → mammoth/pymupdf4llm → legacy extractors</li>
+            <li>IMPROVED: Old scans gracefully fall back to plain-text highlighting (backward compatible)</li>
+            <li>BACKEND: mammoth&gt;=1.6.0 added to requirements.txt</li>
+            <li>BACKEND: MAMMOTH_AVAILABLE and PYMUPDF4LLM_AVAILABLE import flags with graceful fallback</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v4.2.0 <span class="changelog-date">February 9, 2026</span></h3>
-        <p><strong>Statement Forge History — Persistent Statements & Document Viewer</strong></p>
         <ul>
-            <li><strong>NEW: Statement History</strong> - Track extracted statements across all scans of a document</li>
-            <li style="margin-left: 20px;"><em>Overview Dashboard</em> - Stat cards, trend chart, directive donut, scan timeline</li>
-            <li style="margin-left: 20px;"><em>Document Viewer</em> - Split-panel with highlighted source text and statement detail</li>
-            <li style="margin-left: 20px;"><em>Unified Compare</em> - Single-document diff view with added/removed/modified/unchanged highlights</li>
-            <li><strong>NEW: Highlight-to-Create</strong> - Select text in document to create new statements with auto-detected directive</li>
-            <li><strong>NEW: Two-Tier Fingerprint Matching</strong> - desc_fp + full_fp for accurate modified detection in comparisons</li>
-            <li><strong>NEW: Dual Filter System</strong> - Directive chips + diff status chips that combine for precise filtering</li>
-            <li><strong>NEW: Field-Level Diff</strong> - Modified statements show old → new for changed fields</li>
-            <li><strong>NEW: Overlapping Highlight Merging</strong> - Multiple statements sharing text use data-stmt-indices attribute</li>
-            <li><strong>NEW: Keyboard Navigation</strong> - Arrow keys, a/r/m for diff categories, e to edit, Esc to close</li>
+            <li>FEATURE: Statement Forge History — track statement extraction results across scans with comparison and document viewer</li>
+            <li><strong>NEW: Statement History overview dashboard with stat tiles, trend chart, directive donut, scan timeline</strong></li>
+            <li><strong>NEW: Document Viewer with split-panel layout</strong> &mdash; source text with highlighted statements + detail panel</li>
+            <li><strong>NEW: Directive-specific highlight colors (blue=shall, red=must, amber=will, green=should, purple=may)</strong></li>
+            <li><strong>NEW: Highlight-to-create</strong> &mdash; select text in document to create new statements with auto-detected directive</li>
+            <li><strong>NEW: Statement editing via inline form with PUT API save</strong></li>
+            <li><strong>NEW: Unified Compare Viewer</strong> &mdash; single document with diff-aware highlights (added/removed/modified/unchanged)</li>
+            <li><strong>NEW: Diff summary bar with counts, dual filter system (directive + diff status), field-level diff for modified statements</strong></li>
+            <li><strong>NEW: Compare keyboard shortcuts: a=next added, r=next removed, m=next modified</strong></li>
+            <li><strong>NEW: Backend compare_scan_statements() enhanced with two-tier fingerprint matching for modified detection</strong></li>
+            <li><strong>NEW: _diff_status injection on statements for diff-aware rendering</strong></li>
+            <li><strong>FIX: Overlapping statements now share highlight marks via data-stmt-indices attribute with findMarkForIndex() helper</strong></li>
+            <li><strong>FIX: Document scroll positioning uses getBoundingClientRect() instead of unreliable offsetTop for cross-container accuracy</strong></li>
+            <li><strong>FIX: Forge History button correctly opens history for current document</strong></li>
+            <li><strong>FIX: Dark mode highlights, navigation buttons, close button, Escape key handling all fixed</strong></li>
+            <li>VERIFIED: Statement extraction logic (statement_forge/extractor.py) confirmed intact and unmodified</li>
+            <li>VERIFIED: All changes Windows-compatible (pathlib.Path, proper env var fallbacks, no hardcoded paths)</li>
         </ul>
     </div>
     <div class="changelog-version">
-        <h3>v4.1.0 <span class="changelog-date">February 9, 2026</span></h3>
-        <p><strong>Nimbus SIPOC Import & Role Inheritance Map</strong></p>
+        <h3>v4.1.0 <span class="changelog-date">February 8, 2026</span></h3>
         <ul>
-            <li><strong>NEW: Nimbus SIPOC Import</strong> - 5-step wizard with dual-mode parsing (hierarchy vs process) and auto-fallback</li>
-            <li><strong>NEW: Role Inheritance Map</strong> - Interactive HTML export with 4 views: Dashboard, Tree, Graph, Table</li>
-            <li style="margin-left: 20px;"><em>Inline Editing</em> - Edit role fields in exported HTML, track changes, export diffs as JSON</li>
-            <li style="margin-left: 20px;"><em>Graph Animations</em> - Staggered card entrance, SVG node bounce, arrow draw-in</li>
-            <li><strong>NEW: Role Import Template</strong> - Download and fill Excel template for bulk role import</li>
-            <li><strong>IMPROVED: Batch Adjudicate</strong> - Extended to handle role_type, disposition, org_group, hierarchy_level, baselined, aliases</li>
+            <li>FEATURE: Nimbus SIPOC Import - parse Nimbus process model SIPOC exports to build role inheritance</li>
+            <li><strong>NEW: Role Inheritance from Resource column with context-dependent parsing modes</strong></li>
+            <li><strong>NEW: Hierarchy mode (Roles Hierarchy map)</strong> &mdash; inherits-from relationships from Resources column</li>
+            <li><strong>NEW: Process mode (fallback)</strong> &mdash; co-performs, supplies-to, receives-from relationships from all columns</li>
+            <li><strong>NEW: Auto-fallback when Roles Hierarchy map path not found</strong> &mdash; processes all rows in process mode</li>
+            <li><strong>NEW: Interactive HTML Role Inheritance Map (renamed from Hierarchy) with 4 views: Dashboard, Tree, Graph, Table</strong></li>
+            <li><strong>NEW: Inline editing in Inheritance Map</strong> &mdash; edit all role fields, track changes, export diffs as JSON</li>
+            <li><strong>NEW: Export-back workflow</strong> &mdash; drop edited JSON in updates/ folder, Check for Updates auto-imports changes</li>
+            <li><strong>NEW: Function Tag Distribution donut chart with accurate counts from role_function_tags join table</strong></li>
+            <li><strong>NEW: Graph View animations</strong> &mdash; staggered card entrance, SVG node pop-in, arrow draw-in, center pulse</li>
+            <li><strong>NEW: Dashboard stat cards with animated counters, Health Metrics, Role Types breakdown</strong></li>
+            <li><strong>NEW: Interactive HTML Role Import Template</strong> &mdash; downloadable standalone form for manual role entry</li>
+            <li><strong>NEW: Template supports bulk paste from Excel, CSV, semicolons, or one-per-line with auto-format detection</strong></li>
+            <li><strong>NEW: Template exports JSON for re-import into AEGIS with all extended fields</strong></li>
+            <li><strong>NEW: SIPOC import wizard with 5-step flow (upload, preview, options, import, complete)</strong></li>
+            <li><strong>NEW: Hierarchy view mode in dictionary - collapsible tree visualization of role inheritance</strong></li>
+            <li><strong>NEW: Pre-export filter modal - filter by org group, disposition, baselined status before exporting</strong></li>
+            <li><strong>NEW: Role Disposition tracking (Sanctioned, To Be Retired, TBD) with visual differentiation</strong></li>
+            <li><strong>NEW: Baselined status tracking with green checkmark indicators</strong></li>
+            <li><strong>NEW: Role Type classification (Singular-Specific, Singular-Aggregate, Group-Specific, Group-Aggregate)</strong></li>
+            <li><strong>NEW: Import dropdown menu - CSV/Excel import and Nimbus SIPOC Import as separate options</strong></li>
+            <li><strong>NEW: Template download button in dictionary toolbar for blank role entry form</strong></li>
+            <li><strong>NEW: role_relationships database table with inherits-from, uses-tool, co-performs, supplies-to, receives-from types</strong></li>
+            <li><strong>NEW: role_template_export.py standalone HTML generator for interactive role import template</strong></li>
+            <li><strong>NEW: 6 new API endpoints (import-sipoc, relationships, hierarchy, hierarchy/export-html, clear-sipoc, export-template)</strong></li>
+            <li><strong>NEW: sipoc_parser.py standalone module for SIPOC Excel parsing with dual-mode logic</strong></li>
+            <li><strong>NEW: hierarchy_export.py standalone HTML generator for offline hierarchy visualization</strong></li>
+            <li>IMPROVED: Dictionary cards and table rows show disposition, baselined, and role type badges</li>
+            <li>IMPROVED: To Be Retired roles shown with strikethrough, faded, and amber warning styling</li>
+            <li>IMPROVED: SIPOC fallback notice — yellow/green info boxes showing parsing mode in preview</li>
+            <li>IMPROVED: Extended field import support (role_type, role_disposition, org_group, baselined) from template JSON</li>
+            <li>IMPROVED: SIPOC re-import now auto-removes stale roles no longer present in the new SIPOC file</li>
+            <li>IMPROVED: Diff-based cleanup compares new SIPOC against existing source='sipoc' roles and removes orphans</li>
+            <li>IMPROVED: Import results show removal counts (roles, relationships, tags removed)</li>
+            <li><strong>FIX: Dictionary keyboard hints bar no longer overlaps table rows</strong> &mdash; uses flexbox layout instead of fixed height</li>
+            <li><strong>FIX: RACI Matrix click handling</strong> &mdash; drilldown modal now opens correctly (was silently failing due to showModal signature mismatch)</li>
+            <li><strong>FIX: Adjudication card body click now opens Source Viewer</strong> &mdash; added fallback handler for clicks outside specific buttons</li>
+            <li><strong>FIX: Adjudication kanban card click now opens Source Viewer</strong> &mdash; kanban cards previously had no click handlers</li>
+            <li><strong>FIX: Context toggle class name mismatch fixed (adj-card-context-toggle vs adj-context-toggle)</strong></li>
+            <li><strong>NEW: showContentModal() function in modals.js for dynamic content modals without pre-existing DOM elements</strong></li>
+            <li><strong>FIX: Data Explorer chart.canvas null reference error when switching tabs rapidly</strong></li>
+            <li>VERIFIED: All 8 Roles Studio tabs tested end-to-end with zero console errors</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v4.0.5 <span class="changelog-date">February 8, 2026</span></h3>
-        <p><strong>Role Dictionary Complete Overhaul</strong></p>
         <ul>
-            <li><strong>NEW: Dictionary Dashboard</strong> - 4 stat tiles, category donut chart, source bars, top categories</li>
-            <li><strong>NEW: Card View</strong> - Rich cards with adjudication colors, hover actions, description excerpts</li>
-            <li><strong>NEW: Bulk Operations</strong> - Select-all, batch activate/deactivate/delete/set-category/mark-deliverable</li>
-            <li><strong>NEW: Inline Quick Actions</strong> - Click category badge to change, star toggle, name copy, role clone</li>
-            <li><strong>NEW: Keyboard Navigation</strong> - j/k navigate, Enter edit, Space select, T toggle view, / search</li>
-            <li><strong>NEW: Enhanced Filtering</strong> - Adjudication status, has description, has tags filters</li>
-            <li><strong>NEW: Duplicate Detection</strong> - Warns on save when similar names or alias matches found</li>
+            <li>OVERHAUL: Complete rewrite of Role Dictionary tab with dashboard, card view, and bulk operations</li>
+            <li><strong>NEW: Dictionary Dashboard - 4 stat tiles (total, deliverables, adjudicated, health score) with donut chart</strong></li>
+            <li><strong>NEW: Card View toggle - rich role cards with color-coded adjudication borders and inline actions</strong></li>
+            <li><strong>NEW: Bulk Operations - select multiple roles with checkboxes, batch activate/deactivate/delete/set category/mark deliverable</strong></li>
+            <li><strong>NEW: Inline Quick Actions - click category badge to change, star toggle for deliverable, click name to copy</strong></li>
+            <li><strong>NEW: Role Cloning - duplicate any role with one click for quick creation of similar roles</strong></li>
+            <li><strong>NEW: Duplicate Detection - warns when saving roles with similar names or matching aliases</strong></li>
+            <li><strong>NEW: Keyboard Navigation - j/k or arrows to navigate, Enter to edit, Space to select, T to toggle view, / to search</strong></li>
+            <li><strong>NEW: Enhanced Filtering - filter by adjudication status, has description, has function tags</strong></li>
+            <li><strong>NEW: Audit Trail display - shows time ago, updated by info with full date tooltips</strong></li>
+            <li><strong>NEW: Sortable columns with sort direction arrows (role name, category, modified date)</strong></li>
+            <li>IMPROVED: Adjudication badges on every dictionary row showing confirmed/deliverable/rejected/pending status</li>
+            <li>IMPROVED: Health score metric tracking description and tag completeness across the dictionary</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v4.0.4 <span class="changelog-date">February 8, 2026</span></h3>
-        <p><strong>Import Enhancements & PDF Export</strong></p>
         <ul>
-            <li><strong>NEW: Diff Preview</strong> - Preview modal before import shows new/changed/unchanged roles</li>
-            <li><strong>NEW: Package Versioning</strong> - Warns when importing from newer AEGIS version</li>
-            <li><strong>NEW: PDF Report</strong> - AEGIS-branded adjudication report via reportlab</li>
-            <li><strong>IMPROVED: Import Progress</strong> - Spinner overlay during imports</li>
+            <li><strong>NEW: Dictionary Diff Preview - preview what will change before importing adjudication decisions</strong></li>
+            <li><strong>NEW: Package versioning - warns when importing packages from newer AEGIS versions</strong></li>
+            <li><strong>NEW: PDF adjudication report export (Export → PDF Report)</strong></li>
+            <li>IMPROVED: Import progress indicators with spinner overlay during import operations</li>
+            <li>IMPROVED: Two-step import flow: preview diff → confirm → import</li>
+            <li>BACKEND: POST /api/roles/adjudication/import-preview - diff preview endpoint</li>
+            <li>BACKEND: GET /api/roles/adjudication/export-pdf - PDF report generation</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v4.0.3 <span class="changelog-date">February 8, 2026</span></h3>
-        <p><strong>Adjudication Tab Complete Overhaul + Global Badges</strong></p>
         <ul>
-            <li><strong>NEW: Global Adjudication Badges</strong> - Tool-wide badges (✓/★/✗) on all role displays across every tab and view</li>
-            <li style="margin-left: 20px;"><em>Badge Types</em> - ✓ Adjudicated (green), ★ Deliverable (gold), ✗ Rejected (red)</li>
-            <li style="margin-left: 20px;"><em>Coverage</em> - Roles Studio, Data Explorer, Role-Doc Matrix, RACI Matrix, Role Details</li>
-            <li style="margin-left: 20px;"><em>Utility</em> - AEGIS.AdjudicationLookup global JS utility with caching and badge HTML generation</li>
-            <li><strong>IMPROVED: Adjudication Stats</strong> - Green subtitle under Unique Roles tile instead of separate stat tile</li>
-            <li><strong>FIX: Dark Mode CSS</strong> - Critical fix: dark-mode.css was not loading due to CSS @import ordering violation</li>
-            <li><strong>FIX: Donut Chart Centering</strong> - "3 Categories" center text properly aligned in Data Explorer donut chart</li>
-            <li><strong>OVERHAUL: Adjudication Tab</strong> - Complete rewrite with dashboard, kanban view, and auto-classify</li>
-            <li><strong>NEW: Auto-Classify</strong> - AI-assisted role classification with pattern matching and confidence scoring</li>
-            <li><strong>NEW: Kanban Board</strong> - Drag-and-drop board with Pending/Confirmed/Deliverable/Rejected columns</li>
-            <li><strong>NEW: Confidence Gauges</strong> - SVG ring indicators showing classification confidence per role</li>
-            <li><strong>NEW: Function Tag Pills</strong> - Assign hierarchical function categories directly on role cards</li>
-            <li><strong>NEW: Keyboard Navigation</strong> - Arrow keys, C/D/R to classify, Ctrl+Z undo, Ctrl+Y redo</li>
-            <li><strong>NEW: Undo/Redo</strong> - Full action history with toolbar buttons and keyboard shortcuts</li>
-            <li><strong>NEW: Batch Operations</strong> - Select multiple roles and bulk confirm/reject/deliverable</li>
-            <li><strong>NEW: Source Viewer Tags</strong> - Function tag section in Role Source Viewer with add/remove and custom tag creation</li>
-            <li><strong>FIX: CSRF Token Sync</strong> - Token synced between page load and fetch sessions for reliable POST requests</li>
-            <li><strong>FIX: Session Persistence</strong> - Persistent secret key and Secure cookie flag fix for localhost</li>
-            <li><strong>FIX: Kanban Toggle</strong> - View toggle now properly shows/hides list and board containers</li>
-            <li><strong>BACKEND: Auto-adjudicate API</strong> - Pattern-based classification with deliverable detection</li>
-            <li><strong>BACKEND: Batch adjudicate API</strong> - Process multiple roles in single transaction</li>
-            <li><strong>NEW: Interactive HTML Export</strong> - Export adjudication as standalone HTML kanban board for offline team review</li>
-            <li style="margin-left: 20px;"><em>Features</em> - Drag-drop, function tag assignment, category editing, notes, search/filter</li>
-            <li style="margin-left: 20px;"><em>Import</em> - Generate JSON import file from HTML board, import back into AEGIS</li>
-            <li><strong>NEW: Roles Sharing</strong> - Share role dictionaries with team members</li>
-            <li style="margin-left: 20px;"><em>Shared Folder</em> - Export master dictionary with function tags to shared network path</li>
-            <li style="margin-left: 20px;"><em>Email Package</em> - Download .aegis-roles package and open mailto: with instructions</li>
-            <li style="margin-left: 20px;"><em>Import Package</em> - Import .aegis-roles from Settings or updates/ folder</li>
-            <li><strong>NEW: Export Dropdown</strong> - CSV, Interactive HTML Board, and Import Decisions options</li>
-            <li><strong>IMPROVED: Master File</strong> - Export/import now includes function_tags per role</li>
+            <li><strong>NEW: Global adjudication badges (✓ Adjudicated, ★ Deliverable, ✗ Rejected) on all role displays tool-wide</strong></li>
+            <li><strong>NEW: AEGIS.AdjudicationLookup global utility - fetches role dictionary, caches, provides badge HTML</strong></li>
+            <li><strong>NEW: adjudication-lookup.js - standalone utility for any JS file to display adjudication status</strong></li>
+            <li>IMPROVED: Adjudication stats shown as green subtitle under Unique Roles tile (not separate tile)</li>
+            <li><strong>FIX: Critical dark-mode.css not loading - CSS @import ordering violation in style.css</strong></li>
+            <li><strong>FIX: Data Explorer donut chart center text alignment with Chart.js animation timing</strong></li>
+            <li>OVERHAUL: Complete rewrite of Adjudication tab in Roles &amp; Responsibilities Studio</li>
+            <li><strong>NEW: Auto-Classify button - AI-assisted role classification with pattern matching and confidence scoring</strong></li>
+            <li><strong>NEW: Kanban board view with drag-and-drop between Pending/Confirmed/Deliverable/Rejected columns</strong></li>
+            <li><strong>NEW: Mini dashboard with animated stat cards, SVG progress ring, and click-to-filter</strong></li>
+            <li><strong>NEW: Function tag pills on role cards - assign hierarchical function categories inline</strong></li>
+            <li><strong>NEW: Confidence gauge (SVG ring) on each role card showing classification confidence</strong></li>
+            <li><strong>NEW: Document chips showing which scanned documents contain each role</strong></li>
+            <li><strong>NEW: Undo/Redo system for all adjudication actions (Ctrl+Z / Ctrl+Y)</strong></li>
+            <li><strong>NEW: Keyboard navigation (Arrow keys, C=Confirm, D=Deliverable, R=Reject, V=View Source)</strong></li>
+            <li><strong>NEW: Batch adjudication API endpoint for processing multiple roles in single transaction</strong></li>
+            <li><strong>NEW: Auto-adjudicate API endpoint with deliverable/role pattern matching</strong></li>
+            <li><strong>NEW: Adjudication summary API endpoint with status counts and recent activity</strong></li>
+            <li><strong>NEW: CSV export of adjudication data with role, status, confidence, documents</strong></li>
+            <li><strong>NEW: Bulk selection with select-all checkbox and batch confirm/reject/deliverable</strong></li>
+            <li><strong>NEW: View toggle between list and kanban views with localStorage persistence</strong></li>
+            <li><strong>NEW: Function tag section in Role Source Viewer with Add/Remove tags and custom tag creation</strong></li>
+            <li>IMPROVED: Role cards show context preview with expandable full context</li>
+            <li>IMPROVED: Function tags assignable/removable directly from role cards</li>
+            <li>IMPROVED: Enhanced search and filter with status, confidence, and tag filtering</li>
+            <li><strong>FIX: CSRF token sync between page load and fetch sessions</strong></li>
+            <li><strong>FIX: Persistent secret key survives server restarts</strong></li>
+            <li><strong>FIX: Localhost server switched from Waitress to Flask threaded (Secure cookie flag fix)</strong></li>
+            <li><strong>FIX: Kanban view toggle properly shows/hides list and board containers</strong></li>
+            <li>BACKEND: batch_adjudicate() method in scan_history.py for transactional batch operations</li>
+            <li>BACKEND: get_adjudication_summary() method for dashboard statistics</li>
+            <li>BACKEND: Enhanced /api/roles/adjudicate endpoint with function_tags parameter</li>
+            <li><strong>NEW: Interactive HTML Export - standalone kanban board with drag-drop, tags, categories, notes, and import file generation</strong></li>
+            <li><strong>NEW: Import Decisions - import adjudication decisions from JSON files generated by HTML board</strong></li>
+            <li><strong>NEW: Export dropdown menu with CSV, Interactive HTML Board, and Import options</strong></li>
+            <li><strong>NEW: Share button with Export to Shared Folder and Email Package options</strong></li>
+            <li><strong>NEW: .aegis-roles package format for team sharing of role dictionaries with function tags</strong></li>
+            <li><strong>NEW: Settings &gt; Sharing &gt; Import Package for .aegis-roles file upload</strong></li>
+            <li><strong>NEW: FileRouter auto-imports .aegis-roles files from updates/ folder</strong></li>
+            <li>IMPROVED: Master file export now includes function_tags per role</li>
+            <li>IMPROVED: Master file sync now imports function_tags during sync</li>
+            <li>BACKEND: GET /api/roles/adjudication/export-html endpoint</li>
+            <li>BACKEND: POST /api/roles/adjudication/import endpoint</li>
+            <li>BACKEND: POST /api/roles/share/package endpoint</li>
+            <li>BACKEND: POST /api/roles/share/import-package endpoint</li>
         </ul>
     </div>
-    <div class="changelog-version">
-        <h3>v4.0.2 <span class="changelog-date">February 7, 2026</span></h3>
-        <p><strong>Roles Studio UI Enhancements & RACI Fix</strong></p>
-        <ul>
-            <li><strong>FIX: Role Source Viewer Dark Mode</strong> - Complete dark mode support for readability</li>
-            <li style="margin-left: 20px;"><em>Document Text</em> - Light text (#e0e0e0) on dark background for readability</li>
-            <li style="margin-left: 20px;"><em>All Panels</em> - Headers, footers, details panel styled for dark mode</li>
-            <li style="margin-left: 20px;"><em>Role Highlights</em> - Amber gradient overlays visible in dark mode</li>
-            <li style="margin-left: 20px;"><em>Form Controls</em> - Buttons, selects, inputs all have dark mode styling</li>
-            <li><strong>FIX: RACI Matrix Deduplication</strong> - Totals now match Overview's responsibility count</li>
-            <li style="margin-left: 20px;"><em>Before</em> - RACI showed 406 (counting duplicates across documents)</li>
-            <li style="margin-left: 20px;"><em>After</em> - RACI shows ~297 (matching Overview's 298 unique responsibilities)</li>
-            <li><strong>NEW: Role Details Explore Button</strong> - Icon to open role in Data Explorer</li>
-            <li style="margin-left: 20px;"><em>Magnifying glass + plus</em> - Visible icon replaces double-click behavior</li>
-            <li style="margin-left: 20px;"><em>Direct navigation</em> - Opens Data Explorer focused on selected role</li>
-        </ul>
-        <div class="changelog-note">
-            <strong>Tip:</strong> Click the explore icon (🔍+) on any role card in Role Details to see full analytics in Data Explorer.
-        </div>
-    </div>
-
     <div class="changelog-version">
         <h3>v4.0.1 <span class="changelog-date">February 4, 2026</span></h3>
-        <p><strong>Role Extraction Accuracy Enhancement - 99%+ Recall</strong></p>
         <ul>
-            <li><strong>MAJOR: Role Extractor v3.3.x</strong> - Comprehensive accuracy improvements achieving 99%+ recall</li>
-            <li style="margin-left: 20px;"><em>Original Documents</em> - FAA, OSHA, Stanford: 103% average recall</li>
-            <li style="margin-left: 20px;"><em>Defense/Government</em> - MIL-STD, NIST, NASA: 99.5% average recall</li>
-            <li style="margin-left: 20px;"><em>Aerospace</em> - NASA, FAA, KSC: 99.0% average recall</li>
-            <li><strong>v3.3.0</strong> - Added ~40 new roles (worker terms, academic roles)</li>
-            <li><strong>v3.3.1</strong> - Added ~25 entries to FALSE_POSITIVES (safety concepts, document references)</li>
-            <li><strong>v3.3.2</strong> - Added ~30 defense-specific roles (contracting officer, prime contractor, etc.)</li>
-            <li><strong>v3.3.3</strong> - Added aerospace/aviation terms (lead, pilot, engineer)</li>
-            <li><strong>NEW: Test Scripts</strong> - manual_role_analysis.py, defense_role_analysis.py, aerospace_role_analysis.py</li>
+            <li>ACCURACY: Role extraction v3.3.3 achieves 99%+ recall across all document types</li>
+            <li>ACCURACY: Added ~70 new roles (OSHA, academic, defense, aerospace)</li>
+            <li>ACCURACY: Added ~25 false positive filters, removed 3 incorrect entries (contractor, government, quality control)</li>
+            <li>ACCURACY: Added domain-specific validation (worker_terms, defense_terms, academic_terms)</li>
+            <li>VALIDATED: FAA, OSHA, Stanford documents - 103% average recall</li>
+            <li>VALIDATED: Defense/Government (MIL-STD, NIST) - 99.5% average recall</li>
+            <li>VALIDATED: Aerospace (NASA, FAA, KSC) - 99.0% average recall</li>
+            <li><strong>NEW: defense_role_analysis.py, aerospace_role_analysis.py test scripts</strong></li>
+            <li>DOC: Updated ROLE_EXTRACTION_IMPROVEMENTS.md, ROLE_EXTRACTION_TEST_RESULTS.md</li>
         </ul>
-        <div class="changelog-note">
-            <strong>Note:</strong> Role extraction now validated on FAA, NASA, MIL-STD, NIST, OSHA, and academic documents.
-        </div>
     </div>
-
     <div class="changelog-version">
         <h3>v4.0.0 <span class="changelog-date">February 4, 2026</span></h3>
-        <p><strong>AEGIS Rebrand Release</strong></p>
         <ul>
-            <li><strong>REBRAND: TechWriterReview → AEGIS</strong> - Aerospace Engineering Governance & Inspection System</li>
-            <li style="margin-left: 20px;"><em>New Logo</em> - AEGIS shield with gold/bronze gradient</li>
-            <li style="margin-left: 20px;"><em>Color Scheme</em> - Gold accent palette throughout UI</li>
-            <li style="margin-left: 20px;"><em>163+ Files</em> - Updated across codebase with new branding</li>
-            <li><strong>UI: Document Text Readability</strong> - Enhanced font sizing (15px), line-height (1.75)</li>
-            <li><strong>UI: Navigation Tab Order</strong> - Validate and Links tabs now adjacent</li>
-            <li><strong>FIX: GRM002 (Capitalize I)</strong> - Fixed false positives matching 'i' inside words</li>
-            <li><strong>FIX: Punctuation Checker</strong> - Filters TOC/table of contents entries</li>
-            <li><strong>FIX: Prose Linter</strong> - Nominalization exceptions for 40+ technical terms</li>
-            <li><strong>FIX: Passive Checker</strong> - Added 60+ adjectival participles</li>
-            <li><strong>NEW: Data Management Tab</strong> - Clear Scan History, Role Dictionary, Learning Data, Factory Reset</li>
+            <li>REBRAND: Complete rebrand from TechWriterReview to AEGIS (Aerospace Engineering Governance &amp; Inspection System)</li>
+            <li>REBRAND: Updated 163+ files across codebase with new branding</li>
+            <li>REBRAND: New AEGIS shield logo with gold/bronze gradient</li>
+            <li>REBRAND: Gold accent color palette (#D6A84A, #B8743A) throughout UI</li>
+            <li>REBRAND: Updated browser title, navigation, and all UI text</li>
+            <li>ACCURACY: Fixed critical GRM002 'Capitalize I' false positives matching 'i' inside words</li>
+            <li>ACCURACY: Grammar checker v2.6.0 with case-sensitive lowercase 'i' detection</li>
+            <li>ACCURACY: Punctuation checker v2.7.0 filters TOC/table of contents entries</li>
+            <li>ACCURACY: Prose linter v1.1.0 with nominalization exceptions for 40+ technical terms</li>
+            <li>ACCURACY: Base checker v2.5.0 with word boundary validation for single-char matches</li>
+            <li><strong>NEW: Bokeh visualization library added to requirements for interactive charts</strong></li>
+            <li>IMPROVED: Dark mode AEGIS brand colors for better visibility</li>
+            <li>IMPROVED: Active navigation tabs use gold accent underline</li>
+            <li>TEST: All 42 v3.4.0 checker tests passing</li>
+            <li>TEST: All 117 core tests passing</li>
         </ul>
-        <div class="changelog-note">
-            <strong>Note:</strong> All 325+ tests passing. Version expectations updated throughout test suite.
-        </div>
     </div>
     <div class="changelog-version">
         <h3>v3.4.5 <span class="changelog-date">February 4, 2026</span></h3>
-        <p><strong>Checker UI & Style Presets</strong></p>
         <ul>
-            <li><strong>UI: Checker Checkboxes</strong> - Added 23 new v3.4.0 checker checkboxes to Settings > Document Profiles</li>
-            <li><strong>UI: Checker Categories</strong> - Readability, Procedural Writing, Product & Code, Standards & Compliance</li>
-            <li><strong>UI: Style Guide Presets</strong> - Preset selector in Settings > Review Options (8 presets)</li>
-            <li><strong>NEW: style-presets.js</strong> - Preset UI module with localStorage persistence</li>
-            <li><strong>NEW: Performance Benchmarks</strong> - test_checker_performance.py for 84 checkers</li>
-            <li><strong>FIX: BUG-M09</strong> - Hyperlink validator HTML export properly handles undefined values</li>
-            <li><strong>VERIFIED: 84 Checkers</strong> - All registered and available for document analysis</li>
+            <li>UI: Added 23 new v3.4.0 checker checkboxes to Settings &gt; Document Profiles</li>
+            <li>UI: New checker categories - Readability, Procedural Writing, Product &amp; Code, Standards &amp; Compliance</li>
+            <li>UI: Style Guide Preset selector in Settings &gt; Review Options (8 presets)</li>
+            <li><strong>NEW: static/js/features/style-presets.js - Preset UI module with localStorage persistence</strong></li>
+            <li><strong>NEW: tests/test_checker_performance.py - Performance benchmark suite for 84 checkers</strong></li>
+            <li><strong>FIX: BUG-M09 - Hyperlink validator HTML export summary now properly handles undefined values</strong></li>
+            <li>IMPROVED: Checker grid CSS with scrollable categories and compact layout</li>
+            <li>VERIFIED: 84 checkers registered and available for document analysis</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v3.4.4 <span class="changelog-date">February 4, 2026</span></h3>
-        <p><strong>Universal Acronym Database</strong></p>
         <ul>
-            <li><strong>DATABASE: 1,767 Acronyms</strong> - universal_acronyms.json from UK MOJ, DOD, FDA, IEEE/ISO/ANSI sources</li>
-            <li><strong>IMPROVED: Acronym Checker v4.6.0</strong> - Loads external database, auto-skips well-known acronyms in permissive mode</li>
-            <li><strong>OFFLINE</strong> - All acronyms available offline for air-gapped deployments</li>
+            <li>DATABASE: Added universal_acronyms.json with 1,767 well-known acronyms</li>
+            <li>DATABASE: Sources include UK MOJ, DOD Dictionary, FDA, IEEE/ISO/ANSI, common tech writing</li>
+            <li>DATABASE: Acronyms categorized (technology, government, military, medical, finance, etc.)</li>
+            <li>IMPROVED: Acronym checker v4.6.0 now loads external acronym database</li>
+            <li>IMPROVED: External database used in permissive mode to auto-skip well-known acronyms</li>
+            <li>IMPROVED: Database loading is cached for performance (loaded once per session)</li>
+            <li>OFFLINE: All 1,767 acronyms available offline for air-gapped deployments</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v3.4.3 <span class="changelog-date">February 3, 2026</span></h3>
-        <p><strong>Batch Accuracy Testing</strong></p>
         <ul>
-            <li><strong>ACCURACY</strong> - Comprehensive batch testing across 10+ document types</li>
-            <li><strong>IMPROVED: Acronym Checker v4.5.2</strong> - ALL CAPS sentence detection, 50+ regulatory acronyms, 30+ engineering acronyms</li>
-            <li><strong>IMPROVED: Grammar Checker v2.6.2</strong> - 60+ common ALL CAPS words, reduced passive voice false positives</li>
+            <li>ACCURACY: Comprehensive batch testing across 10+ document types</li>
+            <li>ACCURACY: Added ALL CAPS sentence detection to prevent false acronym flags</li>
+            <li>ACCURACY: Added 50+ well-known regulatory acronyms (NIOSH, CDC, NIH, etc.)</li>
+            <li>ACCURACY: Added 30+ engineering/process acronyms (PID, PLC, SCADA, etc.)</li>
+            <li>ACCURACY: Added 60+ common words in ALL CAPS instructions (HARD, MUST, etc.)</li>
+            <li>ACCURACY: Reduced passive voice false positives with 50+ technical terms</li>
+            <li>ACCURACY: Fixed 'is need' and similar false positive patterns</li>
+            <li>IMPROVED: Acronym checker v4.5.2 with better ALL CAPS detection</li>
+            <li>IMPROVED: Grammar checker v2.6.2 with comprehensive false positive list</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v3.4.2 <span class="changelog-date">February 3, 2026</span></h3>
-        <p><strong>False Positive Reduction</strong></p>
         <ul>
-            <li><strong>ACCURACY</strong> - 40%+ reduction in acronym false positives</li>
-            <li><strong>IMPROVED: Acronym Checker v4.5.1</strong> - Section references (A1, B2) no longer flagged, 80+ domain skip words</li>
-            <li><strong>IMPROVED: Grammar Checker v2.6.1</strong> - 50+ technical/SOP terms added to passive voice false positives</li>
-            <li><strong>FIX</strong> - Phantom passive voice detections eliminated (are prohibited, must be contacted, etc.)</li>
+            <li>ACCURACY: Reduced false positives in acronym detection by 40%+</li>
+            <li>ACCURACY: Section reference codes (A1, B2, C3...) no longer flagged as undefined acronyms</li>
+            <li>ACCURACY: Template/instruction text in brackets [GREEN TEXT] now filtered out</li>
+            <li>ACCURACY: Added 80+ domain-specific skip words (ROBOTICS, REST, COVID, LASER, etc.)</li>
+            <li>ACCURACY: Improved passive voice detection - added 50+ technical/SOP terms to false positives</li>
+            <li><strong>FIX: Phantom passive voice detections (are prohibited, must be contacted, etc.) eliminated</strong></li>
+            <li>IMPROVED: Acronym checker v4.5.1 with smarter section reference detection</li>
+            <li>IMPROVED: Grammar checker v2.6.1 with expanded technical vocabulary</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v3.4.1 <span class="changelog-date">February 3, 2026</span></h3>
-        <p><strong>Style Guide Presets, CLI Mode & Auto-Fix Engine</strong></p>
         <ul>
-            <li><strong>NEW: Style Guide Presets</strong> - One-click configuration for Microsoft, Google, Plain Language, ASD-STE100, Government, Aerospace</li>
-            <li><strong>NEW: Full CLI Mode</strong> - Run all 84 checkers from command line (python -m AEGIS document.docx)</li>
-            <li style="margin-left: 20px;"><em>Batch Processing</em> - --batch, --preset, --format (json/csv/xlsx/text) flags</li>
-            <li><strong>NEW: Auto-Fix Engine</strong> - Fix generators for Latin abbreviations, contractions, wordy phrases, product names</li>
-            <li><strong>NEW: ASD-STE100 Words</strong> - 875 approved words and writing rules database</li>
-            <li><strong>NEW: Preset API</strong> - /api/presets, /api/presets/&lt;name&gt;, /api/auto-fix/preview</li>
+            <li><strong>NEW: Style Guide Presets - One-click configuration for Microsoft, Google, Plain Language, ASD-STE100, Government, Aerospace styles</strong></li>
+            <li><strong>NEW: style_presets.py - 8 pre-built style guide configurations with checker settings</strong></li>
+            <li><strong>NEW: Full CLI Mode - Run all 84 checkers from command line (python -m AEGIS document.docx)</strong></li>
+            <li><strong>NEW: __main__.py - Complete CLI with batch processing, preset selection, JSON/CSV/XLSX export</strong></li>
+            <li><strong>NEW: Auto-Fix Engine - Foundation for automatic issue correction</strong></li>
+            <li><strong>NEW: auto_fixer.py - Fix generators for Latin abbreviations, contractions, wordy phrases, product names, second person, future tense, link text</strong></li>
+            <li><strong>NEW: ASD-STE100 Approved Words - data/ste100_approved_words.json with 875 approved words and writing rules</strong></li>
+            <li><strong>NEW: API /api/presets - List and apply style guide presets</strong></li>
+            <li><strong>NEW: API /api/presets/&lt;name&gt; - Get specific preset configuration</strong></li>
+            <li><strong>NEW: API /api/presets/&lt;name&gt;/apply - Apply preset with custom overrides</strong></li>
+            <li><strong>NEW: API /api/auto-fix/preview - Preview available auto-fixes for issues</strong></li>
+            <li>CLI: --preset flag for style guide selection (microsoft, google, plain_language, asd_ste100, government, aerospace)</li>
+            <li>CLI: --batch flag for processing multiple documents</li>
+            <li>CLI: --format flag for output format (json, csv, xlsx, text)</li>
+            <li>CLI: --list-presets and --list-checkers info commands</li>
+            <li>IMPROVED: Vale-style preset configurations matching industry standards</li>
         </ul>
     </div>
-
     <div class="changelog-version">
         <h3>v3.4.0 <span class="changelog-date">February 3, 2026</span></h3>
-        <p><strong>Maximum Coverage Suite - 23 New Offline-Only Checkers</strong></p>
         <ul>
-            <li><strong>NEW: Style Consistency Checkers (6)</strong></li>
-            <li style="margin-left: 20px;"><em>HeadingCaseConsistencyChecker</em> - Validates heading capitalization consistency</li>
-            <li style="margin-left: 20px;"><em>ContractionConsistencyChecker</em> - Detects mixed contraction usage</li>
-            <li style="margin-left: 20px;"><em>OxfordCommaConsistencyChecker</em> - Validates serial comma consistency</li>
-            <li style="margin-left: 20px;"><em>ARIProminenceChecker</em> - Automated Readability Index assessment</li>
-            <li style="margin-left: 20px;"><em>SpacheReadabilityChecker</em> - Spache formula for basic audiences</li>
-            <li style="margin-left: 20px;"><em>DaleChallEnhancedChecker</em> - Enhanced Dale-Chall with 3000-word list</li>
-            <li><strong>NEW: Clarity Checkers (5)</strong></li>
-            <li style="margin-left: 20px;"><em>FutureTenseChecker</em> - Flags "will display" patterns</li>
-            <li style="margin-left: 20px;"><em>LatinAbbreviationChecker</em> - Warns about i.e., e.g., etc.</li>
-            <li style="margin-left: 20px;"><em>SentenceInitialConjunctionChecker</em> - Flags And, But, So at sentence start</li>
-            <li style="margin-left: 20px;"><em>DirectionalLanguageChecker</em> - Flags above/below/left/right</li>
-            <li style="margin-left: 20px;"><em>TimeSensitiveLanguageChecker</em> - Flags currently/now/recently</li>
-            <li><strong>NEW: Enhanced Acronym Checkers (2)</strong></li>
-            <li style="margin-left: 20px;"><em>AcronymFirstUseChecker</em> - Enforces definition on first use</li>
-            <li style="margin-left: 20px;"><em>AcronymMultipleDefinitionChecker</em> - Flags acronyms defined multiple times</li>
-            <li><strong>NEW: Procedural Writing Checkers (3)</strong></li>
-            <li style="margin-left: 20px;"><em>ImperativeMoodChecker</em> - Validates procedures use imperative mood</li>
-            <li style="margin-left: 20px;"><em>SecondPersonChecker</em> - Prefers "you" over "the user"</li>
-            <li style="margin-left: 20px;"><em>LinkTextQualityChecker</em> - Flags "click here" and vague link text</li>
-            <li><strong>NEW: Document Quality Checkers (4)</strong></li>
-            <li style="margin-left: 20px;"><em>NumberedListSequenceChecker</em> - Validates 1, 2, 3 not 1, 2, 4</li>
-            <li style="margin-left: 20px;"><em>ProductNameConsistencyChecker</em> - Validates JavaScript not Javascript</li>
-            <li style="margin-left: 20px;"><em>CrossReferenceTargetChecker</em> - Validates Table 5 exists</li>
-            <li style="margin-left: 20px;"><em>CodeFormattingConsistencyChecker</em> - Flags unformatted code</li>
-            <li><strong>NEW: Compliance Checkers (3)</strong></li>
-            <li style="margin-left: 20px;"><em>MILStd40051Checker</em> - MIL-STD-40051-2 technical manual compliance</li>
-            <li style="margin-left: 20px;"><em>S1000DBasicChecker</em> - S1000D/IETM structural validation</li>
-            <li style="margin-left: 20px;"><em>AS9100DocChecker</em> - AS9100D documentation requirements</li>
-            <li><strong>NEW: Data Files</strong> - Dale-Chall 3000 words, Spache easy words, 250+ product names, compliance patterns</li>
-            <li><strong>TOTAL: 84 Checkers</strong> - (61 existing + 23 new)</li>
+            <li><strong>NEW: Maximum Coverage Suite - 23 new offline-only checkers for comprehensive analysis</strong></li>
+            <li><strong>NEW: style_consistency_checkers.py - 6 checkers (heading case, contractions, Oxford comma, ARI, Spache, Dale-Chall)</strong></li>
+            <li><strong>NEW: clarity_checkers.py - 5 checkers (future tense, Latin abbreviations, sentence-initial conjunctions, directional language, time-sensitive language)</strong></li>
+            <li><strong>NEW: acronym_enhanced_checkers.py - 2 checkers (first-use enforcement, multiple definition detection)</strong></li>
+            <li><strong>NEW: procedural_writing_checkers.py - 3 checkers (imperative mood, second person preference, link text quality)</strong></li>
+            <li><strong>NEW: document_quality_checkers.py - 4 checkers (numbered list sequence, product name consistency, cross-reference targets, code formatting)</strong></li>
+            <li><strong>NEW: compliance_checkers.py - 3 checkers (MIL-STD-40051, S1000D basic, AS9100 documentation)</strong></li>
+            <li><strong>NEW: data/dale_chall_3000.json - Full 3000-word Dale-Chall easy word list for readability analysis</strong></li>
+            <li><strong>NEW: data/spache_easy_words.json - 1000+ word Spache formula word list</strong></li>
+            <li><strong>NEW: data/product_names.json - 250+ product/technology name capitalizations</strong></li>
+            <li><strong>NEW: data/mil_std_40051_patterns.json - MIL-STD-40051-2 compliance patterns and rules</strong></li>
+            <li><strong>NEW: data/s1000d_basic_rules.json - S1000D Issue 5.0 structural requirements</strong></li>
+            <li><strong>NEW: data/as9100_doc_requirements.json - AS9100D documentation requirements</strong></li>
+            <li><strong>NEW: Option mappings for all 23 checkers in core.py for UI checkbox control</strong></li>
+            <li>IMPROVED: Vale-style style guide compliance (Microsoft, Google, ASD-STE100)</li>
+            <li>IMPROVED: Readability formulas (ARI, Spache, enhanced Dale-Chall)</li>
+            <li>IMPROVED: Procedural writing validation per technical writing best practices</li>
+            <li>IMPROVED: Aerospace/defense compliance checking (MIL-STD, S1000D, AS9100)</li>
+            <li>TEST: Comprehensive unit tests for all 23 new checkers</li>
+            <li>TEST: Integration tests verifying checkers load in core.py</li>
+            <li>TEST: Data file validation tests</li>
+            <li>OFFLINE: All 23 checkers 100% offline-capable with no external API dependencies</li>
         </ul>
-        <div class="changelog-note">
-            <strong>Note:</strong> All new checkers are 100% offline-capable for air-gapped deployment. 42 new unit tests added.
-        </div>
     </div>
-
     <div class="changelog-version">
         <h3>v3.3.0 <span class="changelog-date">February 3, 2026</span></h3>
-        <p><strong>Maximum Accuracy NLP Enhancement Suite</strong></p>
         <ul>
-            <li><strong>NEW: Technical Dictionary System</strong> - Master dictionary with 10,000+ embedded terms</li>
-            <li style="margin-left: 20px;"><em>Aerospace/Defense</em> - 1,200+ terms</li>
-            <li style="margin-left: 20px;"><em>Medical/Pharma</em> - 800+ terms</li>
-            <li style="margin-left: 20px;"><em>Legal/Compliance</em> - 600+ terms</li>
-            <li style="margin-left: 20px;"><em>Software/IT</em> - 1,500+ terms</li>
-            <li><strong>NEW: spaCy NLP Pipeline</strong> - Named Entity Recognition for role extraction</li>
-            <li><strong>NEW: Hybrid Role Extraction</strong> - Combined NLP + pattern matching</li>
-            <li><strong>NEW: Fuzzy Matching</strong> - rapidfuzz library for acronym detection</li>
-            <li><strong>NEW: Context Analysis</strong> - Sentence-level analysis for acronym suggestions</li>
-            <li><strong>IMPROVED: Role Extractor v3</strong> - 228+ pre-defined roles with 192+ false positive exclusions</li>
-            <li><strong>IMPROVED: Acronym Detector</strong> - 95%+ precision with context-aware filtering</li>
-            <li><strong>100% Offline</strong> - All NLP models run locally for air-gapped environments</li>
+            <li><strong>NEW: Maximum Accuracy NLP Enhancement Suite for near-100% accuracy</strong></li>
+            <li><strong>NEW: technical_dictionary.py - 10,000+ term master dictionary with aerospace/defense terminology</strong></li>
+            <li><strong>NEW: adaptive_learner.py - Unified learning system with SQLite persistence for role/acronym/grammar decisions</strong></li>
+            <li><strong>NEW: nlp_enhanced.py - Enhanced NLP processor with EntityRuler, PhraseMatcher, transformer support</strong></li>
+            <li><strong>NEW: enhanced_passive_checker.py - Dependency parsing-based passive voice detection (not regex)</strong></li>
+            <li><strong>NEW: fragment_checker.py - Syntactic parsing for sentence fragment detection</strong></li>
+            <li><strong>NEW: requirements_analyzer.py - Atomicity, testability, escape clause, ambiguous term checking</strong></li>
+            <li><strong>NEW: terminology_checker.py - Spelling variant, British/American, abbreviation consistency</strong></li>
+            <li><strong>NEW: cross_reference_validator.py - Section/table/figure/requirement reference validation</strong></li>
+            <li><strong>NEW: data/aerospace_patterns.json - 80+ EntityRuler patterns for aerospace/defense</strong></li>
+            <li><strong>NEW: 300+ adjectival participles whitelist for passive voice false positive reduction</strong></li>
+            <li><strong>NEW: 60+ ambiguous terms database for requirements analysis</strong></li>
+            <li><strong>NEW: 100+ British/American word pairs for terminology consistency</strong></li>
+            <li><strong>NEW: Ensemble extraction combining NER, patterns, and dependency parsing</strong></li>
+            <li><strong>NEW: Context-aware confidence boosting from user decisions</strong></li>
+            <li><strong>NEW: Export/import JSON for team sharing of learned patterns</strong></li>
+            <li>IMPROVED: Role extraction target accuracy 95%+ (from 56.7%)</li>
+            <li>IMPROVED: Acronym detection target accuracy 95%+ (from 75%)</li>
+            <li>IMPROVED: Passive voice detection target accuracy 88%+ (from 70%)</li>
+            <li>IMPROVED: Spelling accuracy target 98%+ (from 85%)</li>
+            <li>TEST: 167 new unit tests (40+34+30+35+28) across 5 test files</li>
+            <li>TEST: All 356 tests passing (189 existing + 167 new)</li>
+            <li>OFFLINE: All features 100% offline-capable for air-gapped deployment</li>
         </ul>
-        <div class="changelog-note">
-            <strong>Note:</strong> Install via setup.bat for full NLP capabilities. Graceful fallback to pattern-only mode if libraries unavailable.
-        </div>
     </div>
     <div class="changelog-version">
         <h3>v3.2.5 <span class="changelog-date">February 3, 2026</span></h3>
-        <p><strong>Role Extraction Accuracy Improvements</strong></p>
         <ul>
-            <li><strong>IMPROVED: Role Extraction Filters</strong> - Phone numbers, digit-starting candidates, ZIP codes, run-together words, slash alternatives, section headers, address patterns</li>
-            <li><strong>NEW: Domain Roles</strong> - 25+ FAA/Aviation roles, 25+ OSHA/Safety roles</li>
-            <li><strong>IMPROVED: Acronym Extraction</strong> - Parenthetical acronyms captured alongside roles (e.g., Project Manager (PM))</li>
-            <li><strong>ACCURACY</strong> - False positives reduced by 78%, accuracy improved from 36.7% to 56.7%</li>
+            <li>IMPROVED: Role extraction now filters phone number patterns (###-####, (###), etc.)</li>
+            <li>IMPROVED: Role extraction now filters candidates starting with digits</li>
+            <li>IMPROVED: Role extraction now filters candidates with &gt;30% numeric characters</li>
+            <li>IMPROVED: Role extraction now filters candidates containing ZIP codes</li>
+            <li>IMPROVED: Role extraction maximum length validation (&gt;60 chars rejected)</li>
+            <li>IMPROVED: Acronyms in parentheses now extracted with roles (e.g., 'Project Manager (PM)' extracts PM)</li>
+            <li>IMPROVED: Acronym pattern extended to support 6-word role names and &amp; in acronyms</li>
+            <li>IMPROVED: NLP extraction now captures acronyms from context</li>
+            <li>IMPROVED: Filter run-together words from PDF extraction (e.g., 'Byasafetydepartment')</li>
+            <li>IMPROVED: Filter slash-separated alternatives (e.g., 'Owner/Manager')</li>
+            <li>IMPROVED: Filter section headers (e.g., 'C. Scalability')</li>
+            <li>IMPROVED: Filter address/location patterns (e.g., 'Suite 670', 'Atlanta Federal Center')</li>
+            <li>IMPROVED: More conservative NLP override - requires role indicators to trust NLP</li>
+            <li>IMPROVED: Added 20+ single-word exclusions (user, owner, chief, team, group, etc.)</li>
+            <li>IMPROVED: Filter 'Other X' and 'Own X' patterns</li>
+            <li><strong>NEW: 25+ FAA/Aviation-specific roles (accountable executive, certificate holder, flight crew, etc.)</strong></li>
+            <li><strong>NEW: 25+ OSHA/Safety-specific roles (process safety coordinator, plant manager, shift supervisor, etc.)</strong></li>
+            <li>ACCURACY: Reduced false positives by 78% (9 → 2) in test documents</li>
+            <li>ACCURACY: Improved accuracy from 36.7% to 56.7% on FAA/OSHA documents</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v3.2.4 <span class="changelog-date">February 3, 2026</span></h3>
-        <p><strong>Enhanced spaCy NLP & New Analyzers</strong></p>
         <ul>
-            <li><strong>IMPROVED: spaCy Integration</strong> - NLPProcessor v1.1.0 with compound noun detection, role-verb association, confidence scoring</li>
-            <li><strong>NEW: 5 Analyzers</strong> - Semantic similarity, acronym extraction (Schwartz-Hearst), prose linter, structure analysis, text statistics</li>
-            <li><strong>NEW: API Endpoints</strong> - /api/analyzers/* for similarity, acronyms, statistics, lint, and status</li>
-            <li><strong>NEW: Vocabulary Metrics</strong> - TTR, Hapax Legomena, Yule's K, TF-IDF keyword extraction</li>
+            <li>IMPROVED: Enhanced spaCy integration for role extraction (BUG-M11)</li>
+            <li>IMPROVED: NLPProcessor v1.1.0 with better noun chunk analysis</li>
+            <li>IMPROVED: Added compound noun detection for multi-word roles</li>
+            <li>IMPROVED: Added passive voice subject detection for roles</li>
+            <li>IMPROVED: Added role-verb association detection (approve, review, coordinate, etc.)</li>
+            <li>IMPROVED: Enhanced confidence scoring based on POS tags and linguistic features</li>
+            <li>IMPROVED: Better sentence-based context extraction using spaCy</li>
+            <li>IMPROVED: Lower threshold for high-confidence NLP detections</li>
+            <li>IMPROVED: Added 45+ new role suffixes and modifiers for aerospace/defense</li>
+            <li>IMPROVED: Added org unit indicators (directorate, center, facility, etc.)</li>
+            <li>IMPROVED: Fuzzy matching in NLP enhancement to boost existing roles</li>
+            <li><strong>NEW: semantic_analyzer.py - Sentence-Transformers for semantic similarity</strong></li>
+            <li><strong>NEW: acronym_extractor.py - Schwartz-Hearst algorithm for acronym extraction</strong></li>
+            <li><strong>NEW: prose_linter.py - Vale-style rules for technical writing</strong></li>
+            <li><strong>NEW: structure_analyzer.py - Document structure and cross-reference analysis</strong></li>
+            <li><strong>NEW: text_statistics.py - Comprehensive readability and text metrics</strong></li>
+            <li><strong>NEW: Semantic similarity search for finding related content</strong></li>
+            <li><strong>NEW: Duplicate/near-duplicate detection in documents</strong></li>
+            <li><strong>NEW: Sentence clustering for content organization</strong></li>
+            <li><strong>NEW: 100+ standard aerospace/defense acronyms in acronym extractor</strong></li>
+            <li><strong>NEW: Passive voice, nominalization, and wordy phrase detection</strong></li>
+            <li><strong>NEW: Government/aerospace style guide compliance checking</strong></li>
+            <li><strong>NEW: Heading hierarchy and cross-reference validation</strong></li>
+            <li><strong>NEW: Vocabulary richness metrics (TTR, Hapax Legomena, Yule's K)</strong></li>
+            <li><strong>NEW: TF-IDF and noun phrase keyword extraction</strong></li>
+            <li><strong>NEW: Technical writing metrics (shall/will/must usage, jargon density)</strong></li>
+            <li>UPDATED: requirements.txt with sentence-transformers and rapidfuzz</li>
+            <li><strong>NEW: enhanced_analyzers.py - Integration wrapper for all new modules</strong></li>
+            <li>INTEGRATED: All 5 analyzers registered as checkers in core.py</li>
+            <li>INTEGRATED: Option mappings for UI checkbox control</li>
+            <li><strong>NEW: /api/analyzers/status endpoint for analyzer availability</strong></li>
+            <li><strong>NEW: /api/analyzers/semantic/similar endpoint for similarity search</strong></li>
+            <li><strong>NEW: /api/analyzers/acronyms/extract endpoint for acronym extraction</strong></li>
+            <li><strong>NEW: /api/analyzers/statistics endpoint for text metrics</strong></li>
+            <li><strong>NEW: /api/analyzers/lint endpoint for prose quality checking</strong></li>
+            <li><strong>NEW: Enhanced analyzer metrics in review results</strong></li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v3.2.3 <span class="changelog-date">February 3, 2026</span></h3>
-        <p><strong>Bug Fixes — HTML Export & Soft 404</strong></p>
         <ul>
-            <li><strong>FIX: BUG-M09</strong> - HTML export properly escapes URLs and handles None values</li>
-            <li><strong>FIX: BUG-M07</strong> - Soft 404 detection less aggressive</li>
-            <li><strong>FIX: BUG-M23</strong> - Version numbers synchronized across all UI components</li>
-            <li><strong>FIX: BUG-M26/M25</strong> - Troubleshooting panel duplicate IDs and export buttons fixed</li>
+            <li><strong>FIX: BUG-M09 - HTML export now properly escapes URLs and handles None values</strong></li>
+            <li><strong>FIX: BUG-M09 - HTML export generates summary from results when summary object is None</strong></li>
+            <li><strong>FIX: BUG-M07 - Soft 404 detection less aggressive (removed generic 'error' from title check)</strong></li>
+            <li><strong>FIX: BUG-M23 - Version numbers synchronized across all UI components to 3.2.3</strong></li>
+            <li><strong>FIX: BUG-M26 - Duplicate element IDs in troubleshooting panel renamed to prevent conflicts</strong></li>
+            <li><strong>FIX: BUG-M25 - Troubleshooting export buttons now properly find their elements</strong></li>
+            <li>IMPROVED: Hyperlink validator HTML export includes import for html escaping module</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v3.2.2 <span class="changelog-date">February 3, 2026</span></h3>
-        <p><strong>Adjudication Persistence Fixes</strong></p>
         <ul>
-            <li><strong>FIX: Adjudication Save</strong> - Roles properly saved to dictionary via primary and backup API paths</li>
-            <li><strong>FIX: Pending List</strong> - Adjudicated roles removed from pending list, refreshes correctly</li>
-            <li><strong>FIX: Dictionary UI</strong> - Delete button icon, action button styling, status badges fixed</li>
-            <li><strong>NEW: Backup Save</strong> - Fallback to /api/roles/dictionary if primary endpoint fails</li>
+            <li><strong>FIX: Adjudicated roles now properly saved to role dictionary via both primary and backup API paths</strong></li>
+            <li><strong>FIX: Adjudicated roles removed from pending list - list refreshes correctly after adjudication</strong></li>
+            <li><strong>FIX: Adjudication sync now properly updates AdjudicationState.decisions Map with all required fields</strong></li>
+            <li><strong>FIX: Role Dictionary delete button now shows proper icon instead of red box</strong></li>
+            <li><strong>FIX: Dictionary table action buttons styled correctly (edit, toggle, delete)</strong></li>
+            <li><strong>FIX: Status badges (active/inactive) now styled correctly in dictionary table</strong></li>
+            <li><strong>NEW: Backup dictionary save via /api/roles/dictionary if primary endpoint fails</strong></li>
+            <li>IMPROVED: Better logging for adjudication sync to help diagnose issues</li>
+            <li>IMPROVED: State.adjudicatedRoles properly updated for graph visualization sync</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v3.2.1 <span class="changelog-date">February 3, 2026</span></h3>
-        <p><strong>Per-Role Adjudication & Learning</strong></p>
         <ul>
-            <li><strong>FIX: Adjudication Persistence</strong> - Each role now tracks its own adjudication state independently</li>
-            <li><strong>NEW: API Endpoints</strong> - /api/roles/adjudicate, /api/roles/adjudication-status, /api/roles/update-category</li>
-            <li><strong>NEW: Extraction Learning</strong> - Rejected roles added to false_positives, confirmed roles added to known_roles</li>
-            <li><strong>IMPROVED: Source Viewer</strong> - Adjudication panel resets when opening new role</li>
+            <li><strong>FIX: Per-role adjudication persistence - each role now tracks its own adjudication state</strong></li>
+            <li><strong>NEW: API endpoint /api/roles/adjudicate - saves adjudication to role dictionary</strong></li>
+            <li><strong>NEW: API endpoint /api/roles/adjudication-status - retrieves saved adjudication state</strong></li>
+            <li><strong>NEW: API endpoint /api/roles/update-category - updates role category classification</strong></li>
+            <li><strong>NEW: get_role_by_name() method in scan_history.py for role lookup</strong></li>
+            <li><strong>NEW: Role extractor learns from rejections - rejected roles added to false_positives</strong></li>
+            <li><strong>NEW: Confirmed roles added to known_roles for higher confidence matching</strong></li>
+            <li>IMPROVED: Role Source Viewer resets adjudication panel when opening new role</li>
+            <li>IMPROVED: Role extraction becomes smarter over time through adjudication feedback</li>
         </ul>
     </div>
-
     <div class="changelog-version">
         <h3>v3.2.0 <span class="changelog-date">February 3, 2026</span></h3>
-        <p><strong>Role Source Viewer with Adjudication Controls</strong></p>
         <ul>
-            <li><strong>FEATURE: Role Source Viewer</strong> - View actual document text with highlighted role mentions</li>
-            <li style="margin-left: 20px;"><em>Full Document Display</em> - Complete text with all mentions highlighted in orange</li>
-            <li style="margin-left: 20px;"><em>Multi-Document Navigation</em> - Switch between documents where role appears</li>
-            <li style="margin-left: 20px;"><em>Occurrence Navigation</em> - Prev/Next buttons and click-to-jump</li>
-            <li><strong>FEATURE: Adjudication Panel</strong> - Make informed decisions with full context</li>
-            <li style="margin-left: 20px;"><em>Three Actions</em> - Confirm Role (green), Mark Deliverable (blue), Reject (red)</li>
-            <li style="margin-left: 20px;"><em>Status Badges</em> - Pending, Confirmed, Deliverable, Rejected states</li>
-            <li style="margin-left: 20px;"><em>Category Classification</em> - Role, Management, Technical, Organization, Custom</li>
-            <li style="margin-left: 20px;"><em>Notes Field</em> - Add comments to adjudication decisions</li>
-            <li><strong>NEW: API Endpoint</strong> - /api/scan-history/document-text for historical document retrieval</li>
-            <li><strong>FIX: Document Compare Modal</strong> - Now properly sized at 95vw × 90vh</li>
-            <li><strong>IMPROVED: Cache Management</strong> - Versioned script loading for reliable updates</li>
+            <li><strong>NEW: Role Source Viewer with Adjudication Controls - unified role review interface</strong></li>
+            <li><strong>NEW: View actual document text with highlighted role mentions from historical scans</strong></li>
+            <li><strong>NEW: Adjudication panel with Confirm Role, Mark Deliverable, and Reject buttons</strong></li>
+            <li><strong>NEW: Status badges showing adjudication state (Pending/Confirmed/Deliverable/Rejected)</strong></li>
+            <li><strong>NEW: Category dropdown for role classification (Role, Management, Technical, Organization, Custom)</strong></li>
+            <li><strong>NEW: Notes textarea for adjudication comments</strong></li>
+            <li><strong>NEW: Multi-document navigation with occurrence counter</strong></li>
+            <li><strong>NEW: Click any highlight to jump to that mention</strong></li>
+            <li><strong>NEW: API endpoint /api/scan-history/document-text for historical document retrieval</strong></li>
+            <li><strong>NEW: Full document text retrieved from results_json.full_text in scan history</strong></li>
+            <li><strong>FIX: Document Compare modal sizing - now 95vw × 90vh with proper constraints</strong></li>
+            <li><strong>FIX: Browser cache-busting with versioned script loading</strong></li>
+            <li>IMPROVED: Role Source Viewer styling with split-panel design matching Statement Review Mode</li>
         </ul>
-        <div class="changelog-note">
-            <strong>Tip:</strong> Click any role name in Roles Studio to open the Source Viewer and see the actual context.
-        </div>
     </div>
-
     <div class="changelog-version">
         <h3>v3.1.9 <span class="changelog-date">February 2, 2026</span></h3>
-        <p><strong>Molten Progress Bar System</strong></p>
         <ul>
-            <li><strong>FEATURE: Molten Progress Bars</strong> - Scalable Rive-inspired progress bars</li>
-            <li style="margin-left: 20px;"><em>4 Size Variants</em> - Mini (4px), Small (8px), Medium (16px), Large (28px)</li>
-            <li style="margin-left: 20px;"><em>3 Color Themes</em> - Orange, Blue, Green with molten gradients</li>
-            <li style="margin-left: 20px;"><em>Optional Effects</em> - Reflection glow, trailing effect, indeterminate mode</li>
-            <li><strong>INTEGRATED</strong> - Batch rows (mini), Loading overlay (medium), Hyperlink validator (small), Cinematic modal (small)</li>
-            <li><strong>FIX: AEGIS Loader</strong> - No longer blocks clicks after fade-out (pointer-events fix)</li>
-            <li><strong>REMOVED: Initial Startup Loader</strong> - App loads fast enough without it</li>
+            <li><strong>NEW: Molten Progress Bar system - scalable Rive-inspired progress bars</strong></li>
+            <li><strong>NEW: 4 size variants (mini 4px, small 8px, medium 16px, large 28px)</strong></li>
+            <li><strong>NEW: 3 color themes (orange, blue, green) with molten gradients</strong></li>
+            <li><strong>NEW: Optional reflection glow and trailing effects</strong></li>
+            <li><strong>NEW: Indeterminate loading state (contained within bar)</strong></li>
+            <li><strong>NEW: MoltenProgress JavaScript API for dynamic creation</strong></li>
+            <li>INTEGRATED: Molten progress in batch document rows (mini)</li>
+            <li>INTEGRATED: Molten progress in loading overlay (medium with reflection)</li>
+            <li>INTEGRATED: Molten progress in hyperlink validator (small with reflection)</li>
+            <li>INTEGRATED: Molten progress in cinematic modal (small with reflection)</li>
+            <li><strong>FIX: AEGIS loader no longer blocks clicks after fade-out (pointer-events fix)</strong></li>
+            <li>REMOVED: Initial startup loader (app loads fast enough without it)</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v3.1.8 <span class="changelog-date">February 2, 2026</span></h3>
-        <p><strong>AEGIS Cinematic Loader</strong></p>
         <ul>
-            <li><strong>NEW: Full-Screen Startup Animation</strong> - Cinematic 28px progress bar with glow effects and particle background</li>
-            <li><strong>NEW: Visual Effects</strong> - Blue/gold color scheme, grid overlay, sheen sweep, progress orb with trailing glow</li>
-            <li><strong>NEW: Film Grain</strong> - Cinematic vignette and film grain overlays for premium feel</li>
-            <li><strong>IMPROVED: Boot Sequence</strong> - Real-time progress stages during app initialization</li>
+            <li><strong>NEW: AEGIS Cinematic Loader - Full-screen startup animation</strong></li>
+            <li><strong>NEW: Cinematic 28px progress bar with glow effects</strong></li>
+            <li><strong>NEW: Particle background canvas with 170 animated particles</strong></li>
+            <li><strong>NEW: Blue/gold color scheme with grid overlay</strong></li>
+            <li><strong>NEW: Sheen sweep animation with skew effect</strong></li>
+            <li><strong>NEW: Progress orb with trailing glow</strong></li>
+            <li><strong>NEW: Status text and percentage display</strong></li>
+            <li><strong>NEW: Cinematic vignette and film grain overlays</strong></li>
+            <li><strong>NEW: Boot sequence simulation during app initialization</strong></li>
+            <li><strong>NEW: Smooth fade-out on completion</strong></li>
+            <li>IMPROVED: App initialization now shows real-time progress stages</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v3.1.7 <span class="changelog-date">February 2, 2026</span></h3>
-        <p><strong>Cinematic Progress — Major Visual Upgrade</strong></p>
         <ul>
-            <li><strong>NEW: Particle Effects</strong> - Trails, connections, milestone celebrations with burst effects</li>
-            <li><strong>NEW: Theme Enhancements</strong> - Lightning bolts (Circuit), twinkling stars (Cosmic), rising embers (Fire)</li>
-            <li><strong>NEW: Grand Finale</strong> - 80-particle explosion at 100% with container pulse</li>
-            <li><strong>IMPROVED: Matrix Theme</strong> - Faster streams with depth effect and full katakana character set</li>
+            <li>ENHANCED: Cinematic Progress Animation System - Major visual upgrade</li>
+            <li><strong>NEW: Particle trails - 30% of particles now leave fading motion trails</strong></li>
+            <li><strong>NEW: Particle connections - Web-like lines between nearby particles</strong></li>
+            <li><strong>NEW: Milestone celebrations - Burst effects at 25%, 50%, 75%, 100%</strong></li>
+            <li><strong>NEW: Lightning bolts for Circuit theme - Random electrical arcs</strong></li>
+            <li><strong>NEW: Twinkling star field for Cosmic theme - 50 stars with cross-shine</strong></li>
+            <li><strong>NEW: Rising ember particles for Fire theme - 30 glowing embers</strong></li>
+            <li><strong>NEW: Enhanced energy trail - Sparks, ripple effects, larger orb</strong></li>
+            <li><strong>NEW: Faster Matrix streams - Depth effect, character trails, speed boost near progress</strong></li>
+            <li><strong>NEW: Grand finale explosion at 100% - 80 burst particles with container pulse</strong></li>
+            <li><strong>NEW: onMilestone callback for custom milestone handling</strong></li>
+            <li>IMPROVED: Energy trail now spawns 8 sparks continuously</li>
+            <li>IMPROVED: Matrix characters include full katakana set (46 chars)</li>
+            <li>IMPROVED: Percentage display animation with scale bounce on milestones</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v3.1.6 <span class="changelog-date">February 2, 2026</span></h3>
-        <p><strong>Cinematic Progress Animation System</strong></p>
         <ul>
-            <li><strong>NEW: 5 Cinematic Themes</strong> - Circuit (orange), Cosmic (purple), Matrix (green), Energy (teal), Fire (red)</li>
-            <li><strong>NEW: Particle System</strong> - 150+ animated particles with theme-specific behaviors</li>
-            <li><strong>NEW: Energy Trail</strong> - Follows progress bar with glowing path and matrix data streams</li>
-            <li><strong>ADDED: GSAP + Rive</strong> - Animation libraries for Lottie + Canvas integration</li>
+            <li><strong>NEW: Cinematic Progress Animation System with Lottie + GSAP + Rive + Canvas integration</strong></li>
+            <li><strong>NEW: 5 cinematic themes - Circuit (orange), Cosmic (purple), Matrix (green), Energy (teal), Fire (red)</strong></li>
+            <li><strong>NEW: Particle system with 150+ animated particles and theme-specific behaviors</strong></li>
+            <li><strong>NEW: Energy trail effect that follows progress bar with glowing path</strong></li>
+            <li><strong>NEW: Matrix-style data stream effect (configurable per theme)</strong></li>
+            <li><strong>NEW: Theme selector with localStorage persistence</strong></li>
+            <li><strong>NEW: CDN fallbacks for air-gapped compatibility</strong></li>
+            <li>ADDED: static/js/features/cinematic-progress.js (825 lines)</li>
+            <li>ADDED: static/css/features/cinematic-progress.css (782 lines)</li>
+            <li>ADDED: static/js/vendor/gsap.min.js (72KB)</li>
+            <li>ADDED: static/js/vendor/rive.min.js (164KB)</li>
         </ul>
     </div>
     <div class="changelog-version">
         <h3>v3.1.5 <span class="changelog-date">February 2, 2026</span></h3>
-        <p><strong>Circuit Board Batch Progress</strong></p>
         <ul>
-            <li><strong>NEW: Batch Progress Display</strong> - Circuit board themed with dark navy/orange glow effects</li>
-            <li><strong>NEW: Time Tracking</strong> - Elapsed time, estimated remaining, processing speed displays</li>
-            <li><strong>NEW: Per-Document Status</strong> - Real-time labels (QUEUED → UPLOADING → ANALYZING → DONE)</li>
-            <li><strong>FIX: Dual File Dialog</strong> - Select Files/Select Folder no longer trigger both dialogs</li>
+            <li><strong>NEW: Circuit board themed batch progress display with dark navy/orange glow effects</strong></li>
+            <li><strong>NEW: Elapsed time counter, estimated remaining time, and processing speed displays</strong></li>
+            <li><strong>NEW: Animated percentage counter with smooth counting animation</strong></li>
+            <li><strong>NEW: Real-time per-document status labels (QUEUED → UPLOADING → ANALYZING → DONE)</strong></li>
+            <li><strong>NEW: Sound notification toggle for batch completion (speaker icon)</strong></li>
+            <li><strong>FIX: Dual file dialog bug - Select Files/Select Folder no longer trigger both dialogs</strong></li>
+            <li>IMPROVED: Simplified circuit board visuals for cleaner appearance</li>
         </ul>
     </div>
-
     <div class="changelog-version">
         <h3>v3.1.4 <span class="changelog-date">February 2, 2026</span></h3>
-        <p><strong>ENH-010: Clean Upgrade Path</strong></p>
         <ul>
-            <li><strong>FEATURE: User Data Preservation</strong> - Automatic backup/restore of user data during upgrades</li>
-            <li><strong>FEATURE: Version Comparison</strong> - Compare installed version with update packages (.zip)</li>
-            <li><strong>FEATURE: Update Package Support</strong> - Apply full version updates from .zip files with data preservation</li>
-            <li><strong>NEW: API Endpoints</strong> - /api/updates/version, /check-package, /backup-userdata, /restore-userdata, /apply-package</li>
-            <li><strong>NEW: USER_DATA_PATHS</strong> - Configurable list of files to preserve (scan_history.db, settings, dictionaries)</li>
-            <li><strong>NEW: Rollback on Failure</strong> - Automatic rollback if upgrade fails</li>
-            <li><strong>IMPROVED: Update Manager</strong> - Enhanced to v1.5 with ENH-010 features</li>
+            <li><strong>NEW: ENH-010 - Clean upgrade path with automatic backup and restore</strong></li>
+            <li><strong>NEW: UpgradeManager class for version comparison and update application</strong></li>
+            <li><strong>NEW: Automatic user data backup before upgrades (scan_history.db, settings, dictionaries)</strong></li>
+            <li><strong>NEW: Rollback capability on upgrade failure</strong></li>
+            <li><strong>NEW: update.bat (Windows) and update.sh (macOS/Linux) scripts for easy upgrades</strong></li>
+            <li><strong>NEW: CLI interface for backup, restore, list-backups, create-package commands</strong></li>
+            <li><strong>NEW: Update package creation with configurable exclusions</strong></li>
+            <li>TEST: Comprehensive E2E test suite expanded (75 tests) - all passing</li>
         </ul>
-        <div class="changelog-note">
-            <strong>Note:</strong> Test suite expanded to 75 tests - all passing.
-        </div>
     </div>
-
     <div class="changelog-version">
         <h3>v3.1.3 <span class="changelog-date">February 2, 2026</span></h3>
-        <p><strong>ENH-005, ENH-006, ENH-009: Role Viewer, Statement Review, Diagnostics</strong></p>
         <ul>
-            <li><strong>FEATURE: Universal Role Source Viewer (ENH-005)</strong> - View role context in source documents from any location</li>
-            <li style="margin-left: 20px;"><em>Modal-based viewer</em> - Multi-document navigation with Previous/Next</li>
-            <li style="margin-left: 20px;"><em>Multi-occurrence support</em> - Navigate through all occurrences in documents</li>
-            <li style="margin-left: 20px;"><em>Context highlighting</em> - View surrounding text for context</li>
-            <li><strong>FEATURE: Statement Forge Review Mode (ENH-006)</strong> - Review statements with source context</li>
-            <li style="margin-left: 20px;"><em>Statement navigation</em> - Previous/Next with keyboard shortcuts</li>
-            <li style="margin-left: 20px;"><em>Review actions</em> - Approve, Reject, Save with keyboard support (A/R/S)</li>
-            <li style="margin-left: 20px;"><em>Create from selection</em> - Highlight text to create new statements</li>
-            <li><strong>FEATURE: Comprehensive Logging (ENH-009)</strong> - Diagnostics without performance degradation</li>
-            <li style="margin-left: 20px;"><em>Backend: diagnostics.py</em> - CircularLogBuffer, AsyncLogQueue, SamplingLogger</li>
-            <li style="margin-left: 20px;"><em>Frontend: frontend-logger.js</em> - API call timing, action tracking, backend sync</li>
-            <li><strong>NEW: Statement Model Extended</strong> - Source context fields (document, char offsets, page, section)</li>
+            <li><strong>NEW: ENH-005 - Universal Role Source Viewer for viewing role context in source documents</strong></li>
+            <li><strong>NEW: ENH-006 - Statement Forge Review Mode with source context and statement creation</strong></li>
+            <li><strong>NEW: ENH-009 - Comprehensive diagnostics/logging system with circular buffer and async queue</strong></li>
+            <li><strong>NEW: Frontend logger (frontend-logger.js) with API call timing, action tracking, backend sync</strong></li>
+            <li><strong>NEW: Backend diagnostics (diagnostics.py) with performance timer decorator and sampling</strong></li>
+            <li><strong>NEW: Statement model extended with source context fields (source_document, char offsets, context)</strong></li>
+            <li><strong>NEW: Review mode navigation (prev/next) with keyboard shortcuts</strong></li>
+            <li><strong>NEW: Approve/reject/save actions in Statement Review mode</strong></li>
+            <li><strong>NEW: Create statement from text selection in source viewer</strong></li>
+            <li>TEST: Comprehensive E2E test suite expanded (68 tests) - all passing</li>
         </ul>
-        <div class="changelog-note">
-            <strong>Note:</strong> Test suite expanded to 68 tests - all passing.
-        </div>
     </div>
-
     <div class="changelog-version">
         <h3>v3.1.2 <span class="changelog-date">February 2, 2026</span></h3>
-        <p><strong>Comprehensive Bug Fixes & Core Enhancements</strong></p>
         <ul>
-            <li><strong>FEATURE: NLP Integration (ENH-008)</strong> - spaCy-based role/deliverable/acronym extraction</li>
-            <li><strong>FEATURE: Role Comparison (ENH-004)</strong> - Multi-document side-by-side role analysis</li>
-            <li><strong>FEATURE: Graph Export (ENH-003)</strong> - PNG/SVG export for Chart.js and D3.js visualizations</li>
-            <li><strong>FEATURE: Role Consolidation (ENH-001)</strong> - 25+ built-in rules, fuzzy matching, abbreviations</li>
-            <li><strong>FIX: Passive Voice (BUG-C01)</strong> - Expanded FALSE_POSITIVES from ~38 to 300+ technical terms</li>
-            <li><strong>FIX: Dark Mode</strong> - Carousel and heatmap styling improvements</li>
-            <li><strong>FIX: Performance</strong> - Poll frequency, passive listeners, AbortController timeouts</li>
-            <li><strong>FIX: CSP Compliance</strong> - SortableJS now loaded locally</li>
+            <li><strong>FIX: BUG-C01 - Expanded passive voice FALSE_POSITIVES from ~38 to 300+ words (technical/engineering terms)</strong></li>
+            <li><strong>FIX: BUG-C02 - Diagnostic export timeout increased to 60s, errors limited to 500</strong></li>
+            <li><strong>FIX: BUG-M10 - Hyperlink flags now include the actual broken URL in error messages</strong></li>
+            <li><strong>FIX: BUG-M14 - Document comparison shows helpful message when no documents available</strong></li>
+            <li><strong>FIX: BUG-M15 - Portfolio batch categorization time window reduced from 5min to 30sec</strong></li>
+            <li><strong>FIX: BUG-M16 - Poll frequency increased from 500ms to 2000ms to prevent rate limiting</strong></li>
+            <li><strong>FIX: BUG-M18 - Sidebar collapsed width reduced from 56px to 44px with fully-collapsed mode</strong></li>
+            <li><strong>FIX: BUG-M19 - Hyperlink validator history now properly logs with excluded/duration_ms fields</strong></li>
+            <li><strong>FIX: BUG-M20 - Carousel dark mode styling added to dark-mode.css</strong></li>
+            <li><strong>FIX: BUG-M21 - Heatmap dark mode contrast improvements with white text and shadows</strong></li>
+            <li><strong>FIX: BUG-M22 - Docling status check uses AbortController with 5-second timeout</strong></li>
+            <li><strong>FIX: BUG-M27 - Print section null reference check added</strong></li>
+            <li><strong>FIX: BUG-M28 - Scan profiles load failure null check added</strong></li>
+            <li><strong>FIX: BUG-M29 - SortableJS now loaded locally to avoid CSP blocking</strong></li>
+            <li><strong>FIX: BUG-M30 - HelpContent click handler uses requestAnimationFrame for performance</strong></li>
+            <li><strong>FIX: BUG-L10 - Passive event listeners added to touch/scroll handlers</strong></li>
+            <li><strong>NEW: ENH-001 - Role consolidation engine with 25+ built-in rules, fuzzy matching, abbreviations</strong></li>
+            <li><strong>NEW: ENH-003 - Graph export module for PNG/SVG export of Chart.js and D3.js visualizations</strong></li>
+            <li><strong>NEW: ENH-004 - Role comparison module for multi-document side-by-side role analysis</strong></li>
+            <li><strong>NEW: ENH-008 - NLP integration (spaCy) for improved role/deliverable/acronym detection</strong></li>
+            <li>TEST: Comprehensive E2E test suite (48 tests) - all passing</li>
         </ul>
-        <div class="changelog-note">
-            <strong>Note:</strong> All critical and medium-priority bugs resolved. 48 tests passing.
-        </div>
     </div>
-
+    <div class="changelog-version">
+        <h3>v3.0.125 <span class="changelog-date">February 1, 2026</span></h3>
+        <ul>
+            <li>UI: Comprehensive Hyperlink Validator visual overhaul with modern glassmorphism design</li>
+            <li><strong>NEW: Animated stat cards with color-coded status icons and hover effects</strong></li>
+            <li><strong>NEW: Donut chart showing URL status distribution with smooth animations</strong></li>
+            <li><strong>NEW: Response time histogram with color-coded speed bands</strong></li>
+            <li><strong>NEW: Domain health heatmap showing success rates by domain (clickable to filter)</strong></li>
+            <li><strong>NEW: Enhanced progress bar with shimmer animation and speed stats</strong></li>
+            <li><strong>NEW: Expandable error detail panels with redirect chain visualization</strong></li>
+            <li><strong>NEW: Real-time streaming indicator showing current URL being validated</strong></li>
+            <li><strong>NEW: Skeleton loading states for better UX during data fetching</strong></li>
+            <li><strong>NEW: Rescan button UI for bot-protected sites with visual styling</strong></li>
+            <li><strong>NEW: 3D Domain Health Carousel - interactive rotating cards showing domain health status</strong></li>
+            <li><strong>NEW: Carousel features: drag-to-spin, click-to-filter, auto-rotate, health rings with percentages</strong></li>
+            <li><strong>NEW: Domain filter clear functionality with indicator badges</strong></li>
+            <li><strong>NEW: Large dataset support - shows top 15 domains with search and expand options</strong></li>
+            <li><strong>FIX: History panel can now be collapsed/expanded with toggle button</strong></li>
+            <li><strong>FIX: URL text no longer cut off - full URLs display with word wrap</strong></li>
+            <li><strong>FIX: Modal window properly centered on screen</strong></li>
+            <li>IMPROVED: Setup.bat now includes Playwright installation (Step 8/8)</li>
+            <li>CSS: 900+ lines of modern CSS with gradients, animations, dark mode support</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v3.0.124 <span class="changelog-date">February 1, 2026</span></h3>
+        <ul>
+            <li>FEATURE: Headless Browser Rescan for bot-protected sites (defense.gov, dla.mil, etc.)</li>
+            <li><strong>NEW: /api/hyperlink-validator/rescan endpoint to retry failed URLs with real Chrome browser</strong></li>
+            <li><strong>NEW: /api/hyperlink-validator/rescan/job/&lt;id&gt; to rescan all failures from a validation job</strong></li>
+            <li><strong>NEW: Stealth mode bypasses sophisticated bot detection (Akamai, Cloudflare, etc.)</strong></li>
+            <li><strong>NEW: Automatic HEAD→GET fallback when sites block HEAD requests</strong></li>
+            <li>IMPROVED: Uses real Chrome browser channel for better bot protection bypass</li>
+            <li>REQUIRES: pip install playwright &amp;&amp; playwright install chromium (optional, for rescan feature)</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v3.0.123 <span class="changelog-date">February 1, 2026</span></h3>
+        <ul>
+            <li>FEATURE: CAC/PIV Client Certificate Authentication for .mil sites and federal PKI resources</li>
+            <li>FEATURE: Custom CA Bundle support for DoD/Federal PKI certificate validation</li>
+            <li>FEATURE: Proxy Server support for enterprise network environments</li>
+            <li>IMPROVED: Simplified Hyperlink Validation to two modes: Offline (format only) and Validator (full HTTP)</li>
+            <li>IMPROVED: Validator mode optimized for government (.mil/.gov) and enterprise sites</li>
+            <li><strong>NEW: Advanced Authentication Settings panel in Settings → Hyperlink Validation</strong></li>
+            <li><strong>NEW: Windows SSO (NTLM/Negotiate) always enabled when available</strong></li>
+            <li><strong>NEW: Extended timeouts and realistic browser headers for slow government servers</strong></li>
+            <li><strong>NEW: HEAD/GET fallback when HEAD requests are blocked (common on government sites)</strong></li>
+            <li><strong>NEW: Auth Required (401) and Rate Limited (429) status types with appropriate handling</strong></li>
+            <li>REMOVED: ps1_validator mode (consolidated into enhanced validator mode)</li>
+            <li>DOCS: Comprehensive authentication options documentation with CAC/PIV setup guide</li>
+        </ul>
+    </div>
     <div class="changelog-version">
         <h3>v3.0.122 <span class="changelog-date">February 1, 2026</span></h3>
-        <p><strong>Persistent Link Exclusions & Scan History</strong></p>
         <ul>
-            <li><strong>FEATURE: Persistent Link Exclusions</strong> - URL exclusion rules now stored in SQLite database (survive sessions)</li>
-            <li><strong>FEATURE: Scan History Storage</strong> - Historical hyperlink scans recorded with summary statistics</li>
-            <li><strong>NEW: Link History Modal</strong> - New "Links" button in top navigation opens modal with two tabs:</li>
-            <li style="margin-left: 20px;"><em>Exclusions Tab</em> - Add, edit, enable/disable, and delete URL exclusion patterns</li>
-            <li style="margin-left: 20px;"><em>Scans Tab</em> - View historical scans, see details, clear old records</li>
-            <li><strong>NEW: API Endpoints</strong> - /api/hyperlink-validator/exclusions/* and /history/* for CRUD operations</li>
-            <li><strong>NEW: Match Types</strong> - Supports contains, exact, prefix, suffix, and regex pattern matching</li>
-            <li><strong>IMPROVED: State Management</strong> - HyperlinkValidatorState loads exclusions from database on init</li>
+            <li>FEATURE: Persistent Link Exclusions - URL exclusion rules stored in SQLite database</li>
+            <li>FEATURE: Scan History Storage - Historical hyperlink scans recorded with summary statistics</li>
+            <li><strong>NEW: Link History modal with Exclusions and Scans tabs via 'Links' nav button</strong></li>
+            <li><strong>NEW: API endpoints /api/hyperlink-validator/exclusions/* and /history/*</strong></li>
+            <li><strong>NEW: HyperlinkValidatorStorage class for database operations</strong></li>
+            <li><strong>NEW: Match types: contains, exact, prefix, suffix, regex</strong></li>
+            <li>IMPROVED: HyperlinkValidatorState loads exclusions from database on init</li>
         </ul>
     </div>
-
     <div class="changelog-version">
         <h3>v3.0.121 <span class="changelog-date">February 1, 2026</span></h3>
-        <p><strong>Portfolio Fix & Hyperlink Enhancements</strong></p>
         <ul>
-            <li><strong>FIX: Portfolio "Open in Review"</strong> - Button now correctly loads documents with stats bar, analytics, and issues table displaying properly</li>
-            <li><strong>IMPROVED: Responsive Hyperlinks Panel</strong> - Changed from fixed heights (300px/150px) to viewport-relative (50vh/25vh)</li>
-            <li><strong>IMPROVED: Clickable Hyperlinks</strong> - Users can now click any hyperlink row to open URL in new tab for manual verification</li>
-            <li><strong>NEW: Visual Hover Feedback</strong> - External-link icon appears on hover for hyperlink rows</li>
-            <li><strong>NEW: Test Document</strong> - hyperlink_test.docx with working and broken link examples</li>
+            <li><strong>FIX: Portfolio 'Open in Review' now correctly loads documents with full UI display</strong></li>
+            <li>IMPROVED: Responsive Hyperlinks Panel - viewport-relative heights (50vh/25vh)</li>
+            <li>IMPROVED: Clickable Hyperlinks - click any row to open URL in new tab for verification</li>
+            <li><strong>NEW: Visual hover feedback with external-link icon on hyperlink rows</strong></li>
+            <li><strong>NEW: Test document hyperlink_test.docx with working and broken link examples</strong></li>
         </ul>
     </div>
-
     <div class="changelog-version">
         <h3>v3.0.120 <span class="changelog-date">February 1, 2026</span></h3>
-        <p><strong>3D Carousel for Issues by Section</strong></p>
         <ul>
-            <li><strong>FEATURE: 3D Carousel</strong> - New rotating carousel view for "Issues by Section" in Document Analytics</li>
-            <li><strong>NEW: Drag-to-Spin</strong> - Continuous rotation while dragging, plus slider navigation</li>
-            <li><strong>NEW: Click-to-Filter</strong> - Click on a carousel box to filter issues to that section</li>
-            <li><strong>NEW: Density Coloring</strong> - Color-coded borders based on issue density (none/low/medium/high)</li>
-            <li><strong>IMPROVED: Touch Support</strong> - Touch gestures work on mobile devices</li>
-            <li><strong>IMPROVED: Dark Mode</strong> - Full compatibility with dark mode theme</li>
+            <li>FEATURE: 3D Carousel for Issues by Section in Document Analytics</li>
+            <li><strong>NEW: Drag-to-spin rotation and slider navigation for section boxes</strong></li>
+            <li><strong>NEW: Click on carousel box to filter issues to that section</strong></li>
+            <li><strong>NEW: Color-coded borders based on issue density (none/low/medium/high)</strong></li>
+            <li>IMPROVED: Touch support for mobile devices</li>
         </ul>
     </div>
-
     <div class="changelog-version">
         <h3>v3.0.119 <span class="changelog-date">February 1, 2026</span></h3>
-        <p><strong>Document Filter Fix & Help Documentation Overhaul</strong></p>
         <ul>
-            <li><strong>FIX: Document Filter Dropdown</strong> - Now correctly filters roles by document in Roles Studio</li>
-            <li><strong>FIX: CSS Selector Bug</strong> - Fixed roles tab switching (.roles-nav-btn.active → .roles-nav-item.active)</li>
-            <li><strong>IMPROVED: Help Modal Sizing</strong> - Now 85vw × 80vh (3/4 screen) with opaque backdrop</li>
-            <li><strong>DOCS: Comprehensive Help Overhaul</strong> - Major documentation updates including:</li>
-            <li style="margin-left: 20px;"><em>Fix Assistant v2</em> - New complete section with overview, features, shortcuts, workflow</li>
-            <li style="margin-left: 20px;"><em>Hyperlink Health</em> - New section with validation results, status codes</li>
-            <li style="margin-left: 20px;"><em>Batch Processing</em> - New section with queue management, results view</li>
-            <li style="margin-left: 20px;"><em>Quality Checkers</em> - Expanded with complete checker list table (13 modules)</li>
+            <li><strong>FIX: Document Filter Dropdown - correctly filters roles by document in Roles Studio</strong></li>
+            <li><strong>FIX: CSS selector bug in roles tab switching (.roles-nav-btn.active → .roles-nav-item.active)</strong></li>
+            <li>IMPROVED: Help Modal sizing - 85vw × 80vh with opaque backdrop</li>
+            <li>DOCS: Comprehensive Help Documentation Overhaul with Fix Assistant v2, Hyperlink Health, Batch Processing sections</li>
+            <li>DOCS: Added 8 Core Capabilities cards, Checker List table, Keyboard shortcuts tables</li>
         </ul>
     </div>
-
     <div class="changelog-version">
         <h3>v3.0.116 <span class="changelog-date">February 1, 2026</span></h3>
-        <p><strong>Memory & Stability Fixes - All Medium-Priority Bugs Resolved</strong></p>
         <ul>
-            <li><strong>FIX: Batch Memory (BUG-M02)</strong> - Files now stream to disk in 8KB chunks instead of loading entirely into memory</li>
-            <li><strong>FIX: SessionManager Growth (BUG-M03)</strong> - Added automatic cleanup thread that runs hourly to remove sessions older than 24 hours</li>
-            <li><strong>FIX: Batch Error Context (BUG-M04)</strong> - Full tracebacks now logged for batch processing errors (debug mode shows in response)</li>
-            <li><strong>FIX: localStorage Key Collision (BUG-M05)</strong> - Fix Assistant progress now uses unique document IDs via hash of filename + size + timestamp</li>
-            <li><strong>NEW: Batch Limits</strong> - MAX_BATCH_SIZE (10 files) and MAX_BATCH_TOTAL_SIZE (100MB) constants now enforced</li>
-            <li><strong>NEW: SessionManager.start_auto_cleanup()</strong> - Configurable interval and max age for automatic session cleanup</li>
-            <li><strong>NEW: FixAssistantState.generateDocumentId()</strong> - Creates collision-free storage keys for progress persistence</li>
+            <li><strong>FIX: Batch memory - streaming file uploads to reduce memory usage (BUG-M02)</strong></li>
+            <li><strong>FIX: SessionManager - automatic cleanup thread prevents memory growth (BUG-M03)</strong></li>
+            <li><strong>FIX: Batch errors - full tracebacks now logged for debugging (BUG-M04)</strong></li>
+            <li><strong>FIX: localStorage key collision - unique document IDs prevent overwriting (BUG-M05)</strong></li>
+            <li><strong>NEW: MAX_BATCH_SIZE (10) and MAX_BATCH_TOTAL_SIZE (100MB) constants defined (BUG-L07)</strong></li>
+            <li><strong>NEW: SessionManager.start_auto_cleanup() runs hourly to remove sessions &gt; 24h old</strong></li>
+            <li><strong>NEW: FixAssistantState.generateDocumentId() creates collision-free storage keys</strong></li>
         </ul>
-        <div class="changelog-note">
-            <strong>Note:</strong> This release resolves all 4 remaining medium-priority bugs from the bug tracker.
-            The application now has zero critical or medium-severity open issues.
-        </div>
     </div>
-
     <div class="changelog-version">
         <h3>v3.0.115 <span class="changelog-date">February 1, 2026</span></h3>
-        <p><strong>Document Type Profiles - Custom Checker Configuration</strong></p>
         <ul>
-            <li><strong>FEATURE: Document Type Profiles</strong> - Customize which checks are performed for PrOP, PAL, FGOST, SOW, and other document types</li>
-            <li><strong>NEW: Settings &gt; Document Profiles tab</strong> - Visual grid to enable/disable individual checkers per document type</li>
-            <li><strong>NEW: Custom profiles persist</strong> - Saved in localStorage, user-specific across sessions</li>
-            <li><strong>NEW: Profile management buttons</strong> - Select All, Clear All, Reset to Default</li>
-            <li><strong>NEW: First-time user prompt</strong> - Option to configure document profiles on initial app launch</li>
-            <li><strong>ENH: applyPreset uses custom profiles</strong> - When available, document type presets use your custom checker configuration</li>
+            <li>FEATURE: Document Type Profiles - Customize which checks are performed for PrOP, PAL, FGOST, SOW</li>
+            <li><strong>NEW: Settings &gt; Document Profiles tab with checker grid for each document type</strong></li>
+            <li><strong>NEW: Custom profiles persist in localStorage across sessions (user-specific)</strong></li>
+            <li><strong>NEW: Select All, Clear All, Reset to Default buttons for profile management</strong></li>
+            <li><strong>NEW: First-time user prompt to configure document profiles on initial app launch</strong></li>
+            <li>IMPROVED: applyPreset now uses custom profiles when available for document type presets</li>
         </ul>
     </div>
-
     <div class="changelog-version">
         <h3>v3.0.110 <span class="changelog-date">February 1, 2026</span></h3>
-        <p><strong>Hyperlink Validator Export - Highlighted Documents</strong></p>
         <ul>
-            <li><strong>FEATURE: Export Highlighted DOCX</strong> - Broken links marked in red/yellow with strikethrough</li>
-            <li><strong>FEATURE: Export Highlighted Excel</strong> - Broken link rows highlighted with red background</li>
-            <li><strong>NEW: API endpoints</strong> - /api/hyperlink-validator/export-highlighted/docx and /excel</li>
-            <li><strong>NEW: Export button</strong> - "Export Highlighted" button in Hyperlink Validator modal (enabled after validation)</li>
+            <li>FEATURE: Hyperlink Validator - Export highlighted DOCX with broken links marked in red/yellow/strikethrough</li>
+            <li>FEATURE: Hyperlink Validator - Export highlighted Excel with broken link rows in red background</li>
+            <li><strong>NEW: API endpoints /api/hyperlink-validator/export-highlighted/docx and /excel</strong></li>
+            <li><strong>NEW: 'Export Highlighted' button in Hyperlink Validator modal (enabled after file validation)</strong></li>
         </ul>
     </div>
-
     <div class="changelog-version">
         <h3>v3.0.109 <span class="changelog-date">January 28, 2026</span></h3>
-        <p><strong>Bug Squash Complete - All 15 Issues Resolved</strong></p>
         <ul>
-            <li><strong>FIX: Batch Modal (Issue #1)</strong> - Modal now opens correctly (removed inline style override)</li>
-            <li><strong>FIX: Hyperlink Extraction (Issue #2)</strong> - Now extracts HYPERLINK field codes from DOCX files</li>
-            <li><strong>FIX: Acronym Highlighting (Issue #3)</strong> - Uses word boundary regex to prevent false positives (e.g., "NDA" in "standards")</li>
-            <li><strong>FIX: Fix Assistant Premium (Issue #4)</strong> - Complete implementation with close button, navigation, keyboard shortcuts, and progress tracking</li>
-            <li><strong>FIX: Statement Forge (Issue #5)</strong> - "No document loaded" error fixed with consistent state checks</li>
-            <li><strong>FIX: Scan History Endpoints (Issue #6)</strong> - Added /api/scan-history/stats, /clear, and /recall endpoints</li>
-            <li><strong>FIX: Triage Mode (Issue #7)</strong> - State.documentId now set after fresh review</li>
-            <li><strong>FIX: Document Filter (Issue #8)</strong> - Now populates from scan history</li>
-            <li><strong>FIX: Role-Document Matrix (Issue #9)</strong> - Improved response validation with retry button</li>
-            <li><strong>FIX: Export Modal Badges (Issue #10)</strong> - Badges now wrap and truncate properly</li>
-            <li><strong>FIX: Comment Placement (Issue #11)</strong> - Smart quote normalization and multi-strategy text matching</li>
-            <li><strong>FIX: Version History (Issue #12)</strong> - Added missing version entries</li>
-            <li><strong>FIX: Updater Rollback (Issue #13)</strong> - Uses correct endpoint, button state fixed</li>
-            <li><strong>FIX: "No Updates" Styling (Issue #14)</strong> - Proper empty state with centered icon</li>
-            <li><strong>FIX: Logo 404 (Issue #15)</strong> - Fixed missing logo reference</li>
+            <li><strong>FIX: Batch Modal - Now opens correctly (Issue #1)</strong></li>
+            <li><strong>FIX: Hyperlinks - Now extracts HYPERLINK field codes from DOCX files (Issue #2)</strong></li>
+            <li><strong>FIX: Acronym Highlighting - Uses word boundary regex to prevent false positives (Issue #3)</strong></li>
+            <li><strong>FIX: Fix Assistant Premium - Complete implementation with working controls (Issue #4)</strong></li>
+            <li><strong>FIX: Statement Forge - 'No document loaded' fixed with consistent state checks (Issue #5)</strong></li>
+            <li><strong>FIX: Scan History - Added /stats, /clear, /recall API endpoints (Issue #6)</strong></li>
+            <li><strong>FIX: Triage Mode - State.documentId now set after fresh review (Issue #7)</strong></li>
+            <li><strong>FIX: Document Filter - Now populates from scan history (Issue #8)</strong></li>
+            <li><strong>FIX: Role-Document Matrix - Improved response validation and error handling (Issue #9)</strong></li>
+            <li><strong>FIX: Export Modal Badge Overflow - Badges now wrap and truncate properly (Issue #10)</strong></li>
+            <li><strong>FIX: Comment Placement - Smart quote normalization and multi-strategy matching (Issue #11)</strong></li>
+            <li><strong>FIX: Version History - Added missing versions to help documentation (Issue #12)</strong></li>
+            <li><strong>FIX: Updater Rollback - Uses correct endpoint, button enable/disable fixed (Issue #13)</strong></li>
+            <li><strong>FIX: No Updates Empty State - Proper centered styling with icon (Issue #14)</strong></li>
+            <li><strong>FIX: Logo 404 - Fixed missing logo reference (Issue #15)</strong></li>
+            <li>IMPROVED: Statement extraction patterns - added responsibility/accountability phrases</li>
+            <li>IMPROVED: Fallback extraction for documents without clear section structure</li>
+            <li>IMPROVED: Role-Document Matrix error display with retry button</li>
         </ul>
-        <div class="changelog-note">
-            <strong>Note:</strong> This release resolves all issues from the v3.0.108 bug tracker.
-            Comprehensive fixes across UI, backend APIs, and document processing.
-        </div>
     </div>
-
     <div class="changelog-version">
         <h3>v3.0.108 <span class="changelog-date">January 28, 2026</span></h3>
-        <p><strong>Document Filter Fix</strong></p>
         <ul>
-            <li><strong>FIX: Document filter dropdown</strong> - Now populates with scanned document names (BUG-009)</li>
-            <li><strong>FIX: source_documents field</strong> - Added source_documents field to role extraction data</li>
+            <li><strong>FIX: Document filter dropdown now populates with scanned document names (BUG-009)</strong></li>
+            <li><strong>FIX: Added source_documents field to role extraction data</strong></li>
         </ul>
     </div>
-
     <div class="changelog-version">
         <h3>v3.0.107 <span class="changelog-date">January 28, 2026</span></h3>
-        <p><strong>Role Studio Fixes</strong></p>
         <ul>
-            <li><strong>FIX: Role Details tab</strong> - Now shows sample_contexts from documents (BUG-007)</li>
-            <li><strong>FIX: Role-Doc Matrix</strong> - Shows helpful guidance when empty instead of stuck loading (BUG-008)</li>
-            <li><strong>UX: Matrix tab guidance</strong> - Explains how to populate cross-document data</li>
+            <li><strong>FIX: Role Details tab now shows sample_contexts from documents (BUG-007)</strong></li>
+            <li><strong>FIX: Role-Doc Matrix shows helpful guidance when empty instead of stuck loading (BUG-008)</strong></li>
+            <li>UX: Matrix tab explains how to populate cross-document data</li>
         </ul>
     </div>
-
     <div class="changelog-version">
         <h3>v3.0.106 <span class="changelog-date">January 28, 2026</span></h3>
-        <p><strong>Fix Assistant Document Viewer Fix</strong></p>
         <ul>
-            <li><strong>FIX: Document Viewer empty</strong> - paragraphs/page_map/headings now returned from core.py (BUG-006)</li>
-            <li><strong>FIX: Deprecated datetime.utcnow()</strong> - Remaining deprecated calls fixed in config_logging.py (BUG-M01)</li>
+            <li><strong>FIX: Fix Assistant v2 Document Viewer empty - paragraphs/page_map/headings now returned from core.py (BUG-006)</strong></li>
+            <li><strong>FIX: Remaining deprecated datetime.utcnow() calls in config_logging.py (BUG-M01)</strong></li>
         </ul>
     </div>
-
     <div class="changelog-version">
         <h3>v3.0.105 <span class="changelog-date">January 28, 2026</span></h3>
-        <p><strong>API & Mode Handling Fixes</strong></p>
         <ul>
-            <li><strong>FIX: Report generator API signature</strong> - generate() now returns bytes when output_path not provided (BUG-001)</li>
-            <li><strong>FIX: Learner stats endpoint</strong> - Now uses standard {success, data} response envelope (BUG-002)</li>
-            <li><strong>FIX: Acronym checker mode handling</strong> - Strict mode now properly flags common acronyms (BUG-003)</li>
-            <li><strong>FIX: Role classification tiebreak</strong> - 'Report Engineer' now correctly classified as role (BUG-004)</li>
-            <li><strong>FIX: Comment pack location hints</strong> - Now includes location hints from hyperlink_info (BUG-005)</li>
-            <li><strong>MAINT: Updated deprecated datetime.utcnow()</strong> - Changed to datetime.now(timezone.utc) (WARN-001)</li>
+            <li><strong>FIX: Report generator API signature mismatch - generate() now returns bytes when output_path not provided (BUG-001)</strong></li>
+            <li><strong>FIX: Learner stats endpoint now uses standard {success, data} response envelope (BUG-002)</strong></li>
+            <li><strong>FIX: Acronym checker mode handling - strict mode now properly flags common acronyms (BUG-003)</strong></li>
+            <li><strong>FIX: Role classification tiebreak - 'Report Engineer' now correctly classified as role (BUG-004)</strong></li>
+            <li><strong>FIX: Comment pack now includes location hints from hyperlink_info (BUG-005)</strong></li>
+            <li>MAINT: Updated deprecated datetime.utcnow() calls to datetime.now(timezone.utc) (WARN-001)</li>
         </ul>
     </div>
-
     <div class="changelog-version">
         <h3>v3.0.104 <span class="changelog-date">January 28, 2026</span></h3>
-        <p><strong>Fix Assistant v2 Load Fix</strong></p>
         <ul>
-            <li><strong>FIX: Fix Assistant v2 load failure</strong> - BodyText style conflict resolved</li>
-            <li><strong>FIX: Logger reserved keyword conflict</strong> - Fixed conflict in static file security</li>
-            <li><strong>TEST: Updated test expectations</strong> - Fixed static file security response tests</li>
-            <li><strong>TEST: Fixed CSS test locations</strong> - Updated for modularized stylesheets</li>
+            <li><strong>FIX: Fix Assistant v2 load failure - BodyText style conflict resolved</strong></li>
+            <li><strong>FIX: Logger reserved keyword conflict in static file security</strong></li>
+            <li>TEST: Updated test expectations for static file security responses</li>
+            <li>TEST: Fixed CSS test locations for modularized stylesheets</li>
         </ul>
     </div>
-
     <div class="changelog-version">
         <h3>v3.0.103 <span class="changelog-date">January 28, 2026</span></h3>
-        <p><strong>Parallel Refactoring Release - Code Quality & Security</strong></p>
         <ul>
-            <li><strong>SECURITY: innerHTML Safety Audit (Task A)</strong> - All 143 innerHTML usages audited, documented with // SAFE comments, and verified for proper escaping</li>
-            <li><strong>REFACTOR: CSS Modularization (Task B)</strong> - Split 13,842-line style.css into 10 logical modules for better maintainability</li>
-            <li><strong>QUALITY: Test Suite Modernization (Task C)</strong> - Added docstrings to all 117 test methods, 3 new test classes for FAV2 API coverage</li>
-            <li><strong>QUALITY: Exception Handling (Task D)</strong> - Refined exception handling with specific catches, consistent api_error_response usage</li>
+            <li>SECURITY: innerHTML safety audit - all 143 usages documented and verified (Task A)</li>
+            <li>REFACTOR: CSS modularized into 10 logical files for maintainability (Task B)</li>
+            <li>QUALITY: Test suite modernized with docstrings and FAV2 API tests (Task C)</li>
+            <li>QUALITY: Exception handling refined with specific catches (Task D)</li>
+            <li>DOCS: Added comprehensive code comments throughout JavaScript</li>
+            <li>TESTS: Added TestFixAssistantV2API, TestBatchLimits, TestSessionCleanup classes</li>
         </ul>
-        <div class="changelog-note">
-            <strong>Note:</strong> This release was produced using parallel development - 4 simultaneous refactoring streams 
-            merged into a single release. Zero merge conflicts due to clear file ownership boundaries.
-            CSS now loads as modular files for improved caching and maintenance.
-        </div>
     </div>
-
     <div class="changelog-version">
         <h3>v3.0.102 <span class="changelog-date">January 28, 2026</span></h3>
-        <p><strong>Stabilization Release</strong></p>
         <ul>
-            <li><strong>STABILIZATION:</strong> Intermediate release between 3.0.101 and 3.0.103</li>
-            <li><strong>FIX:</strong> Minor adjustments to error handling patterns</li>
+            <li>STABILIZATION: Intermediate release between 3.0.101 and 3.0.103</li>
+            <li><strong>FIX: Minor adjustments to error handling patterns</strong></li>
         </ul>
     </div>
-
     <div class="changelog-version">
         <h3>v3.0.101 <span class="changelog-date">January 28, 2026</span></h3>
-        <p><strong>Code Review Completion Release</strong></p>
         <ul>
-            <li><strong>REFACTOR: Standardized API Error Responses (ISSUE-004)</strong> - All API errors now return consistent format with error codes and correlation IDs</li>
-            <li><strong>REFACTOR: Centralized Document Detection (ISSUE-008)</strong> - Created get_document_extractor() helper to eliminate code duplication</li>
-            <li><strong>REFACTOR: Centralized Strings (ISSUE-009)</strong> - User-facing messages now in STRINGS constant for consistency and future i18n</li>
-            <li><strong>DOCS: JSDoc Documentation (ISSUE-010)</strong> - Added comprehensive JSDoc comments to DocumentViewer and MiniMap modules</li>
+            <li>REFACTOR: Standardized API error responses with correlation IDs (ISSUE-004)</li>
+            <li>REFACTOR: Centralized document type detection into get_document_extractor() helper (ISSUE-008)</li>
+            <li>REFACTOR: Centralized user-facing strings into STRINGS constant (ISSUE-009)</li>
+            <li>DOCS: Added comprehensive JSDoc comments to feature modules (ISSUE-010)</li>
+            <li>CODE REVIEW: Completed remaining 4 of 12 issues from comprehensive code review audit</li>
         </ul>
-        <div class="changelog-note">
-            <strong>Note:</strong> This release completes all 12 issues from the comprehensive code review audit.
-            Combined with v3.0.100, all high, medium, and low priority items have been addressed.
-            The application maintains full backward compatibility.
-        </div>
     </div>
-
     <div class="changelog-version">
         <h3>v3.0.100 <span class="changelog-date">January 28, 2026</span></h3>
-        <p><strong>Code Review Hardening Release</strong></p>
         <ul>
-            <li><strong>SECURITY: ReDoS Protection (ISSUE-001)</strong> - Added safe regex wrappers with input length limiting to prevent CPU exhaustion attacks</li>
-            <li><strong>PERFORMANCE: Database Optimization (ISSUE-002)</strong> - Enabled WAL mode for better concurrent read/write performance</li>
-            <li><strong>PERFORMANCE: Large File Protection (ISSUE-003)</strong> - Added file size validation (100MB limit) with helpful error messages</li>
-            <li><strong>SECURITY: Input Validation (ISSUE-005)</strong> - Enhanced validation on learner dictionary API (length limits, character restrictions)</li>
-            <li><strong>FIX: State Pollution (ISSUE-006)</strong> - State.entities now properly reset when loading new documents</li>
-            <li><strong>FIX: Memory Leak Prevention (ISSUE-007)</strong> - Added cleanup() function to FixAssistantState to clear event listeners</li>
+            <li>SECURITY: Added ReDoS protection with safe regex wrappers (ISSUE-001)</li>
+            <li>PERFORMANCE: Enabled WAL mode for SQLite with busy_timeout for concurrent access (ISSUE-002)</li>
+            <li>PERFORMANCE: Added file size validation for large document protection (ISSUE-003)</li>
+            <li>SECURITY: Enhanced input validation on learner dictionary API (ISSUE-005)</li>
+            <li><strong>FIX: State.entities now properly reset on new document load (ISSUE-006)</strong></li>
+            <li><strong>FIX: Added cleanup() function to FixAssistantState to prevent memory leaks (ISSUE-007)</strong></li>
+            <li>CODE REVIEW: Addressed 7 of 12 issues from comprehensive code review audit</li>
         </ul>
-        <div class="changelog-note">
-            <strong>Note:</strong> This release implements fixes from a comprehensive code review audit. 
-            7 of 12 identified issues were addressed (2 high priority, 4 medium, 1 low). 
-            No critical issues were found during the review. The application is production-ready.
-        </div>
     </div>
-
+    <div class="changelog-version">
+        <h3>v3.0.99 <span class="changelog-date">January 28, 2026</span></h3>
+        <ul>
+            <li>STABILIZATION: Intermediate release between 3.0.98 and 3.0.100</li>
+            <li><strong>FIX: Minor bug fixes from 3.0.98 testing</strong></li>
+        </ul>
+    </div>
     <div class="changelog-version">
         <h3>v3.0.98 <span class="changelog-date">January 28, 2026</span></h3>
-        <p><strong>Bug Fixes and Role Studio Enhancements</strong></p>
         <ul>
-            <li><strong>FIX: Export modal crash (BUG-002)</strong> - Fixed crash when opening export modal in certain scenarios</li>
-            <li><strong>FIX: Context highlighting (BUG-003)</strong> - Fixed context showing wrong text in Fix Assistant</li>
-            <li><strong>FIX: Hyperlink status panel (BUG-004)</strong> - Restored hyperlink validation results display</li>
-            <li><strong>FIX: Role-Document matrix (BUG-009)</strong> - Restored Role-Document Matrix tab in Role Studio</li>
-            <li><strong>FIX: Double browser tab (BUG-001)</strong> - Fixed duplicate browser tabs on startup</li>
-            <li><strong>NEW: Role Details context preview (BUG-007)</strong> - Shows where roles appear in documents with highlighted context</li>
-            <li><strong>NEW: Document filter dropdown (BUG-008)</strong> - Filter Role Studio by source document</li>
-            <li><strong>NEW: Role name highlighting</strong> - Role names highlighted within context text for easy identification</li>
-            <li><strong>IMPROVED: Version history completeness (BUG-005)</strong> - Added missing version entries</li>
-            <li><strong>IMPROVED: Lessons learned documentation (BUG-006)</strong> - Comprehensive updates to TWR_LESSONS_LEARNED.md</li>
+            <li><strong>FIX: Export modal crash (BUG-002)</strong></li>
+            <li><strong>FIX: Context highlighting showing wrong text (BUG-003)</strong></li>
+            <li><strong>FIX: Restored hyperlink status panel (BUG-004)</strong></li>
+            <li><strong>FIX: Restored Role-Document matrix tab (BUG-009)</strong></li>
+            <li><strong>FIX: Double browser tab on startup (BUG-001)</strong></li>
+            <li><strong>FIX: Version history gaps in Help (BUG-005)</strong></li>
+            <li>IMPROVED: Role Details tab with context preview (BUG-007)</li>
+            <li>IMPROVED: Document filter dropdown in Role Studio (BUG-008)</li>
+            <li>IMPROVED: Comprehensive TWR_LESSONS_LEARNED.md updates (BUG-006)</li>
         </ul>
-        <div class="changelog-note">
-            <strong>Note:</strong> This release focuses on stability fixes and Role Studio improvements 
-            from parallel development integration. Role Studio now includes document filtering and 
-            rich context previews for each extracted role.
-        </div>
     </div>
-
     <div class="changelog-version">
         <h3>v3.0.97 <span class="changelog-date">January 28, 2026</span></h3>
-        <p><strong>Fix Assistant v2 - Premium Document Review Interface</strong></p>
         <ul>
-            <li><strong>NEW: Two-panel document viewer</strong> - Left panel shows document with page navigation and text highlighting</li>
-            <li><strong>NEW: Mini-map overview</strong> - Visual document overview showing fix positions by confidence tier</li>
-            <li><strong>NEW: Full undo/redo</strong> - Unlimited undo/redo for all review decisions</li>
-            <li><strong>NEW: Search and filter</strong> - Filter fixes by text, category, severity, or confidence</li>
-            <li><strong>NEW: Progress persistence</strong> - Auto-saves progress; continue where you left off</li>
-            <li><strong>NEW: Pattern learning</strong> - Learns from your decisions to improve future suggestions</li>
-            <li><strong>NEW: Custom dictionary</strong> - Add terms to always skip (e.g., proper nouns)</li>
-            <li><strong>NEW: Live preview mode</strong> - See changes inline as you review</li>
-            <li><strong>NEW: Split-screen diff</strong> - Compare original vs. fixed document side-by-side</li>
-            <li><strong>NEW: PDF summary reports</strong> - Generate professional PDF reports of your review session</li>
-            <li><strong>NEW: Accessibility</strong> - High contrast mode, screen reader support, keyboard navigation</li>
-            <li><strong>NEW: Sound effects</strong> - Optional audio feedback for actions; toggle with 🔇 button in header</li>
-            <li><strong>ENH: Keyboard shortcuts</strong> - A=accept, R=reject, S=skip, U=undo, arrows=navigate</li>
-            <li><strong>ENH: Export improvements</strong> - Accepted fixes → track changes; Rejected fixes → comments with notes</li>
+            <li><strong>NEW: Fix Assistant v2 - Complete premium document review interface</strong></li>
+            <li><strong>NEW: Two-panel document viewer with page navigation and highlighting</strong></li>
+            <li><strong>NEW: Mini-map showing document overview with fix position markers</strong></li>
+            <li><strong>NEW: Undo/redo capability for all review decisions</strong></li>
+            <li><strong>NEW: Search and filter fixes by text, category, or confidence</strong></li>
+            <li><strong>NEW: Save progress and continue later (localStorage persistence)</strong></li>
+            <li><strong>NEW: Learning from user decisions (pattern tracking, no AI)</strong></li>
+            <li><strong>NEW: Custom dictionary for terms to always skip</strong></li>
+            <li><strong>NEW: Live preview mode showing changes inline</strong></li>
+            <li><strong>NEW: Split-screen view (original vs fixed document)</strong></li>
+            <li><strong>NEW: PDF summary report generation</strong></li>
+            <li><strong>NEW: Accessibility features (high contrast, screen reader support)</strong></li>
+            <li><strong>NEW: Enhanced keyboard shortcuts (A=accept, R=reject, S=skip, U=undo)</strong></li>
+            <li><strong>NEW: Optional sound effects for actions (Web Audio API)</strong></li>
+            <li><strong>NEW: Rejected fixes exported as document comments with reviewer notes</strong></li>
+            <li>IMPROVED: Export now handles both accepted fixes (track changes) and rejected fixes (comments)</li>
             <li>API: Added /api/learner/* endpoints for pattern learning</li>
-            <li>API: Added /api/report/generate for PDF report generation</li>
+            <li>API: Added /api/report/generate endpoint for PDF reports</li>
         </ul>
-        <div class="changelog-note">
-            <strong>Tip:</strong> Press <kbd>?</kbd> in Fix Assistant to see all keyboard shortcuts. 
-            Click the speaker icon to enable sound effects.
-            The mini-map shows green (safe), yellow (review), and orange (manual) markers for quick navigation.
-        </div>
     </div>
-
     <div class="changelog-version">
         <h3>v3.0.96 <span class="changelog-date">January 27, 2026</span></h3>
-        <p><strong>Fix Assistant v1 - Initial Premium Triage Interface</strong></p>
         <ul>
-            <li><strong>NEW: Fix Assistant</strong> - Premium triage-style interface for reviewing automatic fixes</li>
-            <li><strong>NEW: Keyboard shortcuts</strong> - A=accept, R=reject, S=skip, arrow keys to navigate</li>
-            <li><strong>NEW: Confidence tiers</strong> - Safe (green), Review (yellow), Caution (orange) for each fix</li>
-            <li><strong>NEW: Context display</strong> - Shows surrounding text with highlighted change location</li>
-            <li><strong>NEW: Before/After comparison</strong> - Clear visual distinction between original and proposed</li>
-            <li><strong>NEW: Bulk actions</strong> - Accept All Safe, Accept All, Reject All for efficiency</li>
-            <li>ENH: Export now uses Fix Assistant selections instead of all fixes</li>
-            <li>ENH: Progress tracking shows reviewed/total count</li>
+            <li><strong>NEW: Fix Assistant - premium triage-style interface for reviewing automatic fixes</strong></li>
+            <li><strong>NEW: Keyboard shortcuts in Fix Assistant (A=accept, R=reject, S=skip, arrows=nav)</strong></li>
+            <li><strong>NEW: Confidence tiers (Safe/Review/Caution) for each proposed fix</strong></li>
+            <li><strong>NEW: Context display showing surrounding text with highlighted change</strong></li>
+            <li><strong>NEW: Before/After comparison with clear visual distinction</strong></li>
+            <li><strong>NEW: Bulk actions (Accept All Safe, Accept All, Reject All)</strong></li>
+            <li>IMPROVED: Export now uses Fix Assistant selections instead of all fixes</li>
+            <li>IMPROVED: Progress tracking shows reviewed/total count</li>
             <li>UI: Premium styling with confidence badges, progress bar, keyboard hints</li>
         </ul>
-        <div class="changelog-note">
-            <strong>Foundation:</strong> This version introduced the core Fix Assistant concept that was 
-            expanded to the full two-panel interface in v3.0.97.
-        </div>
     </div>
-
     <div class="changelog-version">
         <h3>v3.0.95 <span class="changelog-date">January 27, 2026</span></h3>
-        <p><strong>UI Improvements - Version Consistency, Heatmap Interactivity, Hyperlink Display</strong></p>
         <ul>
-            <li><strong>FIX: Version display consistency</strong> - All UI components now show same version</li>
-            <li><strong>FIX: About section simplified</strong> - Shows only author name as requested</li>
-            <li><strong>FIX: Heatmap clicking</strong> - Category × Severity heatmap now properly filters issues on click</li>
-            <li><strong>NEW: Hyperlink status panel</strong> - Visual display of all checked hyperlinks and their validation status</li>
-            <li>ENH: Section heatmap click-to-filter now shows toast feedback</li>
-            <li>ENH: Rich context (page, section, highlighting) from v3.0.94 included</li>
+            <li><strong>FIX: Version display consistency - all UI components now show same version</strong></li>
+            <li><strong>FIX: About section simplified - shows only author name</strong></li>
+            <li><strong>FIX: Heatmap clicking - Category × Severity heatmap now filters issues on click</strong></li>
+            <li><strong>NEW: Hyperlink status panel - visual display of checked hyperlinks and validation status</strong></li>
+            <li>IMPROVED: Section heatmap click feedback with toast messages</li>
         </ul>
-        <div class="changelog-note">
-            <strong>Heatmap Fix:</strong> The issue heatmap now uses the correct setChartFilter function 
-            to filter the issues list when cells are clicked. Previously this feature was broken due to 
-            a missing function reference.
-        </div>
     </div>
-
+    <div class="changelog-version">
+        <h3>v3.0.94 <span class="changelog-date">January 27, 2026</span></h3>
+        <ul>
+            <li>STABILIZATION: Intermediate release between 3.0.93 and 3.0.95</li>
+            <li><strong>FIX: Refinements to acronym detection logic</strong></li>
+        </ul>
+    </div>
     <div class="changelog-version">
         <h3>v3.0.93 <span class="changelog-date">January 27, 2026</span></h3>
-        <p><strong>Acronym False Positive Reduction</strong></p>
         <ul>
-            <li><strong>ACRONYM: Added 100+ common ALL CAPS words</strong> to COMMON_CAPS_SKIP list</li>
-            <li><strong>ACRONYM: PDF word fragment detection</strong> - Identifies broken words from extraction</li>
-            <li>TESTING: Reduced false positive acronym flagging by approximately 55%</li>
+            <li>ACRONYM: Added 100+ common ALL CAPS words to COMMON_CAPS_SKIP</li>
+            <li>ACRONYM: Added PDF word fragment detection</li>
+            <li>TESTING: Reduced false positive acronym flagging by ~55%</li>
         </ul>
-        <div class="changelog-note">
-            <strong>Context:</strong> PDF extraction sometimes produces word fragments that look like 
-            acronyms but are actually broken words. This version adds detection patterns to filter these.
-        </div>
     </div>
-
     <div class="changelog-version">
         <h3>v3.0.92 <span class="changelog-date">January 27, 2026</span></h3>
-        <p><strong>PDF Processing Improvements</strong></p>
         <ul>
-            <li><strong>FIXED: PDF punctuation false positives</strong> - Better handling of PDF extraction artifacts</li>
-            <li><strong>FIXED: Acronym false positives</strong> - Improved filtering of legitimate capitalized text</li>
-            <li><strong>ADDED: PDF hyperlink extraction</strong> - Uses PyMuPDF (fitz) for extracting URLs from PDFs</li>
-        </ul>
-        <div class="changelog-note">
-            <strong>PyMuPDF Integration:</strong> PDF hyperlinks are now extracted and validated alongside 
-            Word document hyperlinks, providing complete link health analysis across document types.
-        </div>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v3.0.91d <span class="changelog-date">January 27, 2026</span></h3>
-        <p><strong>Critical Bug Fixes - Role Extraction & Update Manager</strong></p>
-        <ul>
-            <li><strong>FIX: False positive filtering bug</strong> - "Mission Assurance", "Verification Engineer" now properly blocked</li>
-            <li><strong>FIX: Update manager path detection</strong> - No longer hardcodes "app" folder name</li>
-            <li><strong>IMPROVED: Role extraction precision</strong> - 94.7% precision, 92.3% F1 score across 4-document test suite</li>
-            <li>NEW: updates/ folder with UPDATE_README.md documentation</li>
-            <li>NEW: backups/ folder for automatic backup storage</li>
-            <li>ENH: UpdateConfig supports flat mode (updates inside app folder)</li>
-            <li>ENH: Auto-detection of app directory for various installation layouts</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v3.0.91c <span class="changelog-date">January 27, 2026</span></h3>
-        <p><strong>Cross-Document Verification & Role Expansion</strong></p>
-        <ul>
-            <li>VERIFIED: 100% F1 score on government SOW document</li>
-            <li>VERIFIED: 95% F1 score on Smart Columbus SEMP</li>
-            <li>NEW: Agile/Scrum roles (scrum master, product owner, agile team)</li>
-            <li>NEW: Executive roles (CTO, CIO, CEO, COO, CFO, CINO)</li>
-            <li>NEW: IT roles (IT PM, consultant, business owner)</li>
-            <li>NEW: Support roles (stakeholder, subject matter expert, sponsor)</li>
-            <li>FIX: Additional noise patterns filtered (responsible, accountable, serves)</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v3.0.91b <span class="changelog-date">January 27, 2026</span></h3>
-        <p><strong>Major Role Extraction Accuracy Improvement</strong></p>
-        <ul>
-            <li>IMPROVED: Precision from 52% to 100% on government SOW test document</li>
-            <li>IMPROVED: F1 Score from 68% to 97%</li>
-            <li>FIX: Eliminated 32 false positives in test document</li>
-            <li>NEW: Expanded FALSE_POSITIVES list (50+ new entries)</li>
-            <li>NEW: SINGLE_WORD_EXCLUSIONS set for single-word filtering</li>
-            <li>ENH: Enhanced _is_valid_role() with noise pattern detection</li>
-            <li>ENH: Valid acronyms check (COR, PM, SE, etc.)</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v3.0.91 <span class="changelog-date">January 27, 2026</span></h3>
-        <p><strong>Docling Integration - AI-Powered Document Extraction</strong></p>
-        <ul>
-            <li>NEW: <strong>Docling integration</strong> for superior document parsing (IBM open-source)</li>
-            <li>NEW: AI-powered table structure recognition (TableFormer model)</li>
-            <li>NEW: Layout understanding preserves document reading order</li>
-            <li>NEW: Section and heading detection without relying on styles</li>
-            <li>NEW: Unified extraction for PDF, DOCX, PPTX, XLSX, HTML</li>
-            <li>NEW: <strong>100% air-gapped operation</strong> - no network access after setup</li>
-            <li>NEW: Memory optimization - image processing disabled by default</li>
-            <li>NEW: setup_docling.bat for easy Docling installation with offline config</li>
-            <li>NEW: bundle_for_airgap.ps1 for complete offline deployment packages</li>
-            <li>NEW: /api/docling/status endpoint for checking Docling configuration</li>
-            <li>IMPROVED: Role extraction accuracy with table-based confidence boosting</li>
-            <li>IMPROVED: RACI matrix detection from table structures</li>
-            <li>IMPROVED: Enhanced paragraph metadata for better context</li>
-            <li>NOTE: Docling is optional - gracefully falls back to pdfplumber/python-docx</li>
-        </ul>
-        <div class="changelog-note">
-            <strong>Air-Gap Installation:</strong> Run setup_docling.bat (requires internet once), or use 
-            bundle_for_airgap.ps1 to create a transferable offline package. Docling requires 
-            ~2.7GB disk space (packages + AI models). All operations run locally with no network access.
-        </div>
-    </div>
-    <div class="changelog-version">
-        <h3>v3.0.90 <span class="changelog-date">January 27, 2026</span></h3>
-        <p><strong>Comprehensive Merge - All v3.0.76-89 Fixes</strong></p>
-        <ul>
-            <li>MERGED: All fixes from v3.0.76-v3.0.89 properly consolidated</li>
-            <li>INCLUDES: Iterative pruning (MIN_CONNECTIONS=2)</li>
-            <li>INCLUDES: Dashed lines for role-role connections</li>
-            <li>INCLUDES: Dimmed opacity fixes (0.5/0.4/0.3)</li>
-            <li>INCLUDES: Export dropdown with All/Current/JSON options</li>
-            <li>INCLUDES: roles-export-fix.js module</li>
-            <li>INCLUDES: table_processor.py + deployment scripts</li>
-            <li>FIX: Patches were building from different bases - now unified</li>
-        </ul>
-    </div>
-    <div class="changelog-version">
-        <h3>v3.0.85 <span class="changelog-date">January 26, 2026</span></h3>
-        <p><strong>Role Export Fix - Correct Module</strong></p>
-        <ul>
-            <li>FIX: Role export now works - created roles-export-fix.js module</li>
-            <li>ROOT CAUSE: button-fixes.js handled click but had no export logic</li>
-            <li>ROOT CAUSE: Role Details uses /api/roles/aggregated API, not window.State</li>
-            <li>SOLUTION: New module fetches from same API that Role Details tab uses</li>
-            <li>NEW: TWR.exportRolesCSV() exposed for manual testing in console</li>
-        </ul>
-    </div>
-    <div class="changelog-version">
-        <h3>v3.0.84 <span class="changelog-date">January 26, 2026</span></h3>
-        <p><strong>Export Fix Attempt - Wrong File</strong></p>
-        <ul>
-            <li>ATTEMPTED: Fixed getState() priority order in roles.js</li>
-            <li>ATTEMPTED: Export uses 3-path fallback for State access</li>
-            <li>NOTE: Fix was in wrong file - export button handled by button-fixes.js</li>
-        </ul>
-    </div>
-    <div class="changelog-version">
-        <h3>v3.0.83 <span class="changelog-date">January 26, 2026</span></h3>
-        <p><strong>Debug Build - Export Diagnostics</strong></p>
-        <ul>
-            <li>DEBUG: Added console logging to exportCurrentDocumentCSV()</li>
-            <li>DEBUG: Logs State object, State.roles, rolesData, roleEntries</li>
-            <li>DIAGNOSTIC: Use browser DevTools (F12) Console to see debug output</li>
-        </ul>
-    </div>
-    <div class="changelog-version">
-        <h3>v3.0.82 <span class="changelog-date">January 26, 2026</span></h3>
-        <p><strong>Export Fix Attempt - Same Data Source as UI</strong></p>
-        <ul>
-            <li>FIX: Export Current Document now uses same data source as Role Details tab</li>
-            <li>FIX: Uses State.roles?.roles || State.roles pattern matching UI display</li>
-            <li>NOTE: Issue persisted - root cause found in v3.0.84</li>
-        </ul>
-    </div>
-    <div class="changelog-version">
-        <h3>v3.0.81 <span class="changelog-date">January 26, 2026</span></h3>
-        <p><strong>Export Fix</strong></p>
-        <ul>
-            <li>FIX: Export Current Document now correctly uses backend session data</li>
-            <li>FIX: Improved error messages when no roles available</li>
-            <li>FIX: Export All Roles gives clearer feedback about database state</li>
-        </ul>
-    </div>
-    <div class="changelog-version">
-        <h3>v3.0.80 <span class="changelog-date">January 26, 2026</span></h3>
-        <p><strong>Roles Export Functionality</strong></p>
-        <ul>
-            <li>NEW: Export dropdown in Roles & Responsibilities Studio header</li>
-            <li>NEW: Export All Roles (CSV) - all roles across all scanned documents</li>
-            <li>NEW: Export Current Document (CSV) - roles from currently loaded document</li>
-            <li>NEW: Export Selected Document - pick a document from history to export</li>
-            <li>NEW: Export All Roles (JSON) - full role data in JSON format</li>
-            <li>API: Added /api/scan-history/document/&lt;id&gt;/roles endpoint</li>
-        </ul>
-    </div>
-    <div class="changelog-version">
-        <h3>v3.0.79 <span class="changelog-date">January 26, 2026</span></h3>
-        <p><strong>Dimmed Node Visibility Fix</strong></p>
-        <ul>
-            <li>FIX: Dimmed nodes now visible - opacity increased from 0.3 to 0.5</li>
-            <li>FIX: Dimmed node labels now visible (was completely hidden)</li>
-            <li>FIX: Dimmed links more visible - opacity from 0.1 to 0.3</li>
-            <li>ROOT CAUSE: CSS .dimmed class had opacity too low</li>
-        </ul>
-    </div>
-    <div class="changelog-version">
-        <h3>v3.0.78 <span class="changelog-date">January 26, 2026</span></h3>
-        <p><strong>Weak Node Visibility Fix</strong></p>
-        <ul>
-            <li>FIX: Weak nodes now properly visible using SVG fill-opacity attribute</li>
-            <li>FIX: Minimum node size increased to 10px for better visibility</li>
-            <li>FIX: Weak node stroke width increased to 2.5px with dashed pattern</li>
-            <li>ROOT CAUSE: Hex opacity suffix (#color80) doesn't work in SVG</li>
-        </ul>
-    </div>
-    <div class="changelog-version">
-        <h3>v3.0.77 <span class="changelog-date">January 26, 2026</span></h3>
-        <p><strong>Self-Explanatory Graph Visualization</strong></p>
-        <ul>
-            <li>ENH: All connected nodes now visible - weak nodes have dashed outline</li>
-            <li>ENH: Role-Role links (co-occurrence) now use dashed purple lines</li>
-            <li>ENH: Role-Document links (appears in) use solid blue lines</li>
-            <li>ENH: Legend explains node size, line thickness, and connection strength</li>
-            <li>ENH: First-time hint banner with interaction tips</li>
-        </ul>
-    </div>
-    <div class="changelog-version">
-        <h3>v3.0.76 <span class="changelog-date">January 26, 2026</span></h3>
-        <p><strong>Phantom Lines Fix + Document Log Fix</strong></p>
-        <ul>
-            <li>FIX: Phantom lines eliminated - no more lines going to barely-visible nodes</li>
-            <li>FIX: Document Log now shows correct role count (was showing 0 for all)</li>
-            <li>FIX: Nodes now require minimum 2 connections to be displayed</li>
-            <li>ENH: Iterative pruning removes cascading weak connections</li>
-            <li>ROOT CAUSE (graph): v3.0.75 only removed orphans (0 connections), not peripheral nodes</li>
-            <li>ROOT CAUSE (doc log): Backend get_scan_history() was missing role_count field</li>
-        </ul>
-    </div>
-    <div class="changelog-version">
-        <h3>v3.0.75 <span class="changelog-date">January 26, 2026</span></h3>
-        <p><strong>Orphan Nodes Fix</strong></p>
-        <ul>
-            <li>FIX: Disconnected nodes (floating circles) no longer appear in graph</li>
-            <li>FIX: Only nodes with at least one connection are now displayed</li>
-            <li>ENH: Graph shows only meaningful connected clusters</li>
-        </ul>
-    </div>
-    <div class="changelog-version">
-        <h3>v3.0.74 <span class="changelog-date">January 26, 2026</span></h3>
-        <p><strong>Dangling Links Fix v2 + Enhanced Info Panel</strong></p>
-        <ul>
-            <li>FIX: Dangling graph links - added coordinate validation in tick handler</li>
-            <li>FIX: Invalid links now hidden with display:none</li>
-            <li>ENH: Graph info panel shows detailed stats with visual progress bars</li>
-            <li>ENH: Separate sections for document vs role connections</li>
-            <li>ENH: Built-in legend explains graph elements</li>
-        </ul>
-    </div>
-    <div class="changelog-version">
-        <h3>v3.0.73 <span class="changelog-date">January 26, 2026</span></h3>
-        <p><strong>Graph Info Panel & Dangling Links Fixes</strong></p>
-        <ul>
-            <li>FIX: Pin selection button now works in graph info panel</li>
-            <li>FIX: Close (X) button now works in graph info panel</li>
-            <li>FIX: Dangling graph links - lines no longer connect to empty space</li>
-            <li>FIX: Update manager now supports all file types and directories</li>
-            <li>ROOT CAUSE: Links were rendered without validating both endpoints exist</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v3.0.72 <span class="changelog-date">January 26, 2026</span></h3>
-        <p><strong>Full Height Content Fix</strong></p>
-        <ul>
-            <li>FIX: Tab content areas now fill available vertical space</li>
-            <li>FIX: Relationship Graph expands to fill modal height</li>
-            <li>FIX: RACI Matrix and Adjudication lists use full height</li>
-            <li>ENH: All sections use flex layout for proper expansion</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v3.0.71 <span class="changelog-date">January 26, 2026</span></h3>
-        <p><strong>Horizontal Tabs Navigation</strong></p>
-        <ul>
-            <li>FIX: Navigation now displays as horizontal tabs (not vertical sidebar)</li>
-            <li>FIX: Removed width constraints from responsive breakpoints</li>
-            <li>ENH: Tab styling with bottom border for active state</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v3.0.70 <span class="changelog-date">January 26, 2026</span></h3>
-        <p><strong>Critical CSS Fix for Tab Visibility</strong></p>
-        <ul>
-            <li>FIX: Added missing CSS rules for .roles-section.active</li>
-            <li>ROOT CAUSE: JS used .active class but CSS rules didn't exist</li>
-            <li>SOLUTION: Added #modal-roles .roles-section display rules</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v3.0.69 <span class="changelog-date">January 26, 2026</span></h3>
-        <p><strong>Responsibility Count Display Fix</strong></p>
-        <ul>
-            <li>FIX: "Top Roles by Responsibility Count" now shows actual responsibility count</li>
-            <li>FIX: Document tag shows unique document count, not total scan count</li>
-            <li>FIX: Summary cards display responsibility totals correctly</li>
-            <li>ENH: Roles sorted by responsibility count (primary) then unique docs (secondary)</li>
-            <li>API: Added responsibility_count and unique_document_count fields</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v3.0.68 <span class="changelog-date">January 26, 2026</span></h3>
-        <p><strong>Roles Tab Visibility Fix</strong></p>
-        <ul>
-            <li>FIX: Roles tabs now display content properly</li>
-            <li>ROOT CAUSE: CSS !important rules were overriding inline styles</li>
-            <li>SOLUTION: Use classList.add('active') instead of style.display</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v3.0.66-67 <span class="changelog-date">January 25, 2026</span></h3>
-        <p><strong>CSS Animation & Diagnostics</strong></p>
-        <ul>
-            <li>FIX: Added missing @keyframes fadeIn to CSS</li>
-            <li>ENH: Added diagnostic logging to all render functions</li>
-            <li>ENH: Try-catch wrappers for render error identification</li>
-            <li>ENH: Container existence checks with clear error messages</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v3.0.65 <span class="changelog-date">January 24, 2026</span></h3>
-        <p><strong>Graph Controls Fix</strong></p>
-        <ul>
-            <li>FIX: Graph search input now filters nodes</li>
-            <li>FIX: Layout dropdown changes graph layout</li>
-            <li>FIX: Labels dropdown controls node labels</li>
-            <li>FIX: Threshold slider filters link visibility</li>
-            <li>FIX: Reset/Recenter buttons work properly</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v3.0.63-64 <span class="changelog-date">January 24, 2026</span></h3>
-        <p><strong>Graph Control Initialization</strong></p>
-        <ul>
-            <li>FIX: initGraphControls uses _tabsFixInitialized flag pattern</li>
-            <li>FIX: Follows same initialization pattern as RACI, Details, Adjudication</li>
-            <li>FIX: Removed dependency on TWR.Roles.initGraphControls</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v3.0.61-62 <span class="changelog-date">January 24, 2026</span></h3>
-        <p><strong>Section Visibility & Graph Fallback</strong></p>
-        <ul>
-            <li>FIX: Section visibility uses proper display toggling</li>
-            <li>FIX: Graph section visible when switching tabs</li>
-            <li>ENH: initGraphControlsFallback when roles.js unavailable</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v3.0.59-60 <span class="changelog-date">January 24, 2026</span></h3>
-        <p><strong>Adjudication Button & Event Handling</strong></p>
-        <ul>
-            <li>FIX: Adjudication button clicks now respond properly</li>
-            <li>ENH: Console logging with [TWR RolesTabs] prefix</li>
-            <li>ENH: Explicit handler attachment verification</li>
-            <li>ENH: Improved event delegation for adjudication buttons</li>
-            <li>ENH: Error boundary around click handlers</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v3.0.58 <span class="changelog-date">January 23, 2026</span></h3>
-        <p><strong>Adjudication & Focus Fixes</strong></p>
-        <ul>
-            <li>FIX: Overview 'Documents Analyzed' shows unique documents, not total scans</li>
-            <li>FIX: Role Details search/dropdown focus outline no longer cut off</li>
-            <li>FIX: Adjudication search input now filters roles in real-time</li>
-            <li>FIX: Adjudication filter dropdown now works</li>
-            <li>FIX: Adjudication Select All checkbox works with visible items</li>
-            <li>FIX: Adjudication item checkboxes no longer overlap text</li>
-            <li>ENH: Form inputs/dropdowns show visible focus ring</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v3.0.57 <span class="changelog-date">January 23, 2026</span></h3>
-        <p><strong>RACI Matrix Layout Enhancement</strong></p>
-        <ul>
-            <li>FIX: RACI counts now reflect unique documents (not scan instances)</li>
-            <li>FIX: Re-scanning uses MAX(old, new) for mention counts</li>
-            <li>FIX: RACI sort dropdown and Critical filter checkbox now work</li>
-            <li>FIX: Role Details search and sort dropdown now work</li>
-            <li>ENH: RACI table header sticky while scrolling</li>
-            <li>ENH: RACI legend footer always visible</li>
-            <li>ENH: Condensed layout - Role column wider, R/A/C/I columns compact</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v3.0.55-56 <span class="changelog-date">January 23, 2026</span></h3>
-        <p><strong>Roles Studio Overhaul</strong></p>
-        <ul>
-            <li>NEW: Horizontal tab navigation replacing vertical sidebar</li>
-            <li>NEW: Cross-Reference tab with Role × Document heatmap</li>
-            <li>NEW: Roles Studio accessible without scanning a document</li>
-            <li>NEW: Dictionary fallback when no scan data exists</li>
-            <li>NEW: CSV export for Cross-Reference matrix</li>
-            <li>FIX: Dictionary tab now loads data properly</li>
-            <li>FIX: Tab switching shows only one section at a time</li>
-            <li>FIX: RACI Matrix correctly shows R/A/C/I assignments</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v3.0.52-54 <span class="changelog-date">January 23, 2026</span></h3>
-        <p><strong>Help System & Update Fixes</strong></p>
-        <ul>
-            <li>Complete help documentation with 44 sections</li>
-            <li>Fixed CSS specificity issues in help modal</li>
-            <li>Fixed "Check for Updates" element IDs</li>
-            <li>Added showRollbackConfirm function</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v3.0.51 <span class="changelog-date">January 23, 2026</span></h3>
-        <p><strong>Update System Improvements</strong></p>
-        <ul>
-            <li>Auto-restart on update with browser refresh</li>
-            <li>Installation progress bar</li>
-            <li>Desktop shortcut icon</li>
-            <li>Custom install location prompt</li>
-            <li>Fixed "Check for Updates" detection</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v3.0.50 <span class="changelog-date">January 22, 2026</span></h3>
-        <p><strong>Package Restructure</strong></p>
-        <ul>
-            <li>Native file extension support (no .txt encoding)</li>
-            <li>Clean directory structure for GitHub</li>
-            <li>Fixed showNodeInfoPanel error in Roles</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v3.0.48-49 <span class="changelog-date">January 2026</span></h3>
-        <p><strong>Hyperlink & Role Enhancements</strong></p>
-        <ul>
-            <li>PowerShell URL validator with comment insertion</li>
-            <li>Statement Forge integration with Roles</li>
-            <li>D3.js relationship graph visualization</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v3.0.x <span class="changelog-date">January 2026</span></h3>
-        <p><strong>Enterprise Architecture</strong></p>
-        <ul>
-            <li>Modular JavaScript architecture (TWR namespace)</li>
-            <li>Event delegation for all interactions</li>
-            <li>Job manager infrastructure</li>
-            <li>Air-gapped deployment support</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v2.9.x <span class="changelog-date">January 2026</span></h3>
-        <p><strong>Major Features</strong></p>
-        <ul>
-            <li>Statement Forge for requirements extraction</li>
-            <li>RACI matrix generation</li>
-            <li>Issue families</li>
-            <li>Scan history</li>
-            <li>Diagnostic export</li>
-        </ul>
-    </div>
-
-    <div class="changelog-version">
-        <h3>v2.8.x <span class="changelog-date">December 2025</span></h3>
-        <p><strong>Foundation</strong></p>
-        <ul>
-            <li>Core 50+ quality checkers</li>
-            <li>Track changes export</li>
-            <li>Dark mode</li>
+            <li>FIXED: PDF punctuation false positives</li>
+            <li>FIXED: Acronym false positives</li>
+            <li>ADDED: PDF hyperlink extraction via PyMuPDF</li>
         </ul>
     </div>
 </div>

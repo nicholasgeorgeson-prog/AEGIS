@@ -3943,28 +3943,59 @@ const AEGISGuide = {
     },
 
     startFullTour() {
+        // v5.9.53: Convert tour to use demo engine for auto-advance with narration
+        if (this.demo.isPlaying) return;
+
         const tourOrder = ['landing', 'review', 'batch', 'roles', 'forge', 'validator', 'compare', 'metrics', 'history', 'settings', 'portfolio'];
-        let fullTour = [];
+        let allScenes = [];
 
         tourOrder.forEach(id => {
             const s = this.sections[id];
-            if (s && s.tourSteps) {
-                fullTour = fullTour.concat(s.tourSteps);
+            if (s && s.tourSteps && s.tourSteps.length > 0) {
+                // Add section intro scene
+                allScenes.push({
+                    target: null,
+                    narration: `Now let's explore: ${s.title}`,
+                    duration: 2500,
+                    sectionLabel: s.title,
+                    navigate: id
+                });
+                // Convert each tourStep into a demo scene
+                s.tourSteps.forEach((step, idx) => {
+                    allScenes.push({
+                        target: step.target,
+                        narration: step.description || step.title || '',
+                        duration: 8000,
+                        navigate: step.navigate || id,
+                        sectionLabel: s.title,
+                        _sectionId: id,
+                        _stepIndex: idx
+                    });
+                });
             }
         });
 
-        if (fullTour.length === 0) {
+        if (allScenes.length === 0) {
             console.warn('[AEGIS Guide] No tour steps found');
             return;
         }
 
         this.closePanel();
-        this.state.tourActive = true;
-        this.state.currentTourIndex = 0;
-        this.state.currentTour = fullTour;
+        this.endTour();
 
-        this.showStep(0);
-        console.log('[AEGIS Guide] Full tour started:', fullTour.length, 'steps');
+        this.demo.isPlaying = true;
+        this.demo.isPaused = false;
+        this.demo.currentStep = 0;
+        this.demo.currentSection = 'all';
+        this.demo.scenes = allScenes;
+        if (this.refs.beacon) this.refs.beacon.style.display = 'none';
+
+        this.refs.demoBar.classList.remove('hidden');
+        this.refs.demoBar.querySelector('#demo-bar-section').textContent = 'Full Application Tour';
+        this.refs.demoBar.querySelector('#demo-play').innerHTML = '&#10074;&#10074;';
+
+        this._showDemoStep(0);
+        console.log('[AEGIS Guide] Full tour started (auto-advance):', allScenes.length, 'scenes');
     },
 
     async showStep(index) {
@@ -5019,7 +5050,51 @@ const AEGISGuide = {
         // v5.9.18: Re-show help beacon after demo ends
         if (this.refs.beacon) this.refs.beacon.style.display = '';
 
+        // v5.9.53: Post-demo navigation — return user to a sensible location
+        const finishedSection = this.demo.currentSection;
+        try {
+            if (finishedSection === 'all' || !finishedSection) {
+                // Full tour/demo ended — return to landing page
+                if (typeof TWR !== 'undefined' && TWR.LandingPage && TWR.LandingPage.show) {
+                    TWR.LandingPage.show();
+                }
+            }
+            // Show temporary "Back to Dashboard" floating button
+            this._showBackToDashboardBtn();
+        } catch (e) {
+            console.warn('[AEGIS Guide] Post-demo nav error:', e);
+        }
+
         console.log('[AEGIS Guide] Demo stopped');
+    },
+
+    // v5.9.53: Temporary floating button to return to dashboard after demo ends
+    _showBackToDashboardBtn() {
+        // Remove any existing button first
+        const existing = document.getElementById('guide-back-dashboard-btn');
+        if (existing) existing.remove();
+
+        const btn = document.createElement('button');
+        btn.id = 'guide-back-dashboard-btn';
+        btn.className = 'guide-back-dashboard-btn';
+        btn.innerHTML = '<i data-lucide="layout-dashboard"></i> Back to Dashboard';
+        btn.addEventListener('click', () => {
+            btn.remove();
+            if (typeof closeModals === 'function') closeModals();
+            if (typeof TWR !== 'undefined' && TWR.LandingPage && TWR.LandingPage.show) {
+                TWR.LandingPage.show();
+            }
+        });
+        document.body.appendChild(btn);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        // Auto-remove after 15 seconds
+        setTimeout(() => {
+            if (btn.parentNode) {
+                btn.classList.add('guide-back-dashboard-fadeout');
+                setTimeout(() => { if (btn.parentNode) btn.remove(); }, 500);
+            }
+        }, 15000);
     },
 
     // ═════════════════════════════════════════════════════════════════

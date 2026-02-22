@@ -50,6 +50,14 @@ window.ProposalCompare = (function() {
         multiTermResults: [],              // [{termLabel, comparison, comparisonId, proposals}, ...]
         multiTermActiveIdx: 0,             // index of currently displayed term group
         multiTermExcluded: [],             // proposals excluded (single vendor in a term group)
+        // v5.9.53: Proposal selection for targeted comparison
+        _selectedForCompare: new Set(),    // indices of proposals selected for comparison
+        _selectMode: false,                // true when user is picking proposals to compare
+        // v5.9.53: Line item undo stack (per-proposal)
+        _undoStacks: {},                   // { proposalIdx: [{action, data, rowIdx}] }
+        _redoStacks: {},                   // { proposalIdx: [{action, data, rowIdx}] }
+        // v5.9.53: Expanded description tracking
+        _expandedDescs: new Set(),         // set of "proposalIdx-liIdx" keys for expanded descriptions
     };
 
     // CSRF token
@@ -73,6 +81,59 @@ window.ProposalCompare = (function() {
         document.body.classList.add('modal-open');
         reset();
         renderUploadPhase();
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    // v5.9.53: Open directly to a project's detail view (called from landing page)
+    function openProject(projectId) {
+        const modal = document.getElementById('pc-modal');
+        if (!modal) return;
+        modal.classList.add('active');
+        modal.style.zIndex = '15000';
+        document.body.classList.add('modal-open');
+        State.selectedProjectId = projectId;
+        State.dashboardProject = projectId;
+        renderProjectDetail(projectId);
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    // v5.9.53: Open project and auto-load latest comparison results
+    async function openProjectWithResults(projectId) {
+        const modal = document.getElementById('pc-modal');
+        if (!modal) return;
+        modal.classList.add('active');
+        modal.style.zIndex = '15000';
+        document.body.classList.add('modal-open');
+        State.selectedProjectId = projectId;
+        State.dashboardProject = projectId;
+
+        // Show loading in body
+        var body = document.getElementById('pc-body');
+        if (body) {
+            body.innerHTML = '<div class="pc-loading" style="padding:60px 0;text-align:center">' +
+                '<div class="pc-spinner"></div> Loading project financial analysis...' +
+                '</div>';
+        }
+
+        // Fetch latest comparison for this project
+        try {
+            var compsResp = await fetch('/api/proposal-compare/projects/' + projectId + '/comparisons', {
+                headers: { 'X-CSRF-Token': getCSRF() },
+            });
+            var compsData = await compsResp.json();
+            var comps = (compsData.success && compsData.data) ? compsData.data : [];
+
+            if (comps.length > 0) {
+                // Load the most recent comparison
+                await _loadHistoryItem(comps[0].id);
+            } else {
+                // No comparisons yet — fall back to project detail view
+                renderProjectDetail(projectId);
+            }
+        } catch (e) {
+            console.error('[AEGIS ProposalCompare] openProjectWithResults error:', e);
+            renderProjectDetail(projectId);
+        }
         if (window.lucide) window.lucide.createIcons();
     }
 
@@ -524,13 +585,33 @@ window.ProposalCompare = (function() {
                         '<i data-lucide="history"></i> History' +
                     '</button>' +
                 '</div>' +
+                // v5.9.53: Show existing proposals when returning via "Add Proposal"
+                (State.proposals.length > 0
+                    ? '<div class="pc-existing-proposals">' +
+                        '<div class="pc-existing-header">' +
+                            '<i data-lucide="check-circle" style="width:16px;height:16px;color:#4CAF50;vertical-align:-3px"></i> ' +
+                            '<strong>' + State.proposals.length + ' proposal' + (State.proposals.length > 1 ? 's' : '') + ' already loaded</strong>' +
+                            '<span style="color:var(--text-secondary,#888);font-size:12px;margin-left:8px">Add more files below, then click Extract</span>' +
+                        '</div>' +
+                        '<div class="pc-existing-list">' +
+                            State.proposals.map(function(ep, epi) {
+                                return '<span class="pc-existing-chip">' +
+                                    '<i data-lucide="file-text" style="width:12px;height:12px;vertical-align:-2px;margin-right:4px"></i>' +
+                                    escHtml(ep.company_name || ep.filename || ('Proposal ' + (epi + 1))) +
+                                    (ep.contract_term ? ' <span class="pc-chip-term">' + escHtml(ep.contract_term) + '</span>' : '') +
+                                    (ep.total_amount != null ? ' <span class="pc-chip-total">' + formatMoneyShort(ep.total_amount) + '</span>' : '') +
+                                '</span>';
+                            }).join('') +
+                        '</div>' +
+                      '</div>'
+                    : '') +
                 '<div class="pc-dropzone" id="pc-dropzone">' +
                     '<input type="file" class="pc-file-input" id="pc-file-input"' +
                     '       multiple accept=".xlsx,.xls,.docx,.pdf">' +
                     '<div class="pc-dropzone-icon">' +
                         '<i data-lucide="upload-cloud"></i>' +
                     '</div>' +
-                    '<h3>Drop proposal files here</h3>' +
+                    '<h3>' + (State.proposals.length > 0 ? 'Add more proposal files' : 'Drop proposal files here') + '</h3>' +
                     '<p>Supports DOCX, PDF, and Excel files \u2022 2\u201310 files</p>' +
                 '</div>' +
                 '<div class="pc-file-list" id="pc-file-list"></div>' +
@@ -970,6 +1051,203 @@ window.ProposalCompare = (function() {
         }
     }
 
+    // ──────────────────────────────────────────
+    // v5.9.53: Line Item Undo/Redo
+    // ──────────────────────────────────────────
+
+    function _pushUndo(idx, action, data, rowIdx) {
+        if (!State._undoStacks[idx]) State._undoStacks[idx] = [];
+        State._undoStacks[idx].push({ action: action, data: data, rowIdx: rowIdx, timestamp: Date.now() });
+        // Clear redo stack on new action
+        State._redoStacks[idx] = [];
+        _updateUndoRedoButtons(idx);
+    }
+
+    function _undoLineItem(idx) {
+        var stack = State._undoStacks[idx];
+        if (!stack || stack.length === 0) return;
+        var entry = stack.pop();
+        if (!State._redoStacks[idx]) State._redoStacks[idx] = [];
+        State._redoStacks[idx].push(entry);
+
+        if (entry.action === 'delete') {
+            // Re-insert the deleted row
+            var tbody = document.getElementById('pc-line-item-tbody');
+            if (tbody) {
+                var cats = ['Labor', 'Material', 'Software', 'License', 'Travel', 'Training', 'ODC', 'Subcontract', 'Overhead', 'Fee', 'Other'];
+                var rowHtml = _renderLineItemRow(entry.data, entry.rowIdx, cats);
+                var rows = tbody.querySelectorAll('.pc-li-row');
+                if (entry.rowIdx >= rows.length) {
+                    tbody.insertAdjacentHTML('beforeend', rowHtml);
+                } else {
+                    rows[entry.rowIdx].insertAdjacentHTML('beforebegin', rowHtml);
+                }
+                _wireLineItemRowEvents(tbody);
+            }
+        } else if (entry.action === 'add') {
+            // Remove the added row
+            var tbody = document.getElementById('pc-line-item-tbody');
+            if (tbody) {
+                var lastRow = tbody.querySelector('.pc-li-row:last-child');
+                if (lastRow) lastRow.remove();
+            }
+        }
+        _updateUndoRedoButtons(idx);
+    }
+
+    function _redoLineItem(idx) {
+        var stack = State._redoStacks[idx];
+        if (!stack || stack.length === 0) return;
+        var entry = stack.pop();
+        if (!State._undoStacks[idx]) State._undoStacks[idx] = [];
+        State._undoStacks[idx].push(entry);
+
+        if (entry.action === 'delete') {
+            // Re-delete the row
+            var tbody = document.getElementById('pc-line-item-tbody');
+            if (tbody) {
+                var rows = tbody.querySelectorAll('.pc-li-row');
+                if (rows[entry.rowIdx]) rows[entry.rowIdx].remove();
+            }
+        } else if (entry.action === 'add') {
+            // Re-add the row
+            var tbody = document.getElementById('pc-line-item-tbody');
+            if (tbody) {
+                var cats = ['Labor', 'Material', 'Software', 'License', 'Travel', 'Training', 'ODC', 'Subcontract', 'Overhead', 'Fee', 'Other'];
+                var rowHtml = _renderLineItemRow(entry.data, tbody.children.length, cats);
+                tbody.insertAdjacentHTML('beforeend', rowHtml);
+                _wireLineItemRowEvents(tbody);
+            }
+        }
+        _updateUndoRedoButtons(idx);
+    }
+
+    function _updateUndoRedoButtons(idx) {
+        var undoBtn = document.getElementById('pc-li-undo');
+        var redoBtn = document.getElementById('pc-li-redo');
+        if (undoBtn) {
+            var hasUndo = State._undoStacks[idx] && State._undoStacks[idx].length > 0;
+            undoBtn.disabled = !hasUndo;
+            undoBtn.title = hasUndo ? 'Undo: ' + State._undoStacks[idx][State._undoStacks[idx].length - 1].action : 'Nothing to undo';
+        }
+        if (redoBtn) {
+            var hasRedo = State._redoStacks[idx] && State._redoStacks[idx].length > 0;
+            redoBtn.disabled = !hasRedo;
+            redoBtn.title = hasRedo ? 'Redo: ' + State._redoStacks[idx][State._redoStacks[idx].length - 1].action : 'Nothing to redo';
+        }
+    }
+
+    // ──────────────────────────────────────────
+    // v5.9.53: Auto-recalculate helper
+    // ──────────────────────────────────────────
+
+    function _autoRecalcRow(row) {
+        var amtEl = row.querySelector('.pc-li-amount');
+        var qtyEl = row.querySelector('.pc-li-qty');
+        var unitEl = row.querySelector('.pc-li-unit');
+        if (!amtEl || !qtyEl || !unitEl) return;
+
+        var amt = _parseCurrency(amtEl.value);
+        var qty = parseFloat(qtyEl.value) || null;
+        var unit = _parseCurrency(unitEl.value);
+
+        // Count how many fields have values
+        var filled = (amt !== null ? 1 : 0) + (qty !== null ? 1 : 0) + (unit !== null ? 1 : 0);
+        if (filled < 2) return; // Need at least 2 to compute 3rd
+
+        if (amt === null && qty !== null && unit !== null) {
+            amtEl.value = _formatCurrency(qty * unit);
+            amtEl.classList.add('pc-auto-calc');
+        } else if (qty === null && amt !== null && unit !== null && unit > 0) {
+            qtyEl.value = Math.round((amt / unit) * 100) / 100;
+            qtyEl.classList.add('pc-auto-calc');
+        } else if (unit === null && amt !== null && qty !== null && qty > 0) {
+            unitEl.value = _formatCurrency(amt / qty);
+            unitEl.classList.add('pc-auto-calc');
+        }
+    }
+
+    function _wireLineItemRowEvents(tbody) {
+        // Wire auto-recalculate on input for amount/qty/unit fields
+        tbody.querySelectorAll('.pc-li-amount, .pc-li-qty, .pc-li-unit').forEach(function(input) {
+            if (input._pcWired) return;
+            input._pcWired = true;
+            input.addEventListener('blur', function() {
+                this.classList.remove('pc-auto-calc');
+                _autoRecalcRow(this.closest('.pc-li-row'));
+            });
+        });
+        // Wire expandable descriptions
+        tbody.querySelectorAll('.pc-li-desc').forEach(function(input) {
+            if (input._pcExpandWired) return;
+            input._pcExpandWired = true;
+            input.addEventListener('focus', function() {
+                this.closest('.pc-li-row')?.classList.add('pc-li-expanded');
+            });
+            input.addEventListener('blur', function() {
+                this.closest('.pc-li-row')?.classList.remove('pc-li-expanded');
+            });
+        });
+    }
+
+    // ──────────────────────────────────────────
+    // v5.9.53: Selective comparison helpers
+    // ──────────────────────────────────────────
+
+    function _startSelectiveComparison(proposalIndices) {
+        // Filter proposals to only those selected
+        var selected = proposalIndices.map(function(i) { return State.proposals[i]; }).filter(Boolean);
+        if (selected.length < 2) {
+            if (window.showToast) window.showToast('Select at least 2 proposals to compare', 'error');
+            return;
+        }
+        // Store original proposals list and swap in selected subset
+        State._allProposals = State.proposals;
+        State.proposals = selected;
+        startComparison();
+    }
+
+    function _restoreAllProposals() {
+        if (State._allProposals) {
+            State.proposals = State._allProposals;
+            State._allProposals = null;
+        }
+    }
+
+    /**
+     * v5.9.53: Apply vendor filter on results view — re-renders tab content
+     * with only the checked vendor chips included.
+     */
+    function _applyVendorFilter() {
+        var activeChips = document.querySelectorAll('.pc-vendor-chip.pc-vendor-chip-on');
+        var activeIds = [];
+        activeChips.forEach(function(c) { activeIds.push(c.dataset.vendorId); });
+
+        if (activeIds.length < 2) {
+            if (window.showToast) window.showToast('Need at least 2 vendors for comparison', 'error');
+            return;
+        }
+
+        // Filter comparison data to only active vendors
+        var cmp = State.comparison;
+        if (!cmp) return;
+
+        var propIds = activeIds;
+        destroyCharts();
+
+        // Re-render all tabs with filtered vendor list
+        renderExecutiveSummary(propIds, cmp);
+        renderComparisonTable(propIds, cmp);
+        renderCategoriesTab(propIds, cmp);
+        renderRedFlagsTab(propIds, cmp);
+        renderHeatmapTab(propIds, cmp);
+        renderVendorScoresTab(propIds, cmp);
+        renderDetailsTab(cmp);
+        renderTablesTab(cmp);
+
+        if (window.lucide) window.lucide.createIcons();
+    }
+
     function _renderDocViewer(idx) {
         var p = State.proposals[idx];
         var fileType = (p.file_type || '').toLowerCase();
@@ -1056,7 +1334,23 @@ window.ProposalCompare = (function() {
         var items = p.line_items || [];
         var cats = ['Labor', 'Material', 'Software', 'License', 'Travel', 'Training', 'ODC', 'Subcontract', 'Overhead', 'Fee', 'Other'];
 
+        var hasUndo = State._undoStacks[idx] && State._undoStacks[idx].length > 0;
+        var hasRedo = State._redoStacks[idx] && State._redoStacks[idx].length > 0;
+
         var html = '<div class="pc-li-editor" id="pc-li-editor">' +
+            '<div class="pc-li-toolbar">' +
+                '<button class="pc-btn pc-btn-xs pc-btn-ghost" id="pc-li-undo" title="Undo"' + (hasUndo ? '' : ' disabled') + '>' +
+                    '<i data-lucide="undo-2"></i> Undo' +
+                '</button>' +
+                '<button class="pc-btn pc-btn-xs pc-btn-ghost" id="pc-li-redo" title="Redo"' + (hasRedo ? '' : ' disabled') + '>' +
+                    '<i data-lucide="redo-2"></i> Redo' +
+                '</button>' +
+                '<span class="pc-li-toolbar-divider"></span>' +
+                '<button class="pc-btn pc-btn-xs pc-btn-ghost" id="pc-li-recalc" title="Auto-calculate missing values from available fields">' +
+                    '<i data-lucide="calculator"></i> Recalculate' +
+                '</button>' +
+                '<span class="pc-li-item-count">' + items.length + ' items</span>' +
+            '</div>' +
             '<div class="pc-li-table-wrap"><table class="pc-li-table">' +
             '<thead><tr>' +
                 '<th class="pc-li-th-desc">Description</th>' +
@@ -1175,17 +1469,73 @@ window.ProposalCompare = (function() {
 
         // Line item editor events (if open)
         if (editorOpen) {
+            var _editorTbody = document.getElementById('pc-line-item-tbody');
+
+            // Wire auto-recalc and expandable descriptions on existing rows
+            if (_editorTbody) _wireLineItemRowEvents(_editorTbody);
+
             document.getElementById('pc-add-line-item')?.addEventListener('click', function() {
                 var tbody = document.getElementById('pc-line-item-tbody');
                 if (!tbody) return;
                 var cats = ['Labor', 'Material', 'Software', 'License', 'Travel', 'Training', 'ODC', 'Subcontract', 'Overhead', 'Fee', 'Other'];
-                var newRow = _renderLineItemRow({ description: '', category: 'Other', amount: null, amount_raw: '', quantity: null, unit_price: null }, tbody.children.length, cats);
+                var newItem = { description: '', category: 'Other', amount: null, amount_raw: '', quantity: null, unit_price: null };
+                var newRow = _renderLineItemRow(newItem, tbody.children.length, cats);
                 tbody.insertAdjacentHTML('beforeend', newRow);
+                _wireLineItemRowEvents(tbody);
+                _pushUndo(idx, 'add', newItem, tbody.children.length - 1);
+                // Focus the new description field
+                var lastRow = tbody.querySelector('.pc-li-row:last-child .pc-li-desc');
+                if (lastRow) lastRow.focus();
             });
 
             document.getElementById('pc-li-editor')?.addEventListener('click', function(e) {
                 if (e.target.classList.contains('pc-li-del-btn')) {
-                    e.target.closest('.pc-li-row')?.remove();
+                    var row = e.target.closest('.pc-li-row');
+                    if (!row) return;
+                    // Capture row data before deletion for undo
+                    var rowData = {
+                        description: row.querySelector('.pc-li-desc')?.value || '',
+                        category: row.querySelector('.pc-li-cat')?.value || 'Other',
+                        amount: _parseCurrency(row.querySelector('.pc-li-amount')?.value),
+                        amount_raw: row.querySelector('.pc-li-amount')?.value || '',
+                        quantity: parseFloat(row.querySelector('.pc-li-qty')?.value) || null,
+                        unit_price: _parseCurrency(row.querySelector('.pc-li-unit')?.value),
+                    };
+                    var rowIdx = Array.from(row.parentNode.children).indexOf(row);
+                    _pushUndo(idx, 'delete', rowData, rowIdx);
+                    row.remove();
+                    // Update item count
+                    var countEl = document.querySelector('.pc-li-item-count');
+                    var tbody = document.getElementById('pc-line-item-tbody');
+                    if (countEl && tbody) countEl.textContent = tbody.children.length + ' items';
+                }
+            });
+
+            // Undo/Redo buttons
+            document.getElementById('pc-li-undo')?.addEventListener('click', function() { _undoLineItem(idx); });
+            document.getElementById('pc-li-redo')?.addEventListener('click', function() { _redoLineItem(idx); });
+
+            // Recalculate all rows
+            document.getElementById('pc-li-recalc')?.addEventListener('click', function() {
+                var tbody = document.getElementById('pc-line-item-tbody');
+                if (!tbody) return;
+                var count = 0;
+                tbody.querySelectorAll('.pc-li-row').forEach(function(row) {
+                    var before = {
+                        amt: row.querySelector('.pc-li-amount')?.value,
+                        qty: row.querySelector('.pc-li-qty')?.value,
+                        unit: row.querySelector('.pc-li-unit')?.value
+                    };
+                    _autoRecalcRow(row);
+                    var after = {
+                        amt: row.querySelector('.pc-li-amount')?.value,
+                        qty: row.querySelector('.pc-li-qty')?.value,
+                        unit: row.querySelector('.pc-li-unit')?.value
+                    };
+                    if (before.amt !== after.amt || before.qty !== after.qty || before.unit !== after.unit) count++;
+                });
+                if (window.showToast) {
+                    window.showToast(count > 0 ? count + ' row' + (count > 1 ? 's' : '') + ' recalculated' : 'All rows already complete', count > 0 ? 'success' : 'info');
                 }
             });
         }
@@ -1412,9 +1762,33 @@ window.ProposalCompare = (function() {
             '</div>';
         }
 
+        // ── v5.9.53: Proposal selection chip bar ──
+        var chipBarHtml = '<div class="pc-proposal-chips">';
+        chipBarHtml += '<span class="pc-chip-label"><i data-lucide="list-checks" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px"></i>Proposals:</span>';
+        State.proposals.forEach(function(p, pIdx) {
+            var name = p.company_name || p.filename || ('Proposal ' + (pIdx + 1));
+            var term = p.contract_term ? ' <span class="pc-chip-term">' + escHtml(p.contract_term) + '</span>' : '';
+            var total = p.total_amount != null ? ' <span class="pc-chip-total">' + formatMoneyShort(p.total_amount) + '</span>' : '';
+            var isSelected = !State._selectMode || State._selectedForCompare.has(pIdx);
+            var activeClass = pIdx === idx ? ' pc-chip-viewing' : '';
+            var selectedClass = isSelected ? ' pc-chip-selected' : ' pc-chip-excluded';
+            var items = (p.line_items?.length || 0) + ' items';
+            chipBarHtml += '<button class="pc-proposal-chip' + activeClass + selectedClass + '" data-chip-idx="' + pIdx + '" title="' + escHtml(name) + ' — ' + items + '">' +
+                '<span class="pc-chip-check"><input type="checkbox"' + (isSelected ? ' checked' : '') + ' class="pc-chip-cb"></span>' +
+                '<span class="pc-chip-name">' + escHtml(truncate(name, 20)) + '</span>' +
+                term + total +
+            '</button>';
+        });
+        // Selection action buttons
+        var selCount = State._selectMode ? State._selectedForCompare.size : total;
+        chipBarHtml += '<span class="pc-chip-divider"></span>';
+        chipBarHtml += '<span class="pc-chip-status">' + selCount + ' of ' + total + ' selected</span>';
+        chipBarHtml += '</div>';
+
         body.innerHTML =
             renderPhaseIndicator(3) +
             projectBar +
+            chipBarHtml +
             '<div class="pc-review-nav">' +
                 '<button class="pc-btn pc-btn-sm pc-btn-ghost" id="pc-review-prev"' +
                     (idx <= 0 ? ' disabled' : '') + '>' +
@@ -1435,6 +1809,9 @@ window.ProposalCompare = (function() {
                 '<button class="pc-btn pc-btn-primary" id="pc-btn-compare">' +
                     '<i data-lucide="git-compare-arrows"></i> ' +
                     (function() {
+                        if (State._selectMode && State._selectedForCompare.size < total) {
+                            return 'Compare Selected (' + State._selectedForCompare.size + ')';
+                        }
                         var tg = _groupByContractTerm(State.proposals);
                         if (tg.isMultiTerm) {
                             var groupCount = Object.keys(tg.groups).length;
@@ -1463,7 +1840,46 @@ window.ProposalCompare = (function() {
                 renderReviewPhase();
             }
         });
-        document.getElementById('pc-btn-compare')?.addEventListener('click', startComparison);
+        document.getElementById('pc-btn-compare')?.addEventListener('click', function() {
+            // If in select mode and not all selected, run selective comparison
+            if (State._selectMode && State._selectedForCompare.size < State.proposals.length && State._selectedForCompare.size >= 2) {
+                _startSelectiveComparison(Array.from(State._selectedForCompare));
+            } else {
+                startComparison();
+            }
+        });
+
+        // ── Wire proposal chip bar clicks ──
+        body.querySelectorAll('.pc-proposal-chip').forEach(function(chip) {
+            chip.addEventListener('click', function(e) {
+                // If checkbox was clicked, toggle selection
+                if (e.target.classList.contains('pc-chip-cb')) {
+                    e.stopPropagation();
+                    var chipIdx = parseInt(chip.dataset.chipIdx, 10);
+                    if (!State._selectMode) {
+                        // First checkbox interaction — initialize select mode with all selected
+                        State._selectMode = true;
+                        State._selectedForCompare = new Set();
+                        for (var si = 0; si < State.proposals.length; si++) State._selectedForCompare.add(si);
+                    }
+                    if (State._selectedForCompare.has(chipIdx)) {
+                        State._selectedForCompare.delete(chipIdx);
+                    } else {
+                        State._selectedForCompare.add(chipIdx);
+                    }
+                    _captureReviewEdits(State._reviewIdx);
+                    renderReviewPhase();
+                    return;
+                }
+                // Otherwise, navigate to that proposal
+                var chipIdx = parseInt(chip.dataset.chipIdx, 10);
+                if (chipIdx >= 0 && chipIdx < State.proposals.length) {
+                    _captureReviewEdits(State._reviewIdx);
+                    State._reviewIdx = chipIdx;
+                    renderReviewPhase();
+                }
+            });
+        });
 
         // Bind review-phase project selector
         var reviewProjSelect = document.getElementById('pc-review-project-select');
@@ -1859,7 +2275,10 @@ window.ProposalCompare = (function() {
             '<div class="pc-results">' +
                 '<div class="pc-results-header">' +
                     '<h3>Multi-Term Proposal Comparison</h3>' +
-                    '<div style="display:flex;gap:8px">' +
+                    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+                        '<button class="pc-btn pc-btn-gold" id="pc-btn-reanalyze">' +
+                            '<i data-lucide="refresh-cw"></i> Re-Analyze' +
+                        '</button>' +
                         '<button class="pc-btn pc-btn-secondary" onclick="ProposalCompare._restart()">' +
                             '<i data-lucide="arrow-left"></i> New Compare' +
                         '</button>' +
@@ -1868,6 +2287,9 @@ window.ProposalCompare = (function() {
                                 '<i data-lucide="pencil"></i> Back to Review' +
                               '</button>'
                             : '') +
+                        '<button class="pc-btn pc-btn-ghost" id="pc-btn-add-proposal">' +
+                            '<i data-lucide="plus-circle"></i> Add Proposal' +
+                        '</button>' +
                         '<button class="pc-btn pc-btn-primary" onclick="ProposalCompare._export()">' +
                             '<i data-lucide="download"></i> Export XLSX' +
                         '</button>' +
@@ -1887,6 +2309,23 @@ window.ProposalCompare = (function() {
                 var idx = parseInt(pill.dataset.termIdx, 10);
                 _switchMultiTermTab(idx);
             });
+        });
+
+        // v5.9.53: Wire Re-Analyze button (multi-term)
+        document.getElementById('pc-btn-reanalyze')?.addEventListener('click', function() {
+            _restoreAllProposals();
+            startComparison();
+        });
+
+        // v5.9.53: Wire Add Proposal button (multi-term)
+        document.getElementById('pc-btn-add-proposal')?.addEventListener('click', function() {
+            _restoreAllProposals();
+            State.phase = 'upload';
+            State.comparison = null;
+            State.comparisonId = null;
+            State.multiTermMode = false;
+            State.multiTermResults = [];
+            renderUploadPhase();
         });
 
         // Render active term's results
@@ -2104,6 +2543,144 @@ window.ProposalCompare = (function() {
 
         html += '</tbody></table></div>';
 
+        // ── v5.9.53: Year-over-Year % Change by Line Item ──
+        // Only if 2+ terms have successful comparisons
+        if (results.length >= 2) {
+            // Build line-item-level data per vendor per term
+            // { vendorKey: { lineItemDesc: { termLabel: amount } } }
+            var yoyData = {};
+            results.forEach(function(r) {
+                if (!r.comparison) return;
+                var items = r.comparison.aligned_items || [];
+                items.forEach(function(item) {
+                    var amounts = item.amounts || {};
+                    for (var pid in amounts) {
+                        if (amounts[pid] == null || amounts[pid] <= 0) continue;
+                        // Find vendor name for this pid
+                        var prop = (r.comparison.proposals || []).find(function(p) {
+                            return (p.id || p.company_name || p.filename) === pid;
+                        });
+                        var vendorName = prop ? (prop.company_name || prop.filename || 'Unknown') : pid;
+                        var vendorKey = vendorName.trim().toLowerCase();
+                        if (!yoyData[vendorKey]) yoyData[vendorKey] = { name: vendorName, items: {} };
+                        var desc = (item.description || 'Unnamed item').trim();
+                        if (!yoyData[vendorKey].items[desc]) yoyData[vendorKey].items[desc] = {};
+                        yoyData[vendorKey].items[desc][r.termLabel] = amounts[pid];
+                    }
+                });
+            });
+
+            // Check if any vendor has data across multiple terms
+            var hasYoY = false;
+            for (var vk in yoyData) {
+                for (var desc in yoyData[vk].items) {
+                    var termCount = Object.keys(yoyData[vk].items[desc]).length;
+                    if (termCount >= 2) { hasYoY = true; break; }
+                }
+                if (hasYoY) break;
+            }
+
+            if (hasYoY) {
+                html += '<h4 style="margin-top:24px;margin-bottom:12px">' +
+                    '<i data-lucide="trending-up" style="width:16px;height:16px;vertical-align:-3px;margin-right:6px"></i>' +
+                    'Year-over-Year % Change by Line Item</h4>';
+
+                var yoyVendorKeys = Object.keys(yoyData).sort();
+                yoyVendorKeys.forEach(function(vk) {
+                    var vendor = yoyData[vk];
+                    var itemDescs = Object.keys(vendor.items).sort();
+
+                    // Filter to items with data in 2+ terms
+                    var multiTermItems = itemDescs.filter(function(d) {
+                        return Object.keys(vendor.items[d]).length >= 2;
+                    });
+                    if (multiTermItems.length === 0) return;
+
+                    html += '<div style="margin-bottom:16px">' +
+                        '<h5 style="margin:0 0 8px;font-size:13px;color:var(--text-primary,#333)">' +
+                            '<i data-lucide="building-2" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px;color:#D6A84A"></i>' +
+                            escHtml(vendor.name) +
+                            ' <span style="font-weight:400;color:var(--text-secondary,#888)">(' + multiTermItems.length + ' comparable items)</span>' +
+                        '</h5>';
+
+                    html += '<div class="pc-table-wrap"><table class="pc-table">';
+                    html += '<thead><tr><th style="min-width:200px">Line Item</th>';
+                    allTerms.forEach(function(t) {
+                        html += '<th>' + escHtml(t) + '</th>';
+                    });
+                    // Add YoY % columns between consecutive terms
+                    for (var ti = 1; ti < allTerms.length; ti++) {
+                        html += '<th style="color:#D6A84A">\u0394 ' + escHtml(allTerms[ti - 1]) + ' \u2192 ' + escHtml(allTerms[ti]) + '</th>';
+                    }
+                    html += '</tr></thead><tbody>';
+
+                    multiTermItems.forEach(function(desc) {
+                        var termData = vendor.items[desc];
+                        html += '<tr>';
+                        html += '<td title="' + escHtml(desc) + '">' + truncate(desc, 50) + '</td>';
+
+                        allTerms.forEach(function(t) {
+                            var amt = termData[t];
+                            if (amt != null) {
+                                html += '<td class="pc-amount">$' + amt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>';
+                            } else {
+                                html += '<td class="pc-amount-missing">\u2014</td>';
+                            }
+                        });
+
+                        // Compute % change between consecutive terms
+                        for (var ti = 1; ti < allTerms.length; ti++) {
+                            var prev = termData[allTerms[ti - 1]];
+                            var curr = termData[allTerms[ti]];
+                            if (prev != null && prev > 0 && curr != null) {
+                                var pctChange = ((curr - prev) / prev) * 100;
+                                var sign = pctChange >= 0 ? '+' : '';
+                                var colorClass = pctChange > 10 ? 'pc-variance-high'
+                                    : pctChange > 0 ? 'pc-variance-mid'
+                                    : pctChange < -10 ? 'pc-variance-low'
+                                    : 'pc-variance-low';
+                                html += '<td class="pc-variance ' + colorClass + '">' + sign + pctChange.toFixed(1) + '%</td>';
+                            } else {
+                                html += '<td class="pc-amount-missing">\u2014</td>';
+                            }
+                        }
+
+                        html += '</tr>';
+                    });
+
+                    // Summary row — total across terms
+                    html += '<tr class="pc-total-row"><td><strong>Total</strong></td>';
+                    var termTotals = {};
+                    allTerms.forEach(function(t) {
+                        var sum = 0;
+                        multiTermItems.forEach(function(desc) {
+                            if (vendor.items[desc][t] != null) sum += vendor.items[desc][t];
+                        });
+                        termTotals[t] = sum;
+                        html += '<td class="pc-amount"><strong>$' + sum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</strong></td>';
+                    });
+                    // Total YoY %
+                    for (var ti = 1; ti < allTerms.length; ti++) {
+                        var prevTotal = termTotals[allTerms[ti - 1]];
+                        var currTotal = termTotals[allTerms[ti]];
+                        if (prevTotal > 0 && currTotal > 0) {
+                            var pctChange = ((currTotal - prevTotal) / prevTotal) * 100;
+                            var sign = pctChange >= 0 ? '+' : '';
+                            var colorClass = pctChange > 10 ? 'pc-variance-high'
+                                : pctChange > 0 ? 'pc-variance-mid'
+                                : 'pc-variance-low';
+                            html += '<td class="pc-variance ' + colorClass + '"><strong>' + sign + pctChange.toFixed(1) + '%</strong></td>';
+                        } else {
+                            html += '<td class="pc-amount-missing">\u2014</td>';
+                        }
+                    }
+                    html += '</tr>';
+
+                    html += '</tbody></table></div></div>';
+                });
+            }
+        }
+
         // ── Vendor presence matrix ──
         html += '<h4 style="margin-top:24px;margin-bottom:12px">' +
             '<i data-lucide="check-square" style="width:16px;height:16px;vertical-align:-3px;margin-right:6px"></i>' +
@@ -2193,11 +2770,30 @@ window.ProposalCompare = (function() {
             return '<div class="pc-tab-panel' + active + '" id="pc-panel-' + t.id + '"></div>';
         }).join('');
 
+        // v5.9.53: Vendor filter chips for results (toggle vendors in/out with live recalculation)
+        var vendorChipsHtml = '';
+        if (cmp.proposals.length > 2) {
+            vendorChipsHtml = '<div class="pc-results-vendor-filter">' +
+                '<span class="pc-chip-label"><i data-lucide="filter" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px"></i>Filter Vendors:</span>';
+            cmp.proposals.forEach(function(vp, vpIdx) {
+                var name = vp.id || vp.company_name || vp.filename || ('Vendor ' + (vpIdx + 1));
+                vendorChipsHtml += '<button class="pc-vendor-chip pc-vendor-chip-on" data-vendor-idx="' + vpIdx + '" data-vendor-id="' + escHtml(name) + '">' +
+                    '<span class="pc-vchip-check">\u2713</span> ' + escHtml(truncate(name, 18)) +
+                '</button>';
+            });
+            vendorChipsHtml += '<button class="pc-btn pc-btn-xs pc-btn-ghost" id="pc-vendor-reset" style="margin-left:8px">' +
+                '<i data-lucide="rotate-ccw" style="width:12px;height:12px"></i> Reset</button>';
+            vendorChipsHtml += '</div>';
+        }
+
         body.innerHTML =
             '<div class="pc-results">' +
                 '<div class="pc-results-header">' +
                     '<h3>Proposal Comparison \u2014 ' + cmp.proposals.length + ' Proposals</h3>' +
-                    '<div style="display:flex;gap:8px">' +
+                    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+                        '<button class="pc-btn pc-btn-gold" id="pc-btn-reanalyze">' +
+                            '<i data-lucide="refresh-cw"></i> Re-Analyze' +
+                        '</button>' +
                         '<button class="pc-btn pc-btn-secondary" onclick="ProposalCompare._restart()">' +
                             '<i data-lucide="arrow-left"></i> New Compare' +
                         '</button>' +
@@ -2206,6 +2802,9 @@ window.ProposalCompare = (function() {
                                 '<i data-lucide="pencil"></i> Back to Review' +
                               '</button>'
                             : '') +
+                        '<button class="pc-btn pc-btn-ghost" id="pc-btn-add-proposal">' +
+                            '<i data-lucide="plus-circle"></i> Add Proposal' +
+                        '</button>' +
                         '<button class="pc-btn pc-btn-ghost" id="pc-results-tag-project">' +
                             '<i data-lucide="folder-plus"></i> Tag to Project' +
                         '</button>' +
@@ -2217,6 +2816,7 @@ window.ProposalCompare = (function() {
                         '</button>' +
                     '</div>' +
                 '</div>' +
+                vendorChipsHtml +
                 '<div class="pc-tabs" id="pc-tabs-bar">' + tabsHtml + '</div>' +
                 panelsHtml +
             '</div>';
@@ -2241,6 +2841,45 @@ window.ProposalCompare = (function() {
                 _showResultsTagToProjectMenu(e.target.closest('#pc-results-tag-project') || tagProjBtn);
             });
         }
+
+        // v5.9.53: Wire Re-Analyze button
+        document.getElementById('pc-btn-reanalyze')?.addEventListener('click', function() {
+            _restoreAllProposals(); // restore full set if was selective
+            startComparison();
+        });
+
+        // v5.9.53: Wire Add Proposal button — return to upload preserving existing proposals
+        document.getElementById('pc-btn-add-proposal')?.addEventListener('click', function() {
+            _restoreAllProposals();
+            State.phase = 'upload';
+            State.comparison = null;
+            State.comparisonId = null;
+            State.multiTermMode = false;
+            State.multiTermResults = [];
+            // Keep State.proposals intact — renderUploadPhase will show them as "already loaded"
+            renderUploadPhase();
+        });
+
+        // v5.9.53: Wire vendor filter chips (toggle vendors in/out of results view)
+        body.querySelectorAll('.pc-vendor-chip').forEach(function(vChip) {
+            vChip.addEventListener('click', function() {
+                vChip.classList.toggle('pc-vendor-chip-on');
+                vChip.classList.toggle('pc-vendor-chip-off');
+                var checkSpan = vChip.querySelector('.pc-vchip-check');
+                if (checkSpan) checkSpan.textContent = vChip.classList.contains('pc-vendor-chip-on') ? '\u2713' : '';
+                // Rebuild comparison data with filtered vendors
+                _applyVendorFilter();
+            });
+        });
+        document.getElementById('pc-vendor-reset')?.addEventListener('click', function() {
+            body.querySelectorAll('.pc-vendor-chip').forEach(function(vc) {
+                vc.classList.add('pc-vendor-chip-on');
+                vc.classList.remove('pc-vendor-chip-off');
+                var cs = vc.querySelector('.pc-vchip-check');
+                if (cs) cs.textContent = '\u2713';
+            });
+            _applyVendorFilter();
+        });
 
         // Render each tab
         renderExecutiveSummary(propIds, cmp);
@@ -4063,6 +4702,8 @@ window.ProposalCompare = (function() {
                     dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                 } catch(e) { dateStr = proj.updated_at || ''; }
 
+                var totalValueStr = proj.total_value ? formatMoneyShort(proj.total_value) : '\u2014';
+
                 return '<div class="pc-project-card" data-project-id="' + proj.id + '">' +
                     '<div class="pc-project-card-header">' +
                         '<div class="pc-project-card-icon"><i data-lucide="folder-open"></i></div>' +
@@ -4080,6 +4721,10 @@ window.ProposalCompare = (function() {
                         '<div class="pc-project-stat">' +
                             '<span class="pc-project-stat-value">' + (proj.total_line_items || 0) + '</span>' +
                             '<span class="pc-project-stat-label">Line Items</span>' +
+                        '</div>' +
+                        '<div class="pc-project-stat">' +
+                            '<span class="pc-project-stat-value">' + totalValueStr + '</span>' +
+                            '<span class="pc-project-stat-label">Total Value</span>' +
                         '</div>' +
                         '<div class="pc-project-stat">' +
                             '<span class="pc-project-stat-value">' + dateStr + '</span>' +
@@ -4154,6 +4799,10 @@ window.ProposalCompare = (function() {
                             '<i data-lucide="git-compare-arrows"></i> Compare All' +
                         '</button>' +
                     '</div>' +
+                '</div>' +
+                '<!-- v5.9.53: Financial summary dashboard -->' +
+                '<div class="pc-detail-section" id="pc-detail-financial">' +
+                    '<div id="pc-fin-summary"><div class="pc-loading"><div class="pc-spinner"></div> Loading financial summary...</div></div>' +
                 '</div>' +
                 '<div class="pc-detail-section" id="pc-detail-proposals">' +
                     '<h4><i data-lucide="file-text" style="width:16px;height:16px;vertical-align:-2px;margin-right:4px"></i>Proposals</h4>' +
@@ -4342,10 +4991,223 @@ window.ProposalCompare = (function() {
                 }
             }
 
+            // ── v5.9.53: Fetch + render financial summary dashboard ──
+            _renderFinancialSummary(projectId, compsData);
+
         } catch(err) {
             console.error('[PC Dashboard] Detail fetch error:', err);
             if (window.showToast) window.showToast('Failed to load project: ' + err.message, 'error');
         }
+    }
+
+    /**
+     * v5.9.53: Fetch financial summary from latest comparison and render
+     * a rich dashboard inside the project detail view.
+     */
+    async function _renderFinancialSummary(projectId, compsData) {
+        var container = document.getElementById('pc-fin-summary');
+        if (!container) return;
+
+        var comps = (compsData && compsData.success && compsData.data) ? compsData.data : [];
+        if (comps.length === 0) {
+            container.innerHTML =
+                '<div class="pc-fin-empty">' +
+                    '<i data-lucide="bar-chart-3" style="width:32px;height:32px;opacity:0.3"></i>' +
+                    '<p>No comparisons yet. Add 2+ proposals and click <strong>Compare All</strong> to see financial analysis.</p>' +
+                '</div>';
+            if (window.lucide) window.lucide.createIcons();
+            return;
+        }
+
+        try {
+            var resp = await fetch('/api/proposal-compare/projects/' + projectId + '/financial-summary', {
+                headers: { 'X-CSRF-Token': getCSRF() },
+            });
+            var json = await resp.json();
+            if (!json.success || !json.data || !json.data.has_comparison) {
+                container.innerHTML = '<div class="pc-fin-empty"><p>Financial data unavailable.</p></div>';
+                return;
+            }
+
+            var d = json.data;
+            var html = '';
+
+            // ── Hero stat cards ──
+            var vendorCount = (d.vendors || []).length;
+            var totalLineItems = 0;
+            var totalFlags = (d.red_flags ? (d.red_flags.critical || 0) + (d.red_flags.warning || 0) + (d.red_flags.info || 0) : 0);
+            (d.vendors || []).forEach(function(v) { totalLineItems += (v.line_item_count || 0); });
+
+            html += '<div class="pc-fin-heroes">';
+            html += _finHero('users', vendorCount, 'Vendors', '#D6A84A');
+            html += _finHero('layers', totalLineItems, 'Line Items', '#2196f3');
+            if (d.price_range) {
+                html += _finHero('dollar-sign', formatMoneyShort(d.price_range.avg), 'Average Total', '#219653');
+                html += _finHero('trending-up', formatMoneyShort(d.price_range.spread), 'Price Spread', d.price_range.spread > d.price_range.avg * 0.3 ? '#f44336' : '#D6A84A');
+            }
+            html += _finHero('shield-alert', totalFlags, 'Risk Flags', totalFlags > 5 ? '#f44336' : totalFlags > 0 ? '#D6A84A' : '#219653');
+            html += '</div>';
+
+            // ── Vendor comparison table ──
+            if (d.vendors && d.vendors.length > 0) {
+                html += '<div class="pc-fin-section">';
+                html += '<h5 class="pc-fin-section-title"><i data-lucide="building-2" style="width:15px;height:15px;color:#D6A84A"></i> Vendor Overview</h5>';
+                html += '<div class="pc-fin-vendor-grid">';
+                d.vendors.sort(function(a, b) { return (a.total || 0) - (b.total || 0); });
+                d.vendors.forEach(function(v, idx) {
+                    var gc = gradeColor(v.grade || 'C');
+                    var isLowest = idx === 0 && d.vendors.length > 1;
+                    html += '<div class="pc-fin-vendor-card' + (isLowest ? ' pc-fin-lowest' : '') + '">' +
+                        (isLowest ? '<div class="pc-fin-lowest-badge"><i data-lucide="trophy" style="width:11px;height:11px"></i> Lowest</div>' : '') +
+                        '<div class="pc-fin-vendor-name">' + escHtml(v.company_name || 'Vendor ' + (idx + 1)) + '</div>' +
+                        '<div class="pc-fin-vendor-total">' + formatMoney(v.total) + '</div>' +
+                        '<div class="pc-fin-vendor-meta">' +
+                            (v.line_item_count || 0) + ' items' +
+                            (v.contract_term ? ' &bull; ' + escHtml(v.contract_term) : '') +
+                        '</div>' +
+                        '<div class="pc-fin-vendor-footer">' +
+                            '<span class="pc-fin-grade" style="background:' + gc + '">' + (v.grade || '\u2014') + '</span>' +
+                            '<span class="pc-fin-score">' + (v.overall_score != null ? v.overall_score + '/100' : '') + '</span>' +
+                        '</div>' +
+                    '</div>';
+                });
+                html += '</div></div>';
+            }
+
+            // ── Price range bar ──
+            if (d.price_range && d.price_range.min != null) {
+                var pr = d.price_range;
+                var range = pr.max - pr.min;
+                var avgPct = range > 0 ? ((pr.avg - pr.min) / range * 100) : 50;
+                html += '<div class="pc-fin-section">';
+                html += '<h5 class="pc-fin-section-title"><i data-lucide="ruler" style="width:15px;height:15px;color:#D6A84A"></i> Price Range</h5>';
+                html += '<div class="pc-fin-price-range">' +
+                    '<div class="pc-fin-range-labels">' +
+                        '<span class="pc-fin-range-min">' + formatMoney(pr.min) + '</span>' +
+                        '<span class="pc-fin-range-max">' + formatMoney(pr.max) + '</span>' +
+                    '</div>' +
+                    '<div class="pc-fin-range-bar">' +
+                        '<div class="pc-fin-range-fill"></div>' +
+                        '<div class="pc-fin-range-avg" style="left:' + avgPct.toFixed(1) + '%">' +
+                            '<div class="pc-fin-range-avg-label">AVG ' + formatMoneyShort(pr.avg) + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="pc-fin-range-spread">Spread: ' + formatMoney(pr.spread) + '</div>' +
+                '</div></div>';
+            }
+
+            // ── Category breakdown ──
+            if (d.categories && Object.keys(d.categories).length > 0) {
+                html += '<div class="pc-fin-section">';
+                html += '<h5 class="pc-fin-section-title"><i data-lucide="pie-chart" style="width:15px;height:15px;color:#D6A84A"></i> Category Breakdown</h5>';
+                html += '<div class="pc-fin-cat-table"><table class="pc-table pc-table-compact">';
+                html += '<thead><tr><th>Category</th>';
+                (d.vendors || []).forEach(function(v) {
+                    html += '<th>' + escHtml((v.company_name || '').split(' ')[0]) + '</th>';
+                });
+                html += '</tr></thead><tbody>';
+                for (var catName in d.categories) {
+                    var catRow = d.categories[catName];
+                    html += '<tr><td class="pc-fin-cat-name">' + escHtml(catName) + '</td>';
+                    (d.vendors || []).forEach(function(v) {
+                        var vid = v.vendor_id || v.company_name;
+                        var catVendors = catRow.vendors || {};
+                        var amt = catVendors[vid];
+                        html += '<td class="pc-amount">' + (amt != null ? formatMoney(amt) : '\u2014') + '</td>';
+                    });
+                    html += '</tr>';
+                }
+                html += '</tbody></table></div></div>';
+            }
+
+            // ── Red flags summary ──
+            if (d.red_flags && totalFlags > 0) {
+                html += '<div class="pc-fin-section">';
+                html += '<h5 class="pc-fin-section-title"><i data-lucide="shield-alert" style="width:15px;height:15px;color:#f44336"></i> Risk Summary</h5>';
+                html += '<div class="pc-fin-flags">';
+                if (d.red_flags.critical > 0) {
+                    html += '<div class="pc-fin-flag-pill pc-fin-flag-critical">' +
+                        '<i data-lucide="alert-circle" style="width:13px;height:13px"></i> ' +
+                        d.red_flags.critical + ' Critical</div>';
+                }
+                if (d.red_flags.warning > 0) {
+                    html += '<div class="pc-fin-flag-pill pc-fin-flag-warning">' +
+                        '<i data-lucide="alert-triangle" style="width:13px;height:13px"></i> ' +
+                        d.red_flags.warning + ' Warning</div>';
+                }
+                if (d.red_flags.info > 0) {
+                    html += '<div class="pc-fin-flag-pill pc-fin-flag-info">' +
+                        '<i data-lucide="info" style="width:13px;height:13px"></i> ' +
+                        d.red_flags.info + ' Info</div>';
+                }
+                html += '</div></div>';
+            }
+
+            // ── Contract terms ──
+            if (d.contract_terms && d.contract_terms.length > 1) {
+                html += '<div class="pc-fin-section">';
+                html += '<h5 class="pc-fin-section-title"><i data-lucide="calendar" style="width:15px;height:15px;color:#D6A84A"></i> Contract Terms</h5>';
+                html += '<div class="pc-fin-terms">';
+                d.contract_terms.forEach(function(term) {
+                    html += '<span class="pc-fin-term-badge">' + escHtml(term) + '</span>';
+                });
+                html += '</div></div>';
+            }
+
+            // ── View Full Results button ──
+            html += '<div class="pc-fin-actions">' +
+                '<button class="pc-btn pc-btn-primary" id="pc-fin-view-full">' +
+                    '<i data-lucide="maximize-2"></i> View Full Analysis' +
+                '</button>' +
+                '<button class="pc-btn pc-btn-secondary" id="pc-fin-export-html">' +
+                    '<i data-lucide="download"></i> Export Report' +
+                '</button>' +
+            '</div>';
+
+            container.innerHTML = html;
+            if (window.lucide) window.lucide.createIcons();
+
+            // Wire buttons
+            var viewFullBtn = document.getElementById('pc-fin-view-full');
+            if (viewFullBtn) {
+                viewFullBtn.addEventListener('click', function() {
+                    _loadHistoryItem(d.comparison_id);
+                });
+            }
+            var exportBtn = document.getElementById('pc-fin-export-html');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', async function() {
+                    try {
+                        var compResp = await fetch('/api/proposal-compare/comparisons/' + d.comparison_id, {
+                            headers: { 'X-CSRF-Token': getCSRF() },
+                        });
+                        var compJson = await compResp.json();
+                        if (compJson.success && compJson.data && compJson.data.result_json) {
+                            State.comparison = JSON.parse(compJson.data.result_json);
+                            exportHTML();
+                        } else {
+                            if (window.showToast) window.showToast('Could not load comparison data for export', 'error');
+                        }
+                    } catch(e) {
+                        if (window.showToast) window.showToast('Export error: ' + e.message, 'error');
+                    }
+                });
+            }
+
+        } catch(err) {
+            console.error('[PC Dashboard] Financial summary error:', err);
+            container.innerHTML = '<div class="pc-fin-empty"><p>Failed to load financial summary.</p></div>';
+        }
+    }
+
+    function _finHero(icon, value, label, color) {
+        return '<div class="pc-fin-hero-card">' +
+            '<div class="pc-fin-hero-icon" style="background:' + color + '18;color:' + color + '">' +
+                '<i data-lucide="' + icon + '" style="width:18px;height:18px"></i>' +
+            '</div>' +
+            '<div class="pc-fin-hero-value">' + value + '</div>' +
+            '<div class="pc-fin-hero-label">' + label + '</div>' +
+        '</div>';
     }
 
     async function _editProposalFromDashboard(proposalId, projectId) {
@@ -4620,11 +5482,23 @@ window.ProposalCompare = (function() {
 
     return {
         open: open,
+        openProject: openProject,
+        openProjectWithResults: openProjectWithResults,
         close: close,
         // Internal callbacks (used by onclick in HTML)
         _removeFile: removeFile,
-        _restart: function() { _cleanupBlobUrls(); State._reviewIdx = 0; State._lineItemEditorOpen = []; State.multiTermMode = false; State.multiTermResults = []; State.multiTermActiveIdx = 0; State.multiTermExcluded = []; renderUploadPhase(); },
-        _backToReview: function() { renderReviewPhase(); },
+        _restart: function() {
+            _cleanupBlobUrls(); _restoreAllProposals();
+            State._reviewIdx = 0; State._lineItemEditorOpen = [];
+            State.multiTermMode = false; State.multiTermResults = [];
+            State.multiTermActiveIdx = 0; State.multiTermExcluded = [];
+            State._selectedForCompare = new Set(); State._selectMode = false;
+            State._undoStacks = {}; State._redoStacks = {};
+            State._expandedDescs = new Set(); State.proposals = []; State.files = [];
+            renderUploadPhase();
+        },
+        _backToReview: function() { _restoreAllProposals(); renderReviewPhase(); },
+        _reanalyze: function() { _restoreAllProposals(); startComparison(); },
         _export: exportXLSX,
         _exportHTML: exportHTML,
         _loadHistory: renderHistoryView,

@@ -1,9 +1,11 @@
 /**
- * PDF.js Viewer Module v2.0
+ * PDF.js Viewer Module v3.0 (v5.9.53)
  * Renders PDF pages into canvas elements with:
  * - HiDPI/Retina-aware rendering (devicePixelRatio)
  * - Zoom controls (+/−/fit width)
  * - Magnifier loupe on hover
+ * - Click-to-drag panning when zoomed
+ * - Text layer for selectable text (enables click-to-populate)
  * Used in Statement History and Proposal Compare doc viewer.
  */
 window.TWR = window.TWR || {};
@@ -42,7 +44,7 @@ TWR.PDFViewer = (function() {
      * Render a PDF into a container element with zoom controls.
      * @param {HTMLElement} container - Target container
      * @param {string} url - URL to the PDF file
-     * @param {object} options - { scale: 2.0, showZoomBar: true, showMagnifier: true }
+     * @param {object} options - { scale: 2.0, showZoomBar: true, showMagnifier: true, enableTextLayer: true }
      */
     async function render(container, url, options = {}) {
         if (!await init()) {
@@ -61,6 +63,7 @@ TWR.PDFViewer = (function() {
             const baseScale = options.scale || 2.0;
             const showZoomBar = options.showZoomBar !== false;
             const showMagnifier = options.showMagnifier !== false;
+            const enableTextLayer = options.enableTextLayer !== false;
 
             // Create state for this viewer
             const state = {
@@ -70,9 +73,11 @@ TWR.PDFViewer = (function() {
                 minScale: 0.5,
                 maxScale: 4.0,
                 magnifierActive: false,
+                panMode: false,
                 container: container,
                 wrapper: null,
                 zoomLabel: null,
+                enableTextLayer: enableTextLayer,
             };
             _activeState = state;
 
@@ -123,6 +128,9 @@ TWR.PDFViewer = (function() {
             container.appendChild(wrapper);
             state.wrapper = wrapper;
 
+            // v5.9.53: Click-to-drag panning
+            _initPanDrag(state);
+
             // Render all pages
             await _renderPages(state);
 
@@ -134,7 +142,7 @@ TWR.PDFViewer = (function() {
     }
 
     async function _renderPages(state) {
-        const { pdf, currentScale, wrapper } = state;
+        const { pdf, currentScale, wrapper, enableTextLayer } = state;
         wrapper.innerHTML = '';
 
         const dpr = window.devicePixelRatio || 1;
@@ -148,6 +156,7 @@ TWR.PDFViewer = (function() {
 
             const pageDiv = document.createElement('div');
             pageDiv.className = 'pdfv-page';
+            pageDiv.style.position = 'relative';
             pageDiv.dataset.pageNum = i;
 
             const label = document.createElement('div');
@@ -173,7 +182,112 @@ TWR.PDFViewer = (function() {
                 canvasContext: canvas.getContext('2d'),
                 viewport: viewport,
             }).promise;
+
+            // v5.9.53: Render text layer for selectable text (enables click-to-populate)
+            if (enableTextLayer) {
+                try {
+                    await _renderTextLayer(page, pageDiv, displayViewport);
+                } catch (e) {
+                    console.warn('[PDFViewer] Text layer render failed for page ' + i + ':', e);
+                }
+            }
         }
+    }
+
+    /**
+     * v5.9.53: Render a transparent, selectable text layer on top of the canvas.
+     * This enables window.getSelection() to work on PDF content,
+     * which is required for click-to-populate in Proposal Compare.
+     */
+    async function _renderTextLayer(page, pageDiv, displayViewport) {
+        const textContent = await page.getTextContent();
+        if (!textContent || !textContent.items || textContent.items.length === 0) return;
+
+        const textLayerDiv = document.createElement('div');
+        textLayerDiv.className = 'pdfv-text-layer';
+        textLayerDiv.style.width = displayViewport.width + 'px';
+        textLayerDiv.style.height = displayViewport.height + 'px';
+        pageDiv.appendChild(textLayerDiv);
+
+        // Position each text item as a span
+        textContent.items.forEach(function(item) {
+            if (!item.str || !item.str.trim()) return;
+
+            const tx = pdfjsLib.Util.transform(displayViewport.transform, item.transform);
+            const span = document.createElement('span');
+            span.textContent = item.str;
+            span.style.position = 'absolute';
+            span.style.left = tx[4] + 'px';
+            span.style.top = (displayViewport.height - tx[5]) + 'px';
+            span.style.fontSize = Math.abs(tx[0]) + 'px';
+            span.style.fontFamily = item.fontName || 'sans-serif';
+            // Scale width to approximate PDF text spacing
+            if (item.width && Math.abs(tx[0]) > 0) {
+                const scaledWidth = item.width * displayViewport.scale;
+                span.style.width = scaledWidth + 'px';
+                span.style.display = 'inline-block';
+            }
+            textLayerDiv.appendChild(span);
+        });
+    }
+
+    /**
+     * v5.9.53: Click-to-drag panning for zoomed PDFs.
+     * Only activates when NOT in magnifier mode and NOT selecting text.
+     * Uses middle-click (always) or left-click with >5px movement threshold.
+     */
+    function _initPanDrag(state) {
+        const wrapper = state.wrapper;
+        if (!wrapper) return;
+
+        let isDragging = false;
+        let startX = 0, startY = 0;
+        let scrollStartX = 0, scrollStartY = 0;
+        let moved = false;
+
+        wrapper.addEventListener('mousedown', function(e) {
+            // Skip if magnifier active or if clicking a button/control
+            if (state.magnifierActive) return;
+            if (e.target.closest('.pdfv-zoom-bar, button, a')) return;
+
+            // Middle-click always starts pan; left-click starts potential pan
+            if (e.button === 1 || e.button === 0) {
+                isDragging = true;
+                moved = false;
+                startX = e.clientX;
+                startY = e.clientY;
+                // Use the scrollable parent (container or wrapper's parent)
+                const scrollEl = wrapper.parentElement;
+                scrollStartX = scrollEl.scrollLeft;
+                scrollStartY = scrollEl.scrollTop;
+                e.preventDefault();
+            }
+        });
+
+        wrapper.addEventListener('mousemove', function(e) {
+            if (!isDragging) return;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+
+            // Movement threshold of 5px before activating pan (prevents blocking text selection)
+            if (!moved && Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+            moved = true;
+
+            wrapper.style.cursor = 'grabbing';
+            const scrollEl = wrapper.parentElement;
+            scrollEl.scrollLeft = scrollStartX - dx;
+            scrollEl.scrollTop = scrollStartY - dy;
+        });
+
+        function endDrag() {
+            if (isDragging) {
+                isDragging = false;
+                wrapper.style.cursor = '';
+            }
+        }
+
+        wrapper.addEventListener('mouseup', endDrag);
+        wrapper.addEventListener('mouseleave', endDrag);
     }
 
     function _setZoom(state, newScale) {

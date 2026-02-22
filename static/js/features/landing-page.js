@@ -285,6 +285,9 @@ TWR.LandingPage = (function() {
 
         // Animate count-up for metrics
         requestAnimationFrame(() => animateCountUp());
+
+        // v5.9.53: Load projects into Proposal Compare tile dropdown
+        _loadProjectDropdown();
     }
 
     function buildMetricsHTML() {
@@ -314,6 +317,23 @@ TWR.LandingPage = (function() {
                 ? `<span class="lp-tile-badge" data-drill="${tool.id}"><i data-lucide="chevron-down"></i> ${metricVal} ${tool.metricLabel}</span>`
                 : '';
 
+            // v5.9.53: Add project selector to Proposal Compare tile
+            let projectSelectHTML = '';
+            if (tool.id === 'proposal-compare') {
+                projectSelectHTML = `
+                    <div class="lp-pc-project-bar" id="lp-pc-project-bar">
+                        <div class="lp-pc-project-row">
+                            <i data-lucide="folder-open" style="width:14px;height:14px;color:#D6A84A;flex-shrink:0"></i>
+                            <select id="lp-pc-project-select" class="lp-pc-select">
+                                <option value="">Select a project...</option>
+                            </select>
+                            <button class="lp-pc-go-btn" id="lp-pc-go-btn" style="display:none" title="Open project financial analysis">
+                                <i data-lucide="arrow-right" style="width:14px;height:14px"></i>
+                            </button>
+                        </div>
+                    </div>`;
+            }
+
             return `
                 <div class="lp-tile" data-tool="${tool.id}">
                     <div class="lp-tile-header">
@@ -325,6 +345,7 @@ TWR.LandingPage = (function() {
                         </div>
                     </div>
                     <div class="lp-tile-desc">${tool.desc}</div>
+                    ${projectSelectHTML}
                     ${badgeHTML}
                     <div class="lp-tile-detail" id="lp-detail-${tool.id}"></div>
                 </div>
@@ -386,6 +407,36 @@ TWR.LandingPage = (function() {
                 Extractors: ${extractorNames}
             </div>
         `;
+    }
+
+    // v5.9.53: Populate project dropdown in Proposal Compare tile
+    async function _loadProjectDropdown() {
+        const select = document.getElementById('lp-pc-project-select');
+        if (!select) return;
+
+        try {
+            const resp = await fetch('/api/proposal-compare/projects?status=all');
+            const json = await resp.json();
+            if (!json.success || !json.data || json.data.length === 0) {
+                // Hide the project bar if no projects exist
+                const bar = document.getElementById('lp-pc-project-bar');
+                if (bar) bar.style.display = 'none';
+                return;
+            }
+
+            const projects = json.data;
+            let opts = '<option value="">Select a project...</option>';
+            projects.forEach(p => {
+                const propCount = p.proposal_count || 0;
+                const label = escapeHtml(p.name) + (propCount ? ` (${propCount} proposals)` : '');
+                opts += `<option value="${p.id}">${label}</option>`;
+            });
+            select.innerHTML = opts;
+        } catch (e) {
+            // No projects or API unavailable — hide dropdown
+            const bar = document.getElementById('lp-pc-project-bar');
+            if (bar) bar.style.display = 'none';
+        }
     }
 
     function updateMetrics() {
@@ -463,10 +514,9 @@ TWR.LandingPage = (function() {
         }
 
         if (tool.navId === null) {
-            // Document Review — open file dialog (needs app visible)
-            hide(() => {
-                document.getElementById('file-input')?.click();
-            });
+            // v5.9.53: Document Review — show review area without auto-opening file picker
+            // Users can drag-and-drop or use the Open button from the toolbar
+            hide();
             return;
         }
 
@@ -589,10 +639,37 @@ TWR.LandingPage = (function() {
             });
         }
 
+        // v5.9.53: Project dropdown in Proposal Compare tile
+        const pcSelect = document.getElementById('lp-pc-project-select');
+        const pcGoBtn = document.getElementById('lp-pc-go-btn');
+        if (pcSelect) {
+            pcSelect.addEventListener('click', (e) => e.stopPropagation());
+            pcSelect.addEventListener('change', (e) => {
+                e.stopPropagation();
+                if (pcGoBtn) {
+                    pcGoBtn.style.display = pcSelect.value ? 'inline-flex' : 'none';
+                }
+            });
+        }
+        if (pcGoBtn) {
+            pcGoBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const projId = parseInt(document.getElementById('lp-pc-project-select')?.value, 10);
+                if (!projId || !window.ProposalCompare) return;
+                ProposalCompare.openProjectWithResults(projId);
+            });
+        }
+
         // Tile clicks (use event delegation on the tiles container)
         const tilesEl = page.querySelector('.lp-tiles');
         if (tilesEl) {
             tilesEl.addEventListener('click', (e) => {
+                // v5.9.53: Ignore clicks inside the project selector bar
+                if (e.target.closest('.lp-pc-project-bar')) {
+                    e.stopPropagation();
+                    return;
+                }
+
                 // Check if clicking a drill-down badge
                 const badge = e.target.closest('.lp-tile-badge');
                 if (badge) {

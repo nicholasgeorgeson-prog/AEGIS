@@ -11575,7 +11575,20 @@ STEPS TO REPRODUCE
 
         // ====================================================================
         // v5.9.29/v5.9.38: SharePoint Online Scan Handlers
+        // v5.9.53: Fresh CSRF token helper — prevents stale token errors
         // ====================================================================
+        async function _freshCSRF() {
+            try {
+                const r = await fetch('/api/csrf-token');
+                const d = await r.json();
+                if (d.csrf_token) {
+                    window.CSRF_TOKEN = d.csrf_token;
+                    return d.csrf_token;
+                }
+            } catch(e) { /* fall through */ }
+            return window.CSRF_TOKEN || document.querySelector('meta[name="csrf-token"]')?.content || '';
+        }
+
         const btnSpTest = document.getElementById('btn-sp-test');
         const btnSpDiscover = document.getElementById('btn-sp-discover');
         const btnSpScan = document.getElementById('btn-sp-scan');
@@ -11613,11 +11626,12 @@ STEPS TO REPRODUCE
                 btnSpTest.disabled = true;
                 btnSpTest.innerHTML = '<i data-lucide="loader" class="spin"></i> Testing...';
                 try {
+                    const csrf = await _freshCSRF();
                     const resp = await fetch('/api/review/sharepoint-test', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'X-CSRF-Token': window.CSRF_TOKEN || document.querySelector('meta[name="csrf-token"]')?.content || ''
+                            'X-CSRF-Token': csrf
                         },
                         body: JSON.stringify({ site_url: siteUrl })
                     });
@@ -11682,11 +11696,12 @@ STEPS TO REPRODUCE
                 lucide?.createIcons?.();
 
                 try {
+                    const csrf = await _freshCSRF();
                     const resp = await fetch('/api/review/sharepoint-connect-and-scan', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'X-CSRF-Token': window.CSRF_TOKEN || document.querySelector('meta[name="csrf-token"]')?.content || ''
+                            'X-CSRF-Token': csrf
                         },
                         body: JSON.stringify({
                             site_url: siteUrl,
@@ -11810,11 +11825,12 @@ STEPS TO REPRODUCE
                 btnSpDiscover.disabled = true;
                 btnSpDiscover.innerHTML = '<i data-lucide="loader" class="spin"></i> Scanning...';
                 try {
+                    const csrf = await _freshCSRF();
                     const resp = await fetch('/api/review/sharepoint-scan-start', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'X-CSRF-Token': window.CSRF_TOKEN || document.querySelector('meta[name="csrf-token"]')?.content || ''
+                            'X-CSRF-Token': csrf
                         },
                         body: JSON.stringify({
                             site_url: siteUrl,
