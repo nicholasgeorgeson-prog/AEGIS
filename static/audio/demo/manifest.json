@@ -2663,6 +2663,26 @@
           "size": 83232
         }
       ]
+    },
+    "proposals_analytics": {
+      "steps": [
+        {
+          "file": "proposals_analytics__step0.mp3",
+          "size": 86688
+        },
+        {
+          "file": "proposals_analytics__step1.mp3",
+          "size": 71280
+        },
+        {
+          "file": "proposals_analytics__step2.mp3",
+          "size": 61488
+        },
+        {
+          "file": "proposals_analytics__step3.mp3",
+          "size": 84096
+        }
+      ]
     }
   },
   "total_clips": 545
