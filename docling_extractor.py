@@ -299,8 +299,13 @@ class DoclingExtractor:
         )
 
         # v5.9.40: Validate artifacts_path actually exists — auto-detect if not
+        # v5.9.45: Also clear the env var so Docling internals don't read it either
         if self.artifacts_path and not os.path.isdir(self.artifacts_path):
             _log(f"  Docling artifacts_path invalid: {self.artifacts_path} — auto-detecting...")
+            # Clear the bad env var so Docling's own init doesn't pick it up
+            for env_key in ('DOCLING_ARTIFACTS_PATH', 'DOCLING_SERVE_ARTIFACTS_PATH'):
+                if os.environ.get(env_key) == self.artifacts_path:
+                    del os.environ[env_key]
             self.artifacts_path = None  # Reset so auto-detection kicks in
 
         if not self.artifacts_path:

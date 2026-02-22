@@ -1,13 +1,33 @@
 {
-  "version": "5.9.52",
+  "version": "5.9.53",
   "release_date": "2026-02-22",
-  "core_version": "5.9.52",
+  "core_version": "5.9.53",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.53",
+      "date": "2026-02-22",
+      "changes": [
+        "NEW: Project Financial Dashboard — rich financial summary with vendor cards, price range, categories, risk flags, and contract terms when opening a project from the landing page",
+        "NEW: Landing page Proposal Compare tile project dropdown — select a project and navigate directly to financial analysis",
+        "NEW: openProject() and openProjectWithResults() public API methods on ProposalCompare IIFE for external navigation",
+        "NEW: GET /api/proposal-compare/projects/<id>/financial-summary endpoint aggregates vendor totals, grades, categories, and risk flags from latest comparison",
+        "NEW: View Full Analysis button in project financial dashboard loads complete 8-tab comparison results",
+        "NEW: Export Report button in financial dashboard exports interactive HTML report directly from project view",
+        "ENH: Project dashboard cards now show Total Value alongside Proposals, Line Items, and Last Updated",
+        "ENH: Vendor cards in financial dashboard sorted by total (lowest first) with trophy badge on lowest bidder",
+        "ENH: Price range visualization with gradient bar and average marker",
+        "ENH: Category breakdown table shows per-vendor amounts across all cost categories",
+        "FIX: Learning tab loading spinner stuck when no patterns exist (server restart required)",
+        "FIX: Settings Clear All Learning Data button missing base btn class — now styled correctly",
+        "FIX: SharePoint Connect & Scan CSRF token stale after debug reload — uses _freshCSRF() helper"
+      ],
+      "tag": "Project Financial Dashboard"
+    },
     {
       "version": "5.9.52",
       "date": "2026-02-22",
