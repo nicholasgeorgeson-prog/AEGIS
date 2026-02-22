@@ -129,7 +129,19 @@ TWR.LandingPage = (function() {
             navId: null, // special: opens Proposal Compare modal
             metricKey: null,
             metricLabel: null
-        }
+        },
+        // v6.0.0: Cinema showcase tile disabled — will be re-enabled when AI video is ready
+        // {
+        //     id: 'showcase',
+        //     name: 'Behind the Scenes',
+        //     desc: 'Watch AEGIS come alive in a cinematic animated showcase of every module and capability',
+        //     icon: 'clapperboard',
+        //     iconClass: 'lp-ic-showcase',
+        //     color: '#D6A84A',
+        //     navId: null, // special: opens cinematic video
+        //     metricKey: null,
+        //     metricLabel: null
+        // }
     ];
 
     // ── State ───────────────────────────────────────────────
@@ -512,6 +524,12 @@ TWR.LandingPage = (function() {
             if (window.ProposalCompare) ProposalCompare.open();
             return;
         }
+
+        // v6.0.0: Cinema showcase disabled — will be re-enabled when AI video is ready
+        // if (tool.id === 'showcase') {
+        //     if (window.CinematicVideo) CinematicVideo.play();
+        //     return;
+        // }
 
         if (tool.navId === null) {
             // v5.9.53: Document Review — show review area without auto-opening file picker
