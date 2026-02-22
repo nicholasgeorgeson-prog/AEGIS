@@ -649,6 +649,57 @@ body:not(.landing-active) .lp-bg-canvas {
     height: 12px;
 }
 
+/* ===== PROPOSAL COMPARE PROJECT SELECTOR (v5.9.53) ===== */
+.lp-pc-project-bar {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.lp-pc-project-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.lp-pc-select {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--text-primary, #e6edf3);
+    cursor: pointer;
+    appearance: auto;
+    min-width: 0;
+}
+.lp-pc-select:focus {
+    outline: none;
+    border-color: #D6A84A;
+    box-shadow: 0 0 0 2px rgba(214, 168, 74, 0.15);
+}
+.lp-pc-select option {
+    background: #1c2333;
+    color: #e6edf3;
+}
+.lp-pc-go-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #D6A84A, #B8743A);
+    color: #fff;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: opacity 0.2s, transform 0.15s;
+}
+.lp-pc-go-btn:hover {
+    opacity: 0.9;
+    transform: scale(1.05);
+}
+
 /* ===== TILE DRILL-DOWN DETAIL ===== */
 .lp-tile-detail {
     max-height: 0;

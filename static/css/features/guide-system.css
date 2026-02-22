@@ -812,6 +812,56 @@
 }
 
 /* ============================================
+   7b. BACK TO DASHBOARD BUTTON (v5.9.53)
+   Post-demo floating return button
+   ============================================ */
+
+.guide-back-dashboard-btn {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 149900;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #D6A84A, #B8743A);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(214, 168, 74, 0.4);
+    animation: guide-back-btn-enter 0.4s ease-out;
+    transition: transform 0.2s, box-shadow 0.2s, opacity 0.5s;
+}
+
+.guide-back-dashboard-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px rgba(214, 168, 74, 0.5);
+}
+
+.guide-back-dashboard-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.guide-back-dashboard-fadeout {
+    opacity: 0;
+    pointer-events: none;
+}
+
+@keyframes guide-back-btn-enter {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media print {
+    .guide-back-dashboard-btn { display: none !important; }
+}
+
+/* ============================================
    8. SECTION NAVIGATION (inside panel)
    ============================================ */
 

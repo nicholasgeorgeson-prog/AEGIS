@@ -977,6 +977,16 @@
     gap: var(--space-3);
     flex-wrap: wrap;
 }
+/* v5.9.53: Style Clear All button to match Data Management danger buttons */
+.learning-global-actions .btn-danger {
+    background: rgba(239, 68, 68, 0.1);
+    color: #EF4444;
+    border-color: rgba(239, 68, 68, 0.3);
+}
+.learning-global-actions .btn-danger:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.5);
+}
 
 /* JSON viewer in pattern modal */
 .learning-json-viewer {

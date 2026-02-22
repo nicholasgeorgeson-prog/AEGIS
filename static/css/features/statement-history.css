@@ -442,6 +442,39 @@
     font-size: 0.9rem;
 }
 
+/* v5.9.53: PDF text layer for selectable text (click-to-populate support) */
+.pdfv-text-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2;
+    overflow: hidden;
+    opacity: 0.25;
+    line-height: 1;
+    pointer-events: auto;
+}
+.pdfv-text-layer span {
+    color: transparent;
+    white-space: pre;
+    cursor: text;
+    user-select: text;
+    -webkit-user-select: text;
+}
+.pdfv-text-layer span::selection {
+    background: rgba(214, 168, 74, 0.35);
+}
+
+/* v5.9.53: Pan/drag cursor for zoomed PDFs */
+.pdfv-wrapper {
+    cursor: grab;
+}
+.pdfv-wrapper:active {
+    cursor: grabbing;
+}
+.pdfv-text-layer span {
+    cursor: text;
+}
+
 /* =========================================================================
    CHARTS
    ========================================================================= */
