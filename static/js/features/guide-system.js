@@ -2079,11 +2079,49 @@ const AEGISGuide = {
                         { target: '.pc-results-container', narration: 'Line item alignment uses text similarity matching with category-aware scoring. The Grand Total row sums each vendor column. Green highlights the lowest cost per item, red highlights the highest. Notes below summarize the comparison and lowest bidder.', duration: 8500, navigate: 'proposal-compare' }
                     ]
                 },
+                categories_view: {
+                    id: 'categories_view',
+                    title: 'Category Breakdown',
+                    icon: 'pie-chart',
+                    description: 'Cost summaries grouped by category with bar charts',
+                    preAction: async () => {
+                        try {
+                            if (window.ProposalCompare) ProposalCompare.open();
+                            await AEGISGuide._wait(300);
+                            AEGISGuide._injectPCDemo('results', 'categories');
+                            await AEGISGuide._wait(200);
+                        } catch(e) { console.warn('[AEGIS Guide] PC demo preAction error:', e); }
+                    },
+                    scenes: [
+                        { target: '.pc-results-container', narration: 'The Categories tab groups all line items by cost type — Labor, Material, Software, License, Travel, Training, Other Direct Costs, Subcontract, Overhead, Fee, and Other. Each category shows the total cost per vendor, item count, and percentage of total for quick comparison.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '.pc-results-container', narration: 'A grouped bar chart displays each category with one bar per vendor side by side. This makes it easy to see which vendors are more expensive in specific categories. Green highlights the lowest vendor for each category, red highlights the highest.', duration: 8500, navigate: 'proposal-compare' },
+                        { target: '.pc-results-container', narration: 'Missing categories appear as dashes. If a vendor omits an entire category that others include, it may indicate a scope gap — check the Red Flags tab for automatic missing category detection with severity-rated warnings.', duration: 8500, navigate: 'proposal-compare' }
+                    ]
+                },
+                project_dashboard: {
+                    id: 'project_dashboard',
+                    title: 'Project Dashboard',
+                    icon: 'layout-dashboard',
+                    description: 'Manage projects, browse proposals, and edit from a central hub',
+                    preAction: async () => {
+                        try {
+                            if (window.ProposalCompare) ProposalCompare.open();
+                            await AEGISGuide._wait(300);
+                            AEGISGuide._injectPCDemo('upload');
+                            await AEGISGuide._wait(200);
+                        } catch(e) { console.warn('[AEGIS Guide] PC demo preAction error:', e); }
+                    },
+                    scenes: [
+                        { target: '.pc-upload-container', narration: 'The Project Dashboard provides a central hub to organize all your proposals. Click the Projects button on the upload screen to open a two-column grid of project cards showing name, description, proposal count, and last activity date.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '.pc-upload-container', narration: 'Click any project card to drill into its detail view — see all proposals with vendor names and totals, plus all past comparison runs with dates and vendor badges. Open results, edit proposals, or start new comparisons right from here.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '.pc-upload-container', narration: 'Use the Tag to Project dropdown to assign any proposal to a project. Move proposals between projects, edit them in the split-pane review phase, and save changes back — all without re-uploading files. Edits persist automatically via fire-and-forget database writes.', duration: 9000, navigate: 'proposal-compare' }
+                    ]
+                },
                 export_results: {
                     id: 'export_results',
-                    title: 'Export to Excel',
+                    title: 'Export & HTML',
                     icon: 'download',
-                    description: 'Export comparison as formatted five-sheet XLSX',
+                    description: 'Export as formatted Excel workbook or interactive HTML report',
                     preAction: async () => {
                         try {
                             if (window.ProposalCompare) ProposalCompare.open();
@@ -2093,9 +2131,31 @@ const AEGISGuide = {
                         } catch(e) { console.warn('[AEGIS Guide] PC demo preAction error:', e); }
                     },
                     scenes: [
-                        { target: '.pc-results-header', narration: 'The Export button generates a formatted Excel workbook with five sheets. The Proposal Comparison sheet has frozen panes so headers and descriptions stay visible while scrolling, plus auto-filter dropdowns on all columns for quick Excel filtering.', duration: 9000, navigate: 'proposal-compare' },
-                        { target: '.pc-results-container', narration: 'Additional sheets include Executive Summary with rankings and findings, Red Flags organized by vendor with severity indicators, Category Summary with per-vendor cost breakdown, and Proposal Details with metadata. All sheets use AEGIS dark-navy and gold branding.', duration: 8500, navigate: 'proposal-compare' },
-                        { target: '.pc-results-container', narration: 'You can also print the analysis directly from the browser. The print-optimized CSS hides interactive controls like weight sliders and filter bars, and formats tables for clean paper output. Use browser print or Control-P for a quick hard copy.', duration: 8500, navigate: 'proposal-compare' }
+                        { target: '.pc-results-header', narration: 'Two export options are available from the results toolbar. Export XLSX generates an eight-sheet Excel workbook with frozen panes, auto-filter headers, conditional formatting, and currency styling throughout. Every sheet uses AEGIS dark-navy and gold branding.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '.pc-results-container', narration: 'The eight Excel sheets are: Executive Summary with rankings, Comparison Matrix with green-lowest and red-highest fills, Category Breakdown, Red Flags by vendor, Vendor Scores with letter grades, Heatmap with deviation colors, Rate Analysis for indirect rates, and Raw Line Items with all extracted data.', duration: 9500, navigate: 'proposal-compare' },
+                        { target: '.pc-results-container', narration: 'Export Interactive HTML creates a completely self-contained browser report — no internet required. It includes inline SVG charts like tornado, stacked bars, and radar, plus sortable tables, category filters, a dark and light theme toggle, and animated stat counters. The file is typically under four hundred kilobytes, small enough to email.', duration: 9500, navigate: 'proposal-compare' },
+                        { target: '.pc-results-container', narration: 'You can also print the analysis directly from the browser. Print-optimized CSS hides interactive controls like weight sliders and filter bars, formats tables for clean paper output, and shows all sections linearly. Use browser print or Control-P for a quick hard copy.', duration: 8500, navigate: 'proposal-compare' }
+                    ]
+                },
+                // v5.9.51: Pattern Learning sub-demo
+                pattern_learning: {
+                    id: 'pattern_learning',
+                    title: 'Pattern Learning',
+                    icon: 'brain',
+                    description: 'How AEGIS learns from your corrections to improve extraction',
+                    preAction: async () => {
+                        try {
+                            if (window.ProposalCompare) ProposalCompare.open();
+                            await AEGISGuide._wait(300);
+                            AEGISGuide._injectPCDemo('review');
+                            await AEGISGuide._wait(200);
+                        } catch(e) { console.warn('[AEGIS Guide] PC demo preAction error:', e); }
+                    },
+                    scenes: [
+                        { target: '.pc-upload-container', narration: 'Every time you upload a proposal, AEGIS takes a snapshot of the raw extraction results before you make any changes. This snapshot is the baseline that the learning system compares against your edits to understand what needs improving.', duration: 8500, navigate: 'proposal-compare' },
+                        { target: '.pc-edit-pane', narration: 'When you correct a company name, change a line item category, or fix an amount in the Review phase, AEGIS records the difference between what it extracted and what you changed it to. These corrections become learned patterns stored in a local file called parser patterns dot json.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '.pc-results-container', narration: 'After you click Compare, the learning system computes a diff between the original extraction and your edits. Category corrections, company name fixes, and table header patterns are all captured. Patterns activate after two or more consistent corrections to prevent learning from one-off mistakes.', duration: 9500, navigate: 'proposal-compare' },
+                        { target: '.pc-upload-container', narration: 'On your next upload, learned patterns are applied automatically. The parser checks your saved category overrides before its built-in rules, uses your company name corrections as the first detection strategy, and recognizes table header signatures you have validated. All pattern data stays one hundred percent local on your machine — nothing is ever uploaded.', duration: 10000, navigate: 'proposal-compare' }
                     ]
                 }
             }
@@ -2183,7 +2243,7 @@ const AEGISGuide = {
                 },
                 {
                     target: '#hv-filter-domain',
-                    narration: 'You can add exclusion rules for known-good internal URLs that do not need checking. Right-click any result to exclude it by URL or by domain pattern. Exclusions persist across sessions. The Link History sidebar tracks all previously validated URLs so you can see validation trends over time. Export your results as a detailed report for compliance documentation.',
+                    narration: 'You can add exclusion rules for known-good internal URLs that do not need checking. Right-click any result to exclude it by URL or by domain pattern. Exclusions persist across sessions and feed into the learning system, which builds smarter defaults over time. Export your results as a detailed report for compliance documentation.',
                     duration: 9500,
                     navigate: 'validator'
                 }
@@ -2252,7 +2312,7 @@ const AEGISGuide = {
                         { target: '#hv-rescan-section', narration: 'Deep Validate is a headless browser feature that retries links that failed during the initial scan. It targets URLs with specific failure statuses: blocked, timeout, DNS failed, authentication required, and SSL error.', duration: 8000, navigate: 'validator' },
                         { target: '#hv-btn-rescan', narration: 'The headless browser uses Playwright to launch a real Chrome instance with JavaScript execution, cookie handling, and stealth techniques. It simulates a human browsing experience, which bypasses bot detection systems that block simple HTTP requests.', duration: 8500, navigate: 'validator' },
                         { target: '#hv-blocked-count', narration: 'After the initial scan completes, a purple Deep Validate button appears if any eligible links were found. The count shows how many links can be retried. Click to start the headless browser scan with progress updates.', duration: 7500, navigate: 'validator' },
-                        { target: '#hv-results-table', narration: 'Recovered links are merged back into the main results table with their status updated. The summary statistics refresh to reflect the new results. Links that are truly broken remain flagged even after Deep Validate retries.', duration: 7000, navigate: 'validator' }
+                        { target: '#hv-results-table', narration: 'Recovered links are merged back into the main results table with their status updated. The summary statistics refresh to reflect the new results. The learning system remembers which domains required headless validation so future scans can route them automatically.', duration: 8000, navigate: 'validator' }
                     ]
                 },
                 domain_analytics: {
@@ -2282,7 +2342,7 @@ const AEGISGuide = {
                     scenes: [
                         { target: '#hv-settings', narration: 'Exclusion rules let you skip URLs that you know are valid but consistently fail automated checks. Open the settings panel to manage exclusions. Common examples include intranet sites, VPN-only resources, or dynamically generated URLs.', duration: 8000, navigate: 'validator' },
                         { target: '#hv-btn-add-exclusion', narration: 'Click Add Exclusion Rule to create a new exclusion. You can also add exclusions by right-clicking any result row and selecting Exclude This URL or Exclude This Domain. URL exclusions match the exact URL. Domain exclusions match all URLs from that website.', duration: 7500, navigate: 'validator' },
-                        { target: '#hv-exclusions-list', narration: 'Exclusions are saved to the database and persist across sessions. They apply automatically to future scans. The exclusions list shows all active rules with their pattern, type, and reason. Remove any rule by clicking the delete button.', duration: 7000, navigate: 'validator' }
+                        { target: '#hv-exclusions-list', narration: 'Exclusions are saved to the database and persist across sessions. They apply automatically to future scans. The learning system also remembers which domains you exclude, which you trust, and which require headless browser validation — building smarter defaults over time. Remove any rule by clicking the delete button.', duration: 8000, navigate: 'validator' }
                     ]
                 },
                 link_history_export: {
@@ -2932,8 +2992,8 @@ const AEGISGuide = {
                 },
                 {
                     target: '[data-tab="data-management"]',
-                    narration: 'Finally, Data Management handles cleanup and reset operations. Clear scan history, statements, roles, or learning data individually. The Factory Reset option returns AEGIS to its initial state. Every destructive operation requires a double confirmation to prevent accidental data loss. Always export your data before performing any cleanup.',
-                    duration: 9000,
+                    narration: 'Finally, Data Management handles cleanup and reset operations. Clear scan history, statements, roles, or learning data individually. The Learning System stores patterns from your corrections across all five modules — review, forge, roles, validator, and proposals. Clear Learning Data resets these patterns. Factory Reset returns AEGIS to its initial state.',
+                    duration: 9500,
                     navigate: 'settings'
                 }
             ],
@@ -3178,6 +3238,29 @@ const AEGISGuide = {
                         { target: '#btn-clear-scan-history', narration: 'Four selective cleanup buttons let you clear specific data types independently: Clear Scan History removes all review records. Clear Statements removes extracted requirements. Clear Role Dictionary removes adjudicated roles. Clear Learning Data removes adaptive threshold data.', duration: 9000, navigate: 'settings' },
                         { target: '#btn-rollback', narration: 'Each cleanup button shows a confirmation dialog with the specific data that will be removed and the record count. This prevents accidental data loss. The operation is irreversible — always export a backup first using the Load Backups export feature.', duration: 7500, navigate: 'settings' },
                         { target: '#btn-factory-reset', narration: 'Factory Reset is the nuclear option — it removes all data, resets all settings to defaults, and returns AEGIS to its initial state. A double confirmation dialog requires you to type a specific phrase before proceeding. This is designed for clean reinstalls or troubleshooting.', duration: 8500, navigate: 'settings' }
+                    ]
+                },
+                // v5.9.51: Universal Learning System sub-demo
+                learning_system: {
+                    id: 'learning_system',
+                    title: 'Learning System',
+                    icon: 'brain',
+                    description: 'How AEGIS learns from your corrections across all modules',
+                    preAction: async () => {
+                        try {
+                            document.querySelector('#btn-settings')?.click();
+                            await AEGISGuide._wait(500);
+                            document.querySelector('[data-tab="data-management"]')?.click();
+                            await AEGISGuide._wait(300);
+                        } catch(e) { console.warn('[AEGIS Guide] preAction error:', e); }
+                    },
+                    scenes: [
+                        { target: '#modal-settings', narration: 'AEGIS learns from every correction you make across all five modules. Each module has its own local pattern file that records what you change and applies those patterns automatically in future sessions. No data is ever uploaded — everything stays on your machine.', duration: 9000, navigate: 'settings' },
+                        { target: '#modal-settings', narration: 'In Document Review, when you dismiss an issue category or apply a fix through Fix Assistant, the review learner records the pattern. After two consistent dismissals, that issue type is automatically suppressed for similar documents. Severity overrides also carry forward.', duration: 9500, navigate: 'settings' },
+                        { target: '#modal-settings', narration: 'Statement Forge learning captures directive corrections and role assignments. When you change a statement directive from Shall to Should or reassign a role, the forge remembers. Batch edit preferences and deletion patterns are also tracked with a higher safety threshold of three corrections.', duration: 9500, navigate: 'settings' },
+                        { target: '#modal-settings', narration: 'Roles Studio learning records adjudication decisions. Category assignments, deliverable flags, disposition choices, and role type patterns are all captured. The next time you adjudicate a similar role, AEGIS suggests the category and type based on your previous decisions.', duration: 9000, navigate: 'settings' },
+                        { target: '#modal-settings', narration: 'The Hyperlink Validator learns which domains you trust, which you exclude, and which require headless browser validation. Status overrides from your manual corrections are remembered. Trusted domain patterns activate after two confirmations.', duration: 9000, navigate: 'settings' },
+                        { target: '#btn-clear-scan-history', narration: 'All learned patterns require at least two consistent corrections before activating — this prevents learning from one-off mistakes. Destructive patterns like auto-deletion require three corrections. You can view and clear learning data from the Data Management tab using the Clear Learning Data button.', duration: 9500, navigate: 'settings' }
                     ]
                 }
             }

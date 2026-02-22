@@ -5137,6 +5137,86 @@ HelpDocs.content['pc-overview'] = {
     <li>Click <strong>Back to Review</strong> to adjust metadata, or export as <strong>XLSX</strong> (8-sheet workbook) or <strong>Interactive HTML</strong> (standalone browser report)</li>
     <li>All comparisons are auto-saved — click <strong>History</strong> on the upload screen to reload past analyses</li>
 </ol>
+
+<h2><i data-lucide="brain"></i> Universal Learning System (v5.9.50)</h2>
+<p>AEGIS <strong>learns from your behavior across all modules</strong> and gets smarter every time you use it. Every correction, adjudication decision, and exclusion is saved locally so future sessions benefit from your expertise.</p>
+
+<div class="help-callout help-callout-info">
+    <i data-lucide="shield-check"></i>
+    <div>
+        <strong>100% Local — Never Uploaded</strong>
+        <p>All learned patterns stay on your machine in local JSON files. Nothing is sent to any server, cloud service, or third party. Your data is your data.</p>
+    </div>
+</div>
+
+<h3>What Each Module Learns</h3>
+
+<h4>Proposal Compare (<code>parser_patterns.json</code>)</h4>
+<ul>
+    <li><strong>Category corrections</strong> — When you change a line item category, the keywords are saved. After 2 corrections, future files auto-categorize matching items.</li>
+    <li><strong>Company name patterns</strong> — Filename-to-company mappings from your corrections.</li>
+    <li><strong>Financial table headers</strong> — Header signatures from verified tables are auto-detected in future parses.</li>
+</ul>
+
+<h4>Document Review (<code>review_patterns.json</code>)</h4>
+<ul>
+    <li><strong>Dismissed categories</strong> — Issue categories you consistently ignore get auto-downgraded to Info severity.</li>
+    <li><strong>Fix patterns</strong> — Recurring Fix Assistant corrections are remembered for future suggestions.</li>
+    <li><strong>Severity overrides</strong> — When you treat a Warning as Info for certain doc types, that preference is learned.</li>
+</ul>
+
+<h4>Statement Forge (<code>statement_patterns.json</code>)</h4>
+<ul>
+    <li><strong>Directive corrections</strong> — When you change "should" to "shall" for similar statements, future extractions apply the correction automatically.</li>
+    <li><strong>Role assignments</strong> — Consistent role assignments to similar statement types are remembered.</li>
+    <li><strong>Deletion patterns</strong> — Extraction artifacts you consistently delete are auto-skipped (requires 3+ deletions for safety).</li>
+</ul>
+
+<h4>Roles Adjudication (<code>roles_patterns.json</code>)</h4>
+<ul>
+    <li><strong>Category patterns</strong> — Role name keywords that predict categories (e.g., "engineer" → Engineering).</li>
+    <li><strong>Deliverable patterns</strong> — Keywords that predict deliverable vs non-deliverable roles.</li>
+    <li><strong>Disposition patterns</strong> — Role name patterns that predict confirmed/rejected status.</li>
+    <li><strong>Role type patterns</strong> — Keywords that predict person/tool/process/document role types.</li>
+</ul>
+
+<h4>Hyperlink Validator (<code>hv_patterns.json</code>)</h4>
+<ul>
+    <li><strong>Status overrides</strong> — Domains where you override AUTH_REQUIRED to WORKING are trusted in future scans.</li>
+    <li><strong>Trusted domains</strong> — Domains you mark as working despite validation failures.</li>
+    <li><strong>Headless-required domains</strong> — Domains recovered by Deep Validate are auto-prioritized for headless validation.</li>
+    <li><strong>Exclusion domains</strong> — Frequently excluded domains are suggested for auto-exclusion.</li>
+</ul>
+
+<h3>How It Works</h3>
+<ol>
+    <li>Use AEGIS as normal — review documents, adjudicate roles, validate links, compare proposals</li>
+    <li>Make corrections when AEGIS gets something wrong (edit statements, change categories, override statuses)</li>
+    <li>Patterns are saved automatically — no extra steps needed</li>
+    <li>Next time you use the same module, learned patterns are applied before hardcoded defaults</li>
+    <li>Check learning stats via <strong>GET /api/learning/stats</strong> to see pattern counts across all modules</li>
+</ol>
+<p><strong>Safety threshold</strong>: Learned patterns only activate after being confirmed <strong>at least twice</strong> (3 times for deletion patterns). A single correction won't change future behavior — this prevents accidental learning from one-off mistakes.</p>
+
+<h3>Managing Learning Data (v5.9.52)</h3>
+<p>Open <strong>Settings → Learning</strong> tab to manage the Pattern Learning system:</p>
+<ul>
+    <li><strong>Enable/Disable toggle</strong> — Turn pattern learning on or off globally. When disabled, no new patterns are recorded but existing patterns still apply.</li>
+    <li><strong>Module cards</strong> — Each of the 5 modules shows pattern count, last learned date, and action buttons.</li>
+    <li><strong>View Patterns</strong> — Opens a read-only JSON viewer showing exactly what AEGIS has learned for that module.</li>
+    <li><strong>Export</strong> — Downloads the pattern file as JSON for backup or sharing.</li>
+    <li><strong>Clear</strong> — Removes all learned patterns for a specific module (with confirmation).</li>
+    <li><strong>Export All</strong> — Downloads a combined JSON of all 5 modules' patterns.</li>
+    <li><strong>Clear All</strong> — Removes ALL learned patterns across every module (double confirmation required).</li>
+</ul>
+
+<div class="help-callout help-callout-tip">
+    <i data-lucide="play-circle"></i>
+    <div>
+        <strong>Watch the Demo</strong>
+        <p>Click the <strong>?</strong> beacon → Settings → Watch Demo → <strong>Learning System</strong> for a narrated walkthrough of all five learning modules with pre-generated voice narration.</p>
+    </div>
+</div>
 `
 };
 

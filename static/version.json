@@ -1,13 +1,74 @@
 {
-  "version": "5.9.48",
-  "release_date": "2026-02-21",
-  "core_version": "5.9.48",
+  "version": "5.9.52",
+  "release_date": "2026-02-22",
+  "core_version": "5.9.52",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.52",
+      "date": "2026-02-22",
+      "changes": [
+        "NEW: Settings Learning tab — dedicated UI for managing the Pattern Learning system across all 5 AEGIS modules",
+        "NEW: Per-module learning cards with pattern count, last learned date, View/Export/Clear actions",
+        "NEW: Global 'Enable Pattern Learning' toggle — persists to both localStorage and backend config.json",
+        "NEW: Pattern Viewer modal — read-only JSON viewer for inspecting learned patterns per module",
+        "NEW: Export All Patterns — downloads combined JSON of all 5 modules' learned patterns",
+        "NEW: Clear All Learning Data — double-confirmation bulk clear across all modules",
+        "NEW: 7 backend API endpoints for learning management (GET/DELETE patterns, export per-module and all)",
+        "ENH: All 5 learner modules respect learning-enabled toggle — disabled learning skips all triggers",
+        "ENH: Data Management 'Clear Learning Data' button now also clears v5.9.50 pattern files",
+        "FIX: Added is_learning_enabled() utility in routes/_shared.py for backend config checking"
+      ],
+      "tag": "Learning System UI"
+    },
+    {
+      "version": "5.9.51",
+      "date": "2026-02-22",
+      "changes": [
+        "NEW: Proposal Compare Pattern Learning demo — 4-scene sub-demo walks through how AEGIS learns from extraction corrections, snapshots, diffs, and local pattern application",
+        "NEW: Universal Learning System demo — 6-scene sub-demo in Settings covers all 5 learning modules (Review, Forge, Roles, HV, Proposals), safety thresholds, and data management",
+        "ENH: Updated Hyperlink Validator demo scenes to mention automatic learning for domain exclusions, trusted domains, and headless routing",
+        "ENH: Updated Settings Data Management overview to describe Learning System pattern files and Clear Learning Data functionality",
+        "NEW: 10 pre-generated MP3 audio clips (JennyNeural) for new demo scenes — pattern_learning (4 clips) + learning_system (6 clips)"
+      ],
+      "title": "Demo Scenes & Voice Narration for Learning System"
+    },
+    {
+      "version": "5.9.50",
+      "date": "2026-02-22",
+      "changes": [
+        "NEW: Universal Learning System — AEGIS now learns from user behavior across ALL modules, not just Proposal Compare. Each module has its own local pattern file that never leaves your machine",
+        "NEW: Document Review Learner — learns from dismissed issues and Fix Assistant corrections. Categories you consistently ignore get auto-downgraded to Info severity in future reviews",
+        "NEW: Statement Forge Learner — learns from directive corrections (should→shall), role assignments, and deletion patterns. Extraction results improve with each edit session",
+        "NEW: Roles Adjudication Learner — learns from adjudication decisions. Category assignments, deliverable patterns, and role type predictions improve as you adjudicate more roles",
+        "NEW: Hyperlink Validator Learner — learns from status overrides, exclusion patterns, and Deep Validate results. Domains that need headless validation are auto-prioritized in future scans",
+        "NEW: Learning Stats API — GET /api/learning/stats returns pattern counts across all 5 learner modules for dashboard integration",
+        "ENH: Review engine applies learned suppressions — categories dismissed ≥2 times are auto-downgraded to Info, with document-type-aware context",
+        "ENH: All learners use safety threshold (count ≥ 2) to prevent learning from one-off mistakes",
+        "ENH: All pattern files use atomic writes (write to .tmp then os.replace) for crash safety"
+      ],
+      "title": "Universal Learning System — All Modules Learn From You"
+    },
+    {
+      "version": "5.9.49",
+      "date": "2026-02-22",
+      "changes": [
+        "NEW: Local Pattern Learning System — AEGIS now learns from your corrections during Proposal Compare and applies them to future parses. All learned data stays in parser_patterns.json on your machine, never uploaded",
+        "ENH: Expanded Software/License category patterns — standalone keywords for VMware, Citrix, Palo Alto, Splunk, CrowdStrike, Office 365, ServiceNow, Jira, Confluence, Tableau, and 20+ more products now auto-categorize correctly",
+        "ENH: Filename-based contract term detection — files named with '3-year', '5-year', etc. now auto-detect contract period without relying on document text",
+        "ENH: Improved financial table detection — column-focused analysis catches tables with dollar columns even when headers are generic (e.g., SHI PDF-from-Excel files)",
+        "ENH: Relaxed column inference thresholds — secondary pass with lower thresholds catches sparse PDF-from-Excel tables that previously failed extraction",
+        "ENH: Dynamic confidence scoring — confidence now reflects how many columns were successfully inferred (0.6-0.85 range) instead of a fixed 0.8",
+        "ENH: Learned category overrides — when you correct a line item category twice, the keyword-to-category mapping is remembered for future files",
+        "ENH: Learned company name patterns — when you correct a detected company name, the filename-to-company mapping is saved locally",
+        "ENH: Learned financial table headers — header signatures from verified tables are remembered so similar tables are auto-detected in future parses"
+      ],
+      "title": "Local Pattern Learning + 5 Parser Intelligence Fixes"
+    },
     {
       "version": "5.9.48",
       "date": "2026-02-21",

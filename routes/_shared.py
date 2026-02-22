@@ -382,6 +382,20 @@ def run_with_timeout(func, timeout_seconds=60, default=None):
             return result[0]
 
 
+# v5.9.52: Learning system enabled check
+def is_learning_enabled():
+    """Check if pattern learning is enabled via config.json. Default True."""
+    try:
+        config_file = config.base_dir / 'config.json'
+        if config_file.exists():
+            with open(config_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return data.get('learning_enabled', True)
+    except Exception:
+        pass
+    return True
+
+
 # Batch constants
 # v5.5.0: Increased from 10/100MB to support large document repositories
 MAX_BATCH_SIZE = 50  # Max files per single HTTP upload batch

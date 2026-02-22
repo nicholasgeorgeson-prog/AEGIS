@@ -159,6 +159,8 @@ TOTAL_KEYWORDS = re.compile(
 )
 
 # Category keywords for classification
+# NOTE: Order matters — first match wins. Software checked before Material
+# because "COTS" appears in both contexts.
 CATEGORY_PATTERNS = {
     'Labor': re.compile(
         r'\b(?:labor|labour|personnel|staffing|hours?|FTE|man-?hours?|salaries?|wages?|'
@@ -166,16 +168,32 @@ CATEGORY_PATTERNS = {
         r'program\s*management|project\s*management|management\s+labor|'
         r'technical\s+(?:support|staff|writer|lead)|analyst|architect|designer|'
         r'SME|subject\s+matter|test(?:ing|er)?|QA|quality\s+assurance)\b', re.IGNORECASE),
-    'Material': re.compile(
-        r'\b(?:material|supplies|equipment|hardware|procurement|'
-        r'tool(?:ing|s)?|parts?|component|inventory|COTS|GOTS)\b', re.IGNORECASE),
     'Software': re.compile(
         r'\b(?:software\s+license|COTS\s+software|software\s+(?:tool|package|suite|product)|'
-        r'SaaS|cloud\s+service|platform\s+license)\b', re.IGNORECASE),
+        r'SaaS|cloud\s+service|platform\s+license|'
+        # Standalone software indicators
+        r'software|virtual\s+app|virtual\s+desktop|VDI|'
+        r'endpoint\s+(?:protection|security|detection)|antivirus|anti-?malware|'
+        r'firewall|network\s+security|intrusion\s+(?:detection|prevention)|'
+        r'backup\s+(?:software|solution)|disaster\s+recovery|'
+        r'monitoring\s+(?:tool|solution|software)|SIEM|'
+        r'database\s+(?:license|server)|SQL\s+server|oracle\s+db|'
+        r'office\s+365|microsoft\s+365|M365|O365|'
+        r'vmware|vSphere|citrix|palo\s+alto|splunk|crowdstrike|'
+        r'adobe\s+(?:creative|acrobat)|autodesk|'
+        r'ServiceNow|Jira|Confluence|Tableau|Power\s*BI)\b', re.IGNORECASE),
     'License': re.compile(
         r'\b(?:licens(?:e|ing)|subscription|annual\s+(?:fee|renewal)|seat\s+(?:fee|license)|'
         r'user\s+licens|per\s+(?:user|seat)|maintenance\s+(?:agreement|fee|renewal)|'
-        r'support\s+(?:agreement|contract|renewal)|SLA|service\s+level)\b', re.IGNORECASE),
+        r'support\s+(?:agreement|contract|renewal)|SLA|service\s+level|'
+        # Broader license patterns
+        r'renewal|(?:1|2|3|4|5)\s*[-\u2010]?\s*year\s+(?:license|subscription|renewal|term)|'
+        r'enterprise\s+(?:license|agreement)|ELA|volume\s+licens|'
+        r'perpetual\s+licens|term\s+licens|node[- ]?lock|floating\s+licens|'
+        r'(?:gold|silver|platinum|premium|standard|essential)\s+(?:support|maintenance|tier))\b', re.IGNORECASE),
+    'Material': re.compile(
+        r'\b(?:material|supplies|equipment|hardware|procurement|'
+        r'tool(?:ing|s)?|parts?|component|inventory|COTS|GOTS)\b', re.IGNORECASE),
     'Travel': re.compile(
         r'\b(?:travel|per\s*diem|airfare|lodging|mileage|transportation|trip)\b', re.IGNORECASE),
     'Training': re.compile(
@@ -204,6 +222,29 @@ TABLE_HEADER_PATTERNS = re.compile(
 
 
 # ──────────────────────────────────────────────
+# Local learned patterns (parser_patterns.json)
+# ──────────────────────────────────────────────
+
+_learned_patterns = None
+
+def _get_learned_patterns():
+    """Load learned patterns from local JSON file. Cached after first load."""
+    global _learned_patterns
+    if _learned_patterns is None:
+        try:
+            from .pattern_learner import load_patterns
+            _learned_patterns = load_patterns()
+        except Exception:
+            _learned_patterns = {}
+    return _learned_patterns
+
+def reload_learned_patterns():
+    """Force reload after learning new patterns (called after compare saves diffs)."""
+    global _learned_patterns
+    _learned_patterns = None
+
+
+# ──────────────────────────────────────────────
 # Utility functions
 # ──────────────────────────────────────────────
 
@@ -226,7 +267,19 @@ def parse_dollar_amount(text: str) -> Optional[float]:
 
 
 def classify_line_item(description: str) -> str:
-    """Classify a line item into a category based on description text."""
+    """Classify a line item — checks learned patterns first, then defaults."""
+    desc_lower = description.lower()
+
+    # Check learned category overrides first (user corrections take priority)
+    # Require count >= 2 to avoid learning from single mistakes
+    patterns = _get_learned_patterns()
+    for override in patterns.get('category_overrides', []):
+        if override.get('count', 0) >= 2:
+            kw = override.get('keyword', '').lower()
+            if kw and kw in desc_lower:
+                return override.get('category', 'Other')
+
+    # Fall through to hardcoded patterns
     for category, pattern in CATEGORY_PATTERNS.items():
         if pattern.search(description):
             return category
@@ -236,13 +289,23 @@ def classify_line_item(description: str) -> str:
 def extract_company_from_text(text: str, max_chars: int = 2000, filename: str = '') -> str:
     """Try to extract company name from document text (first N chars).
 
-    Uses multiple strategies in priority order:
+    Checks learned patterns first (from user corrections), then uses
+    multiple strategies in priority order:
     1. Lines containing company legal suffixes (LLC, Inc, Corp, etc.)
     2. "Prepared by" / "Submitted by" attribution lines
     3. "Vendor:" / "Supplier:" / "Contractor:" labels
     4. First prominent heading-like line (short, no numbers, title case)
     5. Company name extracted from the filename
     """
+    # Strategy 0: Check learned company patterns (user corrections)
+    patterns = _get_learned_patterns()
+    if filename:
+        fn_lower = filename.lower()
+        for cp in patterns.get('company_patterns', []):
+            hint = cp.get('filename_hint', '')
+            if hint and hint in fn_lower and cp.get('count', 0) >= 2:
+                return cp.get('pattern', '')
+
     search_text = text[:max_chars]
 
     # Strategy 1: Look for lines with company indicators
@@ -357,15 +420,26 @@ def extract_dates_from_text(text: str, max_chars: int = 3000) -> str:
     return ''
 
 
-def extract_contract_term(text: str, sheet_names: List[str] = None) -> str:
-    """Extract contract term/period from proposal text and/or sheet names.
+def extract_contract_term(text: str, sheet_names: List[str] = None, filename: str = '') -> str:
+    """Extract contract term/period from proposal text, sheet names, and/or filename.
 
     Detects patterns like:
     - "3 year contract", "5-year period"
     - "Base Year plus 4 Option Years"
     - "Period of Performance: 36 months"
     - Sheet tabs named "Year 1", "BY", "OY1", etc.
+    - Filename containing "3-year", "5yr", etc.
     """
+    # Pattern 0 (NEW): Check filename for term indicators
+    if filename:
+        fn_lower = filename.lower()
+        m = re.search(r'(\d+)\s*[-\u2010_]?\s*year', fn_lower)
+        if m:
+            return f'{m.group(1)} Year'
+        m = re.search(r'(\d+)\s*[-\u2010_]?\s*yr', fn_lower)
+        if m:
+            return f'{m.group(1)} Year'
+
     search_text = text[:5000].lower() if text else ''
 
     # Pattern 1: X-year contract/period/term
@@ -415,6 +489,14 @@ def extract_contract_term(text: str, sheet_names: List[str] = None) -> str:
 
 def is_financial_table(headers: List[str], rows: List[List[str]]) -> bool:
     """Determine if a table likely contains financial data."""
+    # Check learned header signatures first (from user corrections)
+    patterns = _get_learned_patterns()
+    if headers:
+        sig = '|'.join(h.lower().strip()[:20] for h in headers)
+        for learned in patterns.get('financial_table_headers', []):
+            if learned.get('header_signature') == sig:
+                return learned.get('is_financial', True)
+
     header_text = ' '.join(h.lower() for h in headers if h)
 
     # Check headers for financial indicators
@@ -442,6 +524,23 @@ def is_financial_table(headers: List[str], rows: List[List[str]]) -> bool:
     total_cells = sum(len(row) for row in rows[:10])
     if total_cells > 0 and financial_cell_count / total_cells > 0.15:
         return True
+
+    # Column-focused check — if ANY single column has >40% dollar values,
+    # it's financial even if the overall ratio is low (handles tables with
+    # many empty columns or generic headers like "Column A", "Column B")
+    if rows:
+        num_cols = max(len(row) for row in rows[:10]) if rows[:10] else 0
+        for col_idx in range(num_cols):
+            col_vals = []
+            for r in range(min(10, len(rows))):
+                if col_idx < len(rows[r]):
+                    v = str(rows[r][col_idx]).strip()
+                    if v:
+                        col_vals.append(v)
+            if col_vals:
+                dollar_count = sum(1 for v in col_vals if DOLLAR_PATTERN.search(v))
+                if dollar_count / len(col_vals) > 0.4:
+                    return True
 
     return False
 
@@ -627,6 +726,28 @@ def _infer_columns_from_data(headers: List[str], rows: List[List[str]]) -> Dict[
     elif len(dollar_cols) == 1:
         amount_col = dollar_cols[0][0]
 
+    # Relaxed secondary pass — if primary found no dollar columns, accept lower thresholds
+    # (helps with PDF-from-Excel tables that have many empty rows lowering ratios)
+    if not dollar_cols:
+        for i, s in enumerate(col_stats):
+            if i == desc_col or s['total_cells'] == 0:
+                continue
+            dollar_ratio = s['dollar_count'] / s['total_cells']
+            large_num_ratio = s['large_num_count'] / s['total_cells']
+            if dollar_ratio > 0.2 or large_num_ratio > 0.3:
+                dollar_cols.append((i, s['numeric_sum'], dollar_ratio + large_num_ratio))
+
+        dollar_cols.sort(key=lambda x: x[0])
+        if len(dollar_cols) >= 2:
+            if dollar_cols[-1][1] >= dollar_cols[0][1]:
+                amount_col = dollar_cols[-1][0]
+                unit_price_col = dollar_cols[0][0]
+            else:
+                amount_col = dollar_cols[0][0]
+                unit_price_col = dollar_cols[-1][0]
+        elif len(dollar_cols) == 1:
+            amount_col = dollar_cols[0][0]
+
     # Step 3: Find quantity column (small integers)
     for i, s in enumerate(col_stats):
         if i == desc_col or i == amount_col or i == unit_price_col:
@@ -637,6 +758,18 @@ def _infer_columns_from_data(headers: List[str], rows: List[List[str]]) -> Dict[
         if small_int_ratio > 0.5:
             qty_col = i
             break
+
+    # Relaxed quantity pass — accept lower ratio for sparse tables
+    if qty_col is None:
+        for i, s in enumerate(col_stats):
+            if i == desc_col or i == amount_col or i == unit_price_col:
+                continue
+            if s['total_cells'] == 0:
+                continue
+            small_int_ratio = s['small_int_count'] / s['total_cells']
+            if small_int_ratio > 0.3 and s['small_int_count'] >= 2:
+                qty_col = i
+                break
 
     logger.debug(f'[AEGIS ProposalParser] Column inference: desc={desc_col}, amount={amount_col}, '
                  f'qty={qty_col}, unit_price={unit_price_col} '
@@ -858,6 +991,11 @@ def _extract_with_inferred_columns(table: ExtractedTable, inferred: Dict[str, Op
     if amount_col is None:
         return items
 
+    # Compute confidence based on how many columns we successfully identified
+    # More columns found = higher confidence in the overall inference
+    cols_found = sum(1 for v in [desc_col, amount_col, qty_col, unit_price_col] if v is not None)
+    base_confidence = min(0.5 + (cols_found * 0.1), 0.85)  # 0.6 (1 col) to 0.85 (4 cols)
+
     for row_idx, row in enumerate(table.rows):
         # Skip total/subtotal rows in bottom half
         row_text = ' '.join(str(c) for c in row)
@@ -865,7 +1003,7 @@ def _extract_with_inferred_columns(table: ExtractedTable, inferred: Dict[str, Op
             continue
 
         # Skip rows that are all empty or all dashes (separator rows)
-        non_empty = [c for c in row if str(c).strip() and str(c).strip() not in ('-', '—', '–', '---')]
+        non_empty = [c for c in row if str(c).strip() and str(c).strip() not in ('-', '\u2014', '\u2013', '---')]
         if len(non_empty) < 2:
             continue
 
@@ -917,7 +1055,7 @@ def _extract_with_inferred_columns(table: ExtractedTable, inferred: Dict[str, Op
             row_index=row_idx,
             table_index=table.table_index,
             source_sheet=table.source,
-            confidence=0.8,  # Lower confidence for inferred columns
+            confidence=base_confidence,
         )
         items.append(item)
 
@@ -1040,7 +1178,7 @@ def parse_excel(filepath: str) -> ProposalData:
         proposal.date = extract_dates_from_text(full_text)
 
     # Contract term detection (from text + sheet tab names)
-    proposal.contract_term = extract_contract_term(full_text, sheet_names=list(wb.sheetnames))
+    proposal.contract_term = extract_contract_term(full_text, sheet_names=list(wb.sheetnames), filename=os.path.basename(filepath))
     if proposal.contract_term:
         proposal.extraction_notes.append(f'Contract term: {proposal.contract_term}')
 
@@ -1168,8 +1306,8 @@ def parse_docx(filepath: str) -> ProposalData:
     if not proposal.date:
         proposal.date = extract_dates_from_text(full_text)
 
-    # Contract term detection
-    proposal.contract_term = extract_contract_term(full_text)
+    # Contract term detection (from text + filename)
+    proposal.contract_term = extract_contract_term(full_text, filename=os.path.basename(filepath))
     if proposal.contract_term:
         proposal.extraction_notes.append(f'Contract term: {proposal.contract_term}')
 
@@ -1247,7 +1385,7 @@ def parse_pdf(filepath: str) -> ProposalData:
     if full_text:
         proposal.company_name = extract_company_from_text(full_text, filename=proposal.filename)
         proposal.date = extract_dates_from_text(full_text)
-        proposal.contract_term = extract_contract_term(full_text)
+        proposal.contract_term = extract_contract_term(full_text, filename=proposal.filename)
         if proposal.company_name:
             proposal.extraction_notes.append(f'Company: {proposal.company_name}')
         if proposal.contract_term:

@@ -143,6 +143,7 @@ def api_config():
                 'pageSize': 'page_size',
                 'showCharts': 'show_charts',
                 'compactMode': 'compact_mode',
+                'learningEnabled': 'learning_enabled',
             }
             normalized_key = key_mapping.get(key, key)
             normalized_data[normalized_key] = value
@@ -684,6 +685,213 @@ def capabilities():
             'capabilities': caps
         }
     })
+
+
+@config_bp.route('/api/learning/stats', methods=['GET'])
+@handle_api_errors
+def learning_stats():
+    """
+    Get learning pattern statistics across all AEGIS modules (v5.9.50).
+    Returns pattern counts for each learner module.
+    """
+    stats = {}
+    # Proposal Compare learner
+    try:
+        from proposal_compare.pattern_learner import get_pattern_stats
+        stats['proposal_compare'] = get_pattern_stats()
+    except Exception:
+        stats['proposal_compare'] = {'total': 0}
+    # Review learner
+    try:
+        from review_learner import get_pattern_stats as review_stats
+        stats['document_review'] = review_stats()
+    except Exception:
+        stats['document_review'] = {'total': 0}
+    # Statement learner
+    try:
+        from statement_forge.statement_learner import get_pattern_stats as stmt_stats
+        stats['statement_forge'] = stmt_stats()
+    except Exception:
+        stats['statement_forge'] = {'total': 0}
+    # Roles learner
+    try:
+        from roles_learner import get_pattern_stats as roles_stats
+        stats['roles'] = roles_stats()
+    except Exception:
+        stats['roles'] = {'total': 0}
+    # HV learner
+    try:
+        from hyperlink_validator.hv_learner import get_pattern_stats as hv_stats
+        stats['hyperlink_validator'] = hv_stats()
+    except Exception:
+        stats['hyperlink_validator'] = {'total': 0}
+
+    total_patterns = sum(m.get('total', 0) for m in stats.values())
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'modules': stats,
+            'total_patterns': total_patterns,
+        }
+    })
+
+
+# v5.9.52: Learner module registry for pattern management endpoints
+_LEARNER_MODULES = {
+    'proposal_compare': {
+        'import': 'proposal_compare.pattern_learner',
+        'label': 'Proposal Compare',
+    },
+    'document_review': {
+        'import': 'review_learner',
+        'label': 'Document Review',
+    },
+    'statement_forge': {
+        'import': 'statement_forge.statement_learner',
+        'label': 'Statement Forge',
+    },
+    'roles': {
+        'import': 'roles_learner',
+        'label': 'Roles Adjudication',
+    },
+    'hyperlink_validator': {
+        'import': 'hyperlink_validator.hv_learner',
+        'label': 'Hyperlink Validator',
+    },
+}
+
+
+def _get_learner_module(module_id):
+    """Import and return a learner module by ID. Returns (module, error_msg)."""
+    info = _LEARNER_MODULES.get(module_id)
+    if not info:
+        return None, f'Unknown module: {module_id}'
+    try:
+        import importlib
+        mod = importlib.import_module(info['import'])
+        return mod, None
+    except Exception as e:
+        return None, f'Module {module_id} not available: {e}'
+
+
+@config_bp.route('/api/learning/patterns/<module_id>', methods=['GET'])
+@handle_api_errors
+def learning_patterns_get(module_id):
+    """Get full pattern file contents for a specific learner module (v5.9.52)."""
+    mod, err = _get_learner_module(module_id)
+    if not mod:
+        return api_error_response(err, 404)
+    try:
+        patterns = mod.load_patterns()
+        return jsonify({'success': True, 'data': patterns})
+    except Exception as e:
+        logger.exception(f'Error loading patterns for {module_id}: {e}')
+        return api_error_response(str(e), 500)
+
+
+@config_bp.route('/api/learning/patterns/<module_id>', methods=['DELETE'])
+@require_csrf
+@handle_api_errors
+def learning_patterns_clear(module_id):
+    """Clear pattern file for a specific learner module (v5.9.52)."""
+    mod, err = _get_learner_module(module_id)
+    if not mod:
+        return api_error_response(err, 404)
+    try:
+        import os
+        if hasattr(mod, 'PATTERNS_FILE') and os.path.exists(mod.PATTERNS_FILE):
+            os.unlink(mod.PATTERNS_FILE)
+        if hasattr(mod, 'reload_learned_patterns'):
+            mod.reload_learned_patterns()
+        logger.info(f'[AEGIS Learning] Cleared patterns for {module_id}')
+        return jsonify({'success': True, 'message': f'Cleared patterns for {_LEARNER_MODULES[module_id]["label"]}'})
+    except Exception as e:
+        logger.exception(f'Error clearing patterns for {module_id}: {e}')
+        return api_error_response(str(e), 500)
+
+
+@config_bp.route('/api/learning/patterns', methods=['DELETE'])
+@require_csrf
+@handle_api_errors
+def learning_patterns_clear_all():
+    """Clear ALL pattern files across all learner modules (v5.9.52)."""
+    import os
+    cleared = []
+    errors = []
+    for mid, info in _LEARNER_MODULES.items():
+        try:
+            mod, err = _get_learner_module(mid)
+            if mod and hasattr(mod, 'PATTERNS_FILE') and os.path.exists(mod.PATTERNS_FILE):
+                os.unlink(mod.PATTERNS_FILE)
+                if hasattr(mod, 'reload_learned_patterns'):
+                    mod.reload_learned_patterns()
+                cleared.append(info['label'])
+        except Exception as e:
+            errors.append(f'{info["label"]}: {e}')
+    logger.info(f'[AEGIS Learning] Cleared all patterns: {cleared}')
+    return jsonify({
+        'success': True,
+        'message': f'Cleared {len(cleared)} module(s)',
+        'cleared': cleared,
+        'errors': errors,
+    })
+
+
+@config_bp.route('/api/learning/export/<module_id>', methods=['GET'])
+@handle_api_errors
+def learning_export_module(module_id):
+    """Download pattern file for a specific module as JSON (v5.9.52)."""
+    mod, err = _get_learner_module(module_id)
+    if not mod:
+        return api_error_response(err, 404)
+    try:
+        patterns = mod.load_patterns()
+        from flask import Response
+        import json as json_mod
+        content = json_mod.dumps(patterns, indent=2, ensure_ascii=False)
+        filename = f'aegis_{module_id}_patterns.json'
+        return Response(
+            content,
+            mimetype='application/json',
+            headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+        )
+    except Exception as e:
+        logger.exception(f'Error exporting patterns for {module_id}: {e}')
+        return api_error_response(str(e), 500)
+
+
+@config_bp.route('/api/learning/export', methods=['GET'])
+@handle_api_errors
+def learning_export_all():
+    """Download all pattern files as combined JSON (v5.9.52)."""
+    combined = {}
+    for mid, info in _LEARNER_MODULES.items():
+        try:
+            mod, err = _get_learner_module(mid)
+            if mod:
+                combined[mid] = mod.load_patterns()
+            else:
+                combined[mid] = {}
+        except Exception:
+            combined[mid] = {}
+
+    from flask import Response
+    import json as json_mod
+    content = json_mod.dumps({
+        '_export_meta': {
+            'tool': 'AEGIS Learning System',
+            'version': get_version(),
+            'exported': datetime.utcnow().isoformat() + 'Z',
+            'modules': list(_LEARNER_MODULES.keys()),
+        },
+        'modules': combined,
+    }, indent=2, ensure_ascii=False)
+    return Response(
+        content,
+        mimetype='application/json',
+        headers={'Content-Disposition': 'attachment; filename="aegis_all_learning_patterns.json"'}
+    )
 
 
 @config_bp.route('/api/version', methods=['GET'])

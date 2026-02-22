@@ -2717,6 +2717,7 @@ class AEGISEngine:
         # v5.8.0: Document-type-aware suppression.
         # Auto-detect doc type from content, then suppress low-value noise
         # issues that are expected for that document type.
+        detected_type = 'general'
         try:
             doc_type_info = self._detect_document_type(extractor)
             detected_type = doc_type_info.get('type', 'general')
@@ -2725,6 +2726,26 @@ class AEGISEngine:
                 self.issues = self._suppress_for_requirements_doc(self.issues)
         except Exception:
             pass  # Suppression failure should never block the review
+
+        # v5.9.50: Apply learned suppression patterns from review_learner
+        try:
+            from review_learner import get_suppressed_categories, get_severity_override
+            learned_suppressed = get_suppressed_categories(detected_type)
+            if learned_suppressed:
+                for issue in self.issues:
+                    cat_lower = issue.get('category', '').lower()
+                    if cat_lower in learned_suppressed:
+                        issue['severity'] = 'Info'
+                        issue['message'] = issue.get('message', '') + ' [learned: usually dismissed]'
+            # Apply severity overrides
+            for issue in self.issues:
+                override = get_severity_override(issue.get('category', ''), detected_type)
+                if override:
+                    issue['severity'] = override
+        except ImportError:
+            pass  # review_learner not available
+        except Exception:
+            pass  # Learned suppression failure should never block review
 
         # Generate stable issue IDs based on content hash
         self._assign_issue_ids()

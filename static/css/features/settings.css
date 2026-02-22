@@ -816,3 +816,189 @@
         grid-template-columns: 1fr;
     }
 }
+
+
+/* ══════════════════════════════════════════════════════════
+   v5.9.52: Learning System Tab
+   ══════════════════════════════════════════════════════════ */
+
+/* Summary bar */
+.learning-summary-bar {
+    margin-top: var(--space-3);
+    padding: 10px 14px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    border-left: 3px solid #D6A84A;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+.learning-summary-bar .learning-summary-text {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Module cards grid */
+.learning-modules-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+@media (max-width: 640px) {
+    .learning-modules-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Individual module card */
+.learning-module-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.learning-module-card:hover {
+    border-color: #D6A84A40;
+    box-shadow: 0 2px 8px rgba(214, 168, 74, 0.08);
+}
+.learning-module-card.lm-empty {
+    opacity: 0.7;
+}
+
+/* Card header row */
+.lm-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.lm-icon-wrap {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.lm-icon-wrap svg {
+    width: 18px;
+    height: 18px;
+}
+.lm-icon-wrap.lm-review { background: rgba(59, 130, 246, 0.12); color: #3B82F6; }
+.lm-icon-wrap.lm-forge { background: rgba(234, 179, 8, 0.12); color: #EAB308; }
+.lm-icon-wrap.lm-roles { background: rgba(139, 92, 246, 0.12); color: #8B5CF6; }
+.lm-icon-wrap.lm-hv { background: rgba(16, 185, 129, 0.12); color: #10B981; }
+.lm-icon-wrap.lm-pc { background: rgba(244, 63, 94, 0.12); color: #F43F5E; }
+
+.lm-title-group {
+    flex: 1;
+    min-width: 0;
+}
+.lm-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.lm-status {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+.lm-status.lm-active {
+    color: #10B981;
+}
+
+/* Stats row */
+.lm-stats {
+    display: flex;
+    gap: 12px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+.lm-stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.lm-stat svg {
+    width: 13px;
+    height: 13px;
+    opacity: 0.6;
+}
+.lm-stat-value {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Action buttons row */
+.lm-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 2px;
+}
+.lm-actions .btn-sm {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.lm-actions .btn-sm:hover {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    border-color: #D6A84A60;
+}
+.lm-actions .btn-sm svg {
+    width: 12px;
+    height: 12px;
+}
+.lm-actions .btn-sm.btn-sm-danger:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #EF4444;
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* Global actions row */
+.learning-global-actions .learning-action-row {
+    display: flex;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+/* JSON viewer in pattern modal */
+.learning-json-viewer {
+    margin: 0;
+    padding: 16px;
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    background: var(--bg-deep, #0d1117);
+    color: var(--text-secondary);
+    overflow: auto;
+    max-height: 60vh;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    border-radius: 0;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .learning-module-card {
+    background: var(--bg-surface);
+}
+[data-theme="dark"] .learning-json-viewer {
+    background: #0d1117;
+    color: #c9d1d9;
+}

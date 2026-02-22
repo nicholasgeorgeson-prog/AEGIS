@@ -369,6 +369,15 @@ def compare_proposals_endpoint():
         if term_label:
             result_dict['term_label'] = term_label
 
+        # Learn from user corrections (local only — never uploaded)
+        try:
+            from .pattern_learner import learn_from_corrections
+            from .parser import reload_learned_patterns
+            learn_from_corrections(raw_proposals)
+            reload_learned_patterns()  # Refresh cached patterns for next parse
+        except Exception as learn_err:
+            logger.warning(f'Pattern learning failed (non-fatal): {learn_err}')
+
         return jsonify({
             'success': True,
             'data': result_dict,

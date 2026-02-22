@@ -1262,6 +1262,13 @@ def add_exclusion():
 
     exclusion = storage.get_exclusion(exclusion_id)
 
+    # v5.9.50: Learn from exclusion patterns
+    try:
+        from .hv_learner import learn_from_exclusion
+        learn_from_exclusion(pattern, reason=data.get('reason', ''))
+    except Exception:
+        pass  # Learning failure should never block exclusion creation
+
     return jsonify({
         'success': True,
         'exclusion': exclusion.to_dict() if exclusion else {'id': exclusion_id}
@@ -1681,9 +1688,17 @@ def rescan_failed():
             }
         }), 500
 
+    # v5.9.50: Learn from rescan results (headless-required domains)
+    rescan_results = result.get('results', [])
+    try:
+        from .hv_learner import learn_from_rescan_results
+        learn_from_rescan_results(rescan_results)
+    except Exception:
+        pass  # Learning failure should never block rescan response
+
     return jsonify({
         'success': True,
-        'results': result.get('results', []),
+        'results': rescan_results,
         'summary': result.get('summary'),
         'message': f"Recovered {result.get('summary', {}).get('recovered', 0)} of {len(urls)} URLs"
     })

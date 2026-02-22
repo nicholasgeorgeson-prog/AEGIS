@@ -17526,6 +17526,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 clearLearningBtn.disabled = true;
                 clearLearningBtn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Clearing...';
                 const csrfToken = await _getFreshCsrf();
+                // v5.9.52: Clear both legacy adaptive_learning.db AND v5.9.50 pattern files
+                await fetch('/api/learning/patterns', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }
+                }).catch(function() {});
                 const resp = await fetch('/api/data/clear-learning', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }
@@ -17601,3 +17606,281 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 console.log('[TWR] Data Management v4.0.0 loaded');
+
+// =============================================================================
+// v5.9.52: Learning System Settings Tab
+// =============================================================================
+(function() {
+    'use strict';
+
+    var _MODULES = [
+        { id: 'document_review', label: 'Document Review', icon: 'file-text', css: 'lm-review',
+          desc: 'Dismissed issues, fix patterns, severity preferences' },
+        { id: 'statement_forge', label: 'Statement Forge', icon: 'hammer', css: 'lm-forge',
+          desc: 'Directive corrections, role assignments, deletion patterns' },
+        { id: 'roles', label: 'Roles Studio', icon: 'users', css: 'lm-roles',
+          desc: 'Category, deliverable, disposition, role type patterns' },
+        { id: 'hyperlink_validator', label: 'Hyperlink Validator', icon: 'link-2', css: 'lm-hv',
+          desc: 'Trusted domains, status overrides, headless routing' },
+        { id: 'proposal_compare', label: 'Proposal Compare', icon: 'git-compare-arrows', css: 'lm-pc',
+          desc: 'Category overrides, company patterns, table signatures' }
+    ];
+
+    var _statsCache = null;
+
+    function _refreshIcons() {
+        if (typeof lucide !== 'undefined') { try { lucide.createIcons(); } catch(e) {} }
+    }
+
+    function _toast(type, msg) {
+        if (typeof showToast === 'function') showToast(type, msg);
+        else if (typeof toast === 'function') toast(type, msg);
+    }
+
+    async function _getCsrf() {
+        if (typeof _getFreshCsrf === 'function') return _getFreshCsrf();
+        return document.querySelector('meta[name="csrf-token"]')?.content || '';
+    }
+
+    function _formatDate(iso) {
+        if (!iso) return 'Never';
+        try {
+            var d = new Date(iso);
+            if (isNaN(d.getTime())) return 'Unknown';
+            return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+        } catch(e) { return 'Unknown'; }
+    }
+
+    function _isLearningEnabled() {
+        var stored = localStorage.getItem('aegis-learning-enabled');
+        return stored !== 'false'; // default true
+    }
+
+    function _setLearningEnabled(val) {
+        localStorage.setItem('aegis-learning-enabled', val ? 'true' : 'false');
+    }
+
+    async function loadLearningStats() {
+        try {
+            var resp = await fetch('/api/learning/stats');
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            var data = await resp.json();
+            if (data.success) {
+                _statsCache = data.data;
+                return data.data;
+            }
+        } catch(e) {
+            console.warn('[TWR Learning] Failed to load stats:', e);
+        }
+        return { modules: {}, total_patterns: 0 };
+    }
+
+    function renderLearningTab(stats) {
+        // Summary bar
+        var summaryEl = document.getElementById('learning-summary-text');
+        if (summaryEl) {
+            var total = stats.total_patterns || 0;
+            var activeCount = 0;
+            Object.values(stats.modules || {}).forEach(function(m) {
+                if ((m.total || 0) > 0) activeCount++;
+            });
+            if (total === 0) {
+                summaryEl.textContent = 'No patterns learned yet. AEGIS will learn from your corrections as you work.';
+            } else {
+                summaryEl.textContent = total + ' pattern' + (total !== 1 ? 's' : '') +
+                    ' across ' + activeCount + ' module' + (activeCount !== 1 ? 's' : '');
+            }
+        }
+
+        // Toggle
+        var toggle = document.getElementById('settings-learning-enabled');
+        if (toggle) toggle.checked = _isLearningEnabled();
+
+        // Module cards
+        var grid = document.getElementById('learning-modules-grid');
+        if (!grid) return;
+        grid.innerHTML = '';
+
+        _MODULES.forEach(function(mod) {
+            var mStats = (stats.modules || {})[mod.id] || { total: 0 };
+            var count = mStats.total || 0;
+            var isActive = count > 0;
+            var lastUpdated = mStats.last_updated || '';
+
+            var card = document.createElement('div');
+            card.className = 'learning-module-card' + (isActive ? '' : ' lm-empty');
+            card.innerHTML =
+                '<div class="lm-header">' +
+                    '<div class="lm-icon-wrap ' + mod.css + '"><i data-lucide="' + mod.icon + '"></i></div>' +
+                    '<div class="lm-title-group">' +
+                        '<div class="lm-title">' + mod.label + '</div>' +
+                        '<div class="lm-status ' + (isActive ? 'lm-active' : '') + '">' +
+                            (isActive ? count + ' pattern' + (count !== 1 ? 's' : '') + ' learned' : 'No patterns yet') +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="lm-stats">' +
+                    (isActive ? '<div class="lm-stat"><i data-lucide="clock"></i> ' + _formatDate(lastUpdated) + '</div>' : '') +
+                '</div>' +
+                '<div class="lm-actions">' +
+                    '<button class="btn-sm" data-lm-action="view" data-lm-id="' + mod.id + '" data-lm-label="' + mod.label + '"' +
+                        (isActive ? '' : ' disabled') + '>' +
+                        '<i data-lucide="eye"></i> View' +
+                    '</button>' +
+                    '<button class="btn-sm" data-lm-action="export" data-lm-id="' + mod.id + '"' +
+                        (isActive ? '' : ' disabled') + '>' +
+                        '<i data-lucide="download"></i> Export' +
+                    '</button>' +
+                    '<button class="btn-sm btn-sm-danger" data-lm-action="clear" data-lm-id="' + mod.id + '" data-lm-label="' + mod.label + '"' +
+                        (isActive ? '' : ' disabled') + '>' +
+                        '<i data-lucide="trash-2"></i> Clear' +
+                    '</button>' +
+                '</div>';
+            grid.appendChild(card);
+        });
+        _refreshIcons();
+    }
+
+    // Action handlers
+    async function viewPatterns(moduleId, label) {
+        var modal = document.getElementById('modal-learning-viewer');
+        var nameEl = document.getElementById('learning-viewer-module-name');
+        var contentEl = document.getElementById('learning-viewer-content');
+        if (!modal || !contentEl) return;
+
+        if (nameEl) nameEl.textContent = label + ' Patterns';
+        contentEl.textContent = 'Loading...';
+        modal.classList.add('active');
+        _refreshIcons();
+
+        try {
+            var resp = await fetch('/api/learning/patterns/' + moduleId);
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            var data = await resp.json();
+            if (data.success) {
+                contentEl.textContent = JSON.stringify(data.data, null, 2);
+            } else {
+                contentEl.textContent = 'Error: ' + (data.error || 'Unknown');
+            }
+        } catch(e) {
+            contentEl.textContent = 'Error loading patterns: ' + e.message;
+        }
+    }
+
+    function exportPatterns(moduleId) {
+        window.open('/api/learning/export/' + moduleId, '_blank');
+    }
+
+    function exportAllPatterns() {
+        window.open('/api/learning/export', '_blank');
+    }
+
+    async function clearPatterns(moduleId, label) {
+        if (!confirm('Clear all learned patterns for ' + label + '?\n\nThis cannot be undone.')) return;
+        try {
+            var csrf = await _getCsrf();
+            var resp = await fetch('/api/learning/patterns/' + moduleId, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf }
+            });
+            var result = await resp.json();
+            if (result.success) {
+                _toast('success', result.message || 'Patterns cleared');
+                var stats = await loadLearningStats();
+                renderLearningTab(stats);
+            } else {
+                throw new Error(result.error || 'Failed');
+            }
+        } catch(e) {
+            _toast('error', 'Failed to clear patterns: ' + e.message);
+        }
+    }
+
+    async function clearAllPatterns() {
+        if (!confirm('Clear ALL learning data across all modules?\n\nThis removes all learned patterns from every module.\nThis cannot be undone.')) return;
+        if (!confirm('Please confirm: Clear all learned patterns?')) return;
+        try {
+            var csrf = await _getCsrf();
+            var resp = await fetch('/api/learning/patterns', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf }
+            });
+            var result = await resp.json();
+            if (result.success) {
+                _toast('success', 'Cleared ' + (result.cleared || []).length + ' module(s)');
+                var stats = await loadLearningStats();
+                renderLearningTab(stats);
+            } else {
+                throw new Error(result.error || 'Failed');
+            }
+        } catch(e) {
+            _toast('error', 'Failed to clear all patterns: ' + e.message);
+        }
+    }
+
+    // Event delegation for module card buttons
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('[data-lm-action]');
+        if (!btn || btn.disabled) return;
+        var action = btn.getAttribute('data-lm-action');
+        var moduleId = btn.getAttribute('data-lm-id');
+        var label = btn.getAttribute('data-lm-label') || moduleId;
+
+        if (action === 'view') viewPatterns(moduleId, label);
+        else if (action === 'export') exportPatterns(moduleId);
+        else if (action === 'clear') clearPatterns(moduleId, label);
+    });
+
+    // Global action buttons
+    document.addEventListener('DOMContentLoaded', function() {
+        var exportAllBtn = document.getElementById('btn-learning-export-all');
+        if (exportAllBtn) {
+            exportAllBtn.addEventListener('click', function() { exportAllPatterns(); });
+        }
+        var clearAllBtn = document.getElementById('btn-learning-clear-all');
+        if (clearAllBtn) {
+            clearAllBtn.addEventListener('click', function() { clearAllPatterns(); });
+        }
+        // Learning enabled toggle
+        var toggle = document.getElementById('settings-learning-enabled');
+        if (toggle) {
+            toggle.checked = _isLearningEnabled();
+            toggle.addEventListener('change', function() {
+                var enabled = this.checked;
+                _setLearningEnabled(enabled);
+                // Persist to backend config.json so Python learners can check
+                fetch('/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    },
+                    body: JSON.stringify({ learningEnabled: enabled })
+                }).catch(function(e) { console.warn('[TWR Learning] Failed to persist toggle:', e); });
+                _toast('success', 'Pattern learning ' + (enabled ? 'enabled' : 'disabled'));
+            });
+        }
+    });
+
+    // Load data when Learning tab is activated
+    document.addEventListener('click', function(e) {
+        var tab = e.target.closest('.settings-tab[data-tab="learning"]');
+        if (tab) {
+            loadLearningStats().then(function(stats) {
+                renderLearningTab(stats);
+            });
+        }
+    });
+
+    // Expose for external use
+    window._loadLearningTab = function() {
+        loadLearningStats().then(function(stats) {
+            renderLearningTab(stats);
+        });
+    };
+
+    // Also expose learning enabled check for learner modules
+    window.isAEGISLearningEnabled = _isLearningEnabled;
+
+    console.log('[TWR] Learning System Settings v5.9.52 loaded');
+})();

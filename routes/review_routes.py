@@ -2754,6 +2754,12 @@ def export_document():
                             for fix in selected_fixes:
                                 fix_issues.append({'original_text': fix.get('original_text', ''), 'replacement_text': fix.get('replacement_text', ''), 'category': fix.get('category', 'Auto-Fix'), 'message': fix.get('message', 'Automatic correction'), 'severity': 'Info', 'paragraph_index': fix.get('paragraph_index', 0)})
                             logger.info(f'Applying {len(fix_issues)} selected fixes from Fix Assistant')
+                            # v5.9.50: Learn from Fix Assistant corrections
+                            try:
+                                from review_learner import learn_fix_patterns
+                                learn_fix_patterns(selected_fixes)
+                            except Exception:
+                                pass  # Learning failure non-blocking
                         else:
                             fix_issues = issues if apply_fixes else []
                         issues_to_comment = []

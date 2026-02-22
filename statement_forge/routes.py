@@ -512,17 +512,25 @@ def update_statement(statement_id):
                 stmt.modified = True
                 found = True
                 break
-        
+
         if not found:
             return jsonify({'success': False, 'error': 'Statement not found'}), 404
-        
+
         _store_statements(statements)
-        
+
+        # v5.9.50: Learn from statement edits
+        try:
+            if data.get('_original'):
+                from statement_forge.statement_learner import learn_from_statement_edits
+                learn_from_statement_edits([data['_original']], [stmt.to_dict()])
+        except Exception:
+            pass  # Learning failure should never block edits
+
         return jsonify({
             'success': True,
             'statement': stmt.to_dict()
         })
-        
+
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 

@@ -812,6 +812,25 @@ window.ProposalCompare = (function() {
                 if (r.success && r.data) {
                     // Track db_id for edit persistence (Part A)
                     if (r.db_id) r.data._db_id = r.db_id;
+
+                    // Snapshot original extraction for learning system (v5.9.49)
+                    // Deep copy parser output before user can edit — sent with compare
+                    // request so backend can compute diffs and learn from corrections.
+                    // All learned data stays local in parser_patterns.json, never uploaded.
+                    r.data._original_extraction = JSON.parse(JSON.stringify({
+                        company_name: r.data.company_name || '',
+                        contract_term: r.data.contract_term || '',
+                        line_items: (r.data.line_items || []).map(function(li) {
+                            return {
+                                description: li.description || '',
+                                category: li.category || '',
+                                amount: li.amount,
+                                quantity: li.quantity,
+                                unit_price: li.unit_price
+                            };
+                        })
+                    }));
+
                     State.proposals.push(r.data);
                     var items = r.data.line_items?.length || 0;
                     var tables = r.data.tables?.length || 0;

@@ -3002,6 +3002,16 @@ class ScanHistoryDB:
             return {'processed': 0, 'total': len(decisions),
                     'errors': [{'error': str(e)}], 'results': []}
 
+        # v5.9.50: Learn from adjudication decisions
+        if processed > 0:
+            try:
+                from roles_learner import learn_from_adjudication
+                learn_from_adjudication(decisions)
+            except ImportError:
+                pass  # roles_learner not available
+            except Exception as e:
+                _log(f'Roles learner error (non-blocking): {e}', 'warning')
+
         return {
             'processed': processed,
             'total': len(decisions),
@@ -4901,6 +4911,7 @@ class ScanHistoryDB:
 
         v5.9.22: Implements the missing method that was promised in v4.6.0
         but never actually created. Called by /api/scan-history/statements/review-stats.
+        v5.9.45: Added graceful handling for missing columns (review_status, confirmed).
 
         Args:
             document_id: Optional document ID to filter by
@@ -4908,30 +4919,53 @@ class ScanHistoryDB:
         Returns:
             dict with total, reviewed, pending, confirmed, rejected counts
         """
-        with self.connection() as (conn, cursor):
-            base_query = 'SELECT COUNT(*) as total'
-            base_query += ', SUM(CASE WHEN review_status = "reviewed" THEN 1 ELSE 0 END) as reviewed'
-            base_query += ', SUM(CASE WHEN review_status IS NULL OR review_status = "" OR review_status = "pending" THEN 1 ELSE 0 END) as pending'
-            base_query += ', SUM(CASE WHEN confirmed = 1 THEN 1 ELSE 0 END) as confirmed'
-            base_query += ', SUM(CASE WHEN review_status = "rejected" THEN 1 ELSE 0 END) as rejected'
-            base_query += ' FROM scan_statements'
+        empty = {'total': 0, 'reviewed': 0, 'pending': 0, 'confirmed': 0, 'rejected': 0}
+        try:
+            with self.connection() as (conn, cursor):
+                # Check if scan_statements table exists and has expected columns
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='scan_statements'")
+                if not cursor.fetchone():
+                    return empty
 
-            if document_id:
-                base_query += ' WHERE scan_id IN (SELECT id FROM scan_history WHERE document_id = ?)'
-                cursor.execute(base_query, (document_id,))
-            else:
-                cursor.execute(base_query)
+                # Check column existence to handle older DBs gracefully
+                cursor.execute("PRAGMA table_info(scan_statements)")
+                cols = {row[1] for row in cursor.fetchall()}
+                has_review = 'review_status' in cols
+                has_confirmed = 'confirmed' in cols
 
-            row = cursor.fetchone()
-            if row:
-                return {
-                    'total': row[0] or 0,
-                    'reviewed': row[1] or 0,
-                    'pending': row[2] or 0,
-                    'confirmed': row[3] or 0,
-                    'rejected': row[4] or 0
-                }
-            return {'total': 0, 'reviewed': 0, 'pending': 0, 'confirmed': 0, 'rejected': 0}
+                base_query = 'SELECT COUNT(*) as total'
+                if has_review:
+                    base_query += ', SUM(CASE WHEN review_status = "reviewed" THEN 1 ELSE 0 END) as reviewed'
+                    base_query += ', SUM(CASE WHEN review_status IS NULL OR review_status = "" OR review_status = "pending" THEN 1 ELSE 0 END) as pending'
+                    base_query += ', SUM(CASE WHEN review_status = "rejected" THEN 1 ELSE 0 END) as rejected'
+                else:
+                    base_query += ', 0 as reviewed, 0 as pending, 0 as rejected'
+                if has_confirmed:
+                    base_query += ', SUM(CASE WHEN confirmed = 1 THEN 1 ELSE 0 END) as confirmed'
+                else:
+                    base_query += ', 0 as confirmed'
+                base_query += ' FROM scan_statements'
+
+                if document_id:
+                    base_query += ' WHERE scan_id IN (SELECT id FROM scan_history WHERE document_id = ?)'
+                    cursor.execute(base_query, (document_id,))
+                else:
+                    cursor.execute(base_query)
+
+                row = cursor.fetchone()
+                if row:
+                    return {
+                        'total': row[0] or 0,
+                        'reviewed': row[1] or 0,
+                        'pending': row[2] or 0,
+                        'rejected': row[3] or 0,
+                        'confirmed': row[4] or 0,
+                    }
+                return empty
+        except Exception as e:
+            import logging
+            logging.getLogger('scan_history').warning(f'get_statement_review_stats error: {e}')
+            return empty
 
 
 # Graph cache for performance
