@@ -1,0 +1,4073 @@
+{
+  "_meta": {
+    "tool": "AEGIS Batch Structure Tool (Desktop)",
+    "standalone_version": "3.0.0",
+    "purpose": "Privacy-safe structural analysis for parser accuracy refinement",
+    "file_count": 8,
+    "files_succeeded": 8,
+    "files_failed": 0,
+    "generated_at": "2026-02-22T04:15:04Z"
+  },
+  "files": [
+    {
+      "_meta": {
+        "tool": "AEGIS Structure Tool (Desktop)",
+        "standalone_version": "3.0.0",
+        "purpose": "Privacy-safe structural analysis for parser accuracy refinement",
+        "note": "All financial values bucketed, company names removed, descriptions redacted"
+      },
+      "file_info": {
+        "file_type": "pdf",
+        "file_size_bytes": 90108,
+        "file_size_label": "88.0 KB",
+        "file_hash": "175ea660ae77",
+        "page_count": 1,
+        "original_filename": "Budgetary Quote Northrop Grumman - Nimbus 7-14-25.xlsm - Sheet1.pdf"
+      },
+      "tables": [
+        {
+          "table_index": 1,
+          "source": "Page 1 (camelot-stream)",
+          "shape": {
+            "rows": 28,
+            "columns": 9
+          },
+          "headers": [
+            "custom_header (2 words, 15 chars)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)"
+          ],
+          "headers_are_generic": true,
+          "has_financial_data": true,
+          "has_total_row": true,
+          "total_row_position": "middle-bottom (50-70%)",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 25.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 5,
+              "empty_count": 15,
+              "avg_text_length": 11.8,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 65.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 12,
+              "empty_count": 7,
+              "avg_text_length": 20.4,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 25.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 5,
+              "empty_count": 15,
+              "avg_text_length": 58.4,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 65.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 13,
+              "empty_count": 7,
+              "avg_text_length": 18.2,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 25.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 5,
+              "empty_count": 15,
+              "avg_text_length": 8.8,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 5,
+              "fill_rate": 15.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 3,
+              "text_count": 0,
+              "empty_count": 17,
+              "avg_text_length": 1.0,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 6,
+              "fill_rate": 25.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 3,
+              "text_count": 2,
+              "empty_count": 15,
+              "avg_text_length": 21.4,
+              "dominant_type": "mixed"
+            },
+            {
+              "column_index": 7,
+              "fill_rate": 15.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 3,
+              "text_count": 0,
+              "empty_count": 17,
+              "avg_text_length": 5.3,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 8,
+              "fill_rate": 20.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 4,
+              "text_count": 0,
+              "empty_count": 16,
+              "avg_text_length": 9.0,
+              "dominant_type": "numeric"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 9,
+            "max_cells_per_row": 9,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 2,
+          "source": "Page 1 (pdfplumber)",
+          "shape": {
+            "rows": 28,
+            "columns": 9
+          },
+          "headers": [
+            "quantity_variant (348 chars)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)"
+          ],
+          "headers_are_generic": true,
+          "has_financial_data": true,
+          "has_total_row": true,
+          "total_row_position": "upper half (<50%)",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 10.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 2,
+              "empty_count": 18,
+              "avg_text_length": 165.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 55.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 11,
+              "empty_count": 9,
+              "avg_text_length": 57.5,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 0.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 20,
+              "avg_text_length": 0.0,
+              "dominant_type": "empty"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 0.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 20,
+              "avg_text_length": 0.0,
+              "dominant_type": "empty"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 50.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 2,
+              "text_count": 8,
+              "empty_count": 10,
+              "avg_text_length": 49.9,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 5,
+              "fill_rate": 0.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 20,
+              "avg_text_length": 0.0,
+              "dominant_type": "empty"
+            },
+            {
+              "column_index": 6,
+              "fill_rate": 0.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 20,
+              "avg_text_length": 0.0,
+              "dominant_type": "empty"
+            },
+            {
+              "column_index": 7,
+              "fill_rate": 10.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 2,
+              "text_count": 0,
+              "empty_count": 18,
+              "avg_text_length": 10.0,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 8,
+              "fill_rate": 0.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 20,
+              "avg_text_length": 0.0,
+              "dominant_type": "empty"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 9,
+            "max_cells_per_row": 9,
+            "consistent_width": true,
+            "empty_row_count": 10
+          }
+        }
+      ],
+      "line_items_summary": {
+        "total_count": 1,
+        "category_distribution": {
+          "Other": 1
+        },
+        "confidence_distribution": {
+          "high (0.9-1.0)": 0,
+          "medium (0.7-0.89)": 1,
+          "low (<0.7)": 0
+        },
+        "amount_bucket_distribution": {
+          "$100K-$999K": 1
+        },
+        "description_patterns": {
+          "very_short": 1
+        },
+        "description_length_stats": {
+          "min": 5,
+          "max": 5,
+          "avg": 5.0
+        },
+        "field_coverage": {
+          "has_description": 1,
+          "has_amount": 1,
+          "has_quantity": 0,
+          "has_unit_price": 0,
+          "has_category": 0
+        },
+        "field_coverage_percentages": {
+          "has_description": 100.0,
+          "has_amount": 100.0,
+          "has_quantity": 0.0,
+          "has_unit_price": 0.0,
+          "has_category": 0.0
+        },
+        "total_amount_bucket": "$100K-$999K"
+      },
+      "extraction_diagnostics": {
+        "notes": [
+          "Company: Bill to Address Northrop Grumman Corp",
+          "EnhancedTableExtractor: 2 tables via camelot-stream (3774ms)",
+          "Found 2 tables, 1 line items"
+        ],
+        "company_detected": true,
+        "date_detected": true,
+        "contract_term_detected": false,
+        "contract_term_value": "(none)",
+        "total_detected": true,
+        "text_extraction_available": true
+      },
+      "category_analysis": {
+        "detected_categories": [
+          "Other"
+        ],
+        "supported_categories": [
+          "Labor",
+          "Material",
+          "Software",
+          "License",
+          "Travel",
+          "Training",
+          "ODC",
+          "Overhead",
+          "Fee"
+        ],
+        "uncategorized_count": 1
+      },
+      "column_inference_details": [
+        {
+          "table_index": 1,
+          "source": "Page 1 (camelot-stream)",
+          "headers_generic": true,
+          "inferred_roles": {
+            "description_col": 3,
+            "amount_col": null,
+            "quantity_col": null,
+            "unit_price_col": null
+          }
+        },
+        {
+          "table_index": 2,
+          "source": "Page 1 (pdfplumber)",
+          "headers_generic": true,
+          "inferred_roles": {
+            "description_col": 0,
+            "amount_col": 7,
+            "quantity_col": null,
+            "unit_price_col": null
+          }
+        }
+      ],
+      "overall_assessment": {
+        "total_tables_found": 2,
+        "financial_tables": 2,
+        "total_line_items": 1,
+        "avg_confidence": 0.8,
+        "has_total_amount": true,
+        "has_company_name": true,
+        "has_date": true,
+        "has_contract_term": false,
+        "extraction_completeness": {
+          "table_extraction": 50,
+          "line_item_extraction": 5,
+          "metadata_extraction": 75,
+          "field_coverage": 66.7,
+          "overall": 44.8
+        },
+        "parser_suggestions": [
+          "1 of 1 items categorized as Other",
+          "Table 1 has generic headers"
+        ]
+      },
+      "file_index": 0
+    },
+    {
+      "_meta": {
+        "tool": "AEGIS Structure Tool (Desktop)",
+        "standalone_version": "3.0.0",
+        "purpose": "Privacy-safe structural analysis for parser accuracy refinement",
+        "note": "All financial values bucketed, company names removed, descriptions redacted"
+      },
+      "file_info": {
+        "file_type": "pdf",
+        "file_size_bytes": 93335,
+        "file_size_label": "91.1 KB",
+        "file_hash": "ffed9fea6eea",
+        "page_count": 1,
+        "original_filename": "Budgetary Quote Northrop Grumman 5 Year - Nimbus 8-7-25.xlsm - Sheet1.pdf"
+      },
+      "tables": [
+        {
+          "table_index": 1,
+          "source": "Page 1 (camelot-stream)",
+          "shape": {
+            "rows": 38,
+            "columns": 10
+          },
+          "headers": [
+            "(empty)",
+            "custom_header (2 words, 15 chars)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)"
+          ],
+          "headers_are_generic": true,
+          "has_financial_data": true,
+          "has_total_row": true,
+          "total_row_position": "upper half (<50%)",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 25.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 5,
+              "empty_count": 15,
+              "avg_text_length": 11.8,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 65.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 3,
+              "text_count": 9,
+              "empty_count": 7,
+              "avg_text_length": 10.2,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 35.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 5,
+              "empty_count": 13,
+              "avg_text_length": 14.4,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 10.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 2,
+              "empty_count": 18,
+              "avg_text_length": 11.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 10.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 2,
+              "empty_count": 18,
+              "avg_text_length": 11.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 5,
+              "fill_rate": 25.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 5,
+              "empty_count": 15,
+              "avg_text_length": 53.6,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 6,
+              "fill_rate": 65.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 13,
+              "empty_count": 7,
+              "avg_text_length": 18.2,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 7,
+              "fill_rate": 25.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 5,
+              "empty_count": 15,
+              "avg_text_length": 8.8,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 8,
+              "fill_rate": 25.0,
+              "dollar_pattern_count": 3,
+              "numeric_count": 0,
+              "text_count": 2,
+              "empty_count": 15,
+              "avg_text_length": 21.0,
+              "dominant_type": "mixed"
+            },
+            {
+              "column_index": 9,
+              "fill_rate": 30.0,
+              "dollar_pattern_count": 4,
+              "numeric_count": 0,
+              "text_count": 2,
+              "empty_count": 14,
+              "avg_text_length": 11.3,
+              "dominant_type": "dollar"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 10,
+            "max_cells_per_row": 10,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 2,
+          "source": "Page 1 (pdfplumber)",
+          "shape": {
+            "rows": 42,
+            "columns": 9
+          },
+          "headers": [
+            "quantity_variant (348 chars)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)"
+          ],
+          "headers_are_generic": true,
+          "has_financial_data": true,
+          "has_total_row": true,
+          "total_row_position": "upper half (<50%)",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 10.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 2,
+              "empty_count": 18,
+              "avg_text_length": 165.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 55.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 11,
+              "empty_count": 9,
+              "avg_text_length": 57.5,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 0.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 20,
+              "avg_text_length": 0.0,
+              "dominant_type": "empty"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 0.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 20,
+              "avg_text_length": 0.0,
+              "dominant_type": "empty"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 50.0,
+              "dollar_pattern_count": 6,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 10,
+              "avg_text_length": 52.6,
+              "dominant_type": "mixed"
+            },
+            {
+              "column_index": 5,
+              "fill_rate": 0.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 20,
+              "avg_text_length": 0.0,
+              "dominant_type": "empty"
+            },
+            {
+              "column_index": 6,
+              "fill_rate": 0.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 20,
+              "avg_text_length": 0.0,
+              "dominant_type": "empty"
+            },
+            {
+              "column_index": 7,
+              "fill_rate": 10.0,
+              "dollar_pattern_count": 2,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 18,
+              "avg_text_length": 11.0,
+              "dominant_type": "dollar"
+            },
+            {
+              "column_index": 8,
+              "fill_rate": 0.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 20,
+              "avg_text_length": 0.0,
+              "dominant_type": "empty"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 9,
+            "max_cells_per_row": 9,
+            "consistent_width": true,
+            "empty_row_count": 16
+          }
+        }
+      ],
+      "line_items_summary": {
+        "total_count": 25,
+        "category_distribution": {
+          "Other": 7,
+          "License": 18
+        },
+        "confidence_distribution": {
+          "high (0.9-1.0)": 1,
+          "medium (0.7-0.89)": 8,
+          "low (<0.7)": 16
+        },
+        "amount_bucket_distribution": {
+          "$100K-$999K": 11,
+          "$100-$999": 5,
+          "$1-$99": 3,
+          "$1K-$9.9K": 5,
+          "$1M-$9.9M": 1
+        },
+        "description_patterns": {
+          "very_short": 3,
+          "long_description": 22
+        },
+        "description_length_stats": {
+          "min": 5,
+          "max": 133,
+          "avg": 107.7
+        },
+        "field_coverage": {
+          "has_description": 25,
+          "has_amount": 25,
+          "has_quantity": 2,
+          "has_unit_price": 2,
+          "has_category": 18
+        },
+        "field_coverage_percentages": {
+          "has_description": 100.0,
+          "has_amount": 100.0,
+          "has_quantity": 8.0,
+          "has_unit_price": 8.0,
+          "has_category": 72.0
+        },
+        "total_amount_bucket": "$100K-$999K"
+      },
+      "extraction_diagnostics": {
+        "notes": [
+          "Company: Bill to Address Northrop Grumman Corp",
+          "EnhancedTableExtractor: 2 tables via camelot-stream (2073ms)",
+          "Found 16 additional dollar amounts in PDF text",
+          "Auto-calculated 2 missing financial fields",
+          "Found 2 tables, 25 line items"
+        ],
+        "company_detected": true,
+        "date_detected": true,
+        "contract_term_detected": false,
+        "contract_term_value": "(none)",
+        "total_detected": true,
+        "text_extraction_available": true
+      },
+      "category_analysis": {
+        "detected_categories": [
+          "License",
+          "Other"
+        ],
+        "supported_categories": [
+          "Labor",
+          "Material",
+          "Software",
+          "License",
+          "Travel",
+          "Training",
+          "ODC",
+          "Overhead",
+          "Fee"
+        ],
+        "uncategorized_count": 7
+      },
+      "column_inference_details": [
+        {
+          "table_index": 1,
+          "source": "Page 1 (camelot-stream)",
+          "headers_generic": true,
+          "inferred_roles": {
+            "description_col": 6,
+            "amount_col": null,
+            "quantity_col": null,
+            "unit_price_col": null
+          }
+        },
+        {
+          "table_index": 2,
+          "source": "Page 1 (pdfplumber)",
+          "headers_generic": true,
+          "inferred_roles": {
+            "description_col": 0,
+            "amount_col": 4,
+            "quantity_col": null,
+            "unit_price_col": 7
+          }
+        }
+      ],
+      "overall_assessment": {
+        "total_tables_found": 2,
+        "financial_tables": 2,
+        "total_line_items": 25,
+        "avg_confidence": 0.552,
+        "has_total_amount": true,
+        "has_company_name": true,
+        "has_date": true,
+        "has_contract_term": false,
+        "extraction_completeness": {
+          "table_extraction": 50,
+          "line_item_extraction": 100,
+          "metadata_extraction": 75,
+          "field_coverage": 90.7,
+          "overall": 78.1
+        },
+        "parser_suggestions": [
+          "16 of 25 items have low confidence",
+          "Table 1 has generic headers"
+        ]
+      },
+      "file_index": 1
+    },
+    {
+      "_meta": {
+        "tool": "AEGIS Structure Tool (Desktop)",
+        "standalone_version": "3.0.0",
+        "purpose": "Privacy-safe structural analysis for parser accuracy refinement",
+        "note": "All financial values bucketed, company names removed, descriptions redacted"
+      },
+      "file_info": {
+        "file_type": "pdf",
+        "file_size_bytes": 187213,
+        "file_size_label": "182.8 KB",
+        "file_hash": "b296782f979f",
+        "page_count": 2,
+        "original_filename": "Carahsoft - Cloud Software Group Inc. - 02.12.2026 - Quote 62654426.pdf"
+      },
+      "tables": [
+        {
+          "table_index": 1,
+          "source": "Page 1 (camelot-stream)",
+          "shape": {
+            "rows": 6,
+            "columns": 3
+          },
+          "headers": [
+            "(empty)",
+            "custom_header (3 words, 39 chars)",
+            "(empty)"
+          ],
+          "headers_are_generic": true,
+          "has_financial_data": false,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 100.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 6,
+              "empty_count": 0,
+              "avg_text_length": 22.3,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 33.3,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 2,
+              "empty_count": 4,
+              "avg_text_length": 5.5,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 100.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 6,
+              "empty_count": 0,
+              "avg_text_length": 21.7,
+              "dominant_type": "text"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 3,
+            "max_cells_per_row": 3,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 2,
+          "source": "Page 1 (camelot-stream)",
+          "shape": {
+            "rows": 18,
+            "columns": 5
+          },
+          "headers": [
+            "custom_header (1 words, 6 chars)",
+            "custom_header (1 words, 23 chars)",
+            "custom_header (1 words, 6 chars)",
+            "custom_header (1 words, 32 chars)",
+            "(empty)"
+          ],
+          "headers_are_generic": false,
+          "has_financial_data": false,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 11.1,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 2,
+              "empty_count": 16,
+              "avg_text_length": 6.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 55.6,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 9,
+              "empty_count": 8,
+              "avg_text_length": 25.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 44.4,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 8,
+              "empty_count": 10,
+              "avg_text_length": 11.9,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 5.6,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 1,
+              "empty_count": 17,
+              "avg_text_length": 4.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 38.9,
+              "dollar_pattern_count": 2,
+              "numeric_count": 1,
+              "text_count": 1,
+              "empty_count": 11,
+              "avg_text_length": 10.1,
+              "dominant_type": "mixed"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 5,
+            "max_cells_per_row": 5,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 3,
+          "source": "Page 1 (camelot-stream)",
+          "shape": {
+            "rows": 17,
+            "columns": 7
+          },
+          "headers": [
+            "custom_header (4 words, 17 chars)",
+            "DESCRIPTION",
+            "amount_variant (10 chars)",
+            "amount_variant (11 chars)",
+            "(empty)",
+            "QTY",
+            "EXTENDED PRICE"
+          ],
+          "headers_are_generic": false,
+          "has_financial_data": true,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 23.5,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 13,
+              "avg_text_length": 17.8,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 94.1,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 16,
+              "empty_count": 1,
+              "avg_text_length": 26.8,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 0.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 17,
+              "avg_text_length": 0.0,
+              "dominant_type": "empty"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 11.8,
+              "dollar_pattern_count": 2,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 15,
+              "avg_text_length": 6.0,
+              "dominant_type": "dollar"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 11.8,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 2,
+              "empty_count": 15,
+              "avg_text_length": 2.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 5,
+              "fill_rate": 11.8,
+              "dollar_pattern_count": 0,
+              "numeric_count": 2,
+              "text_count": 0,
+              "empty_count": 15,
+              "avg_text_length": 4.0,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 6,
+              "fill_rate": 17.6,
+              "dollar_pattern_count": 3,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 14,
+              "avg_text_length": 10.3,
+              "dominant_type": "dollar"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 7,
+            "max_cells_per_row": 7,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 4,
+          "source": "Page 2 (camelot-stream)",
+          "shape": {
+            "rows": 17,
+            "columns": 7
+          },
+          "headers": [
+            "custom_header (4 words, 17 chars)",
+            "DESCRIPTION",
+            "amount_variant (10 chars)",
+            "amount_variant (11 chars)",
+            "(empty)",
+            "QTY",
+            "EXTENDED PRICE"
+          ],
+          "headers_are_generic": false,
+          "has_financial_data": true,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 23.5,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 13,
+              "avg_text_length": 17.8,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 94.1,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 16,
+              "empty_count": 1,
+              "avg_text_length": 26.8,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 0.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 17,
+              "avg_text_length": 0.0,
+              "dominant_type": "empty"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 11.8,
+              "dollar_pattern_count": 2,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 15,
+              "avg_text_length": 6.0,
+              "dominant_type": "dollar"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 11.8,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 2,
+              "empty_count": 15,
+              "avg_text_length": 2.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 5,
+              "fill_rate": 11.8,
+              "dollar_pattern_count": 0,
+              "numeric_count": 2,
+              "text_count": 0,
+              "empty_count": 15,
+              "avg_text_length": 4.0,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 6,
+              "fill_rate": 17.6,
+              "dollar_pattern_count": 3,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 14,
+              "avg_text_length": 10.3,
+              "dominant_type": "dollar"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 7,
+            "max_cells_per_row": 7,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 5,
+          "source": "Page 2 (camelot-stream)",
+          "shape": {
+            "rows": 12,
+            "columns": 3
+          },
+          "headers": [
+            "(empty)",
+            "amount_variant (12 chars)",
+            "custom_header (1 words, 13 chars)"
+          ],
+          "headers_are_generic": false,
+          "has_financial_data": true,
+          "has_total_row": true,
+          "total_row_position": "upper half (<50%)",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 91.7,
+              "dollar_pattern_count": 3,
+              "numeric_count": 0,
+              "text_count": 8,
+              "empty_count": 1,
+              "avg_text_length": 84.6,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 8.3,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 1,
+              "empty_count": 11,
+              "avg_text_length": 12.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 8.3,
+              "dollar_pattern_count": 1,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 11,
+              "avg_text_length": 13.0,
+              "dominant_type": "dollar"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 3,
+            "max_cells_per_row": 3,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        }
+      ],
+      "line_items_summary": {
+        "total_count": 20,
+        "category_distribution": {
+          "Other": 19,
+          "Material": 1
+        },
+        "confidence_distribution": {
+          "high (0.9-1.0)": 4,
+          "medium (0.7-0.89)": 0,
+          "low (<0.7)": 16
+        },
+        "amount_bucket_distribution": {
+          "$1K-$9.9K": 3,
+          "$100K-$999K": 9,
+          "$1M-$9.9M": 5,
+          "$100-$999": 3
+        },
+        "description_patterns": {
+          "medium_description": 4,
+          "long_description": 16
+        },
+        "description_length_stats": {
+          "min": 45,
+          "max": 133,
+          "avg": 113.7
+        },
+        "field_coverage": {
+          "has_description": 20,
+          "has_amount": 20,
+          "has_quantity": 4,
+          "has_unit_price": 4,
+          "has_category": 1
+        },
+        "field_coverage_percentages": {
+          "has_description": 100.0,
+          "has_amount": 100.0,
+          "has_quantity": 20.0,
+          "has_unit_price": 20.0,
+          "has_category": 5.0
+        },
+        "total_amount_bucket": "$1M-$9.9M"
+      },
+      "extraction_diagnostics": {
+        "notes": [
+          "Company: CARAHSOFT TECHNOLOGY CORP",
+          "EnhancedTableExtractor: 5 tables via camelot-stream (1740ms)",
+          "Found 16 additional dollar amounts in PDF text",
+          "Auto-calculated 4 missing financial fields",
+          "Found 5 tables, 20 line items"
+        ],
+        "company_detected": true,
+        "date_detected": true,
+        "contract_term_detected": false,
+        "contract_term_value": "(none)",
+        "total_detected": true,
+        "text_extraction_available": true
+      },
+      "category_analysis": {
+        "detected_categories": [
+          "Other",
+          "Material"
+        ],
+        "supported_categories": [
+          "Labor",
+          "Material",
+          "Software",
+          "License",
+          "Travel",
+          "Training",
+          "ODC",
+          "Overhead",
+          "Fee"
+        ],
+        "uncategorized_count": 19
+      },
+      "column_inference_details": [
+        {
+          "table_index": 3,
+          "source": "Page 1 (camelot-stream)",
+          "headers_generic": false,
+          "inferred_roles": {
+            "description_col": 1,
+            "amount_col": 6,
+            "quantity_col": null,
+            "unit_price_col": 3
+          }
+        },
+        {
+          "table_index": 4,
+          "source": "Page 2 (camelot-stream)",
+          "headers_generic": false,
+          "inferred_roles": {
+            "description_col": 1,
+            "amount_col": 6,
+            "quantity_col": null,
+            "unit_price_col": 3
+          }
+        },
+        {
+          "table_index": 5,
+          "source": "Page 2 (camelot-stream)",
+          "headers_generic": false,
+          "inferred_roles": {
+            "description_col": 0,
+            "amount_col": 2,
+            "quantity_col": null,
+            "unit_price_col": null
+          }
+        }
+      ],
+      "overall_assessment": {
+        "total_tables_found": 5,
+        "financial_tables": 3,
+        "total_line_items": 20,
+        "avg_confidence": 0.52,
+        "has_total_amount": true,
+        "has_company_name": true,
+        "has_date": true,
+        "has_contract_term": false,
+        "extraction_completeness": {
+          "table_extraction": 75,
+          "line_item_extraction": 100,
+          "metadata_extraction": 75,
+          "field_coverage": 68.3,
+          "overall": 81.2
+        },
+        "parser_suggestions": [
+          "16 of 20 items have low confidence",
+          "19 of 20 items categorized as Other"
+        ]
+      },
+      "file_index": 2
+    },
+    {
+      "_meta": {
+        "tool": "AEGIS Structure Tool (Desktop)",
+        "standalone_version": "3.0.0",
+        "purpose": "Privacy-safe structural analysis for parser accuracy refinement",
+        "note": "All financial values bucketed, company names removed, descriptions redacted"
+      },
+      "file_info": {
+        "file_type": "pdf",
+        "file_size_bytes": 188444,
+        "file_size_label": "184.0 KB",
+        "file_hash": "6d6b0156f697",
+        "page_count": 3,
+        "original_filename": "Carahsoft - Cloud Software Group Inc. - 02.12.2026 - Quote 62654489.pdf"
+      },
+      "tables": [
+        {
+          "table_index": 1,
+          "source": "Page 1 (camelot-stream)",
+          "shape": {
+            "rows": 6,
+            "columns": 3
+          },
+          "headers": [
+            "(empty)",
+            "custom_header (3 words, 39 chars)",
+            "(empty)"
+          ],
+          "headers_are_generic": true,
+          "has_financial_data": false,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 100.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 6,
+              "empty_count": 0,
+              "avg_text_length": 22.3,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 33.3,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 2,
+              "empty_count": 4,
+              "avg_text_length": 5.5,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 100.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 6,
+              "empty_count": 0,
+              "avg_text_length": 21.7,
+              "dominant_type": "text"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 3,
+            "max_cells_per_row": 3,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 2,
+          "source": "Page 1 (camelot-stream)",
+          "shape": {
+            "rows": 18,
+            "columns": 5
+          },
+          "headers": [
+            "custom_header (1 words, 6 chars)",
+            "custom_header (1 words, 23 chars)",
+            "custom_header (1 words, 6 chars)",
+            "custom_header (1 words, 32 chars)",
+            "(empty)"
+          ],
+          "headers_are_generic": false,
+          "has_financial_data": false,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 11.1,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 2,
+              "empty_count": 16,
+              "avg_text_length": 6.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 55.6,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 9,
+              "empty_count": 8,
+              "avg_text_length": 25.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 44.4,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 8,
+              "empty_count": 10,
+              "avg_text_length": 11.9,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 5.6,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 1,
+              "empty_count": 17,
+              "avg_text_length": 4.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 38.9,
+              "dollar_pattern_count": 2,
+              "numeric_count": 1,
+              "text_count": 1,
+              "empty_count": 11,
+              "avg_text_length": 10.1,
+              "dominant_type": "mixed"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 5,
+            "max_cells_per_row": 5,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 3,
+          "source": "Page 1 (camelot-stream)",
+          "shape": {
+            "rows": 17,
+            "columns": 7
+          },
+          "headers": [
+            "custom_header (4 words, 17 chars)",
+            "DESCRIPTION",
+            "amount_variant (10 chars)",
+            "amount_variant (11 chars)",
+            "(empty)",
+            "QTY",
+            "EXTENDED PRICE"
+          ],
+          "headers_are_generic": false,
+          "has_financial_data": true,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 23.5,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 13,
+              "avg_text_length": 17.8,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 94.1,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 16,
+              "empty_count": 1,
+              "avg_text_length": 26.8,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 0.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 17,
+              "avg_text_length": 0.0,
+              "dominant_type": "empty"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 11.8,
+              "dollar_pattern_count": 2,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 15,
+              "avg_text_length": 6.0,
+              "dominant_type": "dollar"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 11.8,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 2,
+              "empty_count": 15,
+              "avg_text_length": 2.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 5,
+              "fill_rate": 11.8,
+              "dollar_pattern_count": 0,
+              "numeric_count": 2,
+              "text_count": 0,
+              "empty_count": 15,
+              "avg_text_length": 4.0,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 6,
+              "fill_rate": 17.6,
+              "dollar_pattern_count": 3,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 14,
+              "avg_text_length": 10.3,
+              "dominant_type": "dollar"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 7,
+            "max_cells_per_row": 7,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 4,
+          "source": "Page 2 (camelot-stream)",
+          "shape": {
+            "rows": 17,
+            "columns": 7
+          },
+          "headers": [
+            "custom_header (4 words, 17 chars)",
+            "DESCRIPTION",
+            "amount_variant (10 chars)",
+            "amount_variant (11 chars)",
+            "(empty)",
+            "QTY",
+            "EXTENDED PRICE"
+          ],
+          "headers_are_generic": false,
+          "has_financial_data": true,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 23.5,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 13,
+              "avg_text_length": 17.8,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 94.1,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 16,
+              "empty_count": 1,
+              "avg_text_length": 26.8,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 0.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 17,
+              "avg_text_length": 0.0,
+              "dominant_type": "empty"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 11.8,
+              "dollar_pattern_count": 2,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 15,
+              "avg_text_length": 6.0,
+              "dominant_type": "dollar"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 11.8,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 2,
+              "empty_count": 15,
+              "avg_text_length": 2.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 5,
+              "fill_rate": 11.8,
+              "dollar_pattern_count": 0,
+              "numeric_count": 2,
+              "text_count": 0,
+              "empty_count": 15,
+              "avg_text_length": 4.0,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 6,
+              "fill_rate": 17.6,
+              "dollar_pattern_count": 3,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 14,
+              "avg_text_length": 10.3,
+              "dominant_type": "dollar"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 7,
+            "max_cells_per_row": 7,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 5,
+          "source": "Page 3 (camelot-stream)",
+          "shape": {
+            "rows": 15,
+            "columns": 1
+          },
+          "headers": [
+            "custom_header (1 words, 4 chars)"
+          ],
+          "headers_are_generic": true,
+          "has_financial_data": true,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 100.0,
+              "dollar_pattern_count": 5,
+              "numeric_count": 0,
+              "text_count": 10,
+              "empty_count": 0,
+              "avg_text_length": 71.5,
+              "dominant_type": "text"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 1,
+            "max_cells_per_row": 1,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        }
+      ],
+      "line_items_summary": {
+        "total_count": 30,
+        "category_distribution": {
+          "Other": 29,
+          "Material": 1
+        },
+        "confidence_distribution": {
+          "high (0.9-1.0)": 4,
+          "medium (0.7-0.89)": 0,
+          "low (<0.7)": 26
+        },
+        "amount_bucket_distribution": {
+          "$1K-$9.9K": 5,
+          "$100K-$999K": 15,
+          "$1M-$9.9M": 5,
+          "$100-$999": 5
+        },
+        "description_patterns": {
+          "medium_description": 4,
+          "long_description": 26
+        },
+        "description_length_stats": {
+          "min": 45,
+          "max": 133,
+          "avg": 119.1
+        },
+        "field_coverage": {
+          "has_description": 30,
+          "has_amount": 30,
+          "has_quantity": 4,
+          "has_unit_price": 4,
+          "has_category": 1
+        },
+        "field_coverage_percentages": {
+          "has_description": 100.0,
+          "has_amount": 100.0,
+          "has_quantity": 13.3,
+          "has_unit_price": 13.3,
+          "has_category": 3.3
+        },
+        "total_amount_bucket": "$10M-$99M"
+      },
+      "extraction_diagnostics": {
+        "notes": [
+          "Company: CARAHSOFT TECHNOLOGY CORP",
+          "EnhancedTableExtractor: 5 tables via camelot-stream (2067ms)",
+          "Found 26 additional dollar amounts in PDF text",
+          "Auto-calculated 4 missing financial fields",
+          "Found 5 tables, 30 line items"
+        ],
+        "company_detected": true,
+        "date_detected": true,
+        "contract_term_detected": false,
+        "contract_term_value": "(none)",
+        "total_detected": true,
+        "text_extraction_available": true
+      },
+      "category_analysis": {
+        "detected_categories": [
+          "Other",
+          "Material"
+        ],
+        "supported_categories": [
+          "Labor",
+          "Material",
+          "Software",
+          "License",
+          "Travel",
+          "Training",
+          "ODC",
+          "Overhead",
+          "Fee"
+        ],
+        "uncategorized_count": 29
+      },
+      "column_inference_details": [
+        {
+          "table_index": 3,
+          "source": "Page 1 (camelot-stream)",
+          "headers_generic": false,
+          "inferred_roles": {
+            "description_col": 1,
+            "amount_col": 6,
+            "quantity_col": null,
+            "unit_price_col": 3
+          }
+        },
+        {
+          "table_index": 4,
+          "source": "Page 2 (camelot-stream)",
+          "headers_generic": false,
+          "inferred_roles": {
+            "description_col": 1,
+            "amount_col": 6,
+            "quantity_col": null,
+            "unit_price_col": 3
+          }
+        },
+        {
+          "table_index": 5,
+          "source": "Page 3 (camelot-stream)",
+          "headers_generic": true,
+          "inferred_roles": {
+            "description_col": 0,
+            "amount_col": null,
+            "quantity_col": null,
+            "unit_price_col": null
+          }
+        }
+      ],
+      "overall_assessment": {
+        "total_tables_found": 5,
+        "financial_tables": 3,
+        "total_line_items": 30,
+        "avg_confidence": 0.48,
+        "has_total_amount": true,
+        "has_company_name": true,
+        "has_date": true,
+        "has_contract_term": false,
+        "extraction_completeness": {
+          "table_extraction": 75,
+          "line_item_extraction": 100,
+          "metadata_extraction": 75,
+          "field_coverage": 67.8,
+          "overall": 81.1
+        },
+        "parser_suggestions": [
+          "26 of 30 items have low confidence",
+          "29 of 30 items categorized as Other",
+          "Table 5 has generic headers"
+        ]
+      },
+      "file_index": 3
+    },
+    {
+      "_meta": {
+        "tool": "AEGIS Structure Tool (Desktop)",
+        "standalone_version": "3.0.0",
+        "purpose": "Privacy-safe structural analysis for parser accuracy refinement",
+        "note": "All financial values bucketed, company names removed, descriptions redacted"
+      },
+      "file_info": {
+        "file_type": "pdf",
+        "file_size_bytes": 204351,
+        "file_size_label": "199.6 KB",
+        "file_hash": "b28f217bc0c6",
+        "page_count": 2,
+        "original_filename": "Lunatek - 3-yer_62665060.pdf"
+      },
+      "tables": [
+        {
+          "table_index": 1,
+          "source": "Page 1 (camelot-lattice)",
+          "shape": {
+            "rows": 8,
+            "columns": 7
+          },
+          "headers": [
+            "custom_header (2 words, 20 chars)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)"
+          ],
+          "headers_are_generic": true,
+          "has_financial_data": false,
+          "has_total_row": true,
+          "total_row_position": "near bottom (70-90%)",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 87.5,
+              "dollar_pattern_count": 0,
+              "numeric_count": 2,
+              "text_count": 5,
+              "empty_count": 1,
+              "avg_text_length": 22.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 25.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 2,
+              "empty_count": 6,
+              "avg_text_length": 34.5,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 25.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 2,
+              "empty_count": 6,
+              "avg_text_length": 212.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 62.5,
+              "dollar_pattern_count": 1,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 3,
+              "avg_text_length": 72.2,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 25.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 2,
+              "text_count": 0,
+              "empty_count": 6,
+              "avg_text_length": 3.5,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 5,
+              "fill_rate": 25.0,
+              "dollar_pattern_count": 2,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 6,
+              "avg_text_length": 16.0,
+              "dominant_type": "dollar"
+            },
+            {
+              "column_index": 6,
+              "fill_rate": 25.0,
+              "dollar_pattern_count": 2,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 6,
+              "avg_text_length": 19.0,
+              "dominant_type": "dollar"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 7,
+            "max_cells_per_row": 7,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 2,
+          "source": "Page 1 (camelot-stream)",
+          "shape": {
+            "rows": 4,
+            "columns": 1
+          },
+          "headers": [
+            "custom_header (2 words, 11 chars)"
+          ],
+          "headers_are_generic": false,
+          "has_financial_data": false,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 100.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 0,
+              "avg_text_length": 18.0,
+              "dominant_type": "text"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 1,
+            "max_cells_per_row": 1,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 3,
+          "source": "Page 1 (camelot-stream)",
+          "shape": {
+            "rows": 8,
+            "columns": 4
+          },
+          "headers": [
+            "quantity_variant (12 chars)",
+            "(empty)",
+            "(empty)",
+            "(empty)"
+          ],
+          "headers_are_generic": true,
+          "has_financial_data": false,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 50.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 4,
+              "avg_text_length": 8.5,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 25.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 1,
+              "empty_count": 6,
+              "avg_text_length": 22.0,
+              "dominant_type": "mixed"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 50.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 4,
+              "avg_text_length": 11.2,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 75.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 1,
+              "text_count": 4,
+              "empty_count": 2,
+              "avg_text_length": 14.5,
+              "dominant_type": "text"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 4,
+            "max_cells_per_row": 4,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 4,
+          "source": "Page 1 (camelot-stream)",
+          "shape": {
+            "rows": 8,
+            "columns": 5
+          },
+          "headers": [
+            "(empty)",
+            "custom_header (1 words, 6 chars)",
+            "custom_header (2 words, 14 chars)",
+            "(empty)",
+            "custom_header (1 words, 22 chars)"
+          ],
+          "headers_are_generic": false,
+          "has_financial_data": false,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 12.5,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 1,
+              "empty_count": 7,
+              "avg_text_length": 6.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 12.5,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 1,
+              "empty_count": 7,
+              "avg_text_length": 4.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 12.5,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 1,
+              "empty_count": 7,
+              "avg_text_length": 30.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 62.5,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 5,
+              "empty_count": 3,
+              "avg_text_length": 22.2,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 25.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 1,
+              "empty_count": 6,
+              "avg_text_length": 39.0,
+              "dominant_type": "mixed"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 5,
+            "max_cells_per_row": 5,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 5,
+          "source": "Page 2 (camelot-lattice)",
+          "shape": {
+            "rows": 8,
+            "columns": 6
+          },
+          "headers": [
+            "description_variant (49 chars)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)"
+          ],
+          "headers_are_generic": true,
+          "has_financial_data": true,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 100.0,
+              "dollar_pattern_count": 3,
+              "numeric_count": 4,
+              "text_count": 1,
+              "empty_count": 0,
+              "avg_text_length": 13.6,
+              "dominant_type": "mixed"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 50.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 4,
+              "avg_text_length": 34.5,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 50.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 4,
+              "avg_text_length": 212.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 50.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 4,
+              "text_count": 0,
+              "empty_count": 4,
+              "avg_text_length": 3.5,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 50.0,
+              "dollar_pattern_count": 4,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 4,
+              "avg_text_length": 16.0,
+              "dominant_type": "dollar"
+            },
+            {
+              "column_index": 5,
+              "fill_rate": 50.0,
+              "dollar_pattern_count": 4,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 4,
+              "avg_text_length": 19.0,
+              "dominant_type": "dollar"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 6,
+            "max_cells_per_row": 6,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 6,
+          "source": "Page 2 (camelot-stream)",
+          "shape": {
+            "rows": 4,
+            "columns": 1
+          },
+          "headers": [
+            "custom_header (2 words, 11 chars)"
+          ],
+          "headers_are_generic": false,
+          "has_financial_data": false,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 100.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 0,
+              "avg_text_length": 18.0,
+              "dominant_type": "text"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 1,
+            "max_cells_per_row": 1,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 7,
+          "source": "Page 2 (camelot-stream)",
+          "shape": {
+            "rows": 48,
+            "columns": 6
+          },
+          "headers": [
+            "Item",
+            "custom_header (2 words, 11 chars)",
+            "Description",
+            "Qty",
+            "Unit Price",
+            "Total"
+          ],
+          "headers_are_generic": false,
+          "has_financial_data": true,
+          "has_total_row": true,
+          "total_row_position": "upper half (<50%)",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 10.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 2,
+              "text_count": 0,
+              "empty_count": 18,
+              "avg_text_length": 1.0,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 20.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 16,
+              "avg_text_length": 16.8,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 90.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 18,
+              "empty_count": 2,
+              "avg_text_length": 19.9,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 10.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 2,
+              "text_count": 0,
+              "empty_count": 18,
+              "avg_text_length": 3.5,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 10.0,
+              "dollar_pattern_count": 2,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 18,
+              "avg_text_length": 16.0,
+              "dominant_type": "dollar"
+            },
+            {
+              "column_index": 5,
+              "fill_rate": 10.0,
+              "dollar_pattern_count": 2,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 18,
+              "avg_text_length": 19.0,
+              "dominant_type": "dollar"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 6,
+            "max_cells_per_row": 6,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        }
+      ],
+      "line_items_summary": {
+        "total_count": 13,
+        "category_distribution": {
+          "License": 9,
+          "Other": 4
+        },
+        "confidence_distribution": {
+          "high (0.9-1.0)": 1,
+          "medium (0.7-0.89)": 4,
+          "low (<0.7)": 8
+        },
+        "amount_bucket_distribution": {
+          "$1K-$9.9K": 3,
+          "$100K-$999K": 6,
+          "$100-$999": 3,
+          "$1M-$9.9M": 1
+        },
+        "description_patterns": {
+          "very_long_text": 4,
+          "short_label": 1,
+          "long_description": 8
+        },
+        "description_length_stats": {
+          "min": 16,
+          "max": 219,
+          "avg": 145.2
+        },
+        "field_coverage": {
+          "has_description": 13,
+          "has_amount": 13,
+          "has_quantity": 4,
+          "has_unit_price": 4,
+          "has_category": 9
+        },
+        "field_coverage_percentages": {
+          "has_description": 100.0,
+          "has_amount": 100.0,
+          "has_quantity": 30.8,
+          "has_unit_price": 30.8,
+          "has_category": 69.2
+        },
+        "total_amount_bucket": "$100K-$999K"
+      },
+      "extraction_diagnostics": {
+        "notes": [
+          "Company: LunaTek LLC",
+          "EnhancedTableExtractor: 7 tables via camelot-stream (1358ms)",
+          "Found 8 additional dollar amounts in PDF text",
+          "Auto-calculated 4 missing financial fields",
+          "Found 7 tables, 13 line items"
+        ],
+        "company_detected": true,
+        "date_detected": true,
+        "contract_term_detected": false,
+        "contract_term_value": "(none)",
+        "total_detected": true,
+        "text_extraction_available": true
+      },
+      "category_analysis": {
+        "detected_categories": [
+          "License",
+          "Other"
+        ],
+        "supported_categories": [
+          "Labor",
+          "Material",
+          "Software",
+          "License",
+          "Travel",
+          "Training",
+          "ODC",
+          "Overhead",
+          "Fee"
+        ],
+        "uncategorized_count": 4
+      },
+      "column_inference_details": [
+        {
+          "table_index": 5,
+          "source": "Page 2 (camelot-lattice)",
+          "headers_generic": true,
+          "inferred_roles": {
+            "description_col": 2,
+            "amount_col": 5,
+            "quantity_col": null,
+            "unit_price_col": 4
+          }
+        },
+        {
+          "table_index": 7,
+          "source": "Page 2 (camelot-stream)",
+          "headers_generic": false,
+          "inferred_roles": {
+            "description_col": 2,
+            "amount_col": 5,
+            "quantity_col": 0,
+            "unit_price_col": 4
+          }
+        }
+      ],
+      "overall_assessment": {
+        "total_tables_found": 7,
+        "financial_tables": 2,
+        "total_line_items": 13,
+        "avg_confidence": 0.569,
+        "has_total_amount": true,
+        "has_company_name": true,
+        "has_date": true,
+        "has_contract_term": false,
+        "extraction_completeness": {
+          "table_extraction": 50,
+          "line_item_extraction": 65,
+          "metadata_extraction": 75,
+          "field_coverage": 89.7,
+          "overall": 67.4
+        },
+        "parser_suggestions": [
+          "8 of 13 items have low confidence",
+          "Table 5 has generic headers"
+        ]
+      },
+      "file_index": 4
+    },
+    {
+      "_meta": {
+        "tool": "AEGIS Structure Tool (Desktop)",
+        "standalone_version": "3.0.0",
+        "purpose": "Privacy-safe structural analysis for parser accuracy refinement",
+        "note": "All financial values bucketed, company names removed, descriptions redacted"
+      },
+      "file_info": {
+        "file_type": "pdf",
+        "file_size_bytes": 210987,
+        "file_size_label": "206.0 KB",
+        "file_hash": "f908424974db",
+        "page_count": 3,
+        "original_filename": "Lunatek - 5-year_62665145.pdf"
+      },
+      "tables": [
+        {
+          "table_index": 1,
+          "source": "Page 1 (camelot-lattice)",
+          "shape": {
+            "rows": 8,
+            "columns": 7
+          },
+          "headers": [
+            "custom_header (2 words, 20 chars)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)"
+          ],
+          "headers_are_generic": true,
+          "has_financial_data": false,
+          "has_total_row": true,
+          "total_row_position": "near bottom (70-90%)",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 87.5,
+              "dollar_pattern_count": 0,
+              "numeric_count": 2,
+              "text_count": 5,
+              "empty_count": 1,
+              "avg_text_length": 22.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 25.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 2,
+              "empty_count": 6,
+              "avg_text_length": 34.5,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 25.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 2,
+              "empty_count": 6,
+              "avg_text_length": 212.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 62.5,
+              "dollar_pattern_count": 1,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 3,
+              "avg_text_length": 72.2,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 25.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 2,
+              "text_count": 0,
+              "empty_count": 6,
+              "avg_text_length": 3.5,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 5,
+              "fill_rate": 25.0,
+              "dollar_pattern_count": 2,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 6,
+              "avg_text_length": 16.0,
+              "dominant_type": "dollar"
+            },
+            {
+              "column_index": 6,
+              "fill_rate": 25.0,
+              "dollar_pattern_count": 2,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 6,
+              "avg_text_length": 19.0,
+              "dominant_type": "dollar"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 7,
+            "max_cells_per_row": 7,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 2,
+          "source": "Page 1 (camelot-stream)",
+          "shape": {
+            "rows": 4,
+            "columns": 1
+          },
+          "headers": [
+            "custom_header (2 words, 11 chars)"
+          ],
+          "headers_are_generic": false,
+          "has_financial_data": false,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 100.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 0,
+              "avg_text_length": 18.0,
+              "dominant_type": "text"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 1,
+            "max_cells_per_row": 1,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 3,
+          "source": "Page 1 (camelot-stream)",
+          "shape": {
+            "rows": 8,
+            "columns": 4
+          },
+          "headers": [
+            "quantity_variant (12 chars)",
+            "(empty)",
+            "(empty)",
+            "(empty)"
+          ],
+          "headers_are_generic": true,
+          "has_financial_data": false,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 50.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 4,
+              "avg_text_length": 8.5,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 25.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 1,
+              "empty_count": 6,
+              "avg_text_length": 22.0,
+              "dominant_type": "mixed"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 50.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 4,
+              "avg_text_length": 11.2,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 75.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 1,
+              "text_count": 4,
+              "empty_count": 2,
+              "avg_text_length": 14.5,
+              "dominant_type": "text"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 4,
+            "max_cells_per_row": 4,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 4,
+          "source": "Page 1 (camelot-stream)",
+          "shape": {
+            "rows": 8,
+            "columns": 5
+          },
+          "headers": [
+            "(empty)",
+            "custom_header (1 words, 6 chars)",
+            "custom_header (2 words, 14 chars)",
+            "(empty)",
+            "custom_header (1 words, 22 chars)"
+          ],
+          "headers_are_generic": false,
+          "has_financial_data": false,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 12.5,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 1,
+              "empty_count": 7,
+              "avg_text_length": 6.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 12.5,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 1,
+              "empty_count": 7,
+              "avg_text_length": 4.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 12.5,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 1,
+              "empty_count": 7,
+              "avg_text_length": 30.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 62.5,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 5,
+              "empty_count": 3,
+              "avg_text_length": 22.2,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 25.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 1,
+              "empty_count": 6,
+              "avg_text_length": 39.0,
+              "dominant_type": "mixed"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 5,
+            "max_cells_per_row": 5,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 5,
+          "source": "Page 2 (camelot-lattice)",
+          "shape": {
+            "rows": 8,
+            "columns": 6
+          },
+          "headers": [
+            "description_variant (49 chars)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)"
+          ],
+          "headers_are_generic": true,
+          "has_financial_data": true,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 100.0,
+              "dollar_pattern_count": 2,
+              "numeric_count": 4,
+              "text_count": 2,
+              "empty_count": 0,
+              "avg_text_length": 10.8,
+              "dominant_type": "mixed"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 50.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 4,
+              "avg_text_length": 34.5,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 50.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 4,
+              "avg_text_length": 212.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 50.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 4,
+              "text_count": 0,
+              "empty_count": 4,
+              "avg_text_length": 3.5,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 50.0,
+              "dollar_pattern_count": 4,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 4,
+              "avg_text_length": 16.0,
+              "dominant_type": "dollar"
+            },
+            {
+              "column_index": 5,
+              "fill_rate": 50.0,
+              "dollar_pattern_count": 4,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 4,
+              "avg_text_length": 19.0,
+              "dominant_type": "dollar"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 6,
+            "max_cells_per_row": 6,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 6,
+          "source": "Page 2 (camelot-stream)",
+          "shape": {
+            "rows": 4,
+            "columns": 1
+          },
+          "headers": [
+            "custom_header (2 words, 11 chars)"
+          ],
+          "headers_are_generic": false,
+          "has_financial_data": false,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 100.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 0,
+              "avg_text_length": 18.0,
+              "dominant_type": "text"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 1,
+            "max_cells_per_row": 1,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 7,
+          "source": "Page 2 (camelot-stream)",
+          "shape": {
+            "rows": 48,
+            "columns": 6
+          },
+          "headers": [
+            "Item",
+            "custom_header (2 words, 11 chars)",
+            "Description",
+            "Qty",
+            "Unit Price",
+            "Total"
+          ],
+          "headers_are_generic": false,
+          "has_financial_data": true,
+          "has_total_row": true,
+          "total_row_position": "upper half (<50%)",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 10.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 2,
+              "text_count": 0,
+              "empty_count": 18,
+              "avg_text_length": 1.0,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 20.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 16,
+              "avg_text_length": 16.8,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 90.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 18,
+              "empty_count": 2,
+              "avg_text_length": 19.9,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 10.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 2,
+              "text_count": 0,
+              "empty_count": 18,
+              "avg_text_length": 3.5,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 10.0,
+              "dollar_pattern_count": 2,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 18,
+              "avg_text_length": 16.0,
+              "dominant_type": "dollar"
+            },
+            {
+              "column_index": 5,
+              "fill_rate": 10.0,
+              "dollar_pattern_count": 2,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 18,
+              "avg_text_length": 19.0,
+              "dominant_type": "dollar"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 6,
+            "max_cells_per_row": 6,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 8,
+          "source": "Page 3 (camelot-lattice)",
+          "shape": {
+            "rows": 8,
+            "columns": 6
+          },
+          "headers": [
+            "description_variant (49 chars)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)"
+          ],
+          "headers_are_generic": true,
+          "has_financial_data": true,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 100.0,
+              "dollar_pattern_count": 3,
+              "numeric_count": 4,
+              "text_count": 1,
+              "empty_count": 0,
+              "avg_text_length": 13.8,
+              "dominant_type": "mixed"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 50.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 4,
+              "avg_text_length": 34.5,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 50.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 4,
+              "avg_text_length": 212.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 50.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 4,
+              "text_count": 0,
+              "empty_count": 4,
+              "avg_text_length": 3.5,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 50.0,
+              "dollar_pattern_count": 4,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 4,
+              "avg_text_length": 16.0,
+              "dominant_type": "dollar"
+            },
+            {
+              "column_index": 5,
+              "fill_rate": 50.0,
+              "dollar_pattern_count": 4,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 4,
+              "avg_text_length": 19.0,
+              "dominant_type": "dollar"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 6,
+            "max_cells_per_row": 6,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 9,
+          "source": "Page 3 (camelot-stream)",
+          "shape": {
+            "rows": 4,
+            "columns": 1
+          },
+          "headers": [
+            "custom_header (2 words, 11 chars)"
+          ],
+          "headers_are_generic": false,
+          "has_financial_data": false,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 100.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 0,
+              "avg_text_length": 18.0,
+              "dominant_type": "text"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 1,
+            "max_cells_per_row": 1,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 10,
+          "source": "Page 3 (camelot-stream)",
+          "shape": {
+            "rows": 48,
+            "columns": 6
+          },
+          "headers": [
+            "Item",
+            "custom_header (2 words, 11 chars)",
+            "Description",
+            "Qty",
+            "Unit Price",
+            "Total"
+          ],
+          "headers_are_generic": false,
+          "has_financial_data": true,
+          "has_total_row": true,
+          "total_row_position": "upper half (<50%)",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 10.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 2,
+              "text_count": 0,
+              "empty_count": 18,
+              "avg_text_length": 1.0,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 20.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 4,
+              "empty_count": 16,
+              "avg_text_length": 16.8,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 90.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 18,
+              "empty_count": 2,
+              "avg_text_length": 19.9,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 10.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 2,
+              "text_count": 0,
+              "empty_count": 18,
+              "avg_text_length": 3.5,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 10.0,
+              "dollar_pattern_count": 2,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 18,
+              "avg_text_length": 16.0,
+              "dominant_type": "dollar"
+            },
+            {
+              "column_index": 5,
+              "fill_rate": 10.0,
+              "dollar_pattern_count": 2,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 18,
+              "avg_text_length": 19.0,
+              "dominant_type": "dollar"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 6,
+            "max_cells_per_row": 6,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        }
+      ],
+      "line_items_summary": {
+        "total_count": 21,
+        "category_distribution": {
+          "License": 15,
+          "Other": 6
+        },
+        "confidence_distribution": {
+          "high (0.9-1.0)": 2,
+          "medium (0.7-0.89)": 8,
+          "low (<0.7)": 11
+        },
+        "amount_bucket_distribution": {
+          "$1K-$9.9K": 5,
+          "$100K-$999K": 10,
+          "$100-$999": 5,
+          "$1M-$9.9M": 1
+        },
+        "description_patterns": {
+          "very_long_text": 8,
+          "short_label": 2,
+          "long_description": 11
+        },
+        "description_length_stats": {
+          "min": 16,
+          "max": 219,
+          "avg": 149.4
+        },
+        "field_coverage": {
+          "has_description": 21,
+          "has_amount": 21,
+          "has_quantity": 8,
+          "has_unit_price": 8,
+          "has_category": 15
+        },
+        "field_coverage_percentages": {
+          "has_description": 100.0,
+          "has_amount": 100.0,
+          "has_quantity": 38.1,
+          "has_unit_price": 38.1,
+          "has_category": 71.4
+        },
+        "total_amount_bucket": "$100K-$999K"
+      },
+      "extraction_diagnostics": {
+        "notes": [
+          "Company: LunaTek LLC",
+          "EnhancedTableExtractor: 10 tables via camelot-stream (2603ms)",
+          "Found 11 additional dollar amounts in PDF text",
+          "Auto-calculated 8 missing financial fields",
+          "Found 10 tables, 21 line items"
+        ],
+        "company_detected": true,
+        "date_detected": true,
+        "contract_term_detected": false,
+        "contract_term_value": "(none)",
+        "total_detected": true,
+        "text_extraction_available": true
+      },
+      "category_analysis": {
+        "detected_categories": [
+          "License",
+          "Other"
+        ],
+        "supported_categories": [
+          "Labor",
+          "Material",
+          "Software",
+          "License",
+          "Travel",
+          "Training",
+          "ODC",
+          "Overhead",
+          "Fee"
+        ],
+        "uncategorized_count": 6
+      },
+      "column_inference_details": [
+        {
+          "table_index": 5,
+          "source": "Page 2 (camelot-lattice)",
+          "headers_generic": true,
+          "inferred_roles": {
+            "description_col": 2,
+            "amount_col": 5,
+            "quantity_col": null,
+            "unit_price_col": 4
+          }
+        },
+        {
+          "table_index": 7,
+          "source": "Page 2 (camelot-stream)",
+          "headers_generic": false,
+          "inferred_roles": {
+            "description_col": 2,
+            "amount_col": 5,
+            "quantity_col": 0,
+            "unit_price_col": 4
+          }
+        },
+        {
+          "table_index": 8,
+          "source": "Page 3 (camelot-lattice)",
+          "headers_generic": true,
+          "inferred_roles": {
+            "description_col": 2,
+            "amount_col": 5,
+            "quantity_col": null,
+            "unit_price_col": 4
+          }
+        },
+        {
+          "table_index": 10,
+          "source": "Page 3 (camelot-stream)",
+          "headers_generic": false,
+          "inferred_roles": {
+            "description_col": 2,
+            "amount_col": 5,
+            "quantity_col": 0,
+            "unit_price_col": 4
+          }
+        }
+      ],
+      "overall_assessment": {
+        "total_tables_found": 10,
+        "financial_tables": 4,
+        "total_line_items": 21,
+        "avg_confidence": 0.61,
+        "has_total_amount": true,
+        "has_company_name": true,
+        "has_date": true,
+        "has_contract_term": false,
+        "extraction_completeness": {
+          "table_extraction": 100,
+          "line_item_extraction": 100,
+          "metadata_extraction": 75,
+          "field_coverage": 90.5,
+          "overall": 93.1
+        },
+        "parser_suggestions": [
+          "11 of 21 items have low confidence",
+          "Table 5 has generic headers"
+        ]
+      },
+      "file_index": 5
+    },
+    {
+      "_meta": {
+        "tool": "AEGIS Structure Tool (Desktop)",
+        "standalone_version": "3.0.0",
+        "purpose": "Privacy-safe structural analysis for parser accuracy refinement",
+        "note": "All financial values bucketed, company names removed, descriptions redacted"
+      },
+      "file_info": {
+        "file_type": "pdf",
+        "file_size_bytes": 117381,
+        "file_size_label": "114.6 KB",
+        "file_hash": "ccc566ba189e",
+        "page_count": 2,
+        "original_filename": "SHI Quote-27112608.pdf"
+      },
+      "tables": [
+        {
+          "table_index": 1,
+          "source": "Page 1 (camelot-stream)",
+          "shape": {
+            "rows": 35,
+            "columns": 6
+          },
+          "headers": [
+            "custom_header (1 words, 6 chars)",
+            "custom_header (1 words, 23 chars)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)"
+          ],
+          "headers_are_generic": true,
+          "has_financial_data": false,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 20.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 3,
+              "text_count": 1,
+              "empty_count": 16,
+              "avg_text_length": 9.0,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 95.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 19,
+              "empty_count": 1,
+              "avg_text_length": 39.6,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 20.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 3,
+              "text_count": 1,
+              "empty_count": 16,
+              "avg_text_length": 3.0,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 20.0,
+              "dollar_pattern_count": 3,
+              "numeric_count": 0,
+              "text_count": 1,
+              "empty_count": 16,
+              "avg_text_length": 5.2,
+              "dominant_type": "dollar"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 20.0,
+              "dollar_pattern_count": 3,
+              "numeric_count": 0,
+              "text_count": 1,
+              "empty_count": 16,
+              "avg_text_length": 7.2,
+              "dominant_type": "dollar"
+            },
+            {
+              "column_index": 5,
+              "fill_rate": 20.0,
+              "dollar_pattern_count": 3,
+              "numeric_count": 0,
+              "text_count": 1,
+              "empty_count": 16,
+              "avg_text_length": 8.5,
+              "dominant_type": "dollar"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 6,
+            "max_cells_per_row": 6,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 2,
+          "source": "Page 2 (camelot-stream)",
+          "shape": {
+            "rows": 8,
+            "columns": 6
+          },
+          "headers": [
+            "(empty)",
+            "custom_header (5 words, 36 chars)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)"
+          ],
+          "headers_are_generic": true,
+          "has_financial_data": false,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 12.5,
+              "dollar_pattern_count": 0,
+              "numeric_count": 1,
+              "text_count": 0,
+              "empty_count": 7,
+              "avg_text_length": 1.0,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 100.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 8,
+              "empty_count": 0,
+              "avg_text_length": 39.4,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 12.5,
+              "dollar_pattern_count": 0,
+              "numeric_count": 1,
+              "text_count": 0,
+              "empty_count": 7,
+              "avg_text_length": 5.0,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 12.5,
+              "dollar_pattern_count": 1,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 7,
+              "avg_text_length": 5.0,
+              "dominant_type": "dollar"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 12.5,
+              "dollar_pattern_count": 1,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 7,
+              "avg_text_length": 5.0,
+              "dominant_type": "dollar"
+            },
+            {
+              "column_index": 5,
+              "fill_rate": 12.5,
+              "dollar_pattern_count": 1,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 7,
+              "avg_text_length": 11.0,
+              "dominant_type": "dollar"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 6,
+            "max_cells_per_row": 6,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 3,
+          "source": "Page 2 (camelot-stream)",
+          "shape": {
+            "rows": 38,
+            "columns": 3
+          },
+          "headers": [
+            "(empty)",
+            "Total",
+            "custom_header (1 words, 13 chars)"
+          ],
+          "headers_are_generic": false,
+          "has_financial_data": true,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 100.0,
+              "dollar_pattern_count": 3,
+              "numeric_count": 0,
+              "text_count": 17,
+              "empty_count": 0,
+              "avg_text_length": 85.0,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 0.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 20,
+              "avg_text_length": 0.0,
+              "dominant_type": "empty"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 0.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 20,
+              "avg_text_length": 0.0,
+              "dominant_type": "empty"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 3,
+            "max_cells_per_row": 3,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        }
+      ],
+      "line_items_summary": {
+        "total_count": 13,
+        "category_distribution": {
+          "Other": 10,
+          "License": 3
+        },
+        "confidence_distribution": {
+          "high (0.9-1.0)": 0,
+          "medium (0.7-0.89)": 0,
+          "low (<0.7)": 13
+        },
+        "amount_bucket_distribution": {
+          "$1K-$9.9K": 3,
+          "$100K-$999K": 6,
+          "$100-$999": 3,
+          "$1M-$9.9M": 1
+        },
+        "description_patterns": {
+          "long_description": 13
+        },
+        "description_length_stats": {
+          "min": 84,
+          "max": 133,
+          "avg": 109.0
+        },
+        "field_coverage": {
+          "has_description": 13,
+          "has_amount": 13,
+          "has_quantity": 0,
+          "has_unit_price": 0,
+          "has_category": 3
+        },
+        "field_coverage_percentages": {
+          "has_description": 100.0,
+          "has_amount": 100.0,
+          "has_quantity": 0.0,
+          "has_unit_price": 0.0,
+          "has_category": 23.1
+        },
+        "total_amount_bucket": "$1M-$9.9M"
+      },
+      "extraction_diagnostics": {
+        "notes": [
+          "Company: Cloud Software Group, Inc. - Part#: NPN-TIBCO-AUTHO-A",
+          "EnhancedTableExtractor: 3 tables via camelot-stream (1482ms)",
+          "pymupdf4llm not available",
+          "Text-based extraction: 6 line items from structured price lines",
+          "Found 7 additional dollar amounts in PDF text",
+          "Found 3 tables, 13 line items"
+        ],
+        "company_detected": true,
+        "date_detected": true,
+        "contract_term_detected": false,
+        "contract_term_value": "(none)",
+        "total_detected": true,
+        "text_extraction_available": true
+      },
+      "category_analysis": {
+        "detected_categories": [
+          "License",
+          "Other"
+        ],
+        "supported_categories": [
+          "Labor",
+          "Material",
+          "Software",
+          "License",
+          "Travel",
+          "Training",
+          "ODC",
+          "Overhead",
+          "Fee"
+        ],
+        "uncategorized_count": 10
+      },
+      "column_inference_details": [
+        {
+          "table_index": 3,
+          "source": "Page 2 (camelot-stream)",
+          "headers_generic": false,
+          "inferred_roles": {
+            "description_col": 0,
+            "amount_col": null,
+            "quantity_col": null,
+            "unit_price_col": null
+          }
+        }
+      ],
+      "overall_assessment": {
+        "total_tables_found": 3,
+        "financial_tables": 1,
+        "total_line_items": 13,
+        "avg_confidence": 0.515,
+        "has_total_amount": true,
+        "has_company_name": true,
+        "has_date": true,
+        "has_contract_term": false,
+        "extraction_completeness": {
+          "table_extraction": 25,
+          "line_item_extraction": 65,
+          "metadata_extraction": 75,
+          "field_coverage": 74.4,
+          "overall": 56.9
+        },
+        "parser_suggestions": [
+          "13 of 13 items have low confidence",
+          "10 of 13 items categorized as Other"
+        ]
+      },
+      "file_index": 6
+    },
+    {
+      "_meta": {
+        "tool": "AEGIS Structure Tool (Desktop)",
+        "standalone_version": "3.0.0",
+        "purpose": "Privacy-safe structural analysis for parser accuracy refinement",
+        "note": "All financial values bucketed, company names removed, descriptions redacted"
+      },
+      "file_info": {
+        "file_type": "pdf",
+        "file_size_bytes": 119316,
+        "file_size_label": "116.5 KB",
+        "file_hash": "4019f891584e",
+        "page_count": 3,
+        "original_filename": "SHI Quote-27112614.pdf"
+      },
+      "tables": [
+        {
+          "table_index": 1,
+          "source": "Page 1 (camelot-stream)",
+          "shape": {
+            "rows": 35,
+            "columns": 6
+          },
+          "headers": [
+            "custom_header (1 words, 6 chars)",
+            "custom_header (1 words, 23 chars)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)"
+          ],
+          "headers_are_generic": true,
+          "has_financial_data": false,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 20.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 3,
+              "text_count": 1,
+              "empty_count": 16,
+              "avg_text_length": 9.0,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 95.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 19,
+              "empty_count": 1,
+              "avg_text_length": 39.6,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 20.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 3,
+              "text_count": 1,
+              "empty_count": 16,
+              "avg_text_length": 3.0,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 20.0,
+              "dollar_pattern_count": 3,
+              "numeric_count": 0,
+              "text_count": 1,
+              "empty_count": 16,
+              "avg_text_length": 5.2,
+              "dominant_type": "dollar"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 20.0,
+              "dollar_pattern_count": 3,
+              "numeric_count": 0,
+              "text_count": 1,
+              "empty_count": 16,
+              "avg_text_length": 7.2,
+              "dominant_type": "dollar"
+            },
+            {
+              "column_index": 5,
+              "fill_rate": 20.0,
+              "dollar_pattern_count": 3,
+              "numeric_count": 0,
+              "text_count": 1,
+              "empty_count": 16,
+              "avg_text_length": 8.5,
+              "dominant_type": "dollar"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 6,
+            "max_cells_per_row": 6,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 2,
+          "source": "Page 2 (camelot-stream)",
+          "shape": {
+            "rows": 36,
+            "columns": 6
+          },
+          "headers": [
+            "(empty)",
+            "custom_header (5 words, 36 chars)",
+            "(empty)",
+            "(empty)",
+            "(empty)",
+            "(empty)"
+          ],
+          "headers_are_generic": true,
+          "has_financial_data": false,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 15.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 3,
+              "text_count": 0,
+              "empty_count": 17,
+              "avg_text_length": 1.0,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 100.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 20,
+              "empty_count": 0,
+              "avg_text_length": 40.7,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 15.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 3,
+              "text_count": 0,
+              "empty_count": 17,
+              "avg_text_length": 4.0,
+              "dominant_type": "numeric"
+            },
+            {
+              "column_index": 3,
+              "fill_rate": 15.0,
+              "dollar_pattern_count": 3,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 17,
+              "avg_text_length": 5.0,
+              "dominant_type": "dollar"
+            },
+            {
+              "column_index": 4,
+              "fill_rate": 15.0,
+              "dollar_pattern_count": 3,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 17,
+              "avg_text_length": 5.7,
+              "dominant_type": "dollar"
+            },
+            {
+              "column_index": 5,
+              "fill_rate": 15.0,
+              "dollar_pattern_count": 3,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 17,
+              "avg_text_length": 10.3,
+              "dominant_type": "dollar"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 6,
+            "max_cells_per_row": 6,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 3,
+          "source": "Page 2 (camelot-stream)",
+          "shape": {
+            "rows": 14,
+            "columns": 3
+          },
+          "headers": [
+            "(empty)",
+            "Total",
+            "custom_header (1 words, 13 chars)"
+          ],
+          "headers_are_generic": false,
+          "has_financial_data": true,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 100.0,
+              "dollar_pattern_count": 5,
+              "numeric_count": 0,
+              "text_count": 9,
+              "empty_count": 0,
+              "avg_text_length": 65.9,
+              "dominant_type": "text"
+            },
+            {
+              "column_index": 1,
+              "fill_rate": 0.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 14,
+              "avg_text_length": 0.0,
+              "dominant_type": "empty"
+            },
+            {
+              "column_index": 2,
+              "fill_rate": 0.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 0,
+              "empty_count": 14,
+              "avg_text_length": 0.0,
+              "dominant_type": "empty"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 3,
+            "max_cells_per_row": 3,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        },
+        {
+          "table_index": 4,
+          "source": "Page 3 (camelot-stream)",
+          "shape": {
+            "rows": 26,
+            "columns": 1
+          },
+          "headers": [
+            "custom_header (1 words, 4 chars)"
+          ],
+          "headers_are_generic": true,
+          "has_financial_data": false,
+          "has_total_row": false,
+          "total_row_position": "none",
+          "column_data_patterns": [
+            {
+              "column_index": 0,
+              "fill_rate": 100.0,
+              "dollar_pattern_count": 0,
+              "numeric_count": 0,
+              "text_count": 20,
+              "empty_count": 0,
+              "avg_text_length": 75.0,
+              "dominant_type": "text"
+            }
+          ],
+          "row_analysis": {
+            "min_cells_per_row": 1,
+            "max_cells_per_row": 1,
+            "consistent_width": true,
+            "empty_row_count": 0
+          }
+        }
+      ],
+      "line_items_summary": {
+        "total_count": 21,
+        "category_distribution": {
+          "Other": 16,
+          "License": 5
+        },
+        "confidence_distribution": {
+          "high (0.9-1.0)": 0,
+          "medium (0.7-0.89)": 0,
+          "low (<0.7)": 21
+        },
+        "amount_bucket_distribution": {
+          "$1K-$9.9K": 5,
+          "$100K-$999K": 9,
+          "$100-$999": 5,
+          "$1M-$9.9M": 2
+        },
+        "description_patterns": {
+          "long_description": 21
+        },
+        "description_length_stats": {
+          "min": 84,
+          "max": 133,
+          "avg": 108.1
+        },
+        "field_coverage": {
+          "has_description": 21,
+          "has_amount": 21,
+          "has_quantity": 0,
+          "has_unit_price": 0,
+          "has_category": 5
+        },
+        "field_coverage_percentages": {
+          "has_description": 100.0,
+          "has_amount": 100.0,
+          "has_quantity": 0.0,
+          "has_unit_price": 0.0,
+          "has_category": 23.8
+        },
+        "total_amount_bucket": "$1M-$9.9M"
+      },
+      "extraction_diagnostics": {
+        "notes": [
+          "Company: Cloud Software Group, Inc. - Part#: NPN-TIBCO-AUTHO-A",
+          "EnhancedTableExtractor: 4 tables via camelot-stream (1924ms)",
+          "pymupdf4llm not available",
+          "Text-based extraction: 10 line items from structured price lines",
+          "Found 11 additional dollar amounts in PDF text",
+          "Found 4 tables, 21 line items"
+        ],
+        "company_detected": true,
+        "date_detected": true,
+        "contract_term_detected": false,
+        "contract_term_value": "(none)",
+        "total_detected": true,
+        "text_extraction_available": true
+      },
+      "category_analysis": {
+        "detected_categories": [
+          "License",
+          "Other"
+        ],
+        "supported_categories": [
+          "Labor",
+          "Material",
+          "Software",
+          "License",
+          "Travel",
+          "Training",
+          "ODC",
+          "Overhead",
+          "Fee"
+        ],
+        "uncategorized_count": 16
+      },
+      "column_inference_details": [
+        {
+          "table_index": 3,
+          "source": "Page 2 (camelot-stream)",
+          "headers_generic": false,
+          "inferred_roles": {
+            "description_col": 0,
+            "amount_col": null,
+            "quantity_col": null,
+            "unit_price_col": null
+          }
+        }
+      ],
+      "overall_assessment": {
+        "total_tables_found": 4,
+        "financial_tables": 1,
+        "total_line_items": 21,
+        "avg_confidence": 0.519,
+        "has_total_amount": true,
+        "has_company_name": true,
+        "has_date": true,
+        "has_contract_term": false,
+        "extraction_completeness": {
+          "table_extraction": 25,
+          "line_item_extraction": 100,
+          "metadata_extraction": 75,
+          "field_coverage": 74.6,
+          "overall": 67.4
+        },
+        "parser_suggestions": [
+          "21 of 21 items have low confidence",
+          "16 of 21 items categorized as Other"
+        ]
+      },
+      "file_index": 7
+    }
+  ],
+  "cross_file_summary": {
+    "total_files": 8,
+    "files_by_type": {
+      "pdf": 8
+    },
+    "total_tables_found": 38,
+    "total_financial_tables": 18,
+    "total_line_items": 144,
+    "avg_extraction_completeness": 71.2,
+    "category_distribution_merged": {
+      "Other": 92,
+      "License": 50,
+      "Material": 2
+    }
+  }
+}
