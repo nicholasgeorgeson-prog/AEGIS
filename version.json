@@ -1,13 +1,31 @@
 {
-  "version": "5.9.53",
+  "version": "6.0.0",
   "release_date": "2026-02-22",
-  "core_version": "5.9.53",
+  "core_version": "6.0.0",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.0.0",
+      "date": "2026-02-22",
+      "changes": [
+        "NEW: Cinematic Technology Showcase — full-screen Canvas-animated video showcasing every AEGIS module in a Cyberpunk HUD visual style",
+        "NEW: 18-scene story across 6 acts (The Problem, The Solution, Deep Dive, The Numbers, Air-Gapped, Finale) — approximately 6-8 minutes runtime",
+        "NEW: Canvas 2D animation engine with easing library, particle systems, camera system, scene transitions, HUD overlays, data streams, and circuit-board patterns",
+        "NEW: Behind the Scenes tile on landing page launches the cinematic showcase",
+        "NEW: 18 pre-generated JennyNeural voice narration MP3 clips in static/audio/cinema/ with manifest.json",
+        "NEW: Glassmorphism control bar with play/pause, progress scrub, volume, fullscreen, and close",
+        "NEW: generate_cinema_audio() function in demo_audio_generator.py for narration generation",
+        "NEW: Help documentation section for the cinematic showcase feature",
+        "ENH: Keyboard controls — Space for play/pause, Escape to close",
+        "ENH: HiDPI canvas support (devicePixelRatio scaling) for crisp rendering on Retina displays",
+        "ENH: Progressive audio fallback chain — pre-generated MP3 → Web Speech API → silent timer with typewriter subtitles"
+      ],
+      "tag": "Cinematic Technology Showcase"
+    },
     {
       "version": "5.9.53",
       "date": "2026-02-22",

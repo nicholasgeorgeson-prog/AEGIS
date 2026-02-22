@@ -95,6 +95,8 @@
     <!-- v5.4.0: Feature CSS loaded asynchronously — not needed for initial paint -->
     <link rel="stylesheet" href="/static/css/features/portfolio.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/static/css/features/proposal-compare.css" media="print" onload="this.media='all'">
+    <!-- v6.0.0: Cinema showcase disabled — will be re-enabled when AI video is ready -->
+    <!-- <link rel="stylesheet" href="/static/css/features/technology-showcase.css" media="print" onload="this.media='all'"> -->
     <link rel="stylesheet" href="/static/css/features/hyperlink-validator.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/static/css/features/hv-cinematic-progress.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/static/css/features/hyperlink-enhanced.css" media="print" onload="this.media='all'">
@@ -3474,6 +3476,35 @@ if (document.documentElement.classList.contains('dark-mode')) {
     </div>
     </div>
 </div>
+
+<!-- v6.0.0: Cinema showcase disabled — will be re-enabled when AI video is ready -->
+<!--
+<div id="cinema-modal" class="cinema-overlay" style="display:none;">
+    <canvas id="cinema-canvas"></canvas>
+    <div class="cinema-subtitle" id="cinema-subtitle"></div>
+    <div class="cinema-controls" id="cinema-controls">
+        <button class="cinema-btn" id="cinema-btn-play" aria-label="Play/Pause">
+            <i data-lucide="pause"></i>
+        </button>
+        <div class="cinema-progress" id="cinema-progress">
+            <div class="cinema-progress-fill" id="cinema-progress-fill"></div>
+        </div>
+        <span class="cinema-time" id="cinema-time">0:00 / 0:00</span>
+        <div class="cinema-vol-wrap">
+            <button class="cinema-btn" id="cinema-btn-mute" aria-label="Mute">
+                <i data-lucide="volume-2"></i>
+            </button>
+            <input type="range" class="cinema-vol-range" id="cinema-volume" min="0" max="1" step="0.05" value="0.8">
+        </div>
+        <button class="cinema-btn" id="cinema-btn-fullscreen" aria-label="Fullscreen">
+            <i data-lucide="maximize"></i>
+        </button>
+        <button class="cinema-btn cinema-btn-close" id="cinema-btn-close" aria-label="Close">
+            <i data-lucide="x"></i>
+        </button>
+    </div>
+</div>
+-->
 
 <!-- v5.9.52: Learning Pattern Viewer Modal -->
 <div class="modal" id="modal-learning-viewer" role="dialog" aria-modal="true" aria-labelledby="learning-viewer-title" style="z-index:10200;">
@@ -7048,6 +7079,8 @@ if (document.documentElement.classList.contains('dark-mode')) {
 <script src="/static/js/features/statement-source-viewer.js" defer></script>
 <!-- Demo Simulator (v1.0.0) - Mock data injection for Live Demo playback -->
 <script src="/static/js/features/demo-simulator.js" defer></script>
+<!-- v6.0.0: Cinema showcase disabled — will be re-enabled when AI video is ready -->
+<!-- <script defer src="/static/js/features/technology-showcase.js"></script> -->
 <!-- Guide System (v1.0.0) - Must load BEFORE landing-page.js so AEGISGuide is available -->
 <script src="/static/js/features/guide-system.js"></script>
 <!-- Landing Page (v4.5.1) - Must load before DOMContentLoaded for landing animations -->
