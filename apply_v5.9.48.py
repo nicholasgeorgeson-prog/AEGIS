@@ -63,6 +63,11 @@ CONFIG_FILES = [
     "CLAUDE.md",
 ]
 
+# Standalone tools
+STANDALONE_TOOLS = [
+    "proposal_structure_tool.py",
+]
+
 
 # ============================================================================
 # SSL FALLBACK (for corporate networks)
@@ -194,7 +199,8 @@ def main():
         PYTHON_PROPOSAL_COMPARE +
         JS_FILES +
         CSS_FILES +
-        CONFIG_FILES
+        CONFIG_FILES +
+        STANDALONE_TOOLS
     )
 
     # ---- Phase 1: Backup ----
