@@ -1,0 +1,253 @@
+/**
+ * AEGIS Cinematic Technology Showcase — Styles
+ * Full-screen Canvas animation with glassmorphism control bar
+ */
+
+/* =========================================================================
+   OVERLAY — Full-screen modal
+   ========================================================================= */
+.cinema-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 155000;
+    background: #020408;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+/* =========================================================================
+   CANVAS
+   ========================================================================= */
+#cinema-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* =========================================================================
+   SUBTITLE — Bottom-center narration text
+   ========================================================================= */
+.cinema-subtitle {
+    position: absolute;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: 70%;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+    font-size: 15px;
+    line-height: 1.6;
+    color: rgba(214, 168, 74, 0.85);
+    text-shadow: 0 0 10px rgba(214, 168, 74, 0.4), 0 2px 8px rgba(0, 0, 0, 0.8);
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+    z-index: 155002;
+    padding: 8px 20px;
+    background: rgba(2, 4, 8, 0.6);
+    border-radius: 6px;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+/* =========================================================================
+   CONTROLS — Bottom bar with glassmorphism
+   ========================================================================= */
+.cinema-controls {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 16px;
+    background: rgba(15, 15, 20, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(214, 168, 74, 0.12);
+    z-index: 155003;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.cinema-overlay:hover .cinema-controls,
+.cinema-controls:focus-within {
+    opacity: 1;
+}
+
+/* Always show controls when paused */
+.cinema-overlay.cinema-paused .cinema-controls {
+    opacity: 1;
+}
+
+/* =========================================================================
+   CONTROL BUTTONS
+   ========================================================================= */
+.cinema-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: transparent;
+    color: rgba(214, 168, 74, 0.7);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.2s, color 0.2s;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.cinema-btn:hover {
+    background: rgba(214, 168, 74, 0.1);
+    color: #D6A84A;
+}
+
+.cinema-btn:focus-visible {
+    outline: 2px solid rgba(214, 168, 74, 0.4);
+    outline-offset: 2px;
+}
+
+.cinema-btn svg,
+.cinema-btn i {
+    width: 18px;
+    height: 18px;
+}
+
+/* Close button — larger, right-aligned */
+.cinema-btn-close {
+    margin-left: auto;
+    width: 32px;
+    height: 32px;
+}
+
+.cinema-btn-close:hover {
+    color: rgba(239, 68, 68, 0.8);
+    background: rgba(239, 68, 68, 0.1);
+}
+
+/* =========================================================================
+   PROGRESS BAR
+   ========================================================================= */
+.cinema-progress {
+    flex: 1;
+    height: 6px;
+    background: rgba(214, 168, 74, 0.1);
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    min-width: 100px;
+}
+
+.cinema-progress:hover {
+    height: 8px;
+}
+
+.cinema-progress-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: linear-gradient(90deg, #B8743A, #D6A84A);
+    border-radius: 3px;
+    transition: width 0.1s linear;
+    pointer-events: none;
+}
+
+/* =========================================================================
+   VOLUME SLIDER
+   ========================================================================= */
+.cinema-vol-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cinema-vol-range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 70px;
+    height: 4px;
+    background: rgba(214, 168, 74, 0.15);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+}
+
+.cinema-vol-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #D6A84A;
+    cursor: pointer;
+    border: none;
+}
+
+.cinema-vol-range::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #D6A84A;
+    cursor: pointer;
+    border: none;
+}
+
+/* =========================================================================
+   TIME DISPLAY
+   ========================================================================= */
+.cinema-time {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: rgba(214, 168, 74, 0.5);
+    white-space: nowrap;
+    min-width: 80px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+/* =========================================================================
+   RESPONSIVE
+   ========================================================================= */
+@media (max-width: 768px) {
+    .cinema-subtitle {
+        max-width: 90%;
+        font-size: 13px;
+        bottom: 70px;
+    }
+
+    .cinema-controls {
+        height: 46px;
+        gap: 8px;
+        padding: 0 10px;
+    }
+
+    .cinema-vol-wrap {
+        display: none;
+    }
+
+    .cinema-time {
+        display: none;
+    }
+}
+
+/* =========================================================================
+   PRINT — Hide entirely
+   ========================================================================= */
+@media print {
+    .cinema-overlay {
+        display: none !important;
+    }
+}
