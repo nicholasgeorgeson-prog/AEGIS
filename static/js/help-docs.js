@@ -45,7 +45,7 @@
 'use strict';
 
 const HelpDocs = {
-    version: '5.9.43',
+    version: '5.9.47',
     lastUpdated: '2026-02-21',
     
     config: {
@@ -143,7 +143,8 @@ const HelpDocs = {
             { id: 'pc-analytics', title: 'Analytics Tabs', icon: 'bar-chart-3' },
             { id: 'pc-history', title: 'History', icon: 'history' },
             { id: 'pc-dashboard', title: 'Project Dashboard', icon: 'layout-dashboard' },
-            { id: 'pc-export', title: 'Exporting Results', icon: 'download' }
+            { id: 'pc-export', title: 'Exporting Results', icon: 'download' },
+            { id: 'pc-structure', title: 'Structure Analyzer', icon: 'file-search' }
         ]},
         { id: 'exporting', title: 'Exporting Results', icon: 'download', subsections: [
             { id: 'export-overview', title: 'Export Options', icon: 'info' },
@@ -5256,6 +5257,17 @@ HelpDocs.content['pc-review'] = {
 <h2><i data-lucide="arrow-right"></i> Navigation</h2>
 <p>Use <strong>← Previous</strong> and <strong>Next →</strong> buttons to navigate between proposals. The counter shows "1 of 3" etc. Edits to the current proposal are captured before navigating.</p>
 <p>Click <strong>Compare Proposals</strong> when all proposals look correct.</p>
+
+<h2><i data-lucide="alert-triangle"></i> Pre-Comparison Validation (v5.9.45)</h2>
+<p>Before the comparison runs, AEGIS checks for potential data issues and displays a warning dialog if any are found:</p>
+<ul>
+    <li><strong>Fewer than 2 proposals</strong> — At least 2 are required for a meaningful comparison</li>
+    <li><strong>Empty line items</strong> — Proposals with zero extracted line items may need re-extraction or manual entry</li>
+    <li><strong>Missing company names</strong> — Vendor identification is critical for clear comparison results</li>
+    <li><strong>Duplicate vendor names</strong> — Two proposals with the same company name (case-insensitive) may cause confusion unless they represent different contract terms</li>
+    <li><strong>Very low item counts</strong> — Proposals with fewer than 3 line items may have incomplete extraction</li>
+</ul>
+<p>You can proceed despite warnings — click <strong>OK</strong> to continue or <strong>Cancel</strong> to return and fix the issues first.</p>
 `
 };
 
@@ -5297,13 +5309,23 @@ HelpDocs.content['pc-comparison'] = {
     <li><strong>Item count</strong> — The filter bar shows how many items match the current filters</li>
 </ul>
 
+<h2><i data-lucide="calendar-range"></i> Multi-Term Comparison (v5.9.46)</h2>
+<p>When proposals have different contract terms (e.g., "3 Year", "5 Year"), AEGIS automatically detects the groups and runs <strong>separate comparisons per term</strong>. This ensures vendors are only compared against others bidding for the same contract period.</p>
+<ul>
+    <li><strong>Automatic detection</strong> — If 2+ distinct contract terms are found, each with 2+ proposals, multi-term mode activates automatically</li>
+    <li><strong>Term selector bar</strong> — Gold pill-based selector above the 8 result tabs lets you switch between terms</li>
+    <li><strong>All Terms Summary</strong> — Cross-term overview table showing every vendor's total per term, with green badges highlighting the lowest-cost term per vendor and a vendor presence matrix</li>
+    <li><strong>Single-vendor exclusions</strong> — Term groups with only one vendor are excluded (need 2+ to compare) with a visible notice</li>
+    <li><strong>Set terms in Review</strong> — The "Contract Term" field in the review phase is auto-extracted from documents and can be edited manually. Use values like "3 Year", "5 Year", "Base + 4 Options", etc.</li>
+</ul>
+
 <h2><i data-lucide="layout-grid"></i> Result Tabs</h2>
 <table class="help-table">
     <thead><tr><th>Tab</th><th>Shows</th></tr></thead>
     <tbody>
         <tr><td><strong>Executive Summary</strong></td><td>Hero stats, price rankings, score rankings, key findings, negotiation opportunities</td></tr>
         <tr><td><strong>Comparison</strong></td><td>Side-by-side line item matrix with color coding</td></tr>
-        <tr><td><strong>Categories</strong></td><td>Cost summaries grouped by category with optional Chart.js bar chart</td></tr>
+        <tr><td><strong>Categories</strong></td><td>Cost summaries grouped by category with grouped bar chart (one bar per vendor, not stacked) showing lowest in green and highest in red</td></tr>
         <tr><td><strong>Red Flags</strong></td><td>Automated risk checks per vendor — critical, warning, and info severity</td></tr>
         <tr><td><strong>Heatmap</strong></td><td>Color-coded deviation from average for each line item per vendor</td></tr>
         <tr><td><strong>Vendor Scores</strong></td><td>Overall scores, letter grades, and component breakdowns (Price, Completeness, Risk, Data Quality)</td></tr>
@@ -5338,7 +5360,8 @@ HelpDocs.content['pc-analytics'] = {
 <p>Red flag checks include: rate anomalies, missing data, cost outliers, <strong>identical pricing</strong> between vendors (possible collusion indicator), <strong>missing categories</strong> (scope gaps where a vendor omits entire cost categories others include), and <strong>FAR 15.404 price reasonableness</strong> (statistical z-score outliers more than 2 standard deviations from the group mean).</p>
 
 <h2><i data-lucide="grid-3x3"></i> Heatmap</h2>
-<p>A color-coded table showing how each vendor's line item amounts deviate from the group average. Colors range from dark green (significantly below average) through neutral (within 5%) to red (significantly above average). Grey cells indicate missing data.</p>
+<p>A color-coded table showing how each vendor's line item amounts deviate from the group average. Colors range from dark green (significantly below average) through neutral (within 5%) to red (significantly above average). Grey cells indicate missing data. Items with only one vendor show "only vendor" with a distinctive neutral color (v5.9.45).</p>
+<p>The legend dynamically adapts to dark mode using runtime color functions. Seven deviation levels are shown: very low (&lt; -15%), low (-15% to -5%), neutral (-5% to +5%), high (+5% to +15%), very high (&gt; +15%), Only Vendor (single quote), and Missing (no data).</p>
 
 <h2><i data-lucide="bar-chart-3"></i> Vendor Scores</h2>
 <p>Each vendor receives an overall score (0-100) and letter grade (A-F) based on four weighted components:</p>
@@ -5351,7 +5374,7 @@ HelpDocs.content['pc-analytics'] = {
         <tr><td><strong>Data Quality</strong></td><td>10%</td><td>Extraction confidence and data consistency</td></tr>
     </tbody>
 </table>
-<p>If Chart.js is loaded, a radar/spider chart overlays all vendors on one plot and a grouped bar chart shows component scores side by side.</p>
+<p>If Chart.js is loaded, a radar/spider chart overlays all vendors on one plot and a grouped bar chart shows component scores side by side. The radar chart uses suggestedMax scaling with clean point labels (v5.9.45). Score bars show "N/A" with muted fill for zero-value scores. Vendor names in charts are truncated at 25 characters with full names shown on hover.</p>
 
 <h2><i data-lucide="sliders-horizontal"></i> Evaluation Weight Sliders</h2>
 <p>Below the vendor score cards, four sliders let you adjust the evaluation weights in real-time:</p>
@@ -5505,6 +5528,56 @@ HelpDocs.content['pc-export'] = {
 <div class="help-tip">
     <i data-lucide="lightbulb"></i>
     <span>Both exports include all comparison data. Use XLSX for stakeholders who prefer Excel; use HTML for browser-based presentations or email distribution.</span>
+</div>
+`
+};
+
+// ============================================================================
+// PROPOSAL COMPARE - STRUCTURE ANALYZER
+// ============================================================================
+HelpDocs.content['pc-structure'] = {
+    title: 'Structure Analyzer',
+    subtitle: 'Privacy-safe parsing diagnostics for accuracy refinement',
+    html: `
+<h2><i data-lucide="file-search"></i> What Is Structure Analysis? (v5.9.47)</h2>
+<p>The <strong>Analyze Structure</strong> button in the upload phase parses a proposal and produces a <em>privacy-safe structural report</em> that reveals how the parser interpreted the document &mdash; without exposing any proprietary data.</p>
+
+<h2><i data-lucide="shield-check"></i> What&rsquo;s Redacted</h2>
+<table class="help-table">
+    <thead><tr><th>Data Type</th><th>Treatment</th></tr></thead>
+    <tbody>
+        <tr><td><strong>Dollar amounts</strong></td><td>Replaced with bucket labels ($1K-$9.9K, $100K-$999K, etc.)</td></tr>
+        <tr><td><strong>Company names</strong></td><td>Completely removed &mdash; only &ldquo;detected: yes/no&rdquo; shown</td></tr>
+        <tr><td><strong>Line item descriptions</strong></td><td>Replaced with pattern analysis (length, word count, structural type)</td></tr>
+        <tr><td><strong>File paths</strong></td><td>Stripped from error messages</td></tr>
+        <tr><td><strong>Dates</strong></td><td>Only &ldquo;detected: yes/no&rdquo; shown</td></tr>
+    </tbody>
+</table>
+
+<h2><i data-lucide="bar-chart-3"></i> What&rsquo;s Included</h2>
+<ul>
+    <li><strong>Table shapes</strong> &mdash; Rows x columns, header names (standard financial terms only), whether headers are generic</li>
+    <li><strong>Column data patterns</strong> &mdash; Per-column analysis: dominant type (dollar/numeric/text), fill rate, avg text length</li>
+    <li><strong>Column role inference</strong> &mdash; Which columns the parser identified as description, amount, quantity, unit price</li>
+    <li><strong>Category distribution</strong> &mdash; How many items classified as Labor, Material, Travel, ODC, etc.</li>
+    <li><strong>Confidence histogram</strong> &mdash; Distribution of high/medium/low extraction confidence</li>
+    <li><strong>Amount bucket distribution</strong> &mdash; How many items fall into each dollar range (without revealing exact values)</li>
+    <li><strong>Field coverage</strong> &mdash; Percentage of items with populated description, amount, quantity, unit price, category</li>
+    <li><strong>Extraction diagnostics</strong> &mdash; Parser notes, strategy used (EnhancedTableExtractor/pymupdf4llm/pdfplumber), warnings</li>
+    <li><strong>Parser suggestions</strong> &mdash; Automated recommendations for improving extraction accuracy</li>
+</ul>
+
+<h2><i data-lucide="download"></i> How to Use</h2>
+<ol>
+    <li>Open Proposal Compare and select (or drag) a single proposal file</li>
+    <li>Click <strong>Analyze Structure</strong> &mdash; a JSON file downloads automatically</li>
+    <li>The JSON is safe to share &mdash; it contains no financial data, company names, or proprietary text</li>
+    <li>Share the JSON with the developer to diagnose parsing accuracy issues</li>
+</ol>
+
+<div class="help-tip">
+    <i data-lucide="lightbulb"></i>
+    <span>You can analyze any proposal format (XLSX, DOCX, PDF). The report helps identify why the parser might miss line items, miscategorize costs, or fail to detect totals &mdash; all without revealing the actual proposal content.</span>
 </div>
 `
 };
@@ -7850,6 +7923,47 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.9.47 <span class="changelog-date">February 21, 2026</span></h3>
+        <p><strong>Proposal Structure Analyzer &mdash; Privacy-Safe Parser Diagnostics</strong></p>
+        <ul>
+            <li><strong>ENH: Proposal Structure Analyzer</strong> &mdash; New privacy-safe tool that parses proposals and reports table shapes, column patterns, category distribution, and extraction diagnostics without exposing dollar amounts, company names, or proprietary content</li>
+            <li><strong>ENH: Analyze Structure button</strong> &mdash; Available in Proposal Compare upload phase. Select a file, click the button, and a .json structural report downloads automatically</li>
+            <li><strong>ENH: API endpoint</strong> &mdash; POST /api/proposal-compare/analyze-structure accepts a single file and returns redacted JSON (add ?download=1 for file download)</li>
+            <li><strong>ENH: Smart redaction</strong> &mdash; Dollar amounts bucketed ($1K-$9.9K, $100K-$999K, etc.), descriptions analyzed by pattern (length, word count, structural type), company names stripped, file paths removed from errors</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.46 <span class="changelog-date">February 21, 2026</span></h3>
+        <p><strong>Multi-Term Proposal Comparison — Automatic Grouping by Contract Term</strong></p>
+        <ul>
+            <li><strong>ENH: Multi-term comparison</strong> — Proposals are now automatically grouped by contract term (e.g., "3 Year", "5 Year") and compared separately within each term group. Vendors are only compared against other vendors with the same contract term, producing separate analysis for each term</li>
+            <li><strong>ENH: Term selector UI</strong> — Gold pill-based selector bar above the 8-tab results panel lets you switch between term groups. Each pill shows the vendor count for that term</li>
+            <li><strong>ENH: All Terms Summary</strong> — Special summary view with cross-term vendor comparison table showing cost per vendor per term, lowest-term highlighting with green badges, and vendor presence matrix showing coverage across terms</li>
+            <li><strong>ENH: Review phase indicators</strong> — "Multi-term detected" preview bar appears during review phase when 2+ distinct terms are found, showing term badges with proposal counts per group</li>
+            <li><strong>ENH: Smart Compare button</strong> — Button text changes to "Compare by Term (N groups)" when multi-term is detected, "Compare All X Proposals" otherwise</li>
+            <li><strong>ENH: Excluded proposals</strong> — Term groups with only a single vendor are excluded from comparison with a visible notice explaining why</li>
+            <li><strong>ENH: Export term labeling</strong> — XLSX and HTML exports include the term label in the filename when exporting from a multi-term comparison</li>
+            <li><strong>ENH: History integration</strong> — Each term group saves as a separate comparison in history with "Term: X" label in the notes field for easy identification</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v5.9.45 <span class="changelog-date">February 21, 2026</span></h3>
+        <p><strong>Proposal Compare Chart &amp; Scoring Fixes + Pre-Comparison Validation + Docling Fix</strong></p>
+        <ul>
+            <li><strong>FIX: Heatmap single-vendor display</strong> — Cells for items with only one vendor now show "only vendor" label instead of empty deviation. Heatmap legend updated with "Only Vendor" swatch and all colors use runtime dark mode functions</li>
+            <li><strong>FIX: Categories chart layout</strong> — Switched from stacked to grouped bar chart so small vendor values are visible alongside large ones instead of being hidden inside the stack</li>
+            <li><strong>FIX: Tornado chart empty state</strong> — When no items have multi-vendor price data, shows a styled message with icon instead of silently hiding the chart container</li>
+            <li><strong>FIX: Radar chart readability</strong> — Increased canvas height (300→380px), switched from hard max to suggestedMax scale, improved point label font sizing and padding, removed label backdrop overlays</li>
+            <li><strong>FIX: Score bar N/A state</strong> — Vendor scores of zero now display "N/A" with muted grid-color fill instead of an invisible empty bar</li>
+            <li><strong>FIX: Score components chart</strong> — Vendor names truncated at 25 characters with full name shown in tooltip on hover. X-axis rotation capped at 35° for readability</li>
+            <li><strong>FIX: Chart dark mode grid lines</strong> — All Chart.js charts now use the _getChartGridColor() helper function, ensuring correct grid line colors in both light and dark mode</li>
+            <li><strong>ENH: Pre-comparison validation</strong> — New _validateBeforeCompare() function checks for fewer than 2 proposals, empty line items, missing company names, duplicate vendor names, and very low item counts. Shows a confirm dialog listing all warnings before proceeding</li>
+            <li><strong>FIX: Statement review stats</strong> — get_statement_review_stats() method now uses PRAGMA table_info to check column existence, handles missing scan_statements table and missing review_status/confirmed columns gracefully without 500 errors</li>
+            <li><strong>FIX: Docling artifacts_path cleanup</strong> — Invalid DOCLING_ARTIFACTS_PATH environment variables are now auto-cleared from os.environ so Docling's internal initialization doesn't re-read stale test paths</li>
+            <li><strong>ENH: New demo sub-demos</strong> — Added Category Breakdown and Project Dashboard sub-demos to the Proposal Compare demo system. Export sub-demo expanded to cover Interactive HTML export with 4 scenes</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.9.44 <span class="changelog-date">February 21, 2026</span></h3>
         <p><strong>Hyperlink Validator Headless Rewrite + Rate Limiting + OS Truststore + Voice Narration</strong></p>
         <ul>

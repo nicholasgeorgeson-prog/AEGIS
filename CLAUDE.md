@@ -167,7 +167,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.9.43
+- **Current version**: 5.9.47
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -1093,6 +1093,27 @@ Chain batches sequentially: each batch's commit becomes the next batch's parent,
 - Magnifier loupe: 150px circle following cursor at 3× zoom, rendered by redrawing a zoomed region of the PDF page onto a small canvas overlay
 - Canvas CSS sizing: `canvas.width = viewport.width * dpr`, `canvas.style.width = viewport.width + 'px'` — physical pixels vs CSS pixels
 **Lesson**: For HiDPI PDF rendering, always multiply canvas dimensions by `devicePixelRatio` and set CSS dimensions to the logical size. Without this, text appears blurry on Retina/4K displays. The magnifier loupe pattern uses a second canvas positioned at cursor coordinates, drawing a zoomed region from the main canvas via `drawImage(mainCanvas, sx, sy, sw, sh, 0, 0, dw, dh)`.
+
+### 124. Multi-Term Comparison — Frontend Orchestration Pattern (v5.9.46)
+**Feature**: When proposals have different `contract_term` values (e.g., "3 Year", "5 Year"), AEGIS automatically groups them by term and runs separate comparisons for each group.
+**Architecture**: Frontend orchestration with multiple backend calls. `_groupByContractTerm(proposals)` detects distinct terms, `_startMultiTermComparison()` loops through groups sending POST `/api/proposal-compare/compare` for each. Results stored in `State.multiTermResults[]` array. `renderMultiTermResults()` renders a term selector bar above the existing 8-tab UI — clicking a term pill switches which `ComparisonResult` is displayed. "All Terms Summary" pill shows cross-term vendor comparison table.
+**Key design decisions**:
+- Zero changes to `analyzer.py` — each term group uses the exact same `compare_proposals()` engine
+- Each term comparison saves independently to history with `notes = "Term: X"` using existing `notes` field (no schema changes)
+- Single-term/no-term workflows are completely unaffected — `_groupByContractTerm()` returns `{isMultiTerm: false}` and existing code path runs
+- Term groups with only 1 vendor are excluded (need 2+ to compare) with visible notice
+- State fields: `multiTermMode`, `multiTermResults[]`, `multiTermActiveIdx`, `multiTermExcluded[]`
+**Files**: `proposal-compare.js` (grouping, orchestration, rendering), `proposal-compare.css` (term selector, badges, summary), `routes.py` (accepts `term_label` in compare payload)
+**Lesson**: When adding multi-dimensional comparison features, keep the comparison engine unchanged and orchestrate from the frontend. This avoids breaking existing single-dimension workflows and makes each dimension's results independently accessible (history, export, etc.). The frontend-orchestration pattern works well when the backend API already handles a subset of items — just call it multiple times with different subsets.
+
+### 125. Proposal Structure Analyzer — Privacy-Safe Parser Diagnostics (v5.9.47)
+**Feature**: `proposal_compare/structure_analyzer.py` — runs the existing parser on a proposal, then produces a REDACTED structural report that reveals table shapes, column patterns, category distribution, and extraction diagnostics WITHOUT exposing dollar amounts, company names, or proprietary descriptions.
+**Redaction strategy**: Dollar amounts → bucket labels ($1K-$9.9K, $100K-$999K, etc.). Company names → stripped (only "detected: yes/no"). Descriptions → pattern analysis (length, word count, structural type). File paths → removed from error messages. Headers → classified into safe roles or redacted to "custom_header (N words, N chars)".
+**Key functions**: `analyze_proposal_structure(filepath)` → dict, `_bucket_amount(amount)` → bucket label, `_classify_header(header)` → safe role name, `_analyze_cell_patterns(rows)` → per-column type/fill stats, `_compute_completeness_score(proposal)` → extraction quality metrics, `_generate_suggestions(proposal, analysis)` → parser improvement recommendations.
+**API**: `POST /api/proposal-compare/analyze-structure` accepts single file as `file` field in multipart form. Returns JSON with `?download=1` returning downloadable file. Temp file cleaned up immediately after analysis.
+**Frontend**: "Analyze Structure" button in upload phase (enabled when 1+ files selected), sends first file to API with `?download=1`, creates blob URL + `<a>` click for download.
+**Files**: `proposal_compare/structure_analyzer.py` (NEW), `proposal_compare/routes.py` (new endpoint), `proposal-compare.js` (button + handler), `help-docs.js` (pc-structure section)
+**Lesson**: When users need to share parser diagnostic data without revealing proprietary content, bucket financial values into ranges, replace text with structural metrics (length, word count, pattern type), and classify headers into standard financial roles. The structure report tells you EVERYTHING about how the parser interpreted the document without revealing ANYTHING about what the document contains.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

@@ -291,7 +291,7 @@
 }
 
 .pc-btn-primary:disabled {
-    opacity: 0.5;
+    opacity: 0.6;
     cursor: not-allowed;
 }
 
@@ -1197,6 +1197,12 @@ select.pc-li-input { padding: 4px 3px; cursor: pointer; }
 [data-theme="dark"] .pc-modal-container,
 .dark-mode .pc-modal-container {
     background: var(--bg-surface, #161b22);
+    border-color: #30363d;
+}
+
+[data-theme="dark"] .pc-phase-connector,
+.dark-mode .pc-phase-connector {
+    background: #444c56;
 }
 
 [data-theme="dark"] .pc-header,
@@ -2047,7 +2053,26 @@ select.pc-li-input { padding: 4px 3px; cursor: pointer; }
 
 .pc-scores-charts .pc-chart-container {
     margin-bottom: 0;
-    min-height: 320px;
+    min-height: 360px;
+}
+
+/* ── Chart Empty State ───────────────── */
+
+.pc-chart-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 32px 16px;
+    text-align: center;
+    min-height: 120px;
+}
+.pc-chart-empty p {
+    font-size: 13px;
+    color: var(--text-secondary, #666);
+    margin: 0;
+    max-width: 350px;
 }
 
 @media (max-width: 960px) {
@@ -2978,6 +3003,212 @@ select.pc-li-input { padding: 4px 3px; cursor: pointer; }
     background: var(--bg-deep, #0d1117);
 }
 
+/* ============================================
+   Multi-Term Comparison (v5.9.46)
+   ============================================ */
+
+/* ── Term Selector Bar ── */
+
+.pc-term-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    margin: 0 0 4px 0;
+    background: var(--bg-surface, #f6f8fa);
+    border: 1px solid var(--border-color, #d0d7de);
+    border-radius: 8px;
+    flex-wrap: wrap;
+}
+
+.pc-term-selector-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary, #656d76);
+    white-space: nowrap;
+    margin-right: 4px;
+}
+
+.pc-term-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 12px;
+    border: 1px solid var(--border-color, #d0d7de);
+    border-radius: 20px;
+    background: var(--bg-primary, #fff);
+    color: var(--text-primary, #1f2328);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.pc-term-pill:hover {
+    border-color: #D6A84A;
+    background: rgba(214, 168, 74, 0.06);
+}
+
+.pc-term-pill.active {
+    background: linear-gradient(135deg, #D6A84A, #B8743A);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 2px 6px rgba(214, 168, 74, 0.35);
+}
+
+.pc-term-pill-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    background: rgba(0, 0, 0, 0.08);
+    border-radius: 9px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.pc-term-pill.active .pc-term-pill-count {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.pc-term-pill-error {
+    border-color: #d1242f;
+    color: #d1242f;
+}
+
+.pc-term-pill-summary {
+    border-style: dashed;
+}
+
+.pc-term-pill-summary.active {
+    background: linear-gradient(135deg, #2196f3, #1565c0);
+    border-style: solid;
+}
+
+/* ── Excluded Notice ── */
+
+.pc-term-excluded-notice {
+    padding: 8px 14px;
+    margin: 4px 0 12px 0;
+    background: rgba(214, 168, 74, 0.08);
+    border: 1px solid rgba(214, 168, 74, 0.25);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-secondary, #656d76);
+    line-height: 1.5;
+}
+
+/* ── Term Header in Content ── */
+
+.pc-multiterm-term-header {
+    padding: 10px 16px;
+    margin: 8px 0 12px 0;
+    background: rgba(214, 168, 74, 0.06);
+    border-left: 3px solid #D6A84A;
+    border-radius: 0 6px 6px 0;
+    font-size: 14px;
+    color: var(--text-primary, #1f2328);
+}
+
+/* ── Term Badges (used in review preview and summary tables) ── */
+
+.pc-term-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(214, 168, 74, 0.15);
+    color: #D6A84A;
+    border: 1px solid rgba(214, 168, 74, 0.3);
+}
+
+.pc-term-badge-none {
+    background: rgba(139, 148, 158, 0.15);
+    color: #8b949e;
+    border-color: rgba(139, 148, 158, 0.3);
+}
+
+.pc-term-badge-best {
+    background: rgba(76, 175, 80, 0.15);
+    color: #2e7d32;
+    border-color: rgba(76, 175, 80, 0.3);
+}
+
+/* ── Term Preview in Review Phase ── */
+
+.pc-term-preview {
+    border-top: 1px dashed rgba(214, 168, 74, 0.3);
+    margin-top: -1px;
+    border-radius: 0 0 8px 8px;
+}
+
+/* ── Dark Mode ── */
+
+[data-theme="dark"] .pc-term-selector,
+.dark-mode .pc-term-selector {
+    background: var(--bg-surface, #161b22);
+    border-color: #30363d;
+}
+
+[data-theme="dark"] .pc-term-pill,
+.dark-mode .pc-term-pill {
+    background: #21262d;
+    border-color: #30363d;
+    color: #e6edf3;
+}
+
+[data-theme="dark"] .pc-term-pill:hover,
+.dark-mode .pc-term-pill:hover {
+    border-color: #D6A84A;
+    background: rgba(214, 168, 74, 0.12);
+}
+
+[data-theme="dark"] .pc-term-pill.active,
+.dark-mode .pc-term-pill.active {
+    color: #fff;
+}
+
+[data-theme="dark"] .pc-term-pill-count,
+.dark-mode .pc-term-pill-count {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .pc-term-excluded-notice,
+.dark-mode .pc-term-excluded-notice {
+    background: rgba(214, 168, 74, 0.06);
+    border-color: rgba(214, 168, 74, 0.2);
+    color: #8b949e;
+}
+
+[data-theme="dark"] .pc-multiterm-term-header,
+.dark-mode .pc-multiterm-term-header {
+    background: rgba(214, 168, 74, 0.04);
+    color: #e6edf3;
+}
+
+[data-theme="dark"] .pc-term-badge,
+.dark-mode .pc-term-badge {
+    background: rgba(214, 168, 74, 0.12);
+    color: #D6A84A;
+}
+
+[data-theme="dark"] .pc-term-badge-none,
+.dark-mode .pc-term-badge-none {
+    background: rgba(139, 148, 158, 0.12);
+    color: #8b949e;
+}
+
+[data-theme="dark"] .pc-term-badge-best,
+.dark-mode .pc-term-badge-best {
+    background: rgba(76, 175, 80, 0.12);
+    color: #66bb6a;
+    border-color: rgba(76, 175, 80, 0.25);
+}
+
 /* ── Responsive ── */
 
 @media (max-width: 720px) {
@@ -2985,6 +3216,10 @@ select.pc-li-input { padding: 4px 3px; cursor: pointer; }
         grid-template-columns: 1fr;
     }
     .pc-dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .pc-term-selector {
         flex-direction: column;
         align-items: flex-start;
     }

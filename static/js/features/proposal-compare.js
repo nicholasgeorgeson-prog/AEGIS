@@ -45,6 +45,11 @@ window.ProposalCompare = (function() {
         // Dashboard state
         dashboardProject: null,
         dashboardComparisons: [],
+        // Multi-term comparison (v5.9.46)
+        multiTermMode: false,              // true when comparing proposals grouped by contract term
+        multiTermResults: [],              // [{termLabel, comparison, comparisonId, proposals}, ...]
+        multiTermActiveIdx: 0,             // index of currently displayed term group
+        multiTermExcluded: [],             // proposals excluded (single vendor in a term group)
     };
 
     // CSRF token
@@ -210,26 +215,30 @@ window.ProposalCompare = (function() {
     }
 
     function heatmapColor(level) {
+        var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         switch (level) {
             case 'very_low': return '#2d6a2d';
             case 'low': return '#4caf50';
-            case 'neutral': return '#f5f5f5';
+            case 'neutral': return isDark ? '#2d333b' : '#f5f5f5';
             case 'high': return '#ff9800';
             case 'very_high': return '#f44336';
-            case 'missing': return '#e0e0e0';
-            default: return '#f5f5f5';
+            case 'single_vendor': return isDark ? '#1c2128' : '#f9f9f9';
+            case 'missing': return isDark ? '#161b22' : '#e0e0e0';
+            default: return isDark ? '#2d333b' : '#f5f5f5';
         }
     }
 
     function heatmapTextColor(level) {
+        var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         switch (level) {
             case 'very_low': return '#fff';
             case 'low': return '#fff';
-            case 'neutral': return '#333';
+            case 'neutral': return isDark ? '#adbac7' : '#333';
             case 'high': return '#fff';
             case 'very_high': return '#fff';
-            case 'missing': return '#999';
-            default: return '#333';
+            case 'single_vendor': return isDark ? '#768390' : '#888';
+            case 'missing': return isDark ? '#545d68' : '#999';
+            default: return isDark ? '#adbac7' : '#333';
         }
     }
 
@@ -529,6 +538,10 @@ window.ProposalCompare = (function() {
                     '<button class="pc-btn pc-btn-primary" id="pc-btn-extract" disabled>' +
                         '<i data-lucide="scan-search"></i> Extract Financial Data' +
                     '</button>' +
+                    '<button class="pc-btn pc-btn-ghost pc-btn-sm" id="pc-btn-structure" disabled' +
+                    '        title="Parse a single file and download a privacy-safe structural analysis (no financial values or company names)">' +
+                        '<i data-lucide="file-search"></i> Analyze Structure' +
+                    '</button>' +
                 '</div>' +
             '</div>';
 
@@ -564,6 +577,11 @@ window.ProposalCompare = (function() {
         });
 
         extractBtn.addEventListener('click', startExtraction);
+
+        var structBtn = document.getElementById('pc-btn-structure');
+        if (structBtn) {
+            structBtn.addEventListener('click', analyzeStructure);
+        }
 
         var projectsBtn = document.getElementById('pc-btn-projects');
         if (projectsBtn) {
@@ -631,7 +649,83 @@ window.ProposalCompare = (function() {
             var minFiles = Math.max(0, 2 - existingCount);
             btn.disabled = State.files.length < Math.max(1, minFiles);
         }
+        // Structure analysis works on a single file
+        var structBtn = document.getElementById('pc-btn-structure');
+        if (structBtn) {
+            structBtn.disabled = State.files.length < 1;
+        }
     }
+
+    // ──────────────────────────────────────────
+    // Structure Analysis (privacy-safe)
+    // ──────────────────────────────────────────
+
+    async function analyzeStructure() {
+        if (State.files.length < 1) return;
+
+        // If multiple files, analyze just the first one
+        var file = State.files[0];
+        var btn = document.getElementById('pc-btn-structure');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-2" class="pc-spin"></i> Analyzing...';
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        try {
+            // Get CSRF token
+            var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+            var csrfToken = csrfMeta ? csrfMeta.content : '';
+
+            var formData = new FormData();
+            formData.append('file', file);
+
+            var resp = await fetch('/api/proposal-compare/analyze-structure?download=1', {
+                method: 'POST',
+                headers: { 'X-CSRF-Token': csrfToken },
+                body: formData,
+            });
+
+            if (!resp.ok) {
+                var errData = null;
+                try { errData = await resp.json(); } catch(e) {}
+                var msg = errData && errData.error ? errData.error.message : ('Server error ' + resp.status);
+                throw new Error(msg);
+            }
+
+            // Download the JSON file
+            var blob = await resp.blob();
+            var baseName = file.name.replace(/\.[^.]+$/, '');
+            var downloadName = baseName + '_structure_analysis.json';
+
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = downloadName;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function() {
+                URL.revokeObjectURL(a.href);
+                document.body.removeChild(a);
+            }, 200);
+
+            if (typeof showToast === 'function') {
+                showToast('Structure analysis downloaded: ' + downloadName, 'success');
+            }
+
+        } catch(err) {
+            console.error('[ProposalCompare] Structure analysis error:', err);
+            if (typeof showToast === 'function') {
+                showToast('Structure analysis failed: ' + err.message, 'error');
+            }
+        } finally {
+            if (btn) {
+                btn.disabled = State.files.length < 1;
+                btn.innerHTML = '<i data-lucide="file-search"></i> Analyze Structure';
+                if (window.lucide) window.lucide.createIcons();
+            }
+        }
+    }
+
 
     // ──────────────────────────────────────────
     // Phase: Extraction
@@ -1225,6 +1319,27 @@ window.ProposalCompare = (function() {
             '</span>';
         }
 
+        // ── Multi-term indicator (v5.9.46) ──
+        var termCounts = _getTermGroupSummary(State.proposals);
+        var termKeys = Object.keys(termCounts);
+        var nonEmptyTerms = termKeys.filter(function(k) { return k !== '(none)'; });
+
+        if (nonEmptyTerms.length >= 2) {
+            html += '</div>';  // Close current preview row
+            html += '<div class="pc-compare-preview pc-term-preview">';
+            html += '<span class="pc-cp-stat" style="color:#D6A84A">' +
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D6A84A" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> ' +
+                '<strong>Multi-term detected</strong> \u2014 ' + nonEmptyTerms.length + ' term groups will be compared separately' +
+            '</span>';
+            html += '<span class="pc-cp-divider"></span>';
+            nonEmptyTerms.forEach(function(t) {
+                html += '<span class="pc-term-badge">' + escHtml(t) + ' (' + termCounts[t] + ')</span> ';
+            });
+            if (termCounts['(none)']) {
+                html += '<span class="pc-term-badge pc-term-badge-none">No term (' + termCounts['(none)'] + ')</span> ';
+            }
+        }
+
         html += '</div>';
         return html;
     }
@@ -1282,7 +1397,15 @@ window.ProposalCompare = (function() {
                     '<i data-lucide="arrow-left"></i> Start Over' +
                 '</button>' +
                 '<button class="pc-btn pc-btn-primary" id="pc-btn-compare">' +
-                    '<i data-lucide="git-compare-arrows"></i> Compare All ' + total + ' Proposals' +
+                    '<i data-lucide="git-compare-arrows"></i> ' +
+                    (function() {
+                        var tg = _groupByContractTerm(State.proposals);
+                        if (tg.isMultiTerm) {
+                            var groupCount = Object.keys(tg.groups).length;
+                            return 'Compare by Term (' + groupCount + ' groups)';
+                        }
+                        return 'Compare All ' + total + ' Proposals';
+                    })() +
                 '</button>' +
             '</div>';
 
@@ -1340,23 +1463,169 @@ window.ProposalCompare = (function() {
     }
 
     // ──────────────────────────────────────────
+    // Pre-comparison Validation
+    // ──────────────────────────────────────────
+
+    function _validateBeforeCompare() {
+        var warnings = [];
+        var proposals = State.proposals || [];
+        if (proposals.length < 2) {
+            warnings.push('Only ' + proposals.length + ' proposal loaded — comparison requires at least 2.');
+            return warnings;
+        }
+
+        // Check for proposals with no line items
+        var emptyProposals = proposals.filter(function(p) {
+            return !p.line_items || p.line_items.length === 0;
+        });
+        if (emptyProposals.length > 0) {
+            warnings.push(emptyProposals.length + ' proposal(s) have no line items: ' +
+                emptyProposals.map(function(p) { return p.company_name || p.filename; }).join(', '));
+        }
+
+        // Check for missing company names
+        var noName = proposals.filter(function(p) { return !p.company_name; });
+        if (noName.length > 0) {
+            warnings.push(noName.length + ' proposal(s) have no company name — vendors will use filenames.');
+        }
+
+        // Check for duplicate company names (same vendor, possibly different terms)
+        var nameMap = {};
+        proposals.forEach(function(p) {
+            var key = (p.company_name || '').trim().toLowerCase();
+            if (key) {
+                nameMap[key] = (nameMap[key] || 0) + 1;
+            }
+        });
+        for (var name in nameMap) {
+            if (nameMap[name] > 1) {
+                warnings.push('Multiple proposals from "' + name + '" (' + nameMap[name] + ') — ensure contract terms differ for proper distinction.');
+            }
+        }
+
+        // Check for very low item counts (likely extraction issues)
+        proposals.forEach(function(p) {
+            if (p.line_items && p.line_items.length > 0 && p.line_items.length < 3) {
+                warnings.push((p.company_name || p.filename) + ' has only ' + p.line_items.length + ' line item(s) — check if extraction captured all items.');
+            }
+        });
+
+        return warnings;
+    }
+
+    // ──────────────────────────────────────────
+    // Multi-term grouping (v5.9.46)
+    // ──────────────────────────────────────────
+
+    /**
+     * Group proposals by contract_term.
+     * Returns { groups: {termLabel → [proposals]}, excluded: [proposals], isMultiTerm: bool }
+     *
+     * Multi-term mode activates only when:
+     * - 2+ distinct non-empty term values exist
+     * - Each term group has 2+ proposals
+     * Single-vendor term groups are excluded with a notice.
+     */
+    function _groupByContractTerm(proposals) {
+        var termMap = {};
+        proposals.forEach(function(p) {
+            var term = (p.contract_term || '').trim();
+            if (!term) term = '';
+            if (!termMap[term]) termMap[term] = [];
+            termMap[term].push(p);
+        });
+
+        var termKeys = Object.keys(termMap);
+
+        // Count how many DISTINCT non-empty terms exist
+        var nonEmptyTerms = termKeys.filter(function(k) { return k !== ''; });
+
+        // If 0 or 1 distinct terms → single comparison mode
+        if (nonEmptyTerms.length < 2) {
+            return { groups: null, excluded: [], isMultiTerm: false };
+        }
+
+        // Multi-term mode: separate groups, handle excluded
+        var groups = {};
+        var excluded = [];
+
+        termKeys.forEach(function(term) {
+            var termProposals = termMap[term];
+            var label = term || 'Unspecified Term';
+
+            if (termProposals.length < 2) {
+                // Single vendor in this term — exclude from comparison
+                termProposals.forEach(function(p) {
+                    excluded.push({ proposal: p, term: label, reason: 'Only one vendor for this term' });
+                });
+            } else {
+                groups[label] = termProposals;
+            }
+        });
+
+        // If after filtering we only have 0 or 1 group with 2+ proposals, fall back to single mode
+        var validGroups = Object.keys(groups);
+        if (validGroups.length < 2) {
+            return { groups: null, excluded: [], isMultiTerm: false };
+        }
+
+        return { groups: groups, excluded: excluded, isMultiTerm: true };
+    }
+
+    /**
+     * Get a short summary of detected term groups for the review phase.
+     */
+    function _getTermGroupSummary(proposals) {
+        var termCounts = {};
+        proposals.forEach(function(p) {
+            var term = (p.contract_term || '').trim() || '(none)';
+            termCounts[term] = (termCounts[term] || 0) + 1;
+        });
+        return termCounts;
+    }
+
+    // ──────────────────────────────────────────
     // Phase: Comparison
     // ──────────────────────────────────────────
 
     async function startComparison() {
         // Capture edits for current review proposal
         _captureReviewEdits(State._reviewIdx);
-        _cleanupBlobUrls();
 
+        // ── Pre-comparison validation warnings ──
+        var warnings = _validateBeforeCompare();
+        if (warnings.length > 0) {
+            var proceed = confirm(
+                'Pre-Comparison Warnings:\n\n' +
+                warnings.map(function(w, i) { return (i + 1) + '. ' + w; }).join('\n') +
+                '\n\nProceed with comparison anyway?'
+            );
+            if (!proceed) return;
+        }
+
+        _cleanupBlobUrls();
         State.phase = 'comparing';
         const body = document.getElementById('pc-body');
         if (!body) return;
 
+        // ── Check for multi-term grouping ──
+        var termGrouping = _groupByContractTerm(State.proposals);
+
+        if (termGrouping.isMultiTerm) {
+            // Multi-term mode: run separate comparisons per term group
+            await _startMultiTermComparison(termGrouping, body);
+            return;
+        }
+
+        // ── Single comparison mode (existing behavior) ──
         body.innerHTML =
             '<div class="pc-loading">' +
                 '<div class="pc-spinner"></div>' +
                 '<div class="pc-loading-text">Aligning and comparing ' + State.proposals.length + ' proposals...</div>' +
             '</div>';
+
+        State.multiTermMode = false;
+        State.multiTermResults = [];
 
         try {
             var payload = { proposals: State.proposals };
@@ -1397,6 +1666,455 @@ window.ProposalCompare = (function() {
             if (window.lucide) window.lucide.createIcons();
         }
     }
+
+    // ──────────────────────────────────────────
+    // Multi-term comparison orchestration (v5.9.46)
+    // ──────────────────────────────────────────
+
+    async function _startMultiTermComparison(termGrouping, body) {
+        var groups = termGrouping.groups;
+        var excluded = termGrouping.excluded;
+        var termLabels = Object.keys(groups);
+
+        console.log('[AEGIS ProposalCompare] Multi-term mode: ' + termLabels.length + ' term groups detected: ' + termLabels.join(', '));
+
+        State.multiTermMode = true;
+        State.multiTermResults = [];
+        State.multiTermActiveIdx = 0;
+        State.multiTermExcluded = excluded;
+
+        body.innerHTML =
+            '<div class="pc-loading">' +
+                '<div class="pc-spinner"></div>' +
+                '<div class="pc-loading-text" id="pc-multiterm-progress">' +
+                    'Multi-term comparison: Preparing ' + termLabels.length + ' term groups...' +
+                '</div>' +
+            '</div>';
+
+        try {
+            for (var gi = 0; gi < termLabels.length; gi++) {
+                var termLabel = termLabels[gi];
+                var termProposals = groups[termLabel];
+
+                // Update progress
+                var progressEl = document.getElementById('pc-multiterm-progress');
+                if (progressEl) {
+                    progressEl.textContent = 'Comparing "' + termLabel + '" (' + (gi + 1) + ' of ' + termLabels.length + ') — ' + termProposals.length + ' vendors...';
+                }
+
+                var payload = {
+                    proposals: termProposals,
+                    term_label: termLabel,
+                };
+                if (State.selectedProjectId) {
+                    payload.project_id = State.selectedProjectId;
+                }
+
+                var resp = await fetch('/api/proposal-compare/compare', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': getCSRF(),
+                    },
+                    body: JSON.stringify(payload),
+                });
+
+                var result = await resp.json();
+
+                if (!result.success) {
+                    console.warn('[AEGIS ProposalCompare] Term "' + termLabel + '" comparison failed:', result.error);
+                    State.multiTermResults.push({
+                        termLabel: termLabel,
+                        comparison: null,
+                        comparisonId: null,
+                        proposals: termProposals,
+                        error: result.error?.message || 'Comparison failed',
+                    });
+                    continue;
+                }
+
+                State.multiTermResults.push({
+                    termLabel: termLabel,
+                    comparison: result.data,
+                    comparisonId: result.data?.comparison_id || null,
+                    proposals: termProposals,
+                    error: null,
+                });
+            }
+
+            // Set the first successful result as the active comparison
+            var firstValid = State.multiTermResults.find(function(r) { return r.comparison; });
+            if (firstValid) {
+                State.comparison = firstValid.comparison;
+                State.comparisonId = firstValid.comparisonId;
+                State.multiTermActiveIdx = State.multiTermResults.indexOf(firstValid);
+            }
+
+            renderMultiTermResults();
+
+        } catch (err) {
+            console.error('[AEGIS ProposalCompare] Multi-term comparison error:', err);
+            body.innerHTML =
+                '<div class="pc-empty">' +
+                    '<i data-lucide="alert-triangle"></i>' +
+                    '<h4>Multi-Term Comparison Failed</h4>' +
+                    '<p>' + escHtml(err.message) + '</p>' +
+                    '<button class="pc-btn pc-btn-secondary" onclick="ProposalCompare._restart()" style="margin-top:16px">' +
+                        '<i data-lucide="arrow-left"></i> Try Again' +
+                    '</button>' +
+                '</div>';
+            if (window.lucide) window.lucide.createIcons();
+        }
+    }
+
+
+    // ──────────────────────────────────────────
+    // Multi-term results rendering (v5.9.46)
+    // ──────────────────────────────────────────
+
+    function renderMultiTermResults() {
+        State.phase = 'results';
+        const body = document.getElementById('pc-body');
+        if (!body) return;
+
+        destroyCharts();
+
+        var results = State.multiTermResults;
+        var excluded = State.multiTermExcluded;
+        var activeIdx = State.multiTermActiveIdx;
+
+        // ── Build term selector pills ──
+        var termPillsHtml = '<div class="pc-term-selector">';
+        termPillsHtml += '<span class="pc-term-selector-label">' +
+            '<i data-lucide="calendar-range" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px"></i>Contract Terms:</span>';
+
+        results.forEach(function(r, idx) {
+            var active = idx === activeIdx ? ' active' : '';
+            var errorClass = r.error ? ' pc-term-pill-error' : '';
+            var vendorCount = r.comparison ? r.comparison.proposals.length : 0;
+            termPillsHtml += '<button class="pc-term-pill' + active + errorClass + '" data-term-idx="' + idx + '">' +
+                escHtml(r.termLabel) +
+                (vendorCount > 0 ? ' <span class="pc-term-pill-count">' + vendorCount + '</span>' : '') +
+            '</button>';
+        });
+
+        // "All Terms Summary" pill
+        termPillsHtml += '<button class="pc-term-pill pc-term-pill-summary' +
+            (activeIdx === -1 ? ' active' : '') + '" data-term-idx="-1">' +
+            '<i data-lucide="layout-grid" style="width:12px;height:12px;vertical-align:-1px;margin-right:3px"></i>' +
+            'All Terms Summary</button>';
+
+        termPillsHtml += '</div>';
+
+        // ── Excluded proposals notice ──
+        var excludedHtml = '';
+        if (excluded.length > 0) {
+            excludedHtml = '<div class="pc-term-excluded-notice">' +
+                '<i data-lucide="info" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px"></i>' +
+                '<strong>' + excluded.length + ' proposal' + (excluded.length > 1 ? 's' : '') + ' excluded</strong> (single vendor in term group): ';
+            excludedHtml += excluded.map(function(e) {
+                return escHtml((e.proposal.company_name || e.proposal.filename) + ' — ' + e.term);
+            }).join(', ');
+            excludedHtml += '</div>';
+        }
+
+        // ── Results container (reuses standard tab structure) ──
+        body.innerHTML =
+            '<div class="pc-results">' +
+                '<div class="pc-results-header">' +
+                    '<h3>Multi-Term Proposal Comparison</h3>' +
+                    '<div style="display:flex;gap:8px">' +
+                        '<button class="pc-btn pc-btn-secondary" onclick="ProposalCompare._restart()">' +
+                            '<i data-lucide="arrow-left"></i> New Compare' +
+                        '</button>' +
+                        (State.proposals.length > 0
+                            ? '<button class="pc-btn pc-btn-ghost" onclick="ProposalCompare._backToReview()">' +
+                                '<i data-lucide="pencil"></i> Back to Review' +
+                              '</button>'
+                            : '') +
+                        '<button class="pc-btn pc-btn-primary" onclick="ProposalCompare._export()">' +
+                            '<i data-lucide="download"></i> Export XLSX' +
+                        '</button>' +
+                        '<button class="pc-btn pc-btn-gold" onclick="ProposalCompare._exportHTML()">' +
+                            '<i data-lucide="globe"></i> Export HTML' +
+                        '</button>' +
+                    '</div>' +
+                '</div>' +
+                termPillsHtml +
+                excludedHtml +
+                '<div id="pc-multiterm-content"></div>' +
+            '</div>';
+
+        // Wire term pill clicks
+        body.querySelectorAll('.pc-term-pill').forEach(function(pill) {
+            pill.addEventListener('click', function() {
+                var idx = parseInt(pill.dataset.termIdx, 10);
+                _switchMultiTermTab(idx);
+            });
+        });
+
+        // Render active term's results
+        _renderMultiTermContent(activeIdx);
+
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    function _switchMultiTermTab(idx) {
+        State.multiTermActiveIdx = idx;
+
+        // Update pill active states
+        document.querySelectorAll('.pc-term-pill').forEach(function(pill) {
+            var pillIdx = parseInt(pill.dataset.termIdx, 10);
+            pill.classList.toggle('active', pillIdx === idx);
+        });
+
+        if (idx >= 0 && State.multiTermResults[idx]) {
+            State.comparison = State.multiTermResults[idx].comparison;
+            State.comparisonId = State.multiTermResults[idx].comparisonId;
+        }
+
+        destroyCharts();
+        _renderMultiTermContent(idx);
+    }
+
+    function _renderMultiTermContent(idx) {
+        var container = document.getElementById('pc-multiterm-content');
+        if (!container) return;
+
+        if (idx === -1) {
+            // All Terms Summary view
+            _renderAllTermsSummary(container);
+            return;
+        }
+
+        var termResult = State.multiTermResults[idx];
+        if (!termResult) return;
+
+        if (termResult.error) {
+            container.innerHTML =
+                '<div class="pc-empty" style="padding:40px 20px">' +
+                    '<i data-lucide="alert-triangle"></i>' +
+                    '<h4>Comparison failed for "' + escHtml(termResult.termLabel) + '"</h4>' +
+                    '<p>' + escHtml(termResult.error) + '</p>' +
+                '</div>';
+            if (window.lucide) window.lucide.createIcons();
+            return;
+        }
+
+        var cmp = termResult.comparison;
+        if (!cmp) return;
+
+        var propIds = cmp.proposals.map(function(p) { return p.id || p.company_name || p.filename || 'Unknown'; });
+
+        // Build standard 8-tab structure inside the container
+        var tabs = [
+            { id: 'executive',  icon: 'trophy',          label: 'Executive Summary' },
+            { id: 'comparison', icon: 'table-2',         label: 'Comparison' },
+            { id: 'categories', icon: 'pie-chart',       label: 'Categories' },
+            { id: 'redflags',   icon: 'shield-alert',    label: 'Red Flags' },
+            { id: 'heatmap',    icon: 'grid-3x3',        label: 'Heatmap' },
+            { id: 'scores',     icon: 'bar-chart-3',     label: 'Vendor Scores' },
+            { id: 'details',    icon: 'info',            label: 'Details' },
+            { id: 'tables',     icon: 'table',           label: 'Raw Tables' },
+        ];
+
+        var tabsHtml = tabs.map(function(t) {
+            var active = t.id === State.activeTab ? ' active' : '';
+            return '<button class="pc-tab" data-tab="' + t.id + '"' + active + '>' +
+                '<i data-lucide="' + t.icon + '" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px"></i>' +
+                t.label +
+            '</button>';
+        }).join('');
+
+        var panelsHtml = tabs.map(function(t) {
+            var active = t.id === State.activeTab ? ' active' : '';
+            return '<div class="pc-tab-panel' + active + '" id="pc-panel-' + t.id + '"></div>';
+        }).join('');
+
+        container.innerHTML =
+            '<div class="pc-multiterm-term-header">' +
+                '<i data-lucide="calendar" style="width:16px;height:16px;color:#D6A84A;vertical-align:-3px;margin-right:6px"></i>' +
+                '<strong>' + escHtml(termResult.termLabel) + '</strong>' +
+                ' \u2014 ' + cmp.proposals.length + ' vendors compared' +
+            '</div>' +
+            '<div class="pc-tabs" id="pc-tabs-bar">' + tabsHtml + '</div>' +
+            panelsHtml;
+
+        // Wire tabs
+        container.querySelectorAll('.pc-tab').forEach(function(tab) {
+            tab.addEventListener('click', function() {
+                container.querySelectorAll('.pc-tab').forEach(function(t) { t.classList.remove('active'); });
+                container.querySelectorAll('.pc-tab-panel').forEach(function(p) { p.classList.remove('active'); });
+                tab.classList.add('active');
+                var panel = document.getElementById('pc-panel-' + tab.dataset.tab);
+                if (panel) panel.classList.add('active');
+                State.activeTab = tab.dataset.tab;
+            });
+        });
+
+        // Render each tab (reuses exact same functions as single-term mode)
+        renderExecutiveSummary(propIds, cmp);
+        renderComparisonTable(propIds, cmp);
+        renderCategoriesTab(propIds, cmp);
+        renderRedFlagsTab(propIds, cmp);
+        renderHeatmapTab(propIds, cmp);
+        renderVendorScoresTab(propIds, cmp);
+        renderDetailsTab(cmp);
+        renderTablesTab(cmp);
+
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+
+    /**
+     * All Terms Summary — cross-term overview showing vendors across all terms.
+     */
+    function _renderAllTermsSummary(container) {
+        var results = State.multiTermResults.filter(function(r) { return r.comparison; });
+
+        if (results.length === 0) {
+            container.innerHTML = '<div class="pc-empty"><h4>No completed comparisons</h4></div>';
+            return;
+        }
+
+        // Collect all unique vendors (case-insensitive) and all terms
+        var allVendors = {};
+        var allTerms = [];
+
+        results.forEach(function(r) {
+            allTerms.push(r.termLabel);
+            (r.comparison.proposals || []).forEach(function(p) {
+                var vendorKey = (p.company_name || p.filename || 'Unknown').trim().toLowerCase();
+                if (!allVendors[vendorKey]) {
+                    allVendors[vendorKey] = { name: p.company_name || p.filename || 'Unknown', terms: {} };
+                }
+                // Store total for this vendor in this term
+                var pid = p.id || p.company_name || p.filename;
+                var total = r.comparison.totals ? r.comparison.totals[pid] : null;
+                allVendors[vendorKey].terms[r.termLabel] = {
+                    total: total,
+                    totalFormatted: total ? '$' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '\u2014',
+                    proposalId: pid,
+                    lineItems: (r.comparison.proposals.find(function(pp) { return (pp.id || pp.company_name) === pid; }) || {}).line_item_count || 0,
+                };
+            });
+        });
+
+        var vendorKeys = Object.keys(allVendors).sort();
+
+        // ── Hero stats ──
+        var html = '<div class="pc-multiterm-term-header">' +
+            '<i data-lucide="layout-grid" style="width:16px;height:16px;color:#D6A84A;vertical-align:-3px;margin-right:6px"></i>' +
+            '<strong>All Terms Summary</strong>' +
+            ' \u2014 ' + allTerms.length + ' terms, ' + vendorKeys.length + ' unique vendors' +
+        '</div>';
+
+        html += '<div class="pc-exec-heroes" style="margin-bottom:20px">';
+        html += renderHeroCard('calendar-range', allTerms.length, 'Contract Terms', '#2196f3');
+        html += renderHeroCard('users', vendorKeys.length, 'Unique Vendors', '#D6A84A');
+        html += renderHeroCard('file-text', State.multiTermResults.reduce(function(sum, r) {
+            return sum + (r.comparison ? r.comparison.proposals.length : 0);
+        }, 0), 'Total Proposals', '#8b949e');
+
+        // Total line items across all terms
+        var totalItems = results.reduce(function(sum, r) {
+            return sum + (r.comparison.aligned_items || []).length;
+        }, 0);
+        html += renderHeroCard('layers', totalItems, 'Total Line Items', '#4CAF50');
+        html += '</div>';
+
+        // ── Cross-term comparison table ──
+        html += '<div style="overflow-x:auto">';
+        html += '<table class="pc-comparison-table">';
+        html += '<thead><tr><th>Vendor</th>';
+        allTerms.forEach(function(t) {
+            html += '<th>' + escHtml(t) + '</th>';
+        });
+        html += '<th>Lowest Term</th>';
+        html += '</tr></thead><tbody>';
+
+        vendorKeys.forEach(function(vk) {
+            var vendor = allVendors[vk];
+            var lowestTerm = null;
+            var lowestTotal = Infinity;
+
+            html += '<tr>';
+            html += '<td><strong>' + escHtml(vendor.name) + '</strong></td>';
+
+            allTerms.forEach(function(t) {
+                var data = vendor.terms[t];
+                if (data && data.total != null) {
+                    html += '<td class="pc-amount">' + data.totalFormatted +
+                        '<br><small style="color:var(--text-secondary,#888)">' + data.lineItems + ' items</small></td>';
+                    if (data.total < lowestTotal) {
+                        lowestTotal = data.total;
+                        lowestTerm = t;
+                    }
+                } else {
+                    html += '<td style="color:var(--text-secondary,#888);text-align:center">\u2014</td>';
+                }
+            });
+
+            // Lowest term for this vendor
+            html += '<td>';
+            if (lowestTerm) {
+                html += '<span class="pc-term-badge pc-term-badge-best">' + escHtml(lowestTerm) + '</span>';
+            } else {
+                html += '\u2014';
+            }
+            html += '</td>';
+            html += '</tr>';
+        });
+
+        html += '</tbody></table></div>';
+
+        // ── Vendor presence matrix ──
+        html += '<h4 style="margin-top:24px;margin-bottom:12px">' +
+            '<i data-lucide="check-square" style="width:16px;height:16px;vertical-align:-3px;margin-right:6px"></i>' +
+            'Vendor Presence by Term</h4>';
+        html += '<div style="overflow-x:auto">';
+        html += '<table class="pc-comparison-table">';
+        html += '<thead><tr><th>Vendor</th>';
+        allTerms.forEach(function(t) {
+            html += '<th>' + escHtml(t) + '</th>';
+        });
+        html += '<th>Coverage</th></tr></thead><tbody>';
+
+        vendorKeys.forEach(function(vk) {
+            var vendor = allVendors[vk];
+            var present = 0;
+            html += '<tr>';
+            html += '<td><strong>' + escHtml(vendor.name) + '</strong></td>';
+            allTerms.forEach(function(t) {
+                if (vendor.terms[t]) {
+                    html += '<td style="text-align:center;color:#4CAF50"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></td>';
+                    present++;
+                } else {
+                    html += '<td style="text-align:center;color:var(--text-secondary,#666)">\u2014</td>';
+                }
+            });
+            var pct = Math.round((present / allTerms.length) * 100);
+            html += '<td style="text-align:center"><strong>' + pct + '%</strong> (' + present + '/' + allTerms.length + ')</td>';
+            html += '</tr>';
+        });
+
+        html += '</tbody></table></div>';
+
+        // Excluded notice
+        if (State.multiTermExcluded.length > 0) {
+            html += '<div class="pc-term-excluded-notice" style="margin-top:20px">' +
+                '<i data-lucide="info" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px"></i>' +
+                '<strong>Excluded from comparison:</strong> ';
+            html += State.multiTermExcluded.map(function(e) {
+                return escHtml((e.proposal.company_name || e.proposal.filename) + ' (' + e.term + ')');
+            }).join(', ');
+            html += '</div>';
+        }
+
+        container.innerHTML = html;
+        if (window.lucide) window.lucide.createIcons();
+    }
+
 
     // ──────────────────────────────────────────
     // Phase: Results
@@ -1829,7 +2547,13 @@ window.ProposalCompare = (function() {
         items = items.slice(0, 12);
 
         if (items.length === 0) {
-            canvas.parentElement.style.display = 'none';
+            // Show helpful message instead of just hiding
+            canvas.parentElement.innerHTML =
+                '<div class="pc-chart-empty">' +
+                    '<i data-lucide="git-compare" style="width:24px;height:24px;color:#8b949e"></i>' +
+                    '<p>No price spreads to display — items need 2+ vendor prices for comparison.</p>' +
+                '</div>';
+            if (window.lucide) window.lucide.createIcons();
             return;
         }
 
@@ -1853,13 +2577,15 @@ window.ProposalCompare = (function() {
                         data: items.map(function(it) { return it.spread; }),
                         backgroundColor: items.map(function(it) {
                             // Color by variance intensity
-                            if (it.variance_pct > 50) return 'rgba(244,67,54,0.75)';
-                            if (it.variance_pct > 25) return 'rgba(255,152,0,0.75)';
-                            return 'rgba(214,168,74,0.75)';
+                            if (it.variance_pct > 50) return 'rgba(244,67,54,0.8)';
+                            if (it.variance_pct > 25) return 'rgba(255,152,0,0.8)';
+                            return 'rgba(214,168,74,0.8)';
                         }),
                         borderWidth: 0,
-                        borderRadius: 3,
+                        borderRadius: 4,
                         borderSkipped: false,
+                        barPercentage: 0.85,
+                        categoryPercentage: 0.9,
                     }],
                 },
                 options: {
@@ -1896,7 +2622,7 @@ window.ProposalCompare = (function() {
                                 color: secondaryColor,
                                 font: { size: 11 },
                             },
-                            grid: { color: 'rgba(128,128,128,0.1)' },
+                            grid: { color: _getChartGridColor() },
                         },
                         y: {
                             ticks: {
@@ -2246,17 +2972,15 @@ window.ProposalCompare = (function() {
                     },
                     scales: {
                         y: {
-                            stacked: true,
                             beginAtZero: true,
                             ticks: {
                                 callback: function(v) { return formatMoneyShort(v); },
                                 color: secondaryColor,
                                 font: { size: 11 },
                             },
-                            grid: { color: 'rgba(128,128,128,0.1)' },
+                            grid: { color: _getChartGridColor() },
                         },
                         x: {
-                            stacked: true,
                             ticks: {
                                 color: secondaryColor,
                                 font: { size: 11 },
@@ -2392,15 +3116,16 @@ window.ProposalCompare = (function() {
 
         var hmPropIds = heatmap.prop_ids || propIds;
 
-        // Legend
+        // Legend (use runtime colors for dark mode consistency)
         var html = '<div class="pc-hm-legend">' +
             '<span class="pc-hm-legend-label">Deviation from average:</span>' +
-            '<span class="pc-hm-swatch" style="background:#2d6a2d;color:#fff">&lt; -15%</span>' +
-            '<span class="pc-hm-swatch" style="background:#4caf50;color:#fff">-5% to -15%</span>' +
-            '<span class="pc-hm-swatch" style="background:#f5f5f5;color:#333">\u00b15%</span>' +
-            '<span class="pc-hm-swatch" style="background:#ff9800;color:#fff">+5% to +15%</span>' +
-            '<span class="pc-hm-swatch" style="background:#f44336;color:#fff">&gt; +15%</span>' +
-            '<span class="pc-hm-swatch" style="background:#e0e0e0;color:#999">Missing</span>' +
+            '<span class="pc-hm-swatch" style="background:' + heatmapColor('very_low') + ';color:' + heatmapTextColor('very_low') + '">&lt; -15%</span>' +
+            '<span class="pc-hm-swatch" style="background:' + heatmapColor('low') + ';color:' + heatmapTextColor('low') + '">-5% to -15%</span>' +
+            '<span class="pc-hm-swatch" style="background:' + heatmapColor('neutral') + ';color:' + heatmapTextColor('neutral') + '">\u00b15%</span>' +
+            '<span class="pc-hm-swatch" style="background:' + heatmapColor('high') + ';color:' + heatmapTextColor('high') + '">+5% to +15%</span>' +
+            '<span class="pc-hm-swatch" style="background:' + heatmapColor('very_high') + ';color:' + heatmapTextColor('very_high') + '">&gt; +15%</span>' +
+            '<span class="pc-hm-swatch" style="background:' + heatmapColor('single_vendor') + ';color:' + heatmapTextColor('single_vendor') + '">Only Vendor</span>' +
+            '<span class="pc-hm-swatch" style="background:' + heatmapColor('missing') + ';color:' + heatmapTextColor('missing') + '">Missing</span>' +
         '</div>';
 
         // Table
@@ -2429,10 +3154,14 @@ window.ProposalCompare = (function() {
 
                 var cellContent = '';
                 if (cell.amount != null) {
+                    var devText = '';
+                    if (cell.level === 'single_vendor') {
+                        devText = '<span style="opacity:0.6;font-style:italic">only vendor</span>';
+                    } else if (cell.deviation_pct != null) {
+                        devText = (cell.deviation_pct > 0 ? '+' : '') + cell.deviation_pct.toFixed(1) + '%';
+                    }
                     cellContent = formatMoney(cell.amount) +
-                        '<div class="pc-hm-dev">' +
-                        (cell.deviation_pct > 0 ? '+' : '') + (cell.deviation_pct != null ? cell.deviation_pct.toFixed(1) + '%' : '') +
-                        '</div>';
+                        '<div class="pc-hm-dev">' + devText + '</div>';
                 } else {
                     cellContent = '\u2014';
                 }
@@ -2487,10 +3216,10 @@ window.ProposalCompare = (function() {
         // Chart containers — radar (primary) + bar (secondary)
         html += '<div class="pc-scores-charts">' +
             '<div class="pc-chart-container" id="pc-chart-radar-wrap">' +
-                '<canvas id="pc-chart-radar" height="300"></canvas>' +
+                '<canvas id="pc-chart-radar" height="380"></canvas>' +
             '</div>' +
             '<div class="pc-chart-container" id="pc-chart-scores-wrap">' +
-                '<canvas id="pc-chart-scores" height="250"></canvas>' +
+                '<canvas id="pc-chart-scores" height="280"></canvas>' +
             '</div>' +
         '</div>';
 
@@ -2544,6 +3273,15 @@ window.ProposalCompare = (function() {
 
     function renderScoreBar(label, value, color) {
         var pct = Math.min(100, Math.max(0, value || 0));
+        if (pct === 0) {
+            return '<div class="pc-score-bar-row">' +
+                '<div class="pc-score-bar-label">' + label + '</div>' +
+                '<div class="pc-score-bar-track">' +
+                    '<div class="pc-score-bar-fill pc-score-bar-empty" style="width:100%;background:' + _getChartGridColor() + '"></div>' +
+                '</div>' +
+                '<div class="pc-score-bar-value" style="opacity:0.5;font-style:italic">N/A</div>' +
+            '</div>';
+        }
         return '<div class="pc-score-bar-row">' +
             '<div class="pc-score-bar-label">' + label + '</div>' +
             '<div class="pc-score-bar-track">' +
@@ -2627,18 +3365,20 @@ window.ProposalCompare = (function() {
                     scales: {
                         r: {
                             beginAtZero: true,
-                            max: 100,
+                            suggestedMax: 100,
                             ticks: {
-                                stepSize: 20,
+                                stepSize: 25,
                                 display: true,
                                 color: radarSecondary,
                                 font: { size: 10 },
                                 backdropColor: 'transparent',
+                                showLabelBackdrop: false,
                             },
                             grid: { color: radarGrid },
                             pointLabels: {
                                 color: radarTextColor,
-                                font: { size: 12, weight: '600' },
+                                font: { size: 13, weight: '600' },
+                                padding: 8,
                             },
                             angleLines: { color: radarGrid },
                         },
@@ -2674,6 +3414,11 @@ window.ProposalCompare = (function() {
             };
         });
 
+        // Truncate long vendor names for x-axis labels
+        var xLabels = propIds.map(function(pid) {
+            return pid.length > 25 ? pid.substring(0, 22) + '...' : pid;
+        });
+
         _applyChartDefaults();
         var scTextColor = _getChartTextColor();
         var scSecondary = _getChartSecondaryColor();
@@ -2682,7 +3427,7 @@ window.ProposalCompare = (function() {
             var chart = new Chart(canvas.getContext('2d'), {
                 type: 'bar',
                 data: {
-                    labels: propIds,
+                    labels: xLabels,
                     datasets: datasets,
                 },
                 options: {
@@ -2706,6 +3451,14 @@ window.ProposalCompare = (function() {
                             font: { size: 14, weight: '600' },
                             padding: { bottom: 16 },
                         },
+                        tooltip: {
+                            callbacks: {
+                                title: function(ctx) {
+                                    // Show full vendor name in tooltip
+                                    return propIds[ctx[0].dataIndex] || ctx[0].label;
+                                },
+                            },
+                        },
                     },
                     scales: {
                         y: {
@@ -2721,6 +3474,8 @@ window.ProposalCompare = (function() {
                             ticks: {
                                 color: scSecondary,
                                 font: { size: 11 },
+                                maxRotation: 35,
+                                minRotation: 0,
                             },
                             grid: { display: false },
                         },
@@ -3058,6 +3813,16 @@ window.ProposalCompare = (function() {
     // ──────────────────────────────────────────
 
     async function exportXLSX() {
+        // In multi-term mode, export the currently active term's comparison
+        // (or if on "All Terms Summary", export all terms sequentially)
+        if (State.multiTermMode && State.multiTermActiveIdx === -1) {
+            // Export all terms — one XLSX per term (zip not supported, export current selection)
+            if (window.showToast) {
+                window.showToast('Switch to a specific term tab to export its XLSX, or each term can be exported individually.', 'info');
+            }
+            return;
+        }
+
         if (!State.comparison) return;
 
         try {
@@ -3081,7 +3846,11 @@ window.ProposalCompare = (function() {
             var url = URL.createObjectURL(blob);
             var a = document.createElement('a');
             a.href = url;
-            a.download = 'AEGIS_Proposal_Comparison.xlsx';
+            var termSuffix = '';
+            if (State.multiTermMode && State.multiTermResults[State.multiTermActiveIdx]) {
+                termSuffix = '_' + State.multiTermResults[State.multiTermActiveIdx].termLabel.replace(/\s+/g, '_');
+            }
+            a.download = 'AEGIS_Proposal_Comparison' + termSuffix + '.xlsx';
             document.body.appendChild(a);
             a.click();
             setTimeout(function() {
@@ -3090,7 +3859,9 @@ window.ProposalCompare = (function() {
             }, 100);
 
             if (window.showToast) {
-                window.showToast('Comparison exported to XLSX', 'success');
+                var msg = 'Comparison exported to XLSX';
+                if (termSuffix) msg += ' (' + State.multiTermResults[State.multiTermActiveIdx].termLabel + ')';
+                window.showToast(msg, 'success');
             }
 
         } catch (err) {
@@ -3102,6 +3873,14 @@ window.ProposalCompare = (function() {
     }
 
     async function exportHTML() {
+        // In multi-term mode on "All Terms Summary", export all terms
+        if (State.multiTermMode && State.multiTermActiveIdx === -1) {
+            if (window.showToast) {
+                window.showToast('Switch to a specific term tab to export its HTML, or each term can be exported individually.', 'info');
+            }
+            return;
+        }
+
         if (!State.comparison) return;
 
         try {
@@ -3109,10 +3888,16 @@ window.ProposalCompare = (function() {
                 window.showToast('Generating interactive HTML report...', 'info');
             }
 
+            var termLabel = '';
+            if (State.multiTermMode && State.multiTermResults[State.multiTermActiveIdx]) {
+                termLabel = State.multiTermResults[State.multiTermActiveIdx].termLabel;
+            }
+
             var exportData = Object.assign({}, State.comparison, {
                 metadata: Object.assign({}, State.comparison.metadata || {}, {
                     project_name: State.projectId ? (State.projectName || 'Comparison') : 'Comparison',
                     compared_at: new Date().toISOString(),
+                    term_label: termLabel,
                 }),
             });
 
@@ -3139,6 +3924,9 @@ window.ProposalCompare = (function() {
             var fname = 'AEGIS_Proposal_Comparison.html';
             var match = cd.match(/filename="?([^"]+)"?/);
             if (match) fname = match[1];
+            if (termLabel && !fname.includes(termLabel)) {
+                fname = fname.replace('.html', '_' + termLabel.replace(/\s+/g, '_') + '.html');
+            }
             a.download = fname;
             document.body.appendChild(a);
             a.click();
@@ -3148,7 +3936,9 @@ window.ProposalCompare = (function() {
             }, 100);
 
             if (window.showToast) {
-                window.showToast('Interactive HTML report exported!', 'success');
+                var msg = 'Interactive HTML report exported!';
+                if (termLabel) msg += ' (' + termLabel + ')';
+                window.showToast(msg, 'success');
             }
 
         } catch (err) {
@@ -3797,7 +4587,7 @@ window.ProposalCompare = (function() {
         close: close,
         // Internal callbacks (used by onclick in HTML)
         _removeFile: removeFile,
-        _restart: function() { _cleanupBlobUrls(); State._reviewIdx = 0; State._lineItemEditorOpen = []; renderUploadPhase(); },
+        _restart: function() { _cleanupBlobUrls(); State._reviewIdx = 0; State._lineItemEditorOpen = []; State.multiTermMode = false; State.multiTermResults = []; State.multiTermActiveIdx = 0; State.multiTermExcluded = []; renderUploadPhase(); },
         _backToReview: function() { renderReviewPhase(); },
         _export: exportXLSX,
         _exportHTML: exportHTML,

@@ -302,8 +302,11 @@ def align_line_items(proposals: List[ProposalData], prop_ids: List[str] = None) 
             ai.max_amount = max(valid_amounts)
             ai.avg_amount = sum(valid_amounts) / len(valid_amounts)
 
-            if ai.min_amount > 0:
+            # Only compute variance when 2+ vendors have data (otherwise N/A)
+            if len(valid_amounts) >= 2 and ai.min_amount > 0:
                 ai.variance_pct = round((ai.max_amount - ai.min_amount) / ai.min_amount * 100, 1)
+            else:
+                ai.variance_pct = None  # Single vendor — can't compute meaningful variance
 
             # Find lowest bidder
             for pid, amount in ai.amounts.items():
@@ -717,27 +720,38 @@ def build_heatmap_data(
         if avg == 0:
             continue
 
+        # Single-vendor items can't have meaningful deviation
+        is_single_vendor = len(valid_amounts) == 1
+
         cells = {}
         for pid in prop_ids:
             amt = ai.amounts.get(pid)
             if amt is not None and amt > 0:
-                dev = (amt - avg) / avg * 100
-                # Categorize deviation level for coloring
-                if abs(dev) < 5:
-                    level = 'neutral'
-                elif dev < -15:
-                    level = 'very_low'
-                elif dev < -5:
-                    level = 'low'
-                elif dev > 15:
-                    level = 'very_high'
+                if is_single_vendor:
+                    # Single vendor — no deviation comparison possible
+                    cells[pid] = {
+                        'amount': amt,
+                        'deviation_pct': None,
+                        'level': 'single_vendor',
+                    }
                 else:
-                    level = 'high'
-                cells[pid] = {
-                    'amount': amt,
-                    'deviation_pct': round(dev, 1),
-                    'level': level,
-                }
+                    dev = (amt - avg) / avg * 100
+                    # Categorize deviation level for coloring
+                    if abs(dev) < 5:
+                        level = 'neutral'
+                    elif dev < -15:
+                        level = 'very_low'
+                    elif dev < -5:
+                        level = 'low'
+                    elif dev > 15:
+                        level = 'very_high'
+                    else:
+                        level = 'high'
+                    cells[pid] = {
+                        'amount': amt,
+                        'deviation_pct': round(dev, 1),
+                        'level': level,
+                    }
             else:
                 cells[pid] = {'amount': None, 'deviation_pct': None, 'level': 'missing'}
 
@@ -745,6 +759,7 @@ def build_heatmap_data(
             'description': ai.description,
             'category': ai.category,
             'avg': round(avg, 2),
+            'vendor_count': len(valid_amounts),
             'cells': cells,
         })
 

@@ -350,18 +350,24 @@ def compare_proposals_endpoint():
             from .projects import save_comparison
             project_id = data.get('project_id')
             proposal_ids = data.get('proposal_db_ids', [])
+            term_label = data.get('term_label', '')
             # Store raw proposals for history re-editing
             proposals_input = data.get('proposals', [])
+            # Build notes from term_label for multi-term tracking
+            notes = f'Term: {term_label}' if term_label else ''
             comparison_id = save_comparison(
                 int(project_id) if project_id else 0,
                 proposal_ids,
                 result_dict,
+                notes=notes,
                 proposals_json=proposals_input,
             )
         except Exception as db_err:
             logger.warning(f'Failed to save comparison: {db_err}')
 
         result_dict['comparison_id'] = comparison_id
+        if term_label:
+            result_dict['term_label'] = term_label
 
         return jsonify({
             'success': True,
@@ -1319,3 +1325,94 @@ def proposal_metrics():
     except Exception as e:
         logger.error(f'Proposal metrics error: {e}', exc_info=True)
         return jsonify({'success': False, 'error': {'message': str(e)}}), 500
+
+
+# ──────────────────────────────────────────
+# Structure Analysis (privacy-safe parsing)
+# ──────────────────────────────────────────
+
+@pc_blueprint.route('/api/proposal-compare/analyze-structure', methods=['POST'])
+def analyze_structure():
+    """Upload a proposal and return a privacy-safe structural analysis.
+
+    The analysis reveals table shapes, column patterns, category distribution,
+    and extraction diagnostics WITHOUT exposing dollar amounts, company names,
+    or proprietary line-item descriptions.
+
+    Expects multipart/form-data with a single 'file' field.
+    Returns JSON structure report, or downloads as .json file if ?download=1.
+    """
+    try:
+        from .parser import SUPPORTED_EXTENSIONS
+        from .structure_analyzer import analyze_proposal_structure
+
+        if 'file' not in request.files:
+            return jsonify({
+                'success': False,
+                'error': {'message': 'No file provided. Use "file" field.'}
+            }), 400
+
+        f = request.files['file']
+        if not f.filename:
+            return jsonify({
+                'success': False,
+                'error': {'message': 'No file selected'}
+            }), 400
+
+        ext = os.path.splitext(f.filename)[1].lower()
+        if ext not in SUPPORTED_EXTENSIONS:
+            return jsonify({
+                'success': False,
+                'error': {'message': f'Unsupported file type: {ext}. Supported: {", ".join(SUPPORTED_EXTENSIONS)}'}
+            }), 400
+
+        # Save to temp file
+        import time as _time
+        upload_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            'temp', 'proposals'
+        )
+        os.makedirs(upload_dir, exist_ok=True)
+        safe_name = f'{int(_time.time())}_struct_{f.filename}'
+        temp_path = os.path.join(upload_dir, safe_name)
+
+        try:
+            f.save(temp_path)
+        except Exception as save_err:
+            return jsonify({
+                'success': False,
+                'error': {'message': f'Failed to save file: {save_err}'}
+            }), 500
+
+        # Run structure analysis
+        try:
+            analysis = analyze_proposal_structure(temp_path)
+        finally:
+            # Clean up temp file immediately — we don't need it for viewing
+            try:
+                os.unlink(temp_path)
+            except Exception:
+                pass
+
+        # If download requested, return as downloadable JSON file
+        if request.args.get('download') == '1':
+            import io
+            json_str = json.dumps(analysis, indent=2, ensure_ascii=False)
+            buf = io.BytesIO(json_str.encode('utf-8'))
+            buf.seek(0)
+            base_name = os.path.splitext(f.filename)[0]
+            return send_file(
+                buf,
+                mimetype='application/json',
+                as_attachment=True,
+                download_name=f'{base_name}_structure_analysis.json'
+            )
+
+        return jsonify({'success': True, 'data': analysis})
+
+    except Exception as e:
+        logger.error(f'Structure analysis error: {e}', exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': {'message': f'Analysis error: {str(e)}', 'traceback': traceback.format_exc()}
+        }), 500

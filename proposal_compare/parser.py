@@ -194,6 +194,14 @@ COMPANY_INDICATORS = re.compile(
     re.IGNORECASE
 )
 
+# Table header patterns — used to reject lines that look like column headers, not company names
+TABLE_HEADER_PATTERNS = re.compile(
+    r'\b(?:part\s*no|description|price\s*list|gsa\s*price|retail\s*price|unit\s*price|'
+    r'msrp|sku|item\s*#|line\s*item|quantity|qty|uom|catalog|schedule|sin\b|'
+    r'manufacturer|mfg|model|specifications?)\b',
+    re.IGNORECASE
+)
+
 
 # ──────────────────────────────────────────────
 # Utility functions
@@ -231,8 +239,9 @@ def extract_company_from_text(text: str, max_chars: int = 2000, filename: str = 
     Uses multiple strategies in priority order:
     1. Lines containing company legal suffixes (LLC, Inc, Corp, etc.)
     2. "Prepared by" / "Submitted by" attribution lines
-    3. First prominent heading-like line (short, no numbers, title case)
-    4. Company name extracted from the filename
+    3. "Vendor:" / "Supplier:" / "Contractor:" labels
+    4. First prominent heading-like line (short, no numbers, title case)
+    5. Company name extracted from the filename
     """
     search_text = text[:max_chars]
 
@@ -247,6 +256,9 @@ def extract_company_from_text(text: str, max_chars: int = 2000, filename: str = 
         # Skip lines with too many numbers (likely data rows, not company names)
         digit_ratio = sum(c.isdigit() for c in line) / max(len(line), 1)
         if digit_ratio > 0.3:
+            continue
+        # Skip lines that look like table headers (GSA price list columns, etc.)
+        if TABLE_HEADER_PATTERNS.search(line):
             continue
         if COMPANY_INDICATORS.search(line):
             # Clean up the line
@@ -281,7 +293,8 @@ def extract_company_from_text(text: str, max_chars: int = 2000, filename: str = 
     skip_words = {'proposal', 'pricing', 'quote', 'quotation', 'bid', 'offer', 'response',
                   'statement', 'work', 'scope', 'table', 'contents', 'page', 'date',
                   'section', 'attachment', 'appendix', 'exhibit', 'schedule', 'cost',
-                  'price', 'summary', 'executive', 'technical', 'management', 'volume'}
+                  'price', 'summary', 'executive', 'technical', 'management', 'volume',
+                  'description', 'quantity', 'part', 'catalog', 'item', 'list', 'unit'}
     for line in search_text.split('\n')[:30]:
         line = line.strip()
         if not line or len(line) < 3 or len(line) > 60:
@@ -290,6 +303,9 @@ def extract_company_from_text(text: str, max_chars: int = 2000, filename: str = 
             continue
         digit_ratio = sum(c.isdigit() for c in line) / max(len(line), 1)
         if digit_ratio > 0.15:
+            continue
+        # Skip table header lines
+        if TABLE_HEADER_PATTERNS.search(line):
             continue
         words = line.split()
         if len(words) > 6 or len(words) < 1:
@@ -307,14 +323,26 @@ def extract_company_from_text(text: str, max_chars: int = 2000, filename: str = 
         base = re.sub(r'\.[^.]+$', '', filename)
         # Replace separators with spaces
         base = re.sub(r'[_\-]+', ' ', base)
-        # Remove common terms
+        # Remove common terms (expanded for GSA/government pricing files)
         base = re.sub(
-            r'\b(?:proposal|quote|pricing|bid|offer|3\s*yr|5\s*yr|3\s*year|5\s*year|draft|final|v\d+|rev\s*\d*)\b',
+            r'\b(?:proposal|quote|pricing|bid|offer|3\s*yr|5\s*yr|3\s*year|5\s*year|draft|final|'
+            r'v\d+|rev\s*\d*|gsa|price\s*list|pricelist|schedule|contract|'
+            r'catalog|fy\d{2,4}|20\d{2}|state|federal|government|gov|'
+            r'wisconsin|california|texas|virginia|maryland|ohio)\b',
             '', base, flags=re.IGNORECASE
         ).strip()
         # Clean up
         base = re.sub(r'\s+', ' ', base).strip()
-        if 2 < len(base) < 60:
+        # If multiple words remain and one looks like a reseller/distributor, use it
+        parts = [p.strip() for p in base.split() if len(p.strip()) > 1]
+        if len(parts) >= 2:
+            # Common resellers: Carahsoft, SHI, CDW, Insight, etc.
+            # The company name is typically the SECOND part (reseller_product pattern)
+            # But if pattern is "Reseller Product", use "Reseller - Product"
+            return ' '.join(parts)
+        elif len(parts) == 1 and len(parts[0]) > 2:
+            return parts[0]
+        elif 2 < len(base) < 60:
             return base
 
     return ''
@@ -1406,7 +1434,44 @@ def parse_pdf(filepath: str) -> ProposalData:
             proposal.extraction_notes.append(f'pymupdf4llm fallback error: {e}')
             logger.warning(f'[AEGIS ProposalParser] pymupdf4llm fallback failed: {e}')
 
-    # ── Inline dollar amounts from text (always capture, dedup against table amounts) ──
+    # ── Strategy 3: Text-based line extraction when table extraction failed ──
+    if full_text and not proposal.line_items:
+        # Look for structured price lines: "Description ... $Amount" patterns
+        # This handles GSA price lists and other text-heavy pricing PDFs
+        _price_line_pattern = re.compile(
+            r'^(.{10,120}?)\s+(\$[\d,]+(?:\.\d{1,2})?)\s*$', re.MULTILINE
+        )
+        text_items = []
+        seen_amounts = set()
+        for match in _price_line_pattern.finditer(full_text):
+            desc = match.group(1).strip()
+            raw = match.group(2)
+            amount = parse_dollar_amount(raw)
+            if not amount or amount < 1 or amount in seen_amounts:
+                continue
+            # Skip if description looks like a header or total
+            if TOTAL_KEYWORDS.search(desc):
+                continue
+            if TABLE_HEADER_PATTERNS.search(desc):
+                continue
+            seen_amounts.add(amount)
+            text_items.append(LineItem(
+                description=desc,
+                amount=amount,
+                amount_raw=raw,
+                category=classify_line_item(desc),
+                row_index=len(text_items),
+                source_sheet='PDF Text Extraction',
+                confidence=0.65,
+            ))
+
+        if text_items:
+            proposal.line_items.extend(text_items)
+            proposal.extraction_notes.append(
+                f'Text-based extraction: {len(text_items)} line items from structured price lines'
+            )
+
+    # ── Inline dollar amounts from text (supplementary — lower confidence) ──
     if full_text:
         inline_amounts = []
         for match in DOLLAR_PATTERN.finditer(full_text):

@@ -1,13 +1,58 @@
 {
-  "version": "5.9.44",
+  "version": "5.9.47",
   "release_date": "2026-02-21",
-  "core_version": "5.9.44",
+  "core_version": "5.9.47",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.47",
+      "date": "2026-02-21",
+      "changes": [
+        "ENH: Proposal Structure Analyzer — privacy-safe structural analysis tool that parses proposals and reports table shapes, column patterns, category distribution, and extraction diagnostics WITHOUT exposing dollar amounts, company names, or proprietary content",
+        "ENH: Analyze Structure button in Proposal Compare upload phase — select a file and click to download a .json structural report safe for sharing with developers",
+        "ENH: API endpoint POST /api/proposal-compare/analyze-structure — accepts a single proposal file, returns redacted structural JSON with ?download=1 option for file download",
+        "ENH: Structure report includes per-table column data patterns, line item confidence histograms, amount bucket distributions, description pattern analysis, field coverage percentages, and parser improvement suggestions"
+      ],
+      "title": "Proposal Structure Analyzer — Privacy-Safe Parser Diagnostics"
+    },
+    {
+      "version": "5.9.46",
+      "date": "2026-02-21",
+      "changes": [
+        "ENH: Multi-term comparison — proposals are automatically grouped by contract term (e.g., '3 Year', '5 Year') and compared separately within each term group",
+        "ENH: Term selector bar — gold pill-based UI above 8-tab results lets you switch between term groups or view All Terms Summary",
+        "ENH: All Terms Summary view — cross-term vendor comparison table showing cost per vendor per term, lowest-term highlighting, and vendor presence matrix",
+        "ENH: Review phase term indicator — 'Multi-term detected' preview bar with term badges and group counts shown before comparison",
+        "ENH: Compare button adapts — shows 'Compare by Term (N groups)' when multi-term is detected, 'Compare All' otherwise",
+        "ENH: Excluded proposals notice — single-vendor term groups are excluded from comparison with visible explanation",
+        "ENH: Export support — XLSX and HTML exports include term label suffix in filename when in multi-term mode",
+        "ENH: History integration — each term comparison saves independently with 'Term: X' label in history notes"
+      ],
+      "title": "Multi-Term Proposal Comparison — Automatic Grouping by Contract Term"
+    },
+    {
+      "version": "5.9.45",
+      "date": "2026-02-21",
+      "changes": [
+        "FIX: Proposal Compare heatmap \u2014 single-vendor cells now show 'only vendor' label instead of empty deviation; legend uses runtime dark mode color functions with 'Only Vendor' swatch",
+        "FIX: Proposal Compare categories chart \u2014 switched from stacked to grouped bars so small vendor values are visible alongside large ones",
+        "FIX: Proposal Compare tornado chart \u2014 styled empty state message with icon instead of silently hiding parent element; improved bar sizing (barPercentage 0.85)",
+        "FIX: Proposal Compare radar chart \u2014 increased canvas height (300\u2192380), suggestedMax instead of hard max, better point label sizing and padding, removed label backdrops",
+        "FIX: Proposal Compare score bars \u2014 zero-value scores now show 'N/A' with muted fill instead of an invisible empty bar",
+        "FIX: Proposal Compare score components chart \u2014 vendor name truncation (25 chars) with tooltip for full name, controlled axis rotation (35\u00b0 max)",
+        "FIX: Proposal Compare chart grid colors \u2014 all Chart.js charts now use _getChartGridColor() helper for correct dark mode grid lines",
+        "ENH: Pre-comparison validation \u2014 _validateBeforeCompare() checks for <2 proposals, empty line items, missing company names, duplicate vendor names, and very low item counts with confirm dialog",
+        "FIX: get_statement_review_stats() \u2014 defensive method with PRAGMA table_info introspection; handles missing scan_statements table, missing review_status/confirmed columns gracefully",
+        "FIX: Docling artifacts_path \u2014 invalid env var paths now auto-cleared from os.environ so Docling internals don't re-read stale DOCLING_ARTIFACTS_PATH values",
+        "ENH: Demo system \u2014 added 2 new Proposal Compare sub-demos (Category Breakdown, Project Dashboard) and expanded Export sub-demo to cover Interactive HTML export",
+        "ENH: Help docs \u2014 added v5.9.45 features to Proposal Compare analytics, export, and review sections with pre-comparison validation details"
+      ],
+      "title": "Proposal Compare Chart & Scoring Fixes + Pre-Comparison Validation + Docling Fix"
+    },
     {
       "version": "5.9.44",
       "date": "2026-02-21",
