@@ -1,151 +1,236 @@
 #!/usr/bin/env python3
 """
-AEGIS Proposal Structure Analyzer — Standalone Tool
-=====================================================
-One-time-use diagnostic tool. Analyzes proposal files and produces
-a privacy-safe JSON report for sharing with developers.
+AEGIS Proposal Structure Tool — Desktop Edition
+=================================================
+Double-click this script from ANYWHERE. It will:
+  1. Find your AEGIS install automatically
+  2. Open a file picker — select one or more proposal files
+  3. Analyze them (privacy-safe — no $ amounts, names, or text)
+  4. Upload the JSON result directly to GitHub
 
-NO server required. NO browser needed. Just run it.
+The JSON appears at:
+  https://github.com/nicholasgeorgeson-prog/AEGIS/tree/main/structure_reports/
 
-Usage:
-  python proposal_structure_tool.py                    # Opens file picker
-  python proposal_structure_tool.py file1.xlsx         # Analyze one file
-  python proposal_structure_tool.py *.xlsx *.pdf       # Analyze multiple files
-  python proposal_structure_tool.py --dir ./proposals  # Analyze a folder
+No server needed. No browser. Just run it.
 
-Output:
-  - Single file:   <filename>_structure_analysis.json
-  - Multiple files: batch_structure_analysis.json
-
-The JSON is privacy-safe: no dollar amounts, no company names,
-no descriptions — only structural patterns and parser diagnostics.
-Safe to upload to GitHub.
-
-Requirements (same as AEGIS):
-  - openpyxl (for .xlsx)
-  - python-docx (for .docx)
-  - pdfplumber or PyMuPDF (for .pdf) — optional, skips PDFs if missing
+First run: creates aegis_github_token.txt — paste your GitHub token once.
+After that, just double-click and pick files.
 """
 
 import os
 import sys
 import json
-import glob
+import re
 import logging
-import argparse
-from datetime import datetime, timezone
+import base64
+import urllib.request
+import urllib.error
+import ssl
+from datetime import datetime
+from typing import List, Dict, Optional, Any
 
-# ──────────────────────────────────────────────
-# Setup
-# ──────────────────────────────────────────────
+VERSION = "2.0.0"
 
-VERSION = "1.0.0"
-SUPPORTED_EXTENSIONS = {'.xlsx', '.xls', '.docx', '.pdf'}
-
-# Configure logging
-logging.basicConfig(
-    level=logging.WARNING,
-    format='%(levelname)s: %(message)s'
-)
+logging.basicConfig(level=logging.WARNING, format='%(levelname)s: %(message)s')
 logger = logging.getLogger('proposal_structure_tool')
 
+# GitHub config
+GITHUB_REPO = "nicholasgeorgeson-prog/AEGIS"
+GITHUB_BRANCH = "main"
+GITHUB_API = f"https://api.github.com/repos/{GITHUB_REPO}"
+GITHUB_REPORT_DIR = "structure_reports"
+TOKEN_FILENAME = "aegis_github_token.txt"
+
+_github_token = None  # loaded at runtime
+
+
+# ═══════════════════════════════════════════════
+# BANNER
+# ═══════════════════════════════════════════════
 
 def print_banner():
-    """Print startup banner."""
     print()
     print("=" * 62)
     print("  ╔══════════════════════════════════════════════════╗")
-    print("  ║  AEGIS Proposal Structure Analyzer              ║")
-    print("  ║  Standalone Diagnostic Tool  v{}            ║".format(VERSION))
-    print("  ║  Privacy-safe — no $ amounts, names, or text    ║")
+    print("  ║  AEGIS Proposal Structure Tool                  ║")
+    print("  ║  Desktop Edition  v{}                       ║".format(VERSION))
+    print("  ║  Analyze → Upload to GitHub automatically       ║")
     print("  ╚══════════════════════════════════════════════════╝")
     print("=" * 62)
     print()
 
 
-def check_dependencies():
-    """Check which file format libraries are available."""
-    deps = {}
+# ═══════════════════════════════════════════════
+# GITHUB TOKEN
+# ═══════════════════════════════════════════════
 
-    try:
-        import openpyxl
-        deps['xlsx'] = True
-    except ImportError:
-        deps['xlsx'] = False
+def find_token():
+    """Find the GitHub PAT from aegis_github_token.txt.
 
-    try:
-        from docx import Document
-        deps['docx'] = True
-    except ImportError:
-        deps['docx'] = False
+    Searches:
+      1. Next to this script
+      2. In the AEGIS install directory
+      3. User's home directory
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    home = os.path.expanduser("~")
 
-    try:
-        import pdfplumber
-        deps['pdf_pdfplumber'] = True
-    except ImportError:
-        deps['pdf_pdfplumber'] = False
+    search_paths = [
+        os.path.join(script_dir, TOKEN_FILENAME),
+        os.path.join(home, "Desktop", TOKEN_FILENAME),
+        os.path.join(home, TOKEN_FILENAME),
+        os.path.join(home, "Desktop", "Doc Review", "AEGIS", TOKEN_FILENAME),
+        os.path.join(home, "OneDrive - NGC", "Desktop", "Doc Review", "AEGIS", TOKEN_FILENAME),
+        os.path.join(home, "Desktop", "Work_Tools", "TechWriterReview", TOKEN_FILENAME),
+    ]
 
-    try:
-        import fitz
-        deps['pdf_pymupdf'] = True
-    except ImportError:
-        deps['pdf_pymupdf'] = False
+    for path in search_paths:
+        if os.path.isfile(path):
+            try:
+                with open(path, 'r') as f:
+                    token = f.read().strip()
+                if token and token.startswith('ghp_'):
+                    return token
+            except Exception:
+                pass
 
-    deps['pdf'] = deps['pdf_pdfplumber'] or deps['pdf_pymupdf']
-
-    return deps
+    return None
 
 
-def print_dependency_status(deps):
-    """Show which formats are supported."""
-    print("  Supported formats:")
-    print("    ✓ XLSX/XLS" if deps['xlsx'] else "    ✗ XLSX/XLS  (install openpyxl)")
-    print("    ✓ DOCX" if deps['docx'] else "    ✗ DOCX      (install python-docx)")
-    if deps['pdf']:
-        via = "pdfplumber" if deps['pdf_pdfplumber'] else "PyMuPDF"
-        print(f"    ✓ PDF       (via {via})")
-    else:
-        print("    ✗ PDF       (install pdfplumber or PyMuPDF)")
+def setup_token():
+    """Create the token file on first run."""
+    print("  ┌─────────────────────────────────────────────┐")
+    print("  │  First-time setup: GitHub token needed       │")
+    print("  └─────────────────────────────────────────────┘")
+    print()
+    print("  This lets the tool upload results to GitHub.")
+    print("  You only need to do this once.")
+    print()
+    print("  Paste your GitHub Personal Access Token below.")
+    print("  (It starts with ghp_ ...)")
     print()
 
+    token = input("  Token: ").strip()
 
-def find_aegis_modules():
-    """Try to find and import the AEGIS proposal_compare modules."""
-    # Check if we're in the AEGIS directory
+    if not token:
+        print("  No token entered. Results will be saved locally only.")
+        return None
+
+    if not token.startswith('ghp_'):
+        print("  WARNING: Token doesn't start with 'ghp_' — may not work.")
+
+    # Save next to the script
     script_dir = os.path.dirname(os.path.abspath(__file__))
-
-    # Add script directory to path so we can import proposal_compare
-    if script_dir not in sys.path:
-        sys.path.insert(0, script_dir)
+    token_path = os.path.join(script_dir, TOKEN_FILENAME)
 
     try:
-        from proposal_compare.parser import parse_proposal, CATEGORY_PATTERNS
+        with open(token_path, 'w') as f:
+            f.write(token)
+        print(f"  ✓ Token saved to: {token_path}")
+        print("    (You won't be asked again)")
+        print()
+        return token
+    except Exception as e:
+        print(f"  Could not save token file: {e}")
+        print("  Token will be used this session only.")
+        return token
+
+
+def load_token():
+    """Load or create the GitHub token."""
+    global _github_token
+
+    token = find_token()
+    if token:
+        _github_token = token
+        return True
+
+    # First run — ask for token
+    token = setup_token()
+    if token:
+        _github_token = token
+        return True
+
+    return False
+
+
+# ═══════════════════════════════════════════════
+# FIND AEGIS INSTALL
+# ═══════════════════════════════════════════════
+
+def find_aegis_install():
+    """Search common locations for the AEGIS install directory."""
+    candidates = []
+
+    home = os.path.expanduser("~")
+
+    # Windows paths
+    candidates += [
+        os.path.join(home, "Desktop", "Doc Review", "AEGIS"),
+        os.path.join(home, "Desktop", "AEGIS"),
+        os.path.join(home, "Documents", "AEGIS"),
+        os.path.join(home, "OneDrive - NGC", "Desktop", "Doc Review", "AEGIS"),
+        os.path.join(home, "OneDrive", "Desktop", "Doc Review", "AEGIS"),
+        os.path.join(home, "OneDrive - NGC", "Desktop", "AEGIS"),
+        "C:\\AEGIS",
+        "C:\\AEGIS\\app",
+    ]
+
+    # Mac paths
+    candidates += [
+        os.path.join(home, "Desktop", "Work_Tools", "TechWriterReview"),
+        os.path.join(home, "Desktop", "TechWriterReview"),
+    ]
+
+    # Script's own directory and parent
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates.insert(0, script_dir)
+    candidates.insert(1, os.path.dirname(script_dir))
+
+    for path in candidates:
+        if os.path.isdir(path):
+            parser_path = os.path.join(path, "proposal_compare", "parser.py")
+            if os.path.isfile(parser_path):
+                return path
+
+    return None
+
+
+def load_aegis_modules(aegis_dir):
+    """Import parser and structure analyzer from the AEGIS install."""
+    if aegis_dir not in sys.path:
+        sys.path.insert(0, aegis_dir)
+
+    try:
+        from proposal_compare.parser import (
+            parse_proposal, CATEGORY_PATTERNS, SUPPORTED_EXTENSIONS,
+        )
         from proposal_compare.structure_analyzer import (
             analyze_proposal_structure,
             analyze_batch_structure,
         )
         return {
-            'parse_proposal': parse_proposal,
+            'available': True,
             'analyze_proposal_structure': analyze_proposal_structure,
             'analyze_batch_structure': analyze_batch_structure,
-            'CATEGORY_PATTERNS': CATEGORY_PATTERNS,
-            'available': True,
+            'SUPPORTED_EXTENSIONS': SUPPORTED_EXTENSIONS,
         }
     except ImportError as e:
         return {'available': False, 'error': str(e)}
 
 
-def open_file_picker():
-    """Open a native file picker dialog. Falls back to manual input."""
-    selected = []
+# ═══════════════════════════════════════════════
+# FILE PICKER
+# ═══════════════════════════════════════════════
 
-    # Try tkinter file dialog
+def open_file_picker():
+    """Open a native file picker. Returns list of file paths."""
     try:
         import tkinter as tk
         from tkinter import filedialog
         root = tk.Tk()
-        root.withdraw()  # Hide the main window
-        root.attributes('-topmost', True)  # Bring dialog to front
+        root.withdraw()
+        root.attributes('-topmost', True)
 
         filetypes = [
             ('Proposal files', '*.xlsx *.xls *.docx *.pdf'),
@@ -160,354 +245,304 @@ def open_file_picker():
             filetypes=filetypes,
         )
         root.destroy()
+        return list(files) if files else []
 
-        if files:
-            selected = list(files)
-            return selected
-        else:
-            print("  No files selected.")
-            return []
-
-    except Exception:
-        pass  # tkinter not available, fall through to manual input
-
-    # Fallback: manual path input
-    print("  File picker not available. Enter file paths manually.")
-    print("  (Enter each path on its own line, blank line when done)")
-    print()
-    while True:
-        path = input("  File path: ").strip().strip('"').strip("'")
-        if not path:
-            break
-        if os.path.isfile(path):
-            selected.append(path)
-            print(f"    ✓ Added: {os.path.basename(path)}")
-        else:
-            print(f"    ✗ Not found: {path}")
-
-    return selected
+    except Exception as e:
+        print(f"  File picker error: {e}")
+        print("  Enter file paths manually (blank line to finish):")
+        files = []
+        while True:
+            path = input("  Path: ").strip().strip('"').strip("'")
+            if not path:
+                break
+            if os.path.isfile(path):
+                files.append(path)
+                print(f"    ✓ {os.path.basename(path)}")
+            else:
+                print(f"    ✗ Not found")
+        return files
 
 
-def collect_files_from_dir(dirpath):
-    """Recursively find all supported files in a directory."""
-    found = []
-    for root, dirs, files in os.walk(dirpath):
-        # Skip hidden directories
-        dirs[:] = [d for d in dirs if not d.startswith('.')]
-        for f in sorted(files):
-            ext = os.path.splitext(f)[1].lower()
-            if ext in SUPPORTED_EXTENSIONS:
-                found.append(os.path.join(root, f))
-    return found
+# ═══════════════════════════════════════════════
+# GITHUB UPLOAD
+# ═══════════════════════════════════════════════
+
+def _github_request(endpoint, method="GET", data=None):
+    """Make a GitHub API request using the loaded token."""
+    url = f"{GITHUB_API}/{endpoint}" if not endpoint.startswith("http") else endpoint
+
+    headers = {
+        "Authorization": f"token {_github_token}",
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "AEGIS-StructureTool",
+    }
+
+    body = None
+    if data is not None:
+        body = json.dumps(data).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+
+    req = urllib.request.Request(url, data=body, headers=headers, method=method)
+
+    ctx = ssl.create_default_context()
+    try:
+        resp = urllib.request.urlopen(req, context=ctx, timeout=30)
+    except ssl.SSLError:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        resp = urllib.request.urlopen(req, context=ctx, timeout=30)
+
+    return json.loads(resp.read().decode("utf-8"))
 
 
-def filter_by_deps(files, deps):
-    """Remove files we can't process due to missing dependencies."""
-    filtered = []
-    skipped = []
-    for f in files:
-        ext = os.path.splitext(f)[1].lower()
-        if ext in ('.xlsx', '.xls') and not deps['xlsx']:
-            skipped.append((f, 'openpyxl not installed'))
-        elif ext == '.docx' and not deps['docx']:
-            skipped.append((f, 'python-docx not installed'))
-        elif ext == '.pdf' and not deps['pdf']:
-            skipped.append((f, 'pdfplumber/PyMuPDF not installed'))
-        else:
-            filtered.append(f)
-    return filtered, skipped
+def upload_to_github(json_content, filename):
+    """Upload a JSON file to the structure_reports/ folder on GitHub."""
+    path = f"{GITHUB_REPORT_DIR}/{filename}"
 
+    # Check if file already exists
+    existing_sha = None
+    try:
+        existing = _github_request(f"contents/{path}?ref={GITHUB_BRANCH}")
+        existing_sha = existing.get("sha")
+    except urllib.error.HTTPError as e:
+        if e.code != 404:
+            raise
+
+    content_b64 = base64.b64encode(json_content.encode("utf-8")).decode("utf-8")
+
+    payload = {
+        "message": f"Structure analysis: {filename}",
+        "content": content_b64,
+        "branch": GITHUB_BRANCH,
+    }
+    if existing_sha:
+        payload["sha"] = existing_sha
+
+    result = _github_request(f"contents/{path}", method="PUT", data=payload)
+
+    return result.get("content", {}).get(
+        "html_url",
+        f"https://github.com/{GITHUB_REPO}/blob/{GITHUB_BRANCH}/{path}"
+    )
+
+
+# ═══════════════════════════════════════════════
+# ANALYSIS
+# ═══════════════════════════════════════════════
 
 def run_analysis(files, modules):
-    """Run structure analysis on the file list."""
+    """Run structure analysis on selected files."""
     analyze_single = modules['analyze_proposal_structure']
     analyze_batch = modules['analyze_batch_structure']
+    count = len(files)
 
-    file_count = len(files)
-    print(f"  Analyzing {file_count} file{'s' if file_count != 1 else ''}...")
+    print(f"  Analyzing {count} file{'s' if count != 1 else ''}...")
     print()
 
-    if file_count == 1:
-        # Single file — use single analysis
+    if count == 1:
         filepath = files[0]
         filename = os.path.basename(filepath)
-        print(f"    Processing: {filename}")
+        print(f"    Processing: {filename}...", end=" ", flush=True)
 
         try:
             result = analyze_single(filepath)
             result['file_info']['original_filename'] = filename
-            result['_meta']['tool'] = 'AEGIS Proposal Structure Analyzer (Standalone)'
+            result['_meta']['tool'] = 'AEGIS Structure Tool (Desktop)'
             result['_meta']['standalone_version'] = VERSION
-
-            # Determine output filename
             base = os.path.splitext(filename)[0]
-            output_name = f"{base}_structure_analysis.json"
-            print(f"    ✓ Analysis complete")
+            safe_base = re.sub(r'[^\w\-.]', '_', base)
+            output_name = f"{safe_base}_structure.json"
+            print("done")
             return result, output_name
-
         except Exception as e:
-            print(f"    ✗ Error: {e}")
+            print(f"ERROR: {e}")
             return None, None
-
     else:
-        # Multiple files — use batch analysis
         file_tuples = [(f, os.path.basename(f)) for f in files]
 
         for i, (fp, fn) in enumerate(file_tuples, 1):
-            print(f"    [{i}/{file_count}] {fn}...", end=" ", flush=True)
-            try:
-                # Quick test that the file is readable
-                with open(fp, 'rb') as test:
-                    test.read(4)
-                print("queued")
-            except Exception as e:
-                print(f"ERROR: {e}")
+            print(f"    [{i}/{count}] {fn}")
 
         print()
-        print("  Running batch analysis...")
+        print("  Running batch analysis...", end=" ", flush=True)
 
         try:
             result = analyze_batch(file_tuples)
-            result['_meta']['tool'] = 'AEGIS Batch Structure Analyzer (Standalone)'
+            result['_meta']['tool'] = 'AEGIS Batch Structure Tool (Desktop)'
             result['_meta']['standalone_version'] = VERSION
 
-            output_name = "batch_structure_analysis.json"
             succeeded = result['_meta']['files_succeeded']
             failed = result['_meta']['files_failed']
 
-            print(f"    ✓ Batch complete: {succeeded} succeeded, {failed} failed")
-            return result, output_name
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            output_name = f"batch_{count}files_{timestamp}.json"
 
+            print(f"done — {succeeded} succeeded, {failed} failed")
+            return result, output_name
         except Exception as e:
-            print(f"    ✗ Batch error: {e}")
+            print(f"ERROR: {e}")
             return None, None
 
 
-def save_result(result, output_name, output_dir=None):
-    """Save the JSON result to disk."""
-    if output_dir:
-        os.makedirs(output_dir, exist_ok=True)
-        output_path = os.path.join(output_dir, output_name)
-    else:
-        output_path = output_name
-
-    with open(output_path, 'w', encoding='utf-8') as f:
-        json.dump(result, f, indent=2, ensure_ascii=False)
-
-    size = os.path.getsize(output_path)
-    size_label = f"{size / 1024:.1f} KB" if size > 1024 else f"{size} bytes"
-
-    return output_path, size_label
-
-
-def print_summary(result, output_path, size_label):
-    """Print a summary of the analysis results."""
+def print_summary(result, github_url, local_path):
+    """Print results summary."""
     print()
     print("=" * 62)
     print("  RESULTS")
     print("-" * 62)
-    print(f"  Output file: {output_path}")
-    print(f"  File size:   {size_label}")
-    print()
 
     meta = result.get('_meta', {})
     file_count = meta.get('file_count', 1)
 
-    if file_count == 1:
-        # Single file summary
+    if file_count and file_count > 1:
+        cross = result.get('cross_file_summary', {})
+        print(f"  Files:            {meta.get('files_succeeded', 0)} OK, {meta.get('files_failed', 0)} failed")
+        print(f"  Tables found:     {cross.get('total_tables_found', 0)} ({cross.get('total_financial_tables', 0)} financial)")
+        print(f"  Line items:       {cross.get('total_line_items', 0)}")
+        print(f"  Avg completeness: {cross.get('avg_extraction_completeness', 0)}%")
+    else:
         assessment = result.get('overall_assessment', {})
         completeness = assessment.get('extraction_completeness', {})
-        tables = assessment.get('total_tables_found', 0)
-        financial = assessment.get('financial_tables', 0)
-        items = assessment.get('total_line_items', 0)
-        score = completeness.get('overall', 0)
+        print(f"  Tables found:     {assessment.get('total_tables_found', 0)} ({assessment.get('financial_tables', 0)} financial)")
+        print(f"  Line items:       {assessment.get('total_line_items', 0)}")
+        print(f"  Completeness:     {completeness.get('overall', 0)}%")
+
         suggestions = assessment.get('parser_suggestions', [])
-
-        print(f"  Tables found:     {tables} ({financial} financial)")
-        print(f"  Line items:       {items}")
-        print(f"  Completeness:     {score}%")
-        print(f"  Company detected: {'Yes' if assessment.get('has_company_name') else 'No'}")
-        print(f"  Contract term:    {'Yes' if assessment.get('has_contract_term') else 'No'}")
-
         if suggestions:
             print()
-            print("  Parser suggestions:")
+            print("  Parser notes:")
             for s in suggestions[:5]:
-                print(f"    • {s}")
-
-    else:
-        # Batch summary
-        cross = result.get('cross_file_summary', {})
-        succeeded = meta.get('files_succeeded', 0)
-        failed = meta.get('files_failed', 0)
-
-        print(f"  Files analyzed:   {succeeded} succeeded, {failed} failed")
-        print(f"  Total tables:     {cross.get('total_tables_found', 0)} ({cross.get('total_financial_tables', 0)} financial)")
-        print(f"  Total line items: {cross.get('total_line_items', 0)}")
-        print(f"  Avg completeness: {cross.get('avg_extraction_completeness', 0)}%")
-
-        by_type = cross.get('files_by_type', {})
-        if by_type:
-            print(f"  File types:       {', '.join(f'{v} {k}' for k, v in by_type.items())}")
-
-        common_sug = cross.get('common_parser_suggestions', [])
-        if common_sug:
-            print()
-            print("  Common parser suggestions:")
-            for s in common_sug[:5]:
-                print(f"    • {s}")
+                print(f"    - {s}")
 
     print()
     print("-" * 62)
-    print("  ✅ This JSON is privacy-safe — upload to GitHub for review.")
-    print("     No dollar amounts, company names, or descriptions included.")
+    print(f"  Saved locally:  {local_path}")
+    if github_url and not github_url.startswith("("):
+        print(f"  On GitHub:      {github_url}")
+    else:
+        print(f"  GitHub:         {github_url}")
+    print()
+    print("  Done! This JSON is privacy-safe — no dollar amounts,")
+    print("  company names, or descriptions are included.")
     print("=" * 62)
     print()
 
 
-# ──────────────────────────────────────────────
-# Main
-# ──────────────────────────────────────────────
+# ═══════════════════════════════════════════════
+# MAIN
+# ═══════════════════════════════════════════════
 
 def main():
     print_banner()
 
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(
-        description='AEGIS Proposal Structure Analyzer — Standalone diagnostic tool',
-        epilog='If no files specified, opens a file picker dialog.',
-    )
-    parser.add_argument(
-        'files', nargs='*',
-        help='Proposal files to analyze (.xlsx, .xls, .docx, .pdf)',
-    )
-    parser.add_argument(
-        '--dir', '-d',
-        help='Directory to scan for proposal files',
-    )
-    parser.add_argument(
-        '--output', '-o',
-        help='Output directory for JSON results (default: current directory)',
-    )
-    parser.add_argument(
-        '--verbose', '-v', action='store_true',
-        help='Show detailed logging',
-    )
-    args = parser.parse_args()
+    # Step 1: Find AEGIS
+    print("  Looking for AEGIS install...", end=" ", flush=True)
+    aegis_dir = find_aegis_install()
 
-    if args.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
+    if not aegis_dir:
+        print("NOT FOUND")
+        print()
+        print("  Could not find AEGIS automatically.")
+        print("  Enter the path to your AEGIS folder:")
+        aegis_dir = input("  AEGIS path: ").strip().strip('"').strip("'")
+        if not aegis_dir or not os.path.isdir(aegis_dir):
+            print("  Invalid path. Exiting.")
+            input("\n  Press Enter to close...")
+            sys.exit(1)
+        parser_check = os.path.join(aegis_dir, "proposal_compare", "parser.py")
+        if not os.path.isfile(parser_check):
+            print(f"  proposal_compare/parser.py not found in {aegis_dir}")
+            input("\n  Press Enter to close...")
+            sys.exit(1)
 
-    # Step 1: Check dependencies
-    deps = check_dependencies()
-    print_dependency_status(deps)
+    print(f"found!")
+    print(f"    {aegis_dir}")
+    print()
 
-    if not any([deps['xlsx'], deps['docx'], deps['pdf']]):
-        print("  ERROR: No file format libraries installed.")
-        print("  Install at least one: pip install openpyxl python-docx pdfplumber")
-        sys.exit(1)
-
-    # Step 2: Find AEGIS modules
-    print("  Loading AEGIS parser modules...", end=" ", flush=True)
-    modules = find_aegis_modules()
+    # Step 2: Load modules
+    print("  Loading parser...", end=" ", flush=True)
+    modules = load_aegis_modules(aegis_dir)
     if not modules['available']:
         print("FAILED")
+        print(f"  Error: {modules.get('error', 'unknown')}")
         print()
-        print("  ERROR: Could not import proposal_compare modules.")
-        print(f"  Detail: {modules.get('error', 'unknown')}")
-        print()
-        print("  This script must be in the AEGIS install directory")
-        print("  (same folder as app.py and the proposal_compare/ folder).")
-        print()
-        print("  Expected location:")
-        print(f"    {os.path.dirname(os.path.abspath(__file__))}/")
-        print("    ├── app.py")
-        print("    ├── proposal_compare/")
-        print("    │   ├── parser.py")
-        print("    │   └── structure_analyzer.py")
-        print("    └── proposal_structure_tool.py  ← this script")
+        print("  You may need: pip install openpyxl python-docx pdfplumber")
+        input("\n  Press Enter to close...")
         sys.exit(1)
     print("OK")
     print()
 
-    # Step 3: Collect files
-    files = []
-
-    if args.dir:
-        # Scan directory
-        dirpath = os.path.abspath(args.dir)
-        if not os.path.isdir(dirpath):
-            print(f"  ERROR: Directory not found: {dirpath}")
-            sys.exit(1)
-        print(f"  Scanning directory: {dirpath}")
-        files = collect_files_from_dir(dirpath)
-        if not files:
-            print("  No supported files found in directory.")
-            sys.exit(0)
-        print(f"  Found {len(files)} files")
-        print()
-
-    elif args.files:
-        # Files from command line — expand globs on Windows
-        for pattern in args.files:
-            expanded = glob.glob(pattern)
-            if expanded:
-                files.extend(expanded)
-            elif os.path.isfile(pattern):
-                files.append(pattern)
-            else:
-                print(f"  WARNING: Not found: {pattern}")
-
+    # Step 3: Load GitHub token
+    has_token = load_token()
+    if has_token:
+        print("  GitHub upload: enabled")
     else:
-        # No args — open file picker
-        print("  No files specified — opening file picker...")
-        print()
-        files = open_file_picker()
-
-    if not files:
-        print("  No files to analyze. Exiting.")
-        sys.exit(0)
-
-    # Deduplicate and validate
-    seen = set()
-    unique_files = []
-    for f in files:
-        abspath = os.path.abspath(f)
-        if abspath not in seen:
-            seen.add(abspath)
-            ext = os.path.splitext(f)[1].lower()
-            if ext in SUPPORTED_EXTENSIONS:
-                unique_files.append(abspath)
-            else:
-                print(f"  Skipping unsupported: {os.path.basename(f)}")
-    files = unique_files
-
-    # Filter by available dependencies
-    files, skipped = filter_by_deps(files, deps)
-    for sf, reason in skipped:
-        print(f"  Skipping {os.path.basename(sf)}: {reason}")
-
-    if not files:
-        print("  No processable files remain. Exiting.")
-        sys.exit(0)
-
-    print(f"  Files to analyze: {len(files)}")
-    for f in files:
-        print(f"    • {os.path.basename(f)}")
+        print("  GitHub upload: disabled (no token)")
+        print("  Results will be saved locally only.")
     print()
 
-    # Step 4: Run analysis
-    result, output_name = run_analysis(files, modules)
+    # Step 4: Pick files
+    print("  Opening file picker — select your proposal files...")
+    print()
+    files = open_file_picker()
+
+    if not files:
+        print("  No files selected.")
+        input("\n  Press Enter to close...")
+        sys.exit(0)
+
+    # Filter to supported types
+    supported = modules.get('SUPPORTED_EXTENSIONS', {'.xlsx', '.xls', '.docx', '.pdf'})
+    valid_files = []
+    for f in files:
+        ext = os.path.splitext(f)[1].lower()
+        if ext in supported:
+            valid_files.append(f)
+        else:
+            print(f"  Skipping: {os.path.basename(f)} (unsupported type)")
+
+    if not valid_files:
+        print("  No supported files selected.")
+        input("\n  Press Enter to close...")
+        sys.exit(0)
+
+    print(f"  Selected {len(valid_files)} file(s):")
+    for f in valid_files:
+        print(f"    - {os.path.basename(f)}")
+    print()
+
+    # Step 5: Analyze
+    result, output_name = run_analysis(valid_files, modules)
 
     if result is None:
-        print("  Analysis failed. Check the error messages above.")
+        print("  Analysis failed.")
+        input("\n  Press Enter to close...")
         sys.exit(1)
 
-    # Step 5: Save output
-    output_path, size_label = save_result(result, output_name, args.output)
+    # Step 6: Save local copy (next to the script)
+    json_str = json.dumps(result, indent=2, ensure_ascii=False)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    local_path = os.path.join(script_dir, output_name)
+    with open(local_path, 'w', encoding='utf-8') as f:
+        f.write(json_str)
 
-    # Step 6: Print summary
-    print_summary(result, output_path, size_label)
+    # Step 7: Upload to GitHub (if token available)
+    github_url = "(no token — saved locally only)"
+    if _github_token:
+        print()
+        print("  Uploading to GitHub...", end=" ", flush=True)
+        try:
+            github_url = upload_to_github(json_str, output_name)
+            print("done!")
+        except Exception as e:
+            print(f"failed: {e}")
+            github_url = f"(upload failed: {e})"
+
+    # Step 8: Summary
+    print_summary(result, github_url, local_path)
+
+    input("  Press Enter to close...")
 
 
 if __name__ == '__main__':
