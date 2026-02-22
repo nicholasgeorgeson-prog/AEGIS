@@ -167,7 +167,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.9.52
+- **Current version**: 6.0.0
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -1165,6 +1165,25 @@ Chain batches sequentially: each batch's commit becomes the next batch's parent,
 **Toggle implementation**: Frontend reads `localStorage` for instant UI state. Backend reads `config.json` for Python-side gating. Toggle change handler writes to both stores. Each learner's `_is_learning_enabled()` checks `config.json` at call time (not cached).
 **Files**: `routes/config_routes.py` (endpoints), `templates/index.html` (tab + panel + viewer modal), `static/js/app.js` (Learning tab IIFE ~200 lines), `static/css/features/settings.css` (~170 lines), all 5 learner modules (guard functions).
 **Lesson**: For feature toggle systems that span frontend + backend: (1) Dual-persist the toggle (localStorage for instant UI, config.json for Python). (2) Backend modules should read config.json at call time, not cache it — the user may toggle mid-session. (3) The Settings UI should lazy-load stats on tab open (not on Settings modal open) to avoid unnecessary API calls. (4) Per-module actions (view/export/clear) should use a registry pattern (`_LEARNER_MODULES`) rather than hardcoded routes for each module. (5) Clear operations need confirmation dialogs — use double confirmation for "Clear All" (first confirm, then type-to-confirm would be ideal but simple confirm is acceptable for local-only tools).
+
+### 129. Cinematic Technology Showcase — Canvas Animation Engine (v5.9.54)
+**Feature**: Full-screen Canvas-animated cinematic video showcasing AEGIS capabilities. Cyberpunk HUD aesthetic (Iron Man's JARVIS meets Tron). Launched from "Behind the Scenes" tile on landing page.
+**Architecture**: `window.CinematicVideo` IIFE with Engine object, easing library, particle systems, camera system, scene sequencer, and control bar.
+**Story Structure**: 6 acts, 18 scenes, ~6-8 minutes:
+- Act 1 (The Problem): doc_chaos, standards_wall, breaking_point
+- Act 2 (The Solution): aegis_boot, hud_activates, document_scan
+- Act 3 (Deep Dive): review_engine, statement_forge, roles_studio, proposal_compare, hyperlink_validator, learning_system
+- Act 4 (The Numbers): stat_cascade, architecture_overview
+- Act 5 (Air-Gapped): fortress, classified_ready
+- Act 6 (Finale): convergence, logo_reveal
+**Canvas techniques**: HiDPI (`dpr` scaling), glow/bloom (`shadowBlur`), scanlines (offscreen `createPattern()`), vignette (`createRadialGradient()`), data rain (gold Matrix-style columns), particle systems (ambient + burst), circuit board patterns (offscreen caching), camera lerp.
+**Narration**: 18 pre-generated MP3 clips via edge-tts JennyNeural in `static/audio/cinema/manifest.json`. Provider chain: MP3 → Web Speech API → silent timer.
+**Controls**: Glassmorphism bar (opacity 0→1 on hover/pause), play/pause, progress scrub, volume, fullscreen, close. Space/Escape keyboard.
+**z-index**: 155000 (overlay), 155002 (subtitle), 155003 (controls).
+**Files**: `static/js/features/technology-showcase.js` (IIFE, ~1500 lines), `static/css/features/technology-showcase.css` (~250 lines), `static/audio/cinema/` (18 MP3s + manifest.json), `demo_audio_generator.py` (`generate_cinema_audio()` + `get_cinema_scenes()`)
+**Modified**: `templates/index.html` (cinema modal + CSS/script tags), `static/js/features/landing-page.js` (tile + dispatch)
+**Public API**: `CinematicVideo.play()`, `.pause()`, `.resume()`, `.stop()`, `.seek(fraction)`
+**Lesson**: For cinematic Canvas animations, use offscreen canvas caching for static elements (scanlines, circuit board), a central Engine object with RAF loop, and scene functions with setup/render/teardown lifecycle. Beat arrays sync visual callbacks to narration timestamps. Camera lerp with `targetX/targetY/targetZoom` gives smooth transitions between scenes.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

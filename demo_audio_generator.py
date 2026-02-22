@@ -250,6 +250,55 @@ def generate_demo_audio(scenes_data, output_dir='static/audio/demo',
     }
 
 
+def get_cinema_scenes():
+    """
+    Return cinema showcase scene narrations for audio generation.
+    Each scene maps to one narration clip in the cinematic video.
+
+    Returns: dict of {scene_id: [{narration: str}]}
+    """
+    return {
+        'cinema_doc_chaos': [{'narration': 'Aerospace teams are drowning in documents. Thousands of pages across hundreds of deliverables. Each one could contain a mission-grounding error hidden in plain sight.'}],
+        'cinema_standards_wall': [{'narration': 'The standards are endless. MIL-STD-498. DO-178C. IEEE 830. AS9100. Manual review takes weeks and still misses twenty percent of critical issues.'}],
+        'cinema_breaking_point': [{'narration': 'A missed requirement cascades. A defective deliverable ships. The cost to fix grows ten times with every phase. The old way is broken.'}],
+        'cinema_aegis_boot': [{'narration': 'Introducing AEGIS. The Aerospace Engineering Governance and Inspection System. Built for classified networks. Zero cloud dependency. One hundred percent air-gapped.'}],
+        'cinema_hud_activates': [{'narration': 'One hundred and five quality checkers activate. Four extraction strategies. Twelve integrated modules working in concert. The system comes alive.'}],
+        'cinema_document_scan': [{'narration': 'Drop a document. AEGIS dissects every sentence. Grammar. Compliance. Ambiguity. Acronyms. Over one hundred categories, analyzed in under sixty seconds.'}],
+        'cinema_review_engine': [{'narration': 'Seventy-four configurable quality checkers. Grammar, compliance, style, readability, acronyms, cross-references. Every issue deduplicated and severity-graded. Typical review: under sixty seconds.'}],
+        'cinema_statement_forge': [{'narration': 'Statement Forge extracts every shall, must, and will statement. Categorizes by directive type. Assigns responsible roles. Compares across document versions to track what changed.'}],
+        'cinema_roles_studio': [{'narration': 'Every role discovered. Project Manager. Systems Engineer. Quality Lead. A living dictionary built automatically. Adjudication, RACI matrix, inheritance mapping. Zero manual data entry.'}],
+        'cinema_proposal_compare': [{'narration': 'Side-by-side proposal analysis. Financial extraction from any format. Red flag detection per FAR 15.404. Deviation heatmaps. Vendor scores from A through F. All data, no guesswork.'}],
+        'cinema_hyperlink_validator': [{'narration': 'Every URL tested. HEAD, GET, SSL bypass, SSO authentication, headless browser for military and government sites. Six thousand links validated with zero false positives.'}],
+        'cinema_learning_system': [{'narration': 'Five learning modules that remember your corrections. Document review. Statement forge. Roles. Hyperlink validator. Proposal compare. Every pattern stored locally. Zero data ever leaves your machine.'}],
+        'cinema_stat_cascade': [{'narration': 'One hundred and five checkers. One hundred ninety-three API endpoints. Five hundred forty-five audio narration clips. One hundred thirty-seven version releases. Twelve integrated modules. Seven file formats. Four extraction strategies.'}],
+        'cinema_architecture_overview': [{'narration': 'Pure Flask and vanilla JavaScript. No frameworks. No dependencies you cannot control. SQLite for persistence. Canvas for visualization. Every single line of code serves one purpose.'}],
+        'cinema_fortress': [{'narration': 'No internet required. No cloud dependency. No telemetry. One hundred ninety-five prepackaged wheel files. Complete offline installation. Your data never leaves the building.'}],
+        'cinema_classified_ready': [{'narration': 'Deployed inside classified enclaves. DoD facilities. Northrop Grumman secure networks. Windows SSO authentication. SharePoint integration. Built for the environments that need it most.'}],
+        'cinema_convergence': [{'narration': 'Twelve modules. One hundred and five checkers. Five learning systems. One mission. Helping engineers write better documents. Faster. More accurately. Every single time.'}],
+        'cinema_logo_reveal': [{'narration': 'AEGIS. Built by engineers. For engineers.'}],
+    }
+
+
+def generate_cinema_audio(voice=DEFAULT_VOICE, force=False):
+    """
+    Generate audio files for the cinematic technology showcase.
+
+    Args:
+        voice: edge-tts voice name (default: JennyNeural)
+        force: regenerate even if files exist
+
+    Returns:
+        dict with manifest data and generation stats
+    """
+    scenes_data = get_cinema_scenes()
+    return generate_demo_audio(
+        scenes_data,
+        output_dir='static/audio/cinema',
+        voice=voice,
+        force=force
+    )
+
+
 def get_demo_scenes_from_js():
     """
     Extract demo scene narration text from guide-system.js.
