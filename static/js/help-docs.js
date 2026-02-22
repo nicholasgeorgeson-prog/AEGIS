@@ -45,7 +45,7 @@
 'use strict';
 
 const HelpDocs = {
-    version: '5.9.47',
+    version: '5.9.48',
     lastUpdated: '2026-02-21',
     
     config: {
@@ -5539,8 +5539,9 @@ HelpDocs.content['pc-structure'] = {
     title: 'Structure Analyzer',
     subtitle: 'Privacy-safe parsing diagnostics for accuracy refinement',
     html: `
-<h2><i data-lucide="file-search"></i> What Is Structure Analysis? (v5.9.47)</h2>
-<p>The <strong>Analyze Structure</strong> button in the upload phase parses a proposal and produces a <em>privacy-safe structural report</em> that reveals how the parser interpreted the document &mdash; without exposing any proprietary data.</p>
+<h2><i data-lucide="file-search"></i> What Is Structure Analysis? (v5.9.48)</h2>
+<p>The <strong>Analyze Structure</strong> button in the upload phase parses your selected proposals and produces a <em>privacy-safe structural report</em> that reveals how the parser interpreted each document &mdash; without exposing any proprietary data.</p>
+<p><strong>Batch mode (v5.9.48):</strong> Select multiple files (up to 20) and click once &mdash; a single combined JSON downloads with per-file analysis plus a cross-file summary showing aggregate patterns, common parser issues, and extraction quality comparison.</p>
 
 <h2><i data-lucide="shield-check"></i> What&rsquo;s Redacted</h2>
 <table class="help-table">
@@ -5569,11 +5570,22 @@ HelpDocs.content['pc-structure'] = {
 
 <h2><i data-lucide="download"></i> How to Use</h2>
 <ol>
-    <li>Open Proposal Compare and select (or drag) a single proposal file</li>
-    <li>Click <strong>Analyze Structure</strong> &mdash; a JSON file downloads automatically</li>
+    <li>Open Proposal Compare and select (or drag) one or more proposal files</li>
+    <li>The button shows the file count: <strong>Analyze Structure (3 files)</strong></li>
+    <li>Click the button &mdash; a JSON file downloads automatically</li>
     <li>The JSON is safe to share &mdash; it contains no financial data, company names, or proprietary text</li>
     <li>Share the JSON with the developer to diagnose parsing accuracy issues</li>
 </ol>
+
+<h2><i data-lucide="layers"></i> Cross-File Summary (Batch Mode)</h2>
+<p>When analyzing multiple files, the report includes a <code>cross_file_summary</code> section with:</p>
+<ul>
+    <li><strong>Files by type</strong> &mdash; Count of XLSX, DOCX, PDF files analyzed</li>
+    <li><strong>Merged category distribution</strong> &mdash; Aggregated Labor, Material, Travel, etc. across all files</li>
+    <li><strong>Common parser suggestions</strong> &mdash; Issues appearing in 2+ files (indicates systemic patterns)</li>
+    <li><strong>Extraction quality comparison</strong> &mdash; Best/worst file by completeness score</li>
+    <li><strong>Column pattern consistency</strong> &mdash; How consistently the parser finds description, amount, quantity columns</li>
+</ul>
 
 <div class="help-tip">
     <i data-lucide="lightbulb"></i>
@@ -7923,6 +7935,16 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v5.9.48 <span class="changelog-date">February 21, 2026</span></h3>
+        <p><strong>Batch Structure Analysis &mdash; Multi-File Parser Diagnostics</strong></p>
+        <ul>
+            <li><strong>ENH: Batch structure analysis</strong> &mdash; Analyze Structure button now processes ALL selected files (1-20) and downloads a single combined JSON report with per-file analysis plus cross-file summary</li>
+            <li><strong>ENH: Cross-file summary</strong> &mdash; Aggregates tables found, category distribution, column patterns, extraction quality, and common parser issues across all files</li>
+            <li><strong>ENH: File count on button</strong> &mdash; Button shows "Analyze Structure (3 files)" when multiple files are selected</li>
+            <li><strong>ENH: New batch endpoint</strong> &mdash; POST /api/proposal-compare/analyze-batch-structure accepts multiple files via files[] multipart field</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v5.9.47 <span class="changelog-date">February 21, 2026</span></h3>
         <p><strong>Proposal Structure Analyzer &mdash; Privacy-Safe Parser Diagnostics</strong></p>
         <ul>

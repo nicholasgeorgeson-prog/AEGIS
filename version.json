@@ -1,13 +1,24 @@
 {
-  "version": "5.9.47",
+  "version": "5.9.48",
   "release_date": "2026-02-21",
-  "core_version": "5.9.47",
+  "core_version": "5.9.48",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "5.9.48",
+      "date": "2026-02-21",
+      "changes": [
+        "ENH: Batch Structure Analysis — Analyze Structure button now processes ALL selected files (1-20) and downloads a single combined JSON report",
+        "ENH: New batch endpoint POST /api/proposal-compare/analyze-batch-structure accepts multiple files via files[] multipart field",
+        "ENH: Cross-file summary in batch analysis — aggregates tables found, category distribution, column patterns, extraction quality, and common parser issues across all files",
+        "ENH: Analyze Structure button shows file count when multiple files selected (e.g., 'Analyze Structure (3 files)')"
+      ],
+      "title": "Batch Structure Analysis — Multi-File Parser Diagnostics"
+    },
     {
       "version": "5.9.47",
       "date": "2026-02-21",

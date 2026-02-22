@@ -688,3 +688,180 @@ def analyze_and_export(filepath: str, output_path: str = None) -> str:
 
     logger.info(f'[AEGIS StructureAnalyzer] Wrote structure report to {output_path}')
     return output_path
+
+
+# ──────────────────────────────────────────────
+# Batch analysis: multiple files in one report
+# ──────────────────────────────────────────────
+
+def analyze_batch_structure(files: list) -> Dict[str, Any]:
+    """Analyze multiple proposals and return a combined structural report.
+
+    Args:
+        files: List of (filepath, original_filename) tuples.
+
+    Returns:
+        Combined JSON-serializable dict with per-file analyses + cross-file summary.
+    """
+    from datetime import datetime, timezone
+
+    results = []
+    errors = []
+
+    for idx, (filepath, original_name) in enumerate(files):
+        try:
+            analysis = analyze_proposal_structure(filepath)
+            analysis['file_index'] = idx
+            analysis['file_info']['original_filename'] = original_name
+            results.append(analysis)
+        except Exception as e:
+            logger.error(f'[AEGIS BatchStructure] Error on file {idx} ({original_name}): {e}')
+            results.append({
+                'file_index': idx,
+                'file_info': {'original_filename': original_name},
+                '_error': {
+                    'type': type(e).__name__,
+                    'message': _redact_error_message(str(e)),
+                },
+            })
+            errors.append(idx)
+
+    cross_summary = _compute_cross_file_summary(results)
+
+    return {
+        '_meta': {
+            'tool': 'AEGIS Batch Structure Analyzer',
+            'version': '1.0',
+            'purpose': 'Privacy-safe structural analysis for parser accuracy refinement',
+            'note': 'All financial values bucketed, company names removed, descriptions redacted. '
+                    'Original filenames included — review before sharing if confidential.',
+            'file_count': len(files),
+            'files_succeeded': len(files) - len(errors),
+            'files_failed': len(errors),
+            'generated_at': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+        },
+        'files': results,
+        'cross_file_summary': cross_summary,
+    }
+
+
+def _compute_cross_file_summary(results: list) -> Dict[str, Any]:
+    """Aggregate statistics across multiple file analyses."""
+    summary = {
+        'total_files': len(results),
+        'files_by_type': {},
+        'files_succeeded': 0,
+        'files_failed': 0,
+        'total_tables_found': 0,
+        'total_financial_tables': 0,
+        'total_line_items': 0,
+        'avg_extraction_completeness': 0.0,
+        'category_distribution_merged': {},
+        'common_column_patterns': [],
+        'common_parser_suggestions': [],
+        'extraction_quality_summary': {},
+    }
+
+    completeness_scores = []
+    all_suggestions = {}
+    col_pattern_counts = {
+        'has_description_col': 0,
+        'has_amount_col': 0,
+        'has_quantity_col': 0,
+        'has_unit_price_col': 0,
+    }
+    successful_count = 0
+
+    for r in results:
+        # Skip errored files
+        if '_error' in r:
+            summary['files_failed'] += 1
+            continue
+
+        summary['files_succeeded'] += 1
+        successful_count += 1
+
+        # File type distribution
+        ft = r.get('file_info', {}).get('file_type', 'unknown')
+        summary['files_by_type'][ft] = summary['files_by_type'].get(ft, 0) + 1
+
+        # Tables
+        assessment = r.get('overall_assessment', {})
+        summary['total_tables_found'] += assessment.get('total_tables_found', 0)
+        summary['total_financial_tables'] += assessment.get('financial_tables', 0)
+        summary['total_line_items'] += assessment.get('total_line_items', 0)
+
+        # Completeness
+        comp = assessment.get('extraction_completeness', {})
+        if 'overall' in comp:
+            completeness_scores.append(comp['overall'])
+
+        # Merged category distribution
+        cat_dist = r.get('line_items_summary', {}).get('category_distribution', {})
+        for cat, count in cat_dist.items():
+            summary['category_distribution_merged'][cat] = (
+                summary['category_distribution_merged'].get(cat, 0) + count
+            )
+
+        # Parser suggestions frequency
+        suggestions = assessment.get('parser_suggestions', [])
+        for s in suggestions:
+            # Normalize — strip leading numbers/table refs for grouping
+            key = re.sub(r'^Table \d+ ', 'Table N ', s)
+            key = re.sub(r'\d+ of \d+', 'N of M', key)
+            all_suggestions[key] = all_suggestions.get(key, 0) + 1
+
+        # Column inference patterns
+        for ci in r.get('column_inference_details', []):
+            roles = ci.get('inferred_roles', {})
+            if roles.get('description_col') is not None:
+                col_pattern_counts['has_description_col'] += 1
+            if roles.get('amount_col') is not None:
+                col_pattern_counts['has_amount_col'] += 1
+            if roles.get('quantity_col') is not None:
+                col_pattern_counts['has_quantity_col'] += 1
+            if roles.get('unit_price_col') is not None:
+                col_pattern_counts['has_unit_price_col'] += 1
+
+    # Compute averages
+    if completeness_scores:
+        summary['avg_extraction_completeness'] = round(
+            sum(completeness_scores) / len(completeness_scores), 1
+        )
+        best_idx = completeness_scores.index(max(completeness_scores))
+        worst_idx = completeness_scores.index(min(completeness_scores))
+        summary['extraction_quality_summary'] = {
+            'best_file': {
+                'file_index': results[best_idx].get('file_index', best_idx),
+                'completeness': max(completeness_scores),
+            },
+            'worst_file': {
+                'file_index': results[worst_idx].get('file_index', worst_idx),
+                'completeness': min(completeness_scores),
+            },
+        }
+
+    # Common suggestions (appearing in 2+ files)
+    if all_suggestions:
+        summary['common_parser_suggestions'] = [
+            f'{count} files: {sug}' for sug, count in
+            sorted(all_suggestions.items(), key=lambda x: -x[1])
+            if count >= 2
+        ]
+        # Also include unique suggestions if batch is small
+        if not summary['common_parser_suggestions'] and len(results) <= 3:
+            summary['common_parser_suggestions'] = [
+                f'1 file: {sug}' for sug, _ in
+                sorted(all_suggestions.items(), key=lambda x: -x[1])[:5]
+            ]
+
+    # Column pattern consistency
+    if successful_count > 0:
+        ft = summary['total_financial_tables'] or 1
+        for pattern_key, count in col_pattern_counts.items():
+            label = pattern_key.replace('has_', '').replace('_col', ' column').replace('_', ' ')
+            summary['common_column_patterns'].append(
+                f'{label}: found in {count} of {ft} financial tables'
+            )
+
+    return summary

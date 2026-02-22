@@ -1416,3 +1416,90 @@ def analyze_structure():
             'success': False,
             'error': {'message': f'Analysis error: {str(e)}', 'traceback': traceback.format_exc()}
         }), 500
+
+
+@pc_blueprint.route('/api/proposal-compare/analyze-batch-structure', methods=['POST'])
+def analyze_batch_structure_endpoint():
+    """Upload multiple proposals and return a combined privacy-safe structural analysis.
+
+    Expects multipart/form-data with 'files[]' field (1-20 files).
+    Always returns as a downloadable JSON file.
+    """
+    temp_paths = []
+    try:
+        from .parser import SUPPORTED_EXTENSIONS
+        from .structure_analyzer import analyze_batch_structure
+        import time as _time
+
+        uploaded = request.files.getlist('files[]')
+        if not uploaded:
+            return jsonify({
+                'success': False,
+                'error': {'message': 'No files provided. Use "files[]" field.'}
+            }), 400
+
+        if len(uploaded) > 20:
+            return jsonify({
+                'success': False,
+                'error': {'message': f'Too many files ({len(uploaded)}). Maximum 20.'}
+            }), 400
+
+        upload_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            'temp', 'proposals'
+        )
+        os.makedirs(upload_dir, exist_ok=True)
+
+        file_tuples = []
+        for f in uploaded:
+            if not f.filename:
+                continue
+            ext = os.path.splitext(f.filename)[1].lower()
+            if ext not in SUPPORTED_EXTENSIONS:
+                continue
+            safe_name = f'{int(_time.time())}_batchstruct_{f.filename}'
+            temp_path = os.path.join(upload_dir, safe_name)
+            f.save(temp_path)
+            temp_paths.append(temp_path)
+            file_tuples.append((temp_path, f.filename))
+
+        if not file_tuples:
+            return jsonify({
+                'success': False,
+                'error': {'message': 'No valid files to analyze. Supported: .xlsx, .docx, .pdf'}
+            }), 400
+
+        # Run batch analysis
+        analysis = analyze_batch_structure(file_tuples)
+
+        # Return as downloadable JSON
+        import io
+        json_str = json.dumps(analysis, indent=2, ensure_ascii=False)
+        buf = io.BytesIO(json_str.encode('utf-8'))
+        buf.seek(0)
+
+        download_name = 'batch_structure_analysis.json'
+        if len(file_tuples) == 1:
+            base_name = os.path.splitext(file_tuples[0][1])[0]
+            download_name = f'{base_name}_structure_analysis.json'
+
+        return send_file(
+            buf,
+            mimetype='application/json',
+            as_attachment=True,
+            download_name=download_name
+        )
+
+    except Exception as e:
+        logger.error(f'Batch structure analysis error: {e}', exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': {'message': f'Analysis error: {str(e)}'}
+        }), 500
+    finally:
+        # Clean up ALL temp files
+        for tp in temp_paths:
+            try:
+                os.unlink(tp)
+            except Exception:
+                pass

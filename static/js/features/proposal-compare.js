@@ -539,7 +539,7 @@ window.ProposalCompare = (function() {
                         '<i data-lucide="scan-search"></i> Extract Financial Data' +
                     '</button>' +
                     '<button class="pc-btn pc-btn-ghost pc-btn-sm" id="pc-btn-structure" disabled' +
-                    '        title="Parse a single file and download a privacy-safe structural analysis (no financial values or company names)">' +
+                    '        title="Download a privacy-safe structural analysis of all selected files — safe for sharing with developers">' +
                         '<i data-lucide="file-search"></i> Analyze Structure' +
                     '</button>' +
                 '</div>' +
@@ -649,10 +649,16 @@ window.ProposalCompare = (function() {
             var minFiles = Math.max(0, 2 - existingCount);
             btn.disabled = State.files.length < Math.max(1, minFiles);
         }
-        // Structure analysis works on a single file
+        // Structure analysis — works on all selected files
         var structBtn = document.getElementById('pc-btn-structure');
         if (structBtn) {
             structBtn.disabled = State.files.length < 1;
+            var structLabel = 'Analyze Structure';
+            if (State.files.length > 1) {
+                structLabel = 'Analyze Structure (' + State.files.length + ' files)';
+            }
+            structBtn.innerHTML = '<i data-lucide="file-search"></i> ' + structLabel;
+            if (window.lucide) window.lucide.createIcons();
         }
     }
 
@@ -663,12 +669,14 @@ window.ProposalCompare = (function() {
     async function analyzeStructure() {
         if (State.files.length < 1) return;
 
-        // If multiple files, analyze just the first one
-        var file = State.files[0];
+        var fileCount = State.files.length;
         var btn = document.getElementById('pc-btn-structure');
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = '<i data-lucide="loader-2" class="pc-spin"></i> Analyzing...';
+            var loadLabel = fileCount > 1
+                ? 'Analyzing ' + fileCount + ' files...'
+                : 'Analyzing...';
+            btn.innerHTML = '<i data-lucide="loader-2" class="pc-spin"></i> ' + loadLabel;
             if (window.lucide) window.lucide.createIcons();
         }
 
@@ -678,9 +686,11 @@ window.ProposalCompare = (function() {
             var csrfToken = csrfMeta ? csrfMeta.content : '';
 
             var formData = new FormData();
-            formData.append('file', file);
+            State.files.forEach(function(f) {
+                formData.append('files[]', f);
+            });
 
-            var resp = await fetch('/api/proposal-compare/analyze-structure?download=1', {
+            var resp = await fetch('/api/proposal-compare/analyze-batch-structure', {
                 method: 'POST',
                 headers: { 'X-CSRF-Token': csrfToken },
                 body: formData,
@@ -695,8 +705,9 @@ window.ProposalCompare = (function() {
 
             // Download the JSON file
             var blob = await resp.blob();
-            var baseName = file.name.replace(/\.[^.]+$/, '');
-            var downloadName = baseName + '_structure_analysis.json';
+            var downloadName = fileCount > 1
+                ? 'batch_structure_analysis.json'
+                : State.files[0].name.replace(/\.[^.]+$/, '') + '_structure_analysis.json';
 
             var a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
@@ -709,7 +720,9 @@ window.ProposalCompare = (function() {
             }, 200);
 
             if (typeof showToast === 'function') {
-                showToast('Structure analysis downloaded: ' + downloadName, 'success');
+                var toastMsg = 'Structure analysis downloaded';
+                if (fileCount > 1) toastMsg += ' (' + fileCount + ' files)';
+                showToast(toastMsg, 'success');
             }
 
         } catch(err) {
@@ -720,7 +733,11 @@ window.ProposalCompare = (function() {
         } finally {
             if (btn) {
                 btn.disabled = State.files.length < 1;
-                btn.innerHTML = '<i data-lucide="file-search"></i> Analyze Structure';
+                var restoreLabel = 'Analyze Structure';
+                if (State.files.length > 1) {
+                    restoreLabel = 'Analyze Structure (' + State.files.length + ' files)';
+                }
+                btn.innerHTML = '<i data-lucide="file-search"></i> ' + restoreLabel;
                 if (window.lucide) window.lucide.createIcons();
             }
         }
