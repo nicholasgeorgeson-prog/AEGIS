@@ -289,6 +289,74 @@
           "size": 87552
         }
       ]
+    },
+    "pattern_learning": {
+      "steps": [
+        {
+          "file": "pattern_learning__step0.mp3",
+          "text": "Every time you upload a proposal, AEGIS takes a snapshot of the raw extraction results before you make any changes. This snapshot is the baseline that the learning system compares against your edits to understand what needs improving.",
+          "hash": "4bc9c570",
+          "size": 82800
+        },
+        {
+          "file": "pattern_learning__step1.mp3",
+          "text": "When you correct a company name, change a line item category, or fix an amount in the Review phase, AEGIS records the difference between what it extracted and what you changed it to. These corrections become learned patterns stored in a local file called parser patterns dot json.",
+          "hash": "fc4b165c",
+          "size": 100368
+        },
+        {
+          "file": "pattern_learning__step2.mp3",
+          "text": "After you click Compare, the learning system computes a diff between the original extraction and your edits. Category corrections, company name fixes, and table header patterns are all captured. Patterns activate after two or more consistent corrections to prevent learning from one-off mistakes.",
+          "hash": "f341a3b0",
+          "size": 112176
+        },
+        {
+          "file": "pattern_learning__step3.mp3",
+          "text": "On your next upload, learned patterns are applied automatically. The parser checks your saved category overrides before its built-in rules, uses your company name corrections as the first detection strategy, and recognizes table header signatures you have validated. All pattern data stays one hundred percent local on your machine \u2014 nothing is ever uploaded.",
+          "hash": "f9112b9b",
+          "size": 130608
+        }
+      ]
+    },
+    "learning_system": {
+      "steps": [
+        {
+          "file": "learning_system__step0.mp3",
+          "text": "AEGIS learns from every correction you make across all five modules. Each module has its own local pattern file that records what you change and applies those patterns automatically in future sessions. No data is ever uploaded \u2014 everything stays on your machine.",
+          "hash": "199cd834",
+          "size": 99792
+        },
+        {
+          "file": "learning_system__step1.mp3",
+          "text": "In Document Review, when you dismiss an issue category or apply a fix through Fix Assistant, the review learner records the pattern. After two consistent dismissals, that issue type is automatically suppressed for similar documents. Severity overrides also carry forward.",
+          "hash": "c7d86085",
+          "size": 106848
+        },
+        {
+          "file": "learning_system__step2.mp3",
+          "text": "Statement Forge learning captures directive corrections and role assignments. When you change a statement directive from Shall to Should or reassign a role, the forge remembers. Batch edit preferences and deletion patterns are also tracked with a higher safety threshold of three corrections.",
+          "hash": "8855378b",
+          "size": 104400
+        },
+        {
+          "file": "learning_system__step3.mp3",
+          "text": "Roles Studio learning records adjudication decisions. Category assignments, deliverable flags, disposition choices, and role type patterns are all captured. The next time you adjudicate a similar role, AEGIS suggests the category and type based on your previous decisions.",
+          "hash": "8e072607",
+          "size": 109440
+        },
+        {
+          "file": "learning_system__step4.mp3",
+          "text": "The Hyperlink Validator learns which domains you trust, which you exclude, and which require headless browser validation. Status overrides from your manual corrections are remembered. Trusted domain patterns activate after two confirmations.",
+          "hash": "5a8658a5",
+          "size": 93744
+        },
+        {
+          "file": "learning_system__step5.mp3",
+          "text": "All learned patterns require at least two consistent corrections before activating \u2014 this prevents learning from one-off mistakes. Destructive patterns like auto-deletion require three corrections. You can view and clear learning data from the Data Management tab using the Clear Learning Data button.",
+          "hash": "7d00ee92",
+          "size": 108144
+        }
+      ]
     }
   }
 }

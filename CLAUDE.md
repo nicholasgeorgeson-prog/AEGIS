@@ -167,7 +167,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 5.9.47
+- **Current version**: 5.9.52
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -1114,6 +1114,57 @@ Chain batches sequentially: each batch's commit becomes the next batch's parent,
 **Frontend**: "Analyze Structure" button in upload phase (enabled when 1+ files selected), sends first file to API with `?download=1`, creates blob URL + `<a>` click for download.
 **Files**: `proposal_compare/structure_analyzer.py` (NEW), `proposal_compare/routes.py` (new endpoint), `proposal-compare.js` (button + handler), `help-docs.js` (pc-structure section)
 **Lesson**: When users need to share parser diagnostic data without revealing proprietary content, bucket financial values into ranges, replace text with structural metrics (length, word count, pattern type), and classify headers into standard financial roles. The structure report tells you EVERYTHING about how the parser interpreted the document without revealing ANYTHING about what the document contains.
+
+### 126. Local Pattern Learning System — Learn from User Corrections (v5.9.49)
+**Feature**: `proposal_compare/pattern_learner.py` — computes diffs between the parser's original extraction and the user's edits, stores learned patterns in `parser_patterns.json`. All data stays on disk, never uploaded.
+**Architecture**: Frontend snapshots `_original_extraction` (deep copy of parser output) on upload before user can edit. When Compare is clicked, the snapshot travels with the proposal JSON. Backend `learn_from_corrections()` in routes.py compares original vs edited data, calls `_learn_categories()`, `_learn_company()`, `_learn_table_signatures()`. Patterns stored in `parser_patterns.json` in the `proposal_compare/` directory.
+**Pattern types**: (1) `category_overrides` — keyword→category mappings from user category corrections, (2) `company_patterns` — filename_hint→company_name from company name corrections, (3) `financial_table_headers` — header signatures from tables with verified financial data, (4) `column_mappings` — (reserved for future) header signatures linked to known column indices.
+**Safety threshold**: Learned patterns only activate after `count >= 2` — prevents learning from one-off mistakes. Uses case-insensitive matching throughout.
+**Application points in parser.py**: `classify_line_item()` checks learned category overrides before hardcoded CATEGORY_PATTERNS. `extract_company_from_text()` checks learned company patterns as Strategy 0 (before all other strategies). `is_financial_table()` checks learned header signatures before keyword/cell-ratio checks.
+**Atomic writes**: `save_patterns()` writes to `.tmp` file then `os.replace()` for crash safety.
+**Cache**: `_learned_patterns` module-level global in parser.py, loaded once on first use. `reload_learned_patterns()` clears cache after new patterns are learned (called from routes.py after `learn_from_corrections()`).
+**Files**: `proposal_compare/pattern_learner.py` (NEW), `proposal_compare/parser.py` (5 fixes + learned pattern integration), `proposal_compare/routes.py` (learning trigger), `static/js/features/proposal-compare.js` (_original_extraction snapshot), `static/js/help-docs.js` (learning docs)
+**5 immediate parser fixes also in this version**: (1) Expanded CATEGORY_PATTERNS for Software/License with 20+ product keywords, (2) Filename-based contract term detection, (3) Column-focused financial table detection, (4) Dynamic confidence scoring based on columns inferred, (5) Relaxed column inference thresholds for sparse tables.
+**Lesson**: For local learning systems: (1) Always snapshot the original output before user edits — you can't compute diffs without a baseline. (2) Use a count threshold (≥2) to prevent learning from mistakes. (3) Check learned patterns BEFORE hardcoded defaults — user corrections should override the code. (4) Atomic file writes prevent corruption if the app crashes mid-save. (5) Module-level cache with explicit reload keeps parser fast while allowing hot-reload after learning.
+
+### 127. Universal Learning System — Per-Module Pattern Files (v5.9.50)
+**Feature**: Extended the Proposal Compare pattern learning system (Lesson 126) to ALL AEGIS modules. Each module now has its own learner file and JSON pattern store.
+**Architecture**: 5 independent learner modules, each following the same pattern:
+| Module | Learner File | Pattern File | Sections |
+|--------|-------------|--------------|----------|
+| Proposal Compare | `proposal_compare/pattern_learner.py` | `proposal_compare/parser_patterns.json` | category_overrides, company_patterns, column_mappings, financial_table_headers |
+| Document Review | `review_learner.py` | `review_patterns.json` | dismissed_categories, fix_patterns, severity_overrides |
+| Statement Forge | `statement_forge/statement_learner.py` | `statement_forge/statement_patterns.json` | directive_corrections, role_assignments, deletion_patterns, batch_preferences |
+| Roles Adjudication | `roles_learner.py` | `roles_patterns.json` | category_patterns, deliverable_patterns, disposition_patterns, role_type_patterns |
+| Hyperlink Validator | `hyperlink_validator/hv_learner.py` | `hyperlink_validator/hv_patterns.json` | status_overrides, trusted_domains, exclusion_domains, headless_required_domains |
+**Integration points**: (1) `core.py` — after `_suppress_for_requirements_doc()`, checks learned dismissed categories and severity overrides. (2) `statement_forge/routes.py` — PUT update_statement triggers `learn_from_statement_edits()`. (3) `scan_history.py` — `batch_adjudicate()` triggers `learn_from_adjudication()`. (4) `hyperlink_validator/routes.py` — exclusion and rescan endpoints trigger learning. (5) `routes/review_routes.py` — Fix Assistant corrections trigger `learn_fix_patterns()`.
+**Aggregation endpoint**: `GET /api/learning/stats` in `config_routes.py` returns stats from all 5 modules.
+**Safety thresholds**: Standard patterns require count >= 2. Destructive patterns (deletion_patterns) require count >= 3. Auto-exclusion suggestions require count >= 3.
+**Non-blocking guarantee**: ALL learning triggers are wrapped in `try/except Exception: pass` — a failure in any learner NEVER blocks core functionality.
+**Lesson**: When extending a learning system across multiple modules: (1) Each module gets its OWN pattern file — never share a single JSON across modules. (2) Integration points should be at the END of successful operations (after adjudication, after save, after export), not in the middle of workflows. (3) All triggers must be non-blocking (`try/except: pass`) because learning is enhancement, not core. (4) Higher safety thresholds for destructive actions (delete, suppress) than for constructive actions (suggest, override). (5) A central `/api/learning/stats` endpoint lets the UI show learning status across all modules.
+
+### 128. Settings UI for Learning System — Management Dashboard (v5.9.52)
+**Feature**: New "Learning" tab in Settings modal providing full user control over the pattern learning system.
+**Architecture**: Settings modal gains a 6th tab ("Learning") with brain icon. Tab content is dynamically rendered from `/api/learning/stats` on each open.
+**UI Components**:
+- **Global toggle**: "Learning Enabled" checkbox — dual-persisted to `localStorage('aegis-learning-enabled')` AND backend `config.json` via `POST /api/config { learningEnabled: bool }`. Each Python learner module reads `config.json` via `_is_learning_enabled()` guard function.
+- **Summary bar**: Gold-bordered stats showing total patterns + last updated across all modules.
+- **Module cards**: 2-column grid of 5 cards (Document Review, Statement Forge, Roles, HV, Proposal Compare). Each shows icon, description, pattern count, last updated, file size. Color-coded by module (blue/yellow/purple/green/rose).
+- **Per-module actions**: View (read-only JSON viewer modal), Export (download JSON), Clear (with confirmation).
+- **Global actions**: Export All (combined JSON with `_export_meta`), Clear All (double confirmation).
+- **Pattern Viewer modal**: `#modal-learning-viewer` at z-index 10200, monospace `<pre>` with syntax-friendly dark bg.
+**Backend endpoints** (7 new in `config_routes.py`):
+1. `GET /api/learning/patterns/<module>` — returns full pattern JSON
+2. `DELETE /api/learning/patterns/<module>` — clears one module's patterns + reloads cache
+3. `DELETE /api/learning/patterns` — clears ALL module patterns
+4. `GET /api/learning/export/<module>` — downloads pattern file as JSON attachment
+5. `GET /api/learning/export` — downloads combined JSON of all modules
+6. Existing `GET /api/learning/stats` — aggregates stats from all 5 modules
+7. Existing `POST /api/config` — now handles `learningEnabled` key (camelCase→snake_case)
+**Module registry**: `_LEARNER_MODULES` dict in config_routes.py maps module IDs to import paths, labels, and descriptions. `_get_learner_module()` helper uses lazy import with try/except.
+**Toggle implementation**: Frontend reads `localStorage` for instant UI state. Backend reads `config.json` for Python-side gating. Toggle change handler writes to both stores. Each learner's `_is_learning_enabled()` checks `config.json` at call time (not cached).
+**Files**: `routes/config_routes.py` (endpoints), `templates/index.html` (tab + panel + viewer modal), `static/js/app.js` (Learning tab IIFE ~200 lines), `static/css/features/settings.css` (~170 lines), all 5 learner modules (guard functions).
+**Lesson**: For feature toggle systems that span frontend + backend: (1) Dual-persist the toggle (localStorage for instant UI, config.json for Python). (2) Backend modules should read config.json at call time, not cache it — the user may toggle mid-session. (3) The Settings UI should lazy-load stats on tab open (not on Settings modal open) to avoid unnecessary API calls. (4) Per-module actions (view/export/clear) should use a registry pattern (`_LEARNER_MODULES`) rather than hardcoded routes for each module. (5) Clear operations need confirmation dialogs — use double confirmation for "Clear All" (first confirm, then type-to-confirm would be ideal but simple confirm is acceptable for local-only tools).
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

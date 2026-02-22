@@ -2639,6 +2639,7 @@ if (document.documentElement.classList.contains('dark-mode')) {
                     <span class="update-badge" id="update-badge" style="display:none;">!</span>
                 </button>
                 <button class="settings-tab" data-tab="troubleshoot" role="tab"><i data-lucide="stethoscope"></i> Diagnostics</button>
+                <button class="settings-tab" data-tab="learning" role="tab"><i data-lucide="brain"></i> Learning</button>
                 <button class="settings-tab" data-tab="data-management" role="tab"><i data-lucide="database"></i> Data</button>
                 <button class="settings-tab" data-tab="sharing" role="tab"><i data-lucide="share-2"></i> Sharing</button>
             </div>
@@ -3362,6 +3363,52 @@ if (document.documentElement.classList.contains('dark-mode')) {
             </div>
         </div>
 
+        <!-- v5.9.52: Learning System Tab -->
+        <div class="settings-content" id="settings-learning">
+            <!-- Global toggle + summary -->
+            <div class="settings-card">
+                <div class="settings-card-header">
+                    <i data-lucide="brain"></i>
+                    <h4>Pattern Learning</h4>
+                    <span class="card-description">AEGIS learns from your corrections to improve future results</span>
+                </div>
+                <div class="settings-toggle">
+                    <div class="settings-toggle-info">
+                        <span class="toggle-label">Enable pattern learning</span>
+                        <span class="toggle-description">When enabled, AEGIS automatically learns from your corrections across all modules. All data stays local.</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="settings-learning-enabled" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="learning-summary-bar" id="learning-summary-bar">
+                    <span class="learning-summary-text" id="learning-summary-text">Loading...</span>
+                </div>
+            </div>
+
+            <!-- Module cards -->
+            <div class="learning-modules-grid" id="learning-modules-grid">
+                <!-- Cards populated by JS -->
+            </div>
+
+            <!-- Global actions -->
+            <div class="settings-card learning-global-actions">
+                <div class="settings-card-header">
+                    <i data-lucide="settings-2"></i>
+                    <h4>Bulk Actions</h4>
+                </div>
+                <div class="learning-action-row">
+                    <button class="btn btn-secondary" id="btn-learning-export-all">
+                        <i data-lucide="download"></i> Export All Patterns
+                    </button>
+                    <button class="btn-danger" id="btn-learning-clear-all">
+                        <i data-lucide="trash-2"></i> Clear All Learning Data
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- v5.9.3: Redesigned Data Management Tab -->
         <div class="settings-content" id="settings-data-management">
             <div class="settings-card">
@@ -3425,6 +3472,22 @@ if (document.documentElement.classList.contains('dark-mode')) {
         <button class="btn btn-secondary modal-close">Cancel</button>
         <button class="btn btn-primary" id="btn-save-settings">Save Settings</button>
     </div>
+    </div>
+</div>
+
+<!-- v5.9.52: Learning Pattern Viewer Modal -->
+<div class="modal" id="modal-learning-viewer" role="dialog" aria-modal="true" aria-labelledby="learning-viewer-title" style="z-index:10200;">
+    <div class="modal-content" style="max-width:720px;max-height:80vh;">
+        <div class="modal-header">
+            <h3 id="learning-viewer-title"><i data-lucide="code-2"></i> <span id="learning-viewer-module-name">Pattern Data</span></h3>
+            <button class="btn btn-ghost modal-close" aria-label="Close pattern viewer"><i data-lucide="x"></i></button>
+        </div>
+        <div class="modal-body" style="padding:0;">
+            <pre id="learning-viewer-content" class="learning-json-viewer">Loading...</pre>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary modal-close">Close</button>
+        </div>
     </div>
 </div>
 
