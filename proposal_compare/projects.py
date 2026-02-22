@@ -115,7 +115,8 @@ def get_project(project_id: int) -> Optional[Dict[str, Any]]:
         row = conn.execute("""
             SELECT p.*,
                    COUNT(pp.id) as proposal_count,
-                   COALESCE(SUM(pp.line_item_count), 0) as total_line_items
+                   COALESCE(SUM(pp.line_item_count), 0) as total_line_items,
+                   COALESCE(SUM(pp.total_amount), 0) as total_value
             FROM pc_projects p
             LEFT JOIN pc_proposals pp ON pp.project_id = p.id
             WHERE p.id = ?
@@ -135,7 +136,8 @@ def list_projects(status: str = 'active') -> List[Dict[str, Any]]:
         rows = conn.execute("""
             SELECT p.*,
                    COUNT(pp.id) as proposal_count,
-                   COALESCE(SUM(pp.line_item_count), 0) as total_line_items
+                   COALESCE(SUM(pp.line_item_count), 0) as total_line_items,
+                   COALESCE(SUM(pp.total_amount), 0) as total_value
             FROM pc_projects p
             LEFT JOIN pc_proposals pp ON pp.project_id = p.id
             WHERE p.status = ? OR ? = 'all'
@@ -743,6 +745,7 @@ def _row_to_project(row) -> Dict[str, Any]:
         'status': row['status'],
         'proposal_count': row['proposal_count'] if 'proposal_count' in row.keys() else 0,
         'total_line_items': row['total_line_items'] if 'total_line_items' in row.keys() else 0,
+        'total_value': row['total_value'] if 'total_value' in row.keys() else 0,
     }
 
 

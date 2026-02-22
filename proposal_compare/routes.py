@@ -1220,6 +1220,115 @@ def get_project_comparisons(project_id):
         return jsonify({'success': False, 'error': {'message': str(e)}}), 500
 
 
+@pc_blueprint.route('/api/proposal-compare/projects/<int:project_id>/financial-summary', methods=['GET'])
+def get_project_financial_summary(project_id):
+    """Get a financial summary dashboard for a project.
+
+    Returns aggregated financial data from the latest comparison:
+    - Per-vendor totals and line item counts
+    - Category breakdown (Labor, Material, Software, etc.)
+    - Contract term groupings (if multi-term)
+    - Price range and spread
+    - Red flag counts
+    - Vendor scores
+    """
+    try:
+        from .projects import list_comparisons_for_project, get_comparison
+        import json as _json
+
+        # Get the latest comparison
+        comps = list_comparisons_for_project(project_id, limit=1)
+        if not comps:
+            return jsonify({
+                'success': True,
+                'data': {'has_comparison': False, 'message': 'No comparisons yet'}
+            })
+
+        comp_id = comps[0]['id']
+        comp_data = get_comparison(comp_id)
+        if not comp_data or not comp_data.get('result_json'):
+            return jsonify({
+                'success': True,
+                'data': {'has_comparison': False, 'message': 'Comparison data not found'}
+            })
+
+        result = _json.loads(comp_data['result_json']) if isinstance(comp_data['result_json'], str) else comp_data['result_json']
+
+        proposals = result.get('proposals', [])
+        totals = result.get('totals', {})
+        categories = result.get('categories', {})
+        red_flags = result.get('red_flags', {})
+        vendor_scores = result.get('vendor_scores', {})
+        heatmap = result.get('heatmap', {})
+
+        # Build vendor summary
+        vendors = []
+        for p in proposals:
+            vid = p.get('id') or p.get('company_name') or p.get('filename', '')
+            total = totals.get(vid)
+            item_count = len(p.get('line_items', []))
+            score_data = vendor_scores.get(vid, {})
+            vendors.append({
+                'vendor_id': vid,
+                'company_name': p.get('company_name', ''),
+                'filename': p.get('filename', ''),
+                'total': total,
+                'line_item_count': item_count,
+                'contract_term': p.get('contract_term', ''),
+                'grade': score_data.get('grade', ''),
+                'overall_score': score_data.get('overall', score_data.get('total_score')),
+            })
+
+        # Build category summary
+        cat_summary = {}
+        for cat_name, cat_data in categories.items():
+            cat_summary[cat_name] = {
+                'vendors': cat_data if isinstance(cat_data, dict) else {},
+            }
+
+        # Count red flags by severity
+        flag_counts = {'critical': 0, 'warning': 0, 'info': 0}
+        for vid, flags in red_flags.items():
+            if isinstance(flags, list):
+                for f in flags:
+                    sev = f.get('severity', 'info') if isinstance(f, dict) else 'info'
+                    flag_counts[sev] = flag_counts.get(sev, 0) + 1
+
+        # Price range
+        total_values = [v for v in totals.values() if v is not None and isinstance(v, (int, float)) and v > 0]
+        price_range = None
+        if total_values:
+            price_range = {
+                'min': min(total_values),
+                'max': max(total_values),
+                'avg': sum(total_values) / len(total_values),
+                'spread': max(total_values) - min(total_values),
+            }
+
+        # Detect term groups
+        terms = list(set(p.get('contract_term', '') for p in proposals if p.get('contract_term')))
+
+        summary = {
+            'has_comparison': True,
+            'comparison_id': comp_id,
+            'comparison_date': comps[0].get('created_at', ''),
+            'vendor_count': len(proposals),
+            'vendors': vendors,
+            'categories': cat_summary,
+            'red_flags': flag_counts,
+            'price_range': price_range,
+            'contract_terms': terms,
+            'totals': totals,
+            'notes': comps[0].get('notes', ''),
+        }
+
+        return jsonify({'success': True, 'data': summary})
+
+    except Exception as e:
+        logger.error(f'Project financial summary error: {e}', exc_info=True)
+        return jsonify({'success': False, 'error': {'message': str(e)}}), 500
+
+
 @pc_blueprint.route('/api/proposal-compare/projects/<int:project_id>/compare', methods=['POST'])
 def compare_project_proposals(project_id):
     """Compare all proposals in a project (or selected ones).
