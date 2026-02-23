@@ -9,7 +9,7 @@ This is a MAJOR version update that includes:
 - Proposal Compare v2 with multi-term comparison and structure analyzer
 - Enhanced Hyperlink Validator with SSL/auth/headless improvements
 - SharePoint connector with Windows SSO
-- Cinematic technology showcase engine (tile disabled, coming in future release)
+- Cinematic technology showcase with Ava voice narration (18 scenes)
 - Persistent Docling worker pool for batch performance
 - Interactive HTML export for proposals
 - PDF HiDPI rendering with zoom and magnifier
@@ -17,7 +17,7 @@ This is a MAJOR version update that includes:
 - OS truststore integration for corporate SSL
 - Many bug fixes across all modules
 
-Downloads files from: https://raw.githubusercontent.com/nicholasggeorgeson/TechWriterReview/main/
+Downloads files from: https://raw.githubusercontent.com/nicholasgeorgeson-prog/AEGIS/main/
 
 Usage:
   1. Place this file in your AEGIS install directory (where app.py lives)
@@ -39,7 +39,7 @@ import time
 from datetime import datetime
 
 VERSION = "6.0.0"
-REPO = "nicholasggeorgeson/TechWriterReview"
+REPO = "nicholasgeorgeson-prog/AEGIS"
 BRANCH = "main"
 RAW_BASE = f"https://raw.githubusercontent.com/{REPO}/{BRANCH}"
 
@@ -118,7 +118,7 @@ PYTHON_NEW_AND_TOOLS = [
     "repair_aegis.py",                               # NEW - Repair tool
 ]
 
-# JavaScript files (modified)
+# JavaScript files (modified + new)
 JS_FILES = [
     "static/js/app.js",
     "static/js/help-content.js",
@@ -142,9 +142,10 @@ JS_FILES = [
     "static/js/features/scan-progress-dashboard.js",
     "static/js/features/statement-history.js",
     "static/js/features/statement-source-viewer.js",
+    "static/js/features/technology-showcase.js",          # NEW - Cinema engine
 ]
 
-# CSS files (modified)
+# CSS files (modified + new)
 CSS_FILES = [
     "static/css/base.css",
     "static/css/charts.css",
@@ -160,6 +161,7 @@ CSS_FILES = [
     "static/css/features/sow-generator.css",
     "static/css/features/statement-forge.css",
     "static/css/features/statement-history.css",
+    "static/css/features/technology-showcase.css",        # NEW - Cinema styling
 ]
 
 # HTML template
@@ -186,6 +188,12 @@ INSTALLER_FILES = [
     "packaging/requirements-windows.txt",
     "Repair_AEGIS.bat",
     "Start_AEGIS.bat",
+]
+
+# Audio manifest files (the manifests tell us what MP3s to download)
+AUDIO_MANIFESTS = [
+    "static/audio/demo/manifest.json",
+    "static/audio/cinema/manifest.json",
 ]
 
 
@@ -351,8 +359,9 @@ def main():
     print("  * Metrics & Analytics Proposals tab")
     print("  * Many bug fixes across all modules")
     print()
-    print("  NOTE: The Cinema Showcase tile is present but disabled")
-    print("  in this release. It will be enabled in a future update.")
+    print("  NEW: Cinematic Technology Showcase (Behind the Scenes)")
+    print("  tile on landing page — 18-scene animated demo with")
+    print("  Ava voice narration (en-US-AvaMultilingualNeural)")
     print()
 
     # Get SSL context
@@ -372,7 +381,8 @@ def main():
         CSS_FILES +
         TEMPLATE_FILES +
         CONFIG_FILES +
-        INSTALLER_FILES
+        INSTALLER_FILES +
+        AUDIO_MANIFESTS
     )
 
     total_files = len(all_files)
@@ -408,6 +418,8 @@ def main():
         'static/js/features',
         'static/js/ui',
         'static/css/features',
+        'static/audio/demo',
+        'static/audio/cinema',
         'templates',
         'dictionaries',
         'packaging',
@@ -480,6 +492,60 @@ def main():
     total_mb = total_bytes / (1024 * 1024)
     print(f"  Downloaded: {download_ok} OK, {download_fail} failed, "
           f"{download_skip} skipped ({total_mb:.1f} MB total)")
+    print()
+
+    # ---- Phase 3b: Download audio files from manifests ----
+    print("  Phase 3b: Downloading voice narration audio...")
+    print("  " + "-" * 50)
+    audio_ok = 0
+    audio_fail = 0
+    audio_bytes = 0
+
+    for manifest_path in AUDIO_MANIFESTS:
+        if not os.path.exists(manifest_path):
+            print(f"    [SKIP] {manifest_path} not found, skipping audio")
+            continue
+
+        try:
+            with open(manifest_path, 'r') as f:
+                manifest = json.load(f)
+        except Exception as e:
+            print(f"    [WARN] Failed to read {manifest_path}: {e}")
+            continue
+
+        audio_dir = os.path.dirname(manifest_path)
+        sections = manifest.get('sections', {})
+        clip_count = sum(len(s.get('steps', [])) for s in sections.values())
+        voice = manifest.get('voice', 'unknown')
+        print(f"    {manifest_path}: {len(sections)} sections, "
+              f"{clip_count} clips ({voice})")
+
+        for section_id, section in sections.items():
+            for step in section.get('steps', []):
+                filename = step.get('file', '')
+                if not filename:
+                    continue
+                filepath = os.path.join(audio_dir, filename)
+                url = f"{RAW_BASE}/{filepath}"
+                result = download_file(url, filepath, ssl_ctx)
+                if result > 0:
+                    audio_ok += 1
+                    audio_bytes += result
+                elif result == -1:
+                    audio_fail += 1
+                else:
+                    audio_fail += 1
+
+            # Progress for large audio sets
+            if audio_ok % 50 == 0 and audio_ok > 0:
+                print(f"      Progress: {audio_ok} clips downloaded "
+                      f"({audio_bytes / 1024 / 1024:.1f} MB)")
+
+    audio_mb = audio_bytes / (1024 * 1024)
+    print(f"    Audio: {audio_ok} OK, {audio_fail} failed ({audio_mb:.1f} MB)")
+    total_bytes += audio_bytes
+    download_ok += audio_ok
+    download_fail += audio_fail
     print()
 
     # ---- Phase 4: Verify critical files ----
@@ -638,10 +704,12 @@ def main():
     print("    - Update system Apply button fix")
     print("    - Many dark mode and z-index fixes")
     print()
-    print("  NOTE: The Cinema Showcase tile on the landing page is")
-    print("  present but DISABLED in this release. It will be enabled")
-    print("  in a future update when all 18 scene animations are")
-    print("  finalized and audio clips are generated.")
+    print("  CINEMATIC SHOWCASE (v6.0.0):")
+    print("    - 'Behind the Scenes' tile on landing page")
+    print("    - 18-scene Canvas animation with cyberpunk HUD aesthetic")
+    print("    - Ava voice narration (en-US-AvaMultilingualNeural)")
+    print("    - Slow-motion approach with 0.5s lead-in per scene")
+    print("    - Play/pause, progress scrub, volume, fullscreen")
     print()
     print(f"  If something went wrong, your old files are in:")
     print(f"    {os.path.join(install_dir, backup_dir)}")
