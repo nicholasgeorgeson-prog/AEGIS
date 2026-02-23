@@ -16,7 +16,7 @@
         "NEW: 18-scene story across 6 acts (The Problem, The Solution, Deep Dive, The Numbers, Air-Gapped, Finale) — approximately 6-8 minutes runtime",
         "NEW: Canvas 2D animation engine with easing library, particle systems, camera system, scene transitions, HUD overlays, data streams, and circuit-board patterns",
         "NEW: Behind the Scenes tile on landing page launches the cinematic showcase",
-        "NEW: 18 pre-generated JennyNeural voice narration MP3 clips in static/audio/cinema/ with manifest.json",
+        "NEW: 18 pre-generated AvaMultilingualNeural voice narration MP3 clips in static/audio/cinema/ with manifest.json",
         "NEW: Glassmorphism control bar with play/pause, progress scrub, volume, fullscreen, and close",
         "NEW: generate_cinema_audio() function in demo_audio_generator.py for narration generation",
         "NEW: Help documentation section for the cinematic showcase feature",
