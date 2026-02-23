@@ -167,7 +167,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 6.0.0
+- **Current version**: 6.0.1
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -1184,6 +1184,17 @@ Chain batches sequentially: each batch's commit becomes the next batch's parent,
 **Modified**: `templates/index.html` (cinema modal + CSS/script tags), `static/js/features/landing-page.js` (tile + dispatch)
 **Public API**: `CinematicVideo.play()`, `.pause()`, `.resume()`, `.stop()`, `.seek(fraction)`
 **Lesson**: For cinematic Canvas animations, use offscreen canvas caching for static elements (scanlines, circuit board), a central Engine object with RAF loop, and scene functions with setup/render/teardown lifecycle. Beat arrays sync visual callbacks to narration timestamps. Camera lerp with `targetX/targetY/targetZoom` gives smooth transitions between scenes.
+
+### 130. Re-Analyze from Project Detail — Reusing Multi-Term Pipeline (v6.0.1)
+**Problem**: Project detail view had a "Compare All" button that sent proposals to the server for a flat comparison, ignoring contract terms. No way to get togglable term-grouped views from the project dashboard.
+**Root Cause**: The multi-term pipeline (`_groupByContractTerm` → `_startMultiTermComparison` → `renderMultiTermResults`) was only triggered from the upload→review→compare flow, never from project detail.
+**Fix**: Created `_reanalyzeFromProject(projectId, proposalSummaries)` which: (1) shows loading spinner, (2) fetches full proposal data for all proposals via individual GET requests in parallel, (3) sets `State.proposals` with full data, (4) calls `startComparison()` which auto-routes to multi-term or single comparison via existing pipeline.
+**Button wiring**: Both "Compare All" and "Re-Analyze" now call `_reanalyzeFromProject()`. Buttons are wired AFTER proposals are fetched (inside the try block) because the proposal list is needed as a parameter. Buttons are disabled with tooltip if < 2 proposals.
+**Backend**: Added `contract_term` to `_row_to_proposal_summary()` by including `proposal_data_json` in the SELECT and extracting from the JSON blob. No schema migration needed.
+**CSS**: Company name tiles changed from single-line ellipsis to 2-line `-webkit-line-clamp` with `word-break: break-word`. Title tooltip added for full name on hover. Term badges (`.pc-term-badge`) show contract term on proposal cards.
+**Key insight**: `startComparison()` already calls `_captureReviewEdits()` and `_cleanupBlobUrls()` at the top — these are harmless no-ops when coming from project detail (no DOM elements to capture from, no blobs to clean).
+**Files**: `proposal-compare.js`, `proposal-compare.css`, `proposal_compare/projects.py`
+**Lesson**: When an existing pipeline does exactly what's needed but is only triggered from one flow, create a thin bridge function that prepares the state and calls the pipeline entry point. Zero duplication of comparison logic.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

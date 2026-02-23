@@ -1,13 +1,27 @@
 {
-  "version": "6.0.0",
-  "release_date": "2026-02-22",
-  "core_version": "6.0.0",
+  "version": "6.0.1",
+  "release_date": "2026-02-23",
+  "core_version": "6.0.1",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.0.1",
+      "date": "2026-02-23",
+      "changes": [
+        "FIX: Company name tiles in Proposal Compare now wrap to 2 lines instead of single-line ellipsis truncation",
+        "ENH: Hover tooltip shows full company name on truncated proposal tiles",
+        "NEW: Re-Analyze button on project detail — auto-detects contract terms and shows togglable term-grouped comparisons",
+        "NEW: Contract term badges displayed on proposal cards in project detail view",
+        "ENH: Compare All button now uses the multi-term-aware frontend pipeline instead of flat server-side comparison",
+        "ENH: Backend extracts contract_term from proposal JSON blob for project proposal summaries",
+        "ENH: Buttons disabled with tooltip when fewer than 2 proposals in project"
+      ],
+      "tag": "Proposal Compare — Smart Re-Analyze"
+    },
     {
       "version": "6.0.0",
       "date": "2026-02-22",

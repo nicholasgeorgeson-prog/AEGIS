@@ -515,7 +515,7 @@ window.ProposalCompare = (function() {
 
         for (const p of State.projectProposals) {
             html += '<div class="pc-project-prop-item" data-proposal-id="' + (p.id || '') + '">' +
-                '<span class="pc-project-prop-name">' + escHtml(p.company_name || p.filename) + '</span>' +
+                '<span class="pc-project-prop-name" title="' + escHtml(p.company_name || p.filename) + '">' + escHtml(p.company_name || p.filename) + '</span>' +
                 '<span class="pc-project-prop-total">' + (p.total_raw || '\u2014') + '</span>' +
                 (p.id ? '<button class="pc-prop-delete-btn" data-pid="' + p.id + '" title="Remove from project">' +
                     '<i data-lucide="trash-2" style="width:14px;height:14px"></i></button>' : '') +
@@ -4795,6 +4795,9 @@ window.ProposalCompare = (function() {
                         '<button class="pc-btn pc-btn-secondary pc-btn-sm" id="pc-detail-add">' +
                             '<i data-lucide="upload"></i> Add Proposals' +
                         '</button>' +
+                        '<button class="pc-btn pc-btn-gold pc-btn-sm" id="pc-detail-reanalyze">' +
+                            '<i data-lucide="refresh-cw"></i> Re-Analyze' +
+                        '</button>' +
                         '<button class="pc-btn pc-btn-primary pc-btn-sm" id="pc-detail-compare">' +
                             '<i data-lucide="git-compare-arrows"></i> Compare All' +
                         '</button>' +
@@ -4824,31 +4827,7 @@ window.ProposalCompare = (function() {
             });
         }
 
-        // Wire Compare All button
-        var compareBtn = document.getElementById('pc-detail-compare');
-        if (compareBtn) {
-            compareBtn.addEventListener('click', async function() {
-                compareBtn.disabled = true;
-                compareBtn.innerHTML = '<div class="pc-spinner" style="width:14px;height:14px"></div> Comparing...';
-                try {
-                    var resp = await fetch('/api/proposal-compare/projects/' + projectId + '/compare', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCSRF() },
-                        body: JSON.stringify({}),
-                    });
-                    var json = await resp.json();
-                    if (!json.success) throw new Error(json.error?.message || 'Compare failed');
-                    State.comparison = json.data;
-                    State.activeTab = 'executive';
-                    renderResults();
-                } catch(e) {
-                    if (window.showToast) window.showToast('Compare failed: ' + e.message, 'error');
-                    compareBtn.disabled = false;
-                    compareBtn.innerHTML = '<i data-lucide="git-compare-arrows"></i> Compare All';
-                    if (window.lucide) window.lucide.createIcons();
-                }
-            });
-        }
+        // Compare All and Re-Analyze buttons — wired AFTER proposals are fetched below
 
         // Fetch project info + proposals + comparisons in parallel
         try {
@@ -4882,11 +4861,12 @@ window.ProposalCompare = (function() {
                             '<div class="pc-prop-card-main">' +
                                 '<div class="pc-prop-card-icon"><i data-lucide="building-2"></i></div>' +
                                 '<div class="pc-prop-card-info">' +
-                                    '<div class="pc-prop-card-name">' + escHtml(prop.company_name || prop.filename) + '</div>' +
+                                    '<div class="pc-prop-card-name" title="' + escHtml(prop.company_name || prop.filename) + '">' + escHtml(prop.company_name || prop.filename) + '</div>' +
                                     '<div class="pc-prop-card-meta">' +
                                         escHtml(prop.filename) + ' \u2022 ' +
                                         (prop.line_item_count || 0) + ' items' +
                                         (prop.total_amount ? ' \u2022 ' + formatMoney(prop.total_amount) : '') +
+                                        (prop.contract_term ? '<span class="pc-term-badge">' + escHtml(prop.contract_term) + '</span>' : '') +
                                     '</div>' +
                                 '</div>' +
                             '</div>' +
@@ -4933,6 +4913,29 @@ window.ProposalCompare = (function() {
                         }
                     });
                 }
+            }
+
+            // v6.0.1: Wire Compare All and Re-Analyze buttons (now that we have `props`)
+            var _detailProps = (propsData.success && propsData.data) ? propsData.data : [];
+            if (_detailProps.length >= 2) {
+                var compareBtn = document.getElementById('pc-detail-compare');
+                if (compareBtn) {
+                    compareBtn.addEventListener('click', function() {
+                        _reanalyzeFromProject(projectId, _detailProps);
+                    });
+                }
+                var reanalyzeBtn = document.getElementById('pc-detail-reanalyze');
+                if (reanalyzeBtn) {
+                    reanalyzeBtn.addEventListener('click', function() {
+                        _reanalyzeFromProject(projectId, _detailProps);
+                    });
+                }
+            } else {
+                // Disable buttons if < 2 proposals
+                var compareBtn2 = document.getElementById('pc-detail-compare');
+                var reanalyzeBtn2 = document.getElementById('pc-detail-reanalyze');
+                if (compareBtn2) { compareBtn2.disabled = true; compareBtn2.title = 'Need at least 2 proposals'; }
+                if (reanalyzeBtn2) { reanalyzeBtn2.disabled = true; reanalyzeBtn2.title = 'Need at least 2 proposals'; }
             }
 
             // Render comparisons
@@ -4997,6 +5000,81 @@ window.ProposalCompare = (function() {
         } catch(err) {
             console.error('[PC Dashboard] Detail fetch error:', err);
             if (window.showToast) window.showToast('Failed to load project: ' + err.message, 'error');
+        }
+    }
+
+    /**
+     * v6.0.1: Load all project proposals and run multi-term-aware comparison.
+     * Auto-detects contract terms and routes through _groupByContractTerm →
+     * _startMultiTermComparison pipeline for togglable term views.
+     */
+    async function _reanalyzeFromProject(projectId, proposalSummaries) {
+        var body = document.getElementById('pc-body');
+        if (!body) return;
+
+        body.innerHTML =
+            '<div class="pc-loading">' +
+                '<div class="pc-spinner"></div>' +
+                '<div class="pc-loading-text">Loading ' + proposalSummaries.length + ' proposals and detecting contract terms...</div>' +
+            '</div>';
+
+        try {
+            // Load full data for each proposal in parallel
+            var loadPromises = proposalSummaries.map(function(ps) {
+                return fetch('/api/proposal-compare/proposals/' + ps.id, {
+                    headers: { 'X-CSRF-Token': getCSRF() }
+                }).then(function(r) { return r.json(); })
+                  .then(function(j) { return j.success ? j.data : null; })
+                  .catch(function() { return null; });
+            });
+            var fullProposals = (await Promise.all(loadPromises)).filter(Boolean);
+
+            if (fullProposals.length < 2) {
+                body.innerHTML =
+                    '<div class="pc-empty">' +
+                        '<i data-lucide="alert-triangle"></i>' +
+                        '<h4>Not Enough Proposals</h4>' +
+                        '<p>Need at least 2 proposals with valid data to compare. Found ' + fullProposals.length + '.</p>' +
+                        '<button class="pc-btn pc-btn-secondary" onclick="ProposalCompare._openProjectDetail(' + projectId + ')" style="margin-top:16px">' +
+                            '<i data-lucide="arrow-left"></i> Back to Project' +
+                        '</button>' +
+                    '</div>';
+                if (window.lucide) window.lucide.createIcons();
+                return;
+            }
+
+            // Set state for comparison pipeline
+            State.proposals = fullProposals;
+            State.selectedProjectId = projectId;
+            State.phase = 'comparing';
+            State.comparison = null;
+            State.comparisonId = null;
+            State.multiTermMode = false;
+            State.multiTermResults = [];
+
+            // Detect terms for progress feedback
+            var termGrouping = _groupByContractTerm(fullProposals);
+            if (termGrouping.isMultiTerm) {
+                var termCount = Object.keys(termGrouping.groups).length;
+                body.querySelector('.pc-loading-text').textContent =
+                    'Multi-term detected: comparing ' + termCount + ' term groups across ' + fullProposals.length + ' proposals...';
+            }
+
+            // Call startComparison which auto-routes to multi-term or single
+            await startComparison();
+
+        } catch (err) {
+            console.error('[PC Dashboard] Re-analyze error:', err);
+            body.innerHTML =
+                '<div class="pc-empty">' +
+                    '<i data-lucide="alert-triangle"></i>' +
+                    '<h4>Re-Analysis Failed</h4>' +
+                    '<p>' + escHtml(err.message) + '</p>' +
+                    '<button class="pc-btn pc-btn-secondary" onclick="ProposalCompare._openProjectDetail(' + projectId + ')" style="margin-top:16px">' +
+                        '<i data-lucide="arrow-left"></i> Back to Project' +
+                    '</button>' +
+                '</div>';
+            if (window.lucide) window.lucide.createIcons();
         }
     }
 
@@ -5506,5 +5584,6 @@ window.ProposalCompare = (function() {
         _openDashboard: renderProjectDashboard,
         _openProjectDetail: renderProjectDetail,
         _tagToProject: _showTagToProjectMenu,
+        _reanalyzeFromProject: _reanalyzeFromProject,
     };
 })();

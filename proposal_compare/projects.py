@@ -236,14 +236,14 @@ def add_proposal_to_project(project_id: int, proposal_data: Dict[str, Any]) -> D
 
 
 def get_project_proposals(project_id: int) -> List[Dict[str, Any]]:
-    """Get all proposals in a project (metadata only, not full data)."""
+    """Get all proposals in a project (metadata + contract_term from JSON)."""
     conn = _get_connection()
     try:
         rows = conn.execute("""
             SELECT id, project_id, filename, file_type, company_name,
                    proposal_title, date, total_amount, total_raw, currency,
                    page_count, line_item_count, table_count,
-                   extraction_notes_json, added_at
+                   extraction_notes_json, added_at, proposal_data_json
             FROM pc_proposals
             WHERE project_id = ?
             ORDER BY added_at ASC
@@ -751,7 +751,7 @@ def _row_to_project(row) -> Dict[str, Any]:
 
 def _row_to_proposal_summary(row) -> Dict[str, Any]:
     """Convert a database row to a proposal summary dict."""
-    return {
+    summary = {
         'id': row['id'],
         'project_id': row['project_id'],
         'filename': row['filename'],
@@ -766,3 +766,11 @@ def _row_to_proposal_summary(row) -> Dict[str, Any]:
         'added_at': row['added_at'],
         'extraction_notes': json.loads(row['extraction_notes_json'] or '[]'),
     }
+    # v6.0.1: Extract contract_term from full JSON if available
+    if 'proposal_data_json' in row.keys():
+        try:
+            data = json.loads(row['proposal_data_json'])
+            summary['contract_term'] = data.get('contract_term', '')
+        except Exception:
+            summary['contract_term'] = ''
+    return summary
