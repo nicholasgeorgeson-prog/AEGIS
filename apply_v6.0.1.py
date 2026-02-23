@@ -10,6 +10,9 @@ This update includes:
 - Contract term badges on proposal cards
 - Compare All now uses multi-term-aware frontend pipeline
 - Backend extracts contract_term from proposal JSON for summaries
+- Cinematic Technology Showcase (Behind the Scenes) with canvas animation
+- Fix PDF viewer in Proposal Compare (PDF.js vendor files deployed)
+- Fix guided tour demo audio (robot voice at start + audio-visual drift)
 
 Downloads files from: https://raw.githubusercontent.com/nicholasgeorgeson-prog/AEGIS/main/
 
@@ -46,11 +49,15 @@ PYTHON_FILES = [
     "proposal_compare/projects.py",       # contract_term extraction from JSON blob
 ]
 
-# JavaScript files (modified + cinema prerequisite)
+# JavaScript files (modified + cinema prerequisite + PDF.js vendor)
 JS_FILES = [
     "static/js/features/proposal-compare.js",    # Re-Analyze button, term badges, button wiring
     "static/js/features/technology-showcase.js",  # Cinema engine (ensure deployed from v6.0.0)
     "static/js/features/landing-page.js",         # Dashboard tiles + cinema tile handler
+    "static/js/features/guide-system.js",         # v6.0.1: Fix robot voice + audio-visual drift in demo
+    "static/js/features/pdf-viewer.js",           # PDF.js viewer module
+    "static/js/vendor/pdfjs/pdf.min.mjs",         # PDF.js library (for Proposal Compare PDF viewer)
+    "static/js/vendor/pdfjs/pdf.worker.min.mjs",  # PDF.js worker (1.3MB — required for PDF rendering)
 ]
 
 # CSS files (modified + cinema prerequisite)
@@ -237,6 +244,8 @@ def main():
     print("  * Compare All uses multi-term pipeline")
     print("  * Cinematic Technology Showcase (Behind the Scenes)")
     print("    — ensures all cinema files are deployed")
+    print("  * Fix PDF viewer in Proposal Compare (PDF.js vendor files)")
+    print("  * Fix guided tour demo audio (robot voice + alignment)")
     print()
 
     # Get SSL context

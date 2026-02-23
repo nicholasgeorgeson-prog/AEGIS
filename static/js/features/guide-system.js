@@ -68,6 +68,7 @@ const AEGISGuide = {
         voicesLoaded: false,
         manifest: null,               // Pre-generated audio manifest
         manifestLoaded: false,
+        manifestPromise: null,        // v6.0.1: Promise for manifest load — await before first demo step
         provider: 'auto',             // 'auto' | 'pregenerated' | 'webspeech' | 'off'
         storageKey: 'aegis-narration-enabled',
         volumeKey: 'aegis-narration-volume',
@@ -4310,7 +4311,8 @@ const AEGISGuide = {
         }
 
         // Try loading pre-generated audio manifest
-        this._loadAudioManifest();
+        // v6.0.1: Store the promise so startDemo/startFullDemo can await it
+        this.narration.manifestPromise = this._loadAudioManifest();
     },
 
     _selectPreferredVoice() {
@@ -4625,11 +4627,16 @@ const AEGISGuide = {
         this.refs.demoBar.querySelector('#demo-bar-section').textContent = sectionData.title;
         this.refs.demoBar.querySelector('#demo-play').innerHTML = '&#10074;&#10074;';
 
+        // v6.0.1: Ensure audio manifest is loaded before first step (prevents robot voice)
+        if (this.narration.enabled && this.narration.manifestPromise) {
+            try { await this.narration.manifestPromise; } catch(e) { /* fallback to Web Speech */ }
+        }
+
         this._showDemoStep(0);
         console.log('[AEGIS Guide] Demo started:', section, '—', sectionData.demoScenes.length, 'scenes');
     },
 
-    startFullDemo() {
+    async startFullDemo() {
         // Guard against double-start
         if (this.demo.isPlaying) return;
         // Build combined demo from all sections
@@ -4642,12 +4649,14 @@ const AEGISGuide = {
                 // Add a section intro scene
                 // v5.9.16-fix: Use navigate: id (not undefined) so _showDemoStep()
                 // calls _navigateToSection() to open the correct modal/view
+                // v6.0.1: Mark intro scenes with _isIntro flag to skip narration (prevents robot voice)
                 allScenes.push({
                     target: null,
                     narration: `Now let's explore: ${s.title}`,
                     duration: 2500,
                     sectionLabel: s.title,
-                    navigate: id
+                    navigate: id,
+                    _isIntro: true
                 });
                 allScenes = allScenes.concat(s.demoScenes.map((scene, idx) => ({
                     ...scene,
@@ -4672,6 +4681,11 @@ const AEGISGuide = {
         this.refs.demoBar.classList.remove('hidden');
         this.refs.demoBar.querySelector('#demo-bar-section').textContent = 'Full Application Demo';
         this.refs.demoBar.querySelector('#demo-play').innerHTML = '&#10074;&#10074;';
+
+        // v6.0.1: Ensure audio manifest is loaded before first step (prevents robot voice)
+        if (this.narration.enabled && this.narration.manifestPromise) {
+            try { await this.narration.manifestPromise; } catch(e) { /* fallback to Web Speech */ }
+        }
 
         this._showDemoStep(0);
         console.log('[AEGIS Guide] Full demo started:', allScenes.length, 'scenes');
@@ -4743,6 +4757,11 @@ const AEGISGuide = {
         this.refs.demoBar.querySelector('#demo-bar-section').textContent =
             `${sectionData.title} › ${subDemo.title}`;
         this.refs.demoBar.querySelector('#demo-play').innerHTML = '&#10074;&#10074;';
+
+        // v6.0.1: Ensure audio manifest is loaded before first step (prevents robot voice)
+        if (this.narration.enabled && this.narration.manifestPromise) {
+            try { await this.narration.manifestPromise; } catch(e) { /* fallback to Web Speech */ }
+        }
 
         this._showDemoStep(0);
         console.log('[AEGIS Guide] Sub-demo started:', sectionId, '>', subDemoId,
@@ -4893,10 +4912,15 @@ const AEGISGuide = {
         this._typeNarration(scene.narration);
 
         // v2.1.0: Start voice narration (parallel with typewriter)
+        // v6.0.1: Skip narration for intro/transition scenes — they're short "Now let's explore: X"
+        // transitions that should advance via timer, not voice. This prevents robot voice on intros
+        // and avoids audio-visual drift from cancelled mid-sentence Web Speech.
         const sectionId = scene._sectionId || this.demo.currentSection;
         const subDemoId = scene._subDemoId || this.demo.currentSubDemo || null;
         const stepIdx = scene._stepIndex ?? index;
-        const narrationPromise = this._playNarration(scene.narration, sectionId, stepIdx, subDemoId);
+        const narrationPromise = scene._isIntro
+            ? Promise.resolve(false)
+            : this._playNarration(scene.narration, sectionId, stepIdx, subDemoId);
 
         // Spotlight target if present
         if (scene.target) {
