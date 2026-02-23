@@ -46,14 +46,22 @@ PYTHON_FILES = [
     "proposal_compare/projects.py",       # contract_term extraction from JSON blob
 ]
 
-# JavaScript files (modified)
+# JavaScript files (modified + cinema prerequisite)
 JS_FILES = [
-    "static/js/features/proposal-compare.js",  # Re-Analyze button, term badges, button wiring
+    "static/js/features/proposal-compare.js",    # Re-Analyze button, term badges, button wiring
+    "static/js/features/technology-showcase.js",  # Cinema engine (ensure deployed from v6.0.0)
+    "static/js/features/landing-page.js",         # Dashboard tiles + cinema tile handler
 ]
 
-# CSS files (modified)
+# CSS files (modified + cinema prerequisite)
 CSS_FILES = [
-    "static/css/features/proposal-compare.css",  # 2-line clamp, term badge styling
+    "static/css/features/proposal-compare.css",    # 2-line clamp, term badge styling
+    "static/css/features/technology-showcase.css",  # Cinema styling (ensure deployed from v6.0.0)
+]
+
+# HTML template (cinema script/link tags)
+HTML_FILES = [
+    "templates/index.html",
 ]
 
 # Config/version files
@@ -61,6 +69,11 @@ CONFIG_FILES = [
     "version.json",
     "static/version.json",
     "CLAUDE.md",
+]
+
+# Cinema audio files (manifest + MP3 clips for narration)
+CINEMA_AUDIO = [
+    "static/audio/cinema/manifest.json",
 ]
 
 
@@ -222,6 +235,8 @@ def main():
     print("  * Togglable term-grouped comparison views")
     print("  * Contract term badges on proposal cards")
     print("  * Compare All uses multi-term pipeline")
+    print("  * Cinematic Technology Showcase (Behind the Scenes)")
+    print("    — ensures all cinema files are deployed")
     print()
 
     # Get SSL context
@@ -230,9 +245,9 @@ def main():
     print()
 
     # Build complete file list
-    all_files = PYTHON_FILES + JS_FILES + CSS_FILES + CONFIG_FILES
+    all_files = PYTHON_FILES + JS_FILES + CSS_FILES + HTML_FILES + CONFIG_FILES + CINEMA_AUDIO
     total_files = len(all_files)
-    print(f"  Total files to update: {total_files}")
+    print(f"  Total files to update: {total_files} (+ cinema audio clips)")
     print()
 
     # ---- Phase 1: Backup ----
@@ -279,7 +294,9 @@ def main():
         ("Python Backend", PYTHON_FILES),
         ("JavaScript", JS_FILES),
         ("CSS", CSS_FILES),
+        ("HTML Template", HTML_FILES),
         ("Config & Version", CONFIG_FILES),
+        ("Cinema Audio Manifest", CINEMA_AUDIO),
     ]
 
     for group_name, files in file_groups:
@@ -300,6 +317,43 @@ def main():
                 print(f"      [FAIL] {filepath}")
                 fail_count += 1
         print()
+
+    # ---- Phase 4: Download cinema audio clips from manifest ----
+    print("  Phase 4: Checking cinema audio clips...")
+    audio_dir = "static/audio/cinema"
+    os.makedirs(audio_dir, exist_ok=True)
+    manifest_path = os.path.join(audio_dir, "manifest.json")
+    audio_downloaded = 0
+    audio_skipped = 0
+    if os.path.exists(manifest_path):
+        try:
+            with open(manifest_path, 'r') as f:
+                manifest = json.load(f)
+            sections = manifest.get('sections', {})
+            for sec_id, sec_data in sections.items():
+                steps = sec_data.get('steps', [])
+                for step in steps:
+                    mp3_file = step.get('file', '')
+                    if not mp3_file:
+                        continue
+                    mp3_path = os.path.join(audio_dir, mp3_file)
+                    if os.path.exists(mp3_path) and os.path.getsize(mp3_path) > 1000:
+                        audio_skipped += 1
+                        continue
+                    url = f"{RAW_BASE}/{audio_dir}/{mp3_file}"
+                    result = download_file(url, mp3_path, ssl_ctx)
+                    if result > 0:
+                        audio_downloaded += 1
+                    elif result == -1:
+                        pass  # Not on remote — will use Web Speech fallback
+                    else:
+                        pass  # Download failed — Web Speech fallback handles it
+            print(f"           Audio: {audio_downloaded} downloaded, {audio_skipped} already present")
+        except Exception as e:
+            print(f"           [WARN] Could not process audio manifest: {e}")
+    else:
+        print("           No cinema manifest found — audio will use Web Speech API fallback")
+    print()
 
     # ---- Summary ----
     print("=" * 70)
@@ -326,8 +380,9 @@ def main():
     print("     - Double-click restart_aegis.sh")
     print("     - Or: python3 app.py --debug")
     print("  2. Hard refresh browser (Ctrl+Shift+R)")
-    print("  3. Open Proposal Compare > Projects > Select project")
-    print("  4. Verify:")
+    print("  3. Click 'Behind the Scenes' tile to play cinematic showcase")
+    print("  4. Open Proposal Compare > Projects > Select project")
+    print("  5. Verify:")
     print("     - Company names wrap to 2 lines (hover for full name)")
     print("     - Term badges appear on proposal cards")
     print("     - Click 'Re-Analyze' to see term-grouped comparison")
