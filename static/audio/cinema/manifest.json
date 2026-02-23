@@ -1,0 +1,190 @@
+{
+  "version": "2.0",
+  "generated_by": "AEGIS Cinema Audio Generator (cleaned-up v2, Ava voice)",
+  "voice": "en-US-AvaMultilingualNeural",
+  "provider": "edge-tts",
+  "rate": "-8%",
+  "pitch": "-1Hz",
+  "sections": {
+    "cinema_doc_chaos": {
+      "steps": [
+        {
+          "file": "cinema_doc_chaos__step0.mp3",
+          "text": "Aerospace teams are drowning in documents. Thousands of pages across hundreds of deliverables. Each one could contain a mission-critical error, hidden in plain sight.",
+          "hash": "99226002",
+          "size": 72144
+        }
+      ]
+    },
+    "cinema_standards_wall": {
+      "steps": [
+        {
+          "file": "cinema_standards_wall__step0.mp3",
+          "text": "The standards are endless. Mil Standard four ninety-eight. D-O one seventy-eight C. I triple E eight thirty. A-S ninety-one hundred. Manual review takes weeks, and still misses twenty percent of critical issues.",
+          "hash": "1294af36",
+          "size": 103392
+        }
+      ]
+    },
+    "cinema_breaking_point": {
+      "steps": [
+        {
+          "file": "cinema_breaking_point__step0.mp3",
+          "text": "A missed requirement cascades. A defective deliverable ships. The cost to fix grows ten times with every phase. The old way is broken.",
+          "hash": "8c430879",
+          "size": 67536
+        }
+      ]
+    },
+    "cinema_aegis_boot": {
+      "steps": [
+        {
+          "file": "cinema_aegis_boot__step0.mp3",
+          "text": "Introducing AEGIS. The Aerospace Engineering Governance and Inspection System. Purpose-built for classified networks. Zero cloud dependency. Completely air-gapped.",
+          "hash": "43eefa1f",
+          "size": 78480
+        }
+      ]
+    },
+    "cinema_hud_activates": {
+      "steps": [
+        {
+          "file": "cinema_hud_activates__step0.mp3",
+          "text": "One hundred and five quality checkers activate simultaneously. Real-time severity grading. Automated deduplication. Twelve integrated modules, working in concert. The system comes alive.",
+          "hash": "ee2eb286",
+          "size": 89280
+        }
+      ]
+    },
+    "cinema_document_scan": {
+      "steps": [
+        {
+          "file": "cinema_document_scan__step0.mp3",
+          "text": "Drop a document. AEGIS dissects every sentence, every paragraph, every cross-reference. Over one hundred quality categories, analyzed in under sixty seconds.",
+          "hash": "90775459",
+          "size": 73584
+        }
+      ]
+    },
+    "cinema_review_engine": {
+      "steps": [
+        {
+          "file": "cinema_review_engine__step0.mp3",
+          "text": "One hundred and five configurable quality checkers. Grammar. Compliance. Style. Readability. Acronyms. Cross-references. Every issue is deduplicated, severity-graded, and triaged for action.",
+          "hash": "dac0e82c",
+          "size": 104256
+        }
+      ]
+    },
+    "cinema_statement_forge": {
+      "steps": [
+        {
+          "file": "cinema_statement_forge__step0.mp3",
+          "text": "Statement Forge extracts every shall, must, and will directive from your documents. Categorizes by type. Assigns responsible roles. Then compares across versions, so you can track exactly what changed.",
+          "hash": "dd7fc953",
+          "size": 93744
+        }
+      ]
+    },
+    "cinema_roles_studio": {
+      "steps": [
+        {
+          "file": "cinema_roles_studio__step0.mp3",
+          "text": "Every role, discovered automatically. Project Manager. Systems Engineer. Quality Lead. A living dictionary that grows with every scan. Adjudication workflows. R-A-C-I matrix generation. Inheritance mapping. Zero manual data entry.",
+          "hash": "db1bd439",
+          "size": 123264
+        }
+      ]
+    },
+    "cinema_proposal_compare": {
+      "steps": [
+        {
+          "file": "cinema_proposal_compare__step0.mp3",
+          "text": "Side-by-side proposal analysis. Financial extraction from any format. Red flag detection per FAR fifteen point four-oh-four. Deviation heatmaps. Vendor scores from A through F. All data. No guesswork.",
+          "hash": "1c91fe46",
+          "size": 103536
+        }
+      ]
+    },
+    "cinema_hyperlink_validator": {
+      "steps": [
+        {
+          "file": "cinema_hyperlink_validator__step0.mp3",
+          "text": "Every U-R-L in the document, tested automatically. Multiple validation strategies including S-S-L bypass, single sign-on authentication, and headless browser rendering for military and government sites. Six thousand links validated, with zero false positives.",
+          "hash": "0d2b6930",
+          "size": 114624
+        }
+      ]
+    },
+    "cinema_learning_system": {
+      "steps": [
+        {
+          "file": "cinema_learning_system__step0.mp3",
+          "text": "Five learning modules that remember how you work. Document review. Statement forge. Roles. Hyperlink validator. Proposal compare. Every correction becomes a pattern. Every pattern stays on your machine.",
+          "hash": "664f2022",
+          "size": 95904
+        }
+      ]
+    },
+    "cinema_stat_cascade": {
+      "steps": [
+        {
+          "file": "cinema_stat_cascade__step0.mp3",
+          "text": "One hundred and five checkers. One hundred ninety-three A-P-I endpoints. Five hundred forty-nine narrated voice clips. One hundred thirty-seven version releases. Seven supported file formats. Four extraction strategies. Twelve integrated modules. One unified platform.",
+          "hash": "1e3dfbe8",
+          "size": 124560
+        }
+      ]
+    },
+    "cinema_architecture_overview": {
+      "steps": [
+        {
+          "file": "cinema_architecture_overview__step0.mp3",
+          "text": "Pure Flask and vanilla JavaScript. No frameworks. No dependencies you don't control. SQLite for persistence. Canvas for visualization. Every line of code serves exactly one purpose.",
+          "hash": "7876f9a2",
+          "size": 91872
+        }
+      ]
+    },
+    "cinema_fortress": {
+      "steps": [
+        {
+          "file": "cinema_fortress__step0.mp3",
+          "text": "No internet required. No cloud dependency. No telemetry. One hundred ninety-five pre-packaged dependencies. A complete offline installation in minutes. Your data never leaves the building.",
+          "hash": "98b27b19",
+          "size": 85968
+        }
+      ]
+    },
+    "cinema_classified_ready": {
+      "steps": [
+        {
+          "file": "cinema_classified_ready__step0.mp3",
+          "text": "Already deployed inside classified enclaves. Department of Defense facilities. Northrop Grumman secure networks. Windows single sign-on authentication. SharePoint integration. Built for the environments that need it most.",
+          "hash": "a09d9b79",
+          "size": 101376
+        }
+      ]
+    },
+    "cinema_convergence": {
+      "steps": [
+        {
+          "file": "cinema_convergence__step0.mp3",
+          "text": "Every module, every checker, every learning system. All converging on one mission. Helping engineers write better documents. Faster. More accurately. Every single time.",
+          "hash": "06962b95",
+          "size": 87984
+        }
+      ]
+    },
+    "cinema_logo_reveal": {
+      "steps": [
+        {
+          "file": "cinema_logo_reveal__step0.mp3",
+          "text": "AEGIS. Built by engineers. For engineers.",
+          "hash": "6027875b",
+          "size": 29664
+        }
+      ]
+    }
+  }
+}
