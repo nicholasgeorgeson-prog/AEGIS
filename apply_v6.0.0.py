@@ -282,6 +282,7 @@ def download_file(url, dest_path, ssl_ctx=None, retries=3):
             if attempt < retries - 1:
                 time.sleep(2 ** attempt)
             else:
+                print(f"    [ERR]  {dest_path}: {type(e).__name__}: {e}")
                 return 0  # Download failed
     return 0
 
@@ -554,6 +555,8 @@ def main():
         print(f"    {manifest_path}: {len(sections)} sections, "
               f"{clip_count} clips ({voice})")
 
+        audio_total_clips = clip_count
+        audio_current = 0
         for section_id, section in sections.items():
             for step in section.get('steps', []):
                 filename = step.get('file', '')
@@ -562,6 +565,7 @@ def main():
                 filepath = os.path.join(audio_dir, filename)
                 url = f"{RAW_BASE}/{filepath}"
                 result = download_file(url, filepath, ssl_ctx)
+                audio_current += 1
                 if result > 0:
                     audio_ok += 1
                     audio_bytes += result
@@ -569,11 +573,24 @@ def main():
                     audio_fail += 1
                 else:
                     audio_fail += 1
+                    # Stop early if first 5 all fail (likely systemic issue)
+                    if audio_ok == 0 and audio_fail >= 5:
+                        print(f"    [ABORT] First 5 audio downloads all failed")
+                        print(f"           Check errors above for root cause")
+                        break
+                # Small delay to avoid GitHub rate limiting (545 files is a lot)
+                if audio_current % 10 == 0:
+                    time.sleep(0.3)
+
+            # Early abort check
+            if audio_ok == 0 and audio_fail >= 5:
+                break
 
             # Progress for large audio sets
-            if audio_ok % 50 == 0 and audio_ok > 0:
-                print(f"      Progress: {audio_ok} clips downloaded "
-                      f"({audio_bytes / 1024 / 1024:.1f} MB)")
+            if audio_current % 50 < len(section.get('steps', [])):
+                pct = int(100 * audio_current / max(audio_total_clips, 1))
+                print(f"      Progress: {audio_ok}/{audio_current} clips "
+                      f"({audio_bytes / 1024 / 1024:.1f} MB) [{pct}%]")
 
     audio_mb = audio_bytes / (1024 * 1024)
     print(f"    Audio: {audio_ok} OK, {audio_fail} failed ({audio_mb:.1f} MB)")
