@@ -252,8 +252,12 @@ def download_file(url, dest_path, ssl_ctx=None, retries=3):
     """Download a file from URL to dest_path with retries."""
     for attempt in range(retries):
         try:
-            req = urllib.request.Request(url, headers={
-                'User-Agent': f'AEGIS-Updater/{VERSION}'
+            # Add cache-bust param to prevent GitHub CDN from serving stale content
+            cache_bust = f"{'&' if '?' in url else '?'}cb={int(time.time())}"
+            req = urllib.request.Request(url + cache_bust, headers={
+                'User-Agent': f'AEGIS-Updater/{VERSION}',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
             })
             kwargs = {'timeout': 60}
             if ssl_ctx:
@@ -494,9 +498,39 @@ def main():
           f"{download_skip} skipped ({total_mb:.1f} MB total)")
     print()
 
-    # ---- Phase 3b: Download audio files from manifests ----
+    # ---- Phase 3b: Verify manifests, then download audio files ----
     print("  Phase 3b: Downloading voice narration audio...")
     print("  " + "-" * 50)
+
+    # Verify demo manifest was downloaded correctly (should have 122 sections)
+    demo_manifest_path = "static/audio/demo/manifest.json"
+    if os.path.exists(demo_manifest_path):
+        try:
+            with open(demo_manifest_path, 'r') as f:
+                dm = json.load(f)
+            dm_sections = len(dm.get('sections', {}))
+            dm_voice = dm.get('voice', 'unknown')
+            if dm_sections < 50:
+                print(f"    [WARN] Demo manifest looks stale ({dm_sections} sections, "
+                      f"voice={dm_voice})")
+                print(f"           Expected 122 sections with AvaMultilingualNeural")
+                print(f"           Re-downloading manifest with fresh request...")
+                # Force re-download with extra cache busting
+                url = f"{RAW_BASE}/{demo_manifest_path}"
+                result = download_file(url, demo_manifest_path, ssl_ctx)
+                if result > 0:
+                    with open(demo_manifest_path, 'r') as f:
+                        dm = json.load(f)
+                    dm_sections = len(dm.get('sections', {}))
+                    dm_voice = dm.get('voice', 'unknown')
+                    print(f"           Re-downloaded: {dm_sections} sections, "
+                          f"voice={dm_voice}")
+                    if dm_sections < 50:
+                        print(f"           [WARN] Still stale — GitHub CDN may be cached")
+                        print(f"           Try running this script again in 5 minutes")
+        except Exception:
+            pass
+
     audio_ok = 0
     audio_fail = 0
     audio_bytes = 0
@@ -590,7 +624,9 @@ def main():
     verify_ok = 0
     verify_fail = 0
     for filepath, desc in critical:
-        if os.path.exists(filepath) and os.path.getsize(filepath) > 100:
+        # config.json can be as small as 40 bytes; everything else should be >100
+        min_size = 10 if filepath == 'config.json' else 100
+        if os.path.exists(filepath) and os.path.getsize(filepath) > min_size:
             verify_ok += 1
             print(f"    OK    {desc}")
         else:
