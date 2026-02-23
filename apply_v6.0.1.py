@@ -10,7 +10,10 @@ This update includes:
 - Contract term badges on proposal cards
 - Compare All now uses multi-term-aware frontend pipeline
 - Backend extracts contract_term from proposal JSON for summaries
-- Cinematic Technology Showcase (Behind the Scenes) with canvas animation
+- Cinematic Technology Showcase: MP4 video player (Behind the Scenes tile)
+  NOTE: The 379MB showcase video is NOT included in this script (too large).
+  You must manually copy aegis-showcase.mp4 to: static/video/aegis-showcase.mp4
+  The system falls back to the Canvas animation if the video file is not found.
 - Fix PDF viewer in Proposal Compare (PDF.js vendor files deployed)
 - Fix guided tour demo audio (robot voice at start + audio-visual drift)
 
@@ -21,6 +24,7 @@ Usage:
   2. Run: python apply_v6.0.1.py
      or:  python3 apply_v6.0.1.py
   3. Restart AEGIS after completion
+  4. (Optional) Copy aegis-showcase.mp4 to static/video/ for the Behind the Scenes video
 
 No external dependencies required - uses only Python standard library.
 """
@@ -288,6 +292,8 @@ def main():
                 with open(init_file, 'w') as f:
                     f.write('')
                 print(f"    Created {init_file}")
+    # Create static/video/ directory for manual video deployment
+    os.makedirs('static/video', exist_ok=True)
     print("           Done.")
     print()
 
@@ -389,9 +395,11 @@ def main():
     print("     - Double-click restart_aegis.sh")
     print("     - Or: python3 app.py --debug")
     print("  2. Hard refresh browser (Ctrl+Shift+R)")
-    print("  3. Click 'Behind the Scenes' tile to play cinematic showcase")
-    print("  4. Open Proposal Compare > Projects > Select project")
-    print("  5. Verify:")
+    print("  3. (Optional) Copy aegis-showcase.mp4 to static/video/ for Behind the Scenes video")
+    print("     - Without it, the Behind the Scenes tile plays the Canvas animation fallback")
+    print("  4. Click 'Behind the Scenes' tile to play cinematic showcase")
+    print("  5. Open Proposal Compare > Projects > Select project")
+    print("  6. Verify:")
     print("     - Company names wrap to 2 lines (hover for full name)")
     print("     - Term badges appear on proposal cards")
     print("     - Click 'Re-Analyze' to see term-grouped comparison")

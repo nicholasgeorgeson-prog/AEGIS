@@ -2778,7 +2778,182 @@ window.CinematicVideo = (function() {
     // =========================================================================
     // PUBLIC API
     // =========================================================================
-    function play() {
+    // =========================================================================
+    // v6.0.1: VIDEO MODE — HTML5 <video> player for pre-rendered MP4
+    // Falls back to Canvas animation if MP4 not available
+    // =========================================================================
+    var VIDEO_SRC = '/static/video/aegis-showcase.mp4';
+    var _videoMode = false;
+    var _videoEl = null;
+
+    function _playVideo() {
+        var modal = document.getElementById('cinema-modal');
+        if (!modal) return;
+        _videoMode = true;
+        Engine.playing = true;
+        Engine.paused = false;
+
+        modal.style.display = 'flex';
+
+        // Hide the canvas
+        var canvas = document.getElementById('cinema-canvas');
+        if (canvas) canvas.style.display = 'none';
+
+        // Hide the subtitle bar (video has its own)
+        var subtitle = document.getElementById('cinema-subtitle');
+        if (subtitle) subtitle.style.display = 'none';
+
+        // Create or reuse video element
+        if (!_videoEl) {
+            _videoEl = document.createElement('video');
+            _videoEl.id = 'cinema-video-player';
+            _videoEl.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000;position:absolute;top:0;left:0;z-index:1;';
+            _videoEl.setAttribute('playsinline', '');
+            _videoEl.preload = 'auto';
+            // Insert before controls so controls overlay the video
+            var controls = document.getElementById('cinema-controls');
+            if (controls) {
+                modal.insertBefore(_videoEl, controls);
+            } else {
+                modal.appendChild(_videoEl);
+            }
+        }
+
+        _videoEl.src = VIDEO_SRC;
+        _videoEl.style.display = 'block';
+        _videoEl.volume = 0.8;
+
+        // Wire controls for video mode
+        _wireVideoControls();
+
+        _videoEl.play().then(function() {
+            console.log('[Cinema] Video playing');
+        }).catch(function(e) {
+            console.warn('[Cinema] Video play failed, falling back to canvas:', e);
+            _videoMode = false;
+            _videoEl.style.display = 'none';
+            if (canvas) canvas.style.display = '';
+            if (subtitle) subtitle.style.display = '';
+            Engine.playing = false;
+            _playCanvas();
+        });
+    }
+
+    function _wireVideoControls() {
+        var playBtn = document.getElementById('cinema-btn-play');
+        var closeBtn = document.getElementById('cinema-btn-close');
+        var fsBtn = document.getElementById('cinema-btn-fullscreen');
+        var muteBtn = document.getElementById('cinema-btn-mute');
+        var volRange = document.getElementById('cinema-volume');
+        var progress = document.getElementById('cinema-progress');
+        var progressFill = document.getElementById('cinema-progress-fill');
+        var timeEl = document.getElementById('cinema-time');
+        var controls = document.getElementById('cinema-controls');
+
+        // Show controls
+        if (controls) controls.style.display = '';
+
+        // Remove old listeners by cloning
+        if (playBtn) {
+            var newPlay = playBtn.cloneNode(true);
+            playBtn.parentNode.replaceChild(newPlay, playBtn);
+            playBtn = newPlay;
+            playBtn.innerHTML = '<i data-lucide="pause"></i>';
+            playBtn.addEventListener('click', function() {
+                if (!_videoEl) return;
+                if (_videoEl.paused) {
+                    _videoEl.play();
+                    playBtn.innerHTML = '<i data-lucide="pause"></i>';
+                } else {
+                    _videoEl.pause();
+                    playBtn.innerHTML = '<i data-lucide="play"></i>';
+                }
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            });
+        }
+
+        if (closeBtn) {
+            var newClose = closeBtn.cloneNode(true);
+            closeBtn.parentNode.replaceChild(newClose, closeBtn);
+            closeBtn = newClose;
+            closeBtn.addEventListener('click', function() { stop(); });
+        }
+
+        if (fsBtn) {
+            var newFs = fsBtn.cloneNode(true);
+            fsBtn.parentNode.replaceChild(newFs, fsBtn);
+            fsBtn = newFs;
+            newFs.addEventListener('click', function() {
+                var modal = document.getElementById('cinema-modal');
+                if (!modal) return;
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                } else {
+                    modal.requestFullscreen().catch(function(){});
+                }
+            });
+        }
+
+        if (muteBtn) {
+            var newMute = muteBtn.cloneNode(true);
+            muteBtn.parentNode.replaceChild(newMute, muteBtn);
+            muteBtn = newMute;
+            newMute.addEventListener('click', function() {
+                if (!_videoEl) return;
+                _videoEl.muted = !_videoEl.muted;
+                newMute.innerHTML = _videoEl.muted
+                    ? '<i data-lucide="volume-x"></i>'
+                    : '<i data-lucide="volume-2"></i>';
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            });
+        }
+
+        if (volRange) {
+            volRange.value = 0.8;
+            volRange.addEventListener('input', function() {
+                if (_videoEl) _videoEl.volume = parseFloat(volRange.value);
+            });
+        }
+
+        // Progress bar click to seek
+        if (progress) {
+            var newProg = progress.cloneNode(true);
+            progress.parentNode.replaceChild(newProg, progress);
+            progressFill = newProg.querySelector('.cinema-progress-fill') || document.getElementById('cinema-progress-fill');
+            newProg.addEventListener('click', function(e) {
+                if (!_videoEl || !_videoEl.duration) return;
+                var rect = newProg.getBoundingClientRect();
+                var pct = (e.clientX - rect.left) / rect.width;
+                _videoEl.currentTime = pct * _videoEl.duration;
+            });
+        }
+
+        // Update progress bar and time display
+        if (_videoEl) {
+            _videoEl.ontimeupdate = function() {
+                if (!_videoEl.duration) return;
+                var pct = (_videoEl.currentTime / _videoEl.duration) * 100;
+                if (progressFill) progressFill.style.width = pct + '%';
+                if (timeEl) {
+                    timeEl.textContent = _fmtTime(_videoEl.currentTime) + ' / ' + _fmtTime(_videoEl.duration);
+                }
+            };
+            _videoEl.onended = function() {
+                stop();
+            };
+        }
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function _fmtTime(sec) {
+        var m = Math.floor(sec / 60);
+        var s = Math.floor(sec % 60);
+        return m + ':' + (s < 10 ? '0' : '') + s;
+    }
+
+    // Original canvas animation mode
+    function _playCanvas() {
         if (Engine.playing) return;
 
         var modal = document.getElementById('cinema-modal');
@@ -2812,13 +2987,51 @@ window.CinematicVideo = (function() {
         }
 
         Engine.rafId = requestAnimationFrame(_tick);
-        console.log('[Cinema] Playing — ' + Engine.scenes.length + ' scenes');
+        console.log('[Cinema] Playing canvas animation — ' + Engine.scenes.length + ' scenes');
+    }
+
+    function play() {
+        if (Engine.playing) return;
+
+        // v6.0.1: Try video mode first — check if MP4 exists
+        // Use a quick HEAD request; if 200 → play video, otherwise → canvas fallback
+        var xhr = new XMLHttpRequest();
+        xhr.open('HEAD', VIDEO_SRC, true);
+        xhr.onload = function() {
+            if (xhr.status >= 200 && xhr.status < 400) {
+                console.log('[Cinema] MP4 video found — using video player');
+                _playVideo();
+            } else {
+                console.log('[Cinema] No MP4 video (HTTP ' + xhr.status + ') — using canvas animation');
+                _playCanvas();
+            }
+        };
+        xhr.onerror = function() {
+            console.log('[Cinema] Video check failed — using canvas animation');
+            _playCanvas();
+        };
+        xhr.timeout = 3000;
+        xhr.ontimeout = function() {
+            console.log('[Cinema] Video check timed out — using canvas animation');
+            _playCanvas();
+        };
+        xhr.send();
     }
 
     function pause() {
         if (!Engine.playing || Engine.paused) return;
         Engine.paused = true;
         Engine.pausedAt = performance.now();
+
+        // v6.0.1: Handle video mode pause
+        if (_videoMode && _videoEl) {
+            try { _videoEl.pause(); } catch(e){}
+            var btn = document.getElementById('cinema-btn-play');
+            if (btn) btn.innerHTML = '<i data-lucide="play"></i>';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            return;
+        }
+
         if (Engine.audioEl) { try { Engine.audioEl.pause(); } catch(e){} }
         if (window.speechSynthesis) { try { window.speechSynthesis.pause(); } catch(e){} }
         var btn = document.getElementById('cinema-btn-play');
@@ -2828,10 +3041,20 @@ window.CinematicVideo = (function() {
 
     function resume() {
         if (!Engine.playing || !Engine.paused) return;
+        Engine.paused = false;
+
+        // v6.0.1: Handle video mode resume
+        if (_videoMode && _videoEl) {
+            try { _videoEl.play(); } catch(e){}
+            var btn = document.getElementById('cinema-btn-play');
+            if (btn) btn.innerHTML = '<i data-lucide="pause"></i>';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            return;
+        }
+
         // Adjust startTime to account for paused duration
         var pausedDuration = performance.now() - Engine.pausedAt;
         Engine.startTime += pausedDuration;
-        Engine.paused = false;
         if (Engine.audioEl) { try { Engine.audioEl.play(); } catch(e){} }
         if (window.speechSynthesis) { try { window.speechSynthesis.resume(); } catch(e){} }
         var btn = document.getElementById('cinema-btn-play');
@@ -2842,6 +3065,19 @@ window.CinematicVideo = (function() {
     function stop() {
         Engine.playing = false;
         Engine.paused = false;
+
+        // v6.0.1: Handle video mode cleanup
+        if (_videoMode && _videoEl) {
+            try { _videoEl.pause(); _videoEl.src = ''; } catch(e){}
+            _videoEl.style.display = 'none';
+            _videoMode = false;
+            // Restore canvas display for next time
+            var canvas = document.getElementById('cinema-canvas');
+            if (canvas) canvas.style.display = '';
+            var subtitle = document.getElementById('cinema-subtitle');
+            if (subtitle) subtitle.style.display = '';
+        }
+
         if (Engine.rafId) cancelAnimationFrame(Engine.rafId);
         Engine.rafId = null;
 
@@ -2876,6 +3112,12 @@ window.CinematicVideo = (function() {
     }
 
     function seek(pct) {
+        // v6.0.1: Handle video mode seek
+        if (_videoMode && _videoEl && _videoEl.duration) {
+            _videoEl.currentTime = pct * _videoEl.duration;
+            return;
+        }
+
         // Approximate seek by jumping to scene at percentage
         var total = _getTotalDuration();
         var targetTime = total * pct;
