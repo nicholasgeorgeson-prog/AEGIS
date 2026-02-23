@@ -473,6 +473,7 @@ def main():
         ("Templates", TEMPLATE_FILES),
         ("Config & Data", CONFIG_FILES),
         ("Installers & Batch", INSTALLER_FILES),
+        ("Audio Manifests", AUDIO_MANIFESTS),
     ]
 
     for group_name, group_files in groups:
@@ -563,7 +564,9 @@ def main():
                 if not filename:
                     continue
                 filepath = os.path.join(audio_dir, filename)
-                url = f"{RAW_BASE}/{filepath}"
+                # Use forward slashes in URL (os.path.join uses backslash on Windows)
+                url_path = filepath.replace('\\', '/')
+                url = f"{RAW_BASE}/{url_path}"
                 result = download_file(url, filepath, ssl_ctx)
                 audio_current += 1
                 if result > 0:
