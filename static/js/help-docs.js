@@ -4435,6 +4435,11 @@ HelpDocs.content['fix-overview'] = {
         <h3>Rich Export</h3>
         <p>Export with tracked changes (accepted) and comments (rejected with notes).</p>
     </div>
+    <div class="help-feature-card">
+        <div class="help-feature-icon"><i data-lucide="users"></i></div>
+        <h3>Reviewer/Owner Mode</h3>
+        <p>Toggle between Doc Owner (applies Track Changes) and Reviewer (adds recommendation comments only). Your role persists across sessions.</p>
+    </div>
 </div>
 
 <h2><i data-lucide="keyboard"></i> Keyboard Shortcuts</h2>
@@ -4483,10 +4488,11 @@ HelpDocs.content['fix-workflow'] = {
 <ol>
     <li><strong>Run a Review</strong> — Load a document and run a review with your preferred presets</li>
     <li><strong>Open Fix Assistant</strong> — Click <strong>Fix Assistant</strong> in the Review panel or press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></li>
+    <li><strong>Choose Your Role</strong> — Use the <strong>Role:</strong> dropdown to select <strong>Doc Owner</strong> (you will apply changes) or <strong>Reviewer</strong> (you will add comments only)</li>
     <li><strong>Review Fixes</strong> — Each fix shows the issue, suggested change, and confidence level</li>
     <li><strong>Make Decisions</strong> — Accept, Reject, or Skip each fix</li>
     <li><strong>Add Notes</strong> — Optionally add reviewer notes to rejected fixes</li>
-    <li><strong>Export</strong> — Download with tracked changes and/or comments</li>
+    <li><strong>Export</strong> — Download with tracked changes (Owner) or recommendation comments (Reviewer)</li>
 </ol>
 
 <h2><i data-lucide="target"></i> Confidence Levels</h2>
@@ -4570,12 +4576,32 @@ HelpDocs.content['fix-export'] = {
     html: `
 <h2><i data-lucide="download"></i> Export Formats</h2>
 
-<h3>Word Document with Tracked Changes</h3>
+<h3>Review Role Mode</h3>
+<p>Before exporting, choose your review role using the <strong>Role:</strong> dropdown in the Fix Assistant header:</p>
+<table class="help-table">
+    <thead><tr><th>Action</th><th>Doc Owner</th><th>Reviewer</th></tr></thead>
+    <tbody>
+        <tr><td><strong>Accept</strong></td><td>Physical text change (Track Changes)</td><td>Recommendation comment (no text change)</td></tr>
+        <tr><td><strong>Reject</strong></td><td>Comment noting rejection</td><td>No action (skipped)</td></tr>
+        <tr><td><strong>Pending</strong></td><td>Left unchanged</td><td>Left unchanged</td></tr>
+    </tbody>
+</table>
+<p>Your role selection is remembered across sessions.</p>
+
+<h3>Word Document with Tracked Changes (Doc Owner)</h3>
 <p>Exports a .docx file where:</p>
 <ul>
     <li><strong>Accepted fixes</strong> → Applied as tracked changes (insertions/deletions)</li>
     <li><strong>Rejected fixes</strong> → Inserted as comments with your reviewer notes</li>
     <li>Original formatting preserved</li>
+</ul>
+
+<h3>Word Document with Comments (Reviewer)</h3>
+<p>When in Reviewer mode, exports a .docx file where:</p>
+<ul>
+    <li><strong>Accepted fixes</strong> → Added as recommendation comments (no text changes)</li>
+    <li><strong>Rejected fixes</strong> → Skipped entirely (no comments or changes)</li>
+    <li>The document author retains full control over text modifications</li>
 </ul>
 
 <h3>PDF Summary Report</h3>

@@ -51,7 +51,7 @@ EDGE_TTS_VOICES = {
     'female_au': 'en-AU-NatashaNeural',
 }
 
-DEFAULT_VOICE = 'en-US-JennyNeural'  # v5.9.30: Female neural voice — natural, warm tone
+DEFAULT_VOICE = 'en-US-AvaNeural'  # v6.0.2: English-only neural voice — prevents accent shifts from multilingual variant
 DEFAULT_RATE = '+0%'
 DEFAULT_PITCH = '+0Hz'
 
@@ -284,7 +284,7 @@ def generate_cinema_audio(voice=DEFAULT_VOICE, force=False):
     Generate audio files for the cinematic technology showcase.
 
     Args:
-        voice: edge-tts voice name (default: JennyNeural)
+        voice: edge-tts voice name (default: AvaNeural English-only)
         force: regenerate even if files exist
 
     Returns:

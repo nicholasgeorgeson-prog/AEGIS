@@ -1,13 +1,27 @@
 {
-  "version": "6.0.1",
+  "version": "6.0.2",
   "release_date": "2026-02-23",
-  "core_version": "6.0.1",
+  "core_version": "6.0.2",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.0.2",
+      "date": "2026-02-23",
+      "changes": [
+        "NEW: Fix Assistant Reviewer/Owner mode toggle — choose between Document Owner (Track Changes) and Reviewer (comments only) export modes",
+        "ENH: Reviewer mode: accepted fixes become recommendation comments, rejected fixes are skipped entirely",
+        "ENH: Owner mode: current behavior preserved — accepted fixes apply Track Changes, rejected fixes add comments",
+        "ENH: Review role persists across sessions via localStorage",
+        "ENH: Export modal label dynamically updates to reflect active review role",
+        "ENH: Accept/Reject button tooltips update contextually based on review role",
+        "FIX: Spelling checker now uses US English dictionary — British spellings flagged with American corrections"
+      ],
+      "tag": "Fix Assistant — Reviewer/Owner Mode"
+    },
     {
       "version": "6.0.1",
       "date": "2026-02-23",

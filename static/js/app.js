@@ -3235,6 +3235,17 @@ function showExportModal() {
         }
     }
 
+    // v6.0.2: Update apply fixes label based on review role mode
+    const applyLabel = document.querySelector('label[for="export-apply-fixes"]');
+    if (applyLabel) {
+        const isReviewer = (window.FixAssistantState && typeof FixAssistantState.getReviewRole === 'function')
+            ? FixAssistantState.getReviewRole() === 'reviewer'
+            : false;
+        applyLabel.textContent = isReviewer
+            ? 'Add accepted fixes as recommendation comments'
+            : 'Apply selected fixes (Track Changes)';
+    }
+
     // v5.9.4: Populate export filter chips
     _populateExportFilterChips();
 
@@ -3409,31 +3420,55 @@ async function executeExport() {
                     }
                 }
 
+                // v6.0.2: Review role mode determines how fixes are applied
+                const reviewRole = (window.FixAssistantState && typeof FixAssistantState.getReviewRole === 'function')
+                    ? FixAssistantState.getReviewRole()
+                    : 'owner';
+
                 endpoint = '/export';
-                body = {
-                    issues: issuesToExport.map((issue, i) => ({ ...issue, index: i })),
-                    reviewer_name: reviewerName,
-                    apply_fixes: applyFixes && selectedFixes.length > 0,
-                    // v5.9.4: Fix Assistant v2 returns {original_text, replacement_text, ...}
-                    // Legacy fallback returns {flagged_text, suggestion, ...}
-                    // Normalize to backend format with safe fallbacks for both
-                    selected_fixes: selectedFixes.map(f => ({
-                        original_text: f.original_text || f.flagged_text || '',
-                        replacement_text: f.replacement_text || f.suggestion || '',
-                        category: f.category || '',
-                        message: f.message || '',
-                        paragraph_index: f.paragraph_index || 0
-                    })),
-                    // v5.9.4: Rejected fixes from Fix Assistant v2 added as margin comments
-                    comment_only_issues: rejectedFixes.map(f => ({
-                        original_text: f.original_text || f.flagged_text || '',
-                        suggestion: f.replacement_text || f.suggestion || '',
-                        category: f.category || '',
-                        paragraph_index: f.paragraph_index || 0,
-                        reviewer_note: f.reviewer_note || f.note || ''
-                    })),
-                    export_type: 'docx'
-                };
+
+                if (reviewRole === 'reviewer') {
+                    // Reviewer mode: accepted fixes → recommendation comments (no text changes)
+                    // Rejected fixes → skipped entirely (no action)
+                    body = {
+                        issues: issuesToExport.map((issue, i) => ({ ...issue, index: i })),
+                        reviewer_name: reviewerName,
+                        apply_fixes: false,
+                        selected_fixes: [],
+                        comment_only_issues: selectedFixes.map(f => ({
+                            original_text: f.original_text || f.flagged_text || '',
+                            suggestion: f.replacement_text || f.suggestion || '',
+                            category: f.category || '',
+                            paragraph_index: f.paragraph_index || 0,
+                            reviewer_note: 'Reviewer recommendation: Accept this change'
+                        })),
+                        export_type: 'docx',
+                        review_role: 'reviewer'
+                    };
+                } else {
+                    // Owner mode (default): accepted → Track Changes, rejected → comments
+                    body = {
+                        issues: issuesToExport.map((issue, i) => ({ ...issue, index: i })),
+                        reviewer_name: reviewerName,
+                        apply_fixes: applyFixes && selectedFixes.length > 0,
+                        selected_fixes: selectedFixes.map(f => ({
+                            original_text: f.original_text || f.flagged_text || '',
+                            replacement_text: f.replacement_text || f.suggestion || '',
+                            category: f.category || '',
+                            message: f.message || '',
+                            paragraph_index: f.paragraph_index || 0
+                        })),
+                        comment_only_issues: rejectedFixes.map(f => ({
+                            original_text: f.original_text || f.flagged_text || '',
+                            suggestion: f.replacement_text || f.suggestion || '',
+                            category: f.category || '',
+                            paragraph_index: f.paragraph_index || 0,
+                            reviewer_note: f.reviewer_note || f.note || ''
+                        })),
+                        export_type: 'docx',
+                        review_role: 'owner'
+                    };
+                }
         }
 
         const response = await fetch(`/api${endpoint}`, {
@@ -6665,6 +6700,16 @@ const FixAssistant = (function() {
             }
         }
 
+        // v6.0.2: Initialize review role mode toggle
+        if (els.roleMode) {
+            els.roleMode.value = FixAssistantState.getReviewRole();
+            els.roleMode.addEventListener('change', function() {
+                FixAssistantState.setReviewRole(els.roleMode.value);
+                updateRoleModeHints();
+            });
+            updateRoleModeHints();
+        }
+
         // Initialize document viewer
         const viewerContainer = els.documentViewer;
         if (viewerContainer && documentContent) {
@@ -6852,6 +6897,33 @@ const FixAssistant = (function() {
 
         // Panels
         els.shortcutsPanel = document.getElementById('fav2-shortcuts-panel');
+
+        // v6.0.2: Review role mode toggle
+        els.roleMode = document.getElementById('fav2-role-mode');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // v6.0.2: REVIEW ROLE MODE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Update UI hints (button tooltips) based on current review role mode.
+     * Owner mode: Accept = text fix, Reject = comment
+     * Reviewer mode: Accept = recommendation comment, Reject = skip
+     */
+    function updateRoleModeHints() {
+        const isReviewer = FixAssistantState.getReviewRole() === 'reviewer';
+        if (els.btnAccept) {
+            els.btnAccept.title = isReviewer
+                ? 'Add recommendation comment (A)'
+                : 'Apply text fix (A)';
+        }
+        if (els.btnReject) {
+            els.btnReject.title = isReviewer
+                ? 'Skip - no action (R)'
+                : 'Add rejection comment (R)';
+        }
+        console.log('[TWR FixAssistant] Review role mode:', isReviewer ? 'reviewer' : 'owner');
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -7717,7 +7789,8 @@ const FixAssistant = (function() {
             detail: {
                 selectedFixes: selectedFixesList,
                 rejectedFixes: rejectedFixesList,
-                statistics: stats
+                statistics: stats,
+                reviewRole: FixAssistantState.getReviewRole()  // v6.0.2
             }
         }));
     }

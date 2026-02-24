@@ -32,6 +32,9 @@ const FixAssistantState = (function() {
     let sessionStartTime = Date.now();
     let lastSaveTime = null;
 
+    // v6.0.2: Review role mode — 'owner' (text changes) or 'reviewer' (comments only)
+    let reviewRole = localStorage.getItem('aegis-fa-review-role') || 'owner';
+
     const listeners = {
         change: [],
         decision: [],
@@ -600,6 +603,22 @@ const FixAssistantState = (function() {
     function getNavigationOrder() {
         if (!requireInitialized('getNavigationOrder')) return [];
         return [...navigationOrder];
+    }
+
+    // v6.0.2: Review role mode getter/setter
+    function getReviewRole() {
+        return reviewRole;
+    }
+
+    function setReviewRole(role) {
+        if (role !== 'owner' && role !== 'reviewer') {
+            warn('Invalid review role:', role);
+            return;
+        }
+        reviewRole = role;
+        localStorage.setItem('aegis-fa-review-role', role);
+        log('Review role set to:', role);
+        emit('change');
     }
 
     function getCurrentIndex() {
@@ -1279,6 +1298,10 @@ const FixAssistantState = (function() {
         goToPrevious,
         goToIndex,
 
+        // v6.0.2: Review Role Mode
+        getReviewRole,
+        setReviewRole,
+
         // Groups
         getGroups,
         acceptGroup,
@@ -1335,6 +1358,6 @@ if (typeof window !== 'undefined') {
     window.FixAssistantState = FixAssistantState;
 }
 
-console.log('[TWR FixAssistantState] Module loaded v3.0.116 (WP5a+WP5b complete, BUG-M05 key collision fix)');
+console.log('[TWR FixAssistantState] Module loaded v3.0.117 (WP5a+WP5b complete, BUG-M05 key collision fix, v6.0.2 review role mode)');
 
 // === WP5a + WP5b COMPLETE ===

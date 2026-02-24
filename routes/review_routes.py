@@ -2735,6 +2735,9 @@ def export_document():
                         apply_fixes = data.get('apply_fixes', False)
                         selected_fixes = data.get('selected_fixes', [])
                         comment_only_issues = data.get('comment_only_issues', [])
+                        # v6.0.2: Log review role mode (owner vs reviewer) for diagnostics
+                        review_role = data.get('review_role', 'owner')
+                        logger.info(f'Export: role={review_role}, apply_fixes={apply_fixes}, fixes={len(selected_fixes)}, comments={len(comment_only_issues)}')
                         if mode == 'selected':
                             selected = session_data.get('selected_issues', set())
                             if isinstance(selected, list):

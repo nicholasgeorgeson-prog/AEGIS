@@ -167,7 +167,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 6.0.1
+- **Current version**: 6.0.2
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -1195,6 +1195,24 @@ Chain batches sequentially: each batch's commit becomes the next batch's parent,
 **Key insight**: `startComparison()` already calls `_captureReviewEdits()` and `_cleanupBlobUrls()` at the top — these are harmless no-ops when coming from project detail (no DOM elements to capture from, no blobs to clean).
 **Files**: `proposal-compare.js`, `proposal-compare.css`, `proposal_compare/projects.py`
 **Lesson**: When an existing pipeline does exactly what's needed but is only triggered from one flow, create a thin bridge function that prepares the state and calls the pipeline entry point. Zero duplication of comparison logic.
+
+### 131. Fix Assistant Reviewer/Owner Mode Toggle (v6.0.2)
+**Feature**: Added a review role toggle to Fix Assistant — users choose between "Doc Owner" and "Reviewer" modes that change how accepted and rejected fixes are applied during DOCX export.
+**Owner mode** (default, existing behavior): Accepted fixes → Track Changes text replacements. Rejected fixes → margin comments noting the rejection with reviewer notes.
+**Reviewer mode**: Accepted fixes → recommendation comments only (no text changes). Rejected fixes → skipped entirely (no action). This lets reviewers mark suggestions without modifying the document author's text.
+**Architecture**: Frontend-controlled routing — the toggle changes what goes into `selected_fixes` (Track Changes) vs `comment_only_issues` (comments) before sending to the backend. Zero backend logic changes needed since `apply_fixes_with_track_changes()` and `add_review_comments()` already handle both modes.
+**State persistence**: `reviewRole` stored in `FixAssistantState` IIFE with `localStorage('aegis-fa-review-role')`. Getter/setter exposed in public API.
+**UI**: `<select id="fav2-role-mode">` in FA header left section, styled to match existing `.fav2-nav-mode` dropdown. "Role:" prefix label via CSS `::before`. Tooltips on Accept/Reject buttons update contextually.
+**Export modal**: "Apply selected fixes" label changes to "Add accepted fixes as recommendation comments" when in Reviewer mode.
+**Files**: `index.html`, `fix-assistant-state.js`, `app.js`, `fix-assistant.css`, `review_routes.py` (logging only)
+**Lesson**: When the backend already supports both export modes (Track Changes vs comments-only), new workflow modes can be implemented entirely in the frontend by controlling which data goes to which API field. The `selected_fixes` → `comment_only_issues` rerouting pattern avoids backend changes.
+
+### 132. US English Dictionary for Spelling Checker (v6.0.2)
+**Feature**: Switched spell checker from accepting both British and American spellings to US-only dictionary.
+**Changes**: (1) Removed British `'learnt'` from COMMON_WORDS in `spell_checker.py`. (2) Added 200+ British→American corrections to COMMON_MISSPELLINGS dict: -ise→-ize, -ised→-ized, -ising→-izing, -isation→-ization, -our→-or, -re→-er, -t→-ed past tense, defence→defense, programme→program, grey→gray, etc.
+**Pre-existing**: `terminology_checker.py` already has `prefer_american=True` default. `nlp/spelling/enchant.py` already defaults to `language='en_US'`.
+**Files**: `spell_checker.py`
+**Lesson**: When switching to a US-only dictionary, the COMMON_MISSPELLINGS dict is the right place for British→American corrections — it flags the British spelling as incorrect and suggests the American form. COMMON_WORDS should only contain the American form. Always check all spelling-related modules (spell_checker, terminology_checker, nlp/spelling/*) to ensure consistency.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
