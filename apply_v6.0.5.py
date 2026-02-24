@@ -172,12 +172,26 @@ def main():
     # Install new dependencies
     print('[STEP 3] Installing new dependencies (msal, PyJWT)...')
     python_exe = sys.executable
-    wheels_dir = os.path.join(os.getcwd(), 'wheels')
+    print(f'  Python: {python_exe}')
+
+    # Build list of wheels directories to search
+    wheels_dirs = []
+    for d in ['wheels', os.path.join('packaging', 'wheels')]:
+        full = os.path.join(os.getcwd(), d)
+        if os.path.isdir(full):
+            wheels_dirs.append(full)
+    if not wheels_dirs:
+        wheels_dirs = [os.path.join(os.getcwd(), 'wheels')]
+
+    find_links = []
+    for d in wheels_dirs:
+        find_links.extend(['--find-links', d])
 
     # Try offline first (from wheels), then online fallback
     install_cmd = [
         python_exe, '-m', 'pip', 'install',
-        '--no-index', f'--find-links={wheels_dir}',
+        '--no-index',
+        *find_links,
         '--no-warn-script-location',
         'msal', 'PyJWT'
     ]
@@ -188,7 +202,8 @@ def main():
         print('  [OK] msal and PyJWT installed from wheels')
         success_count += 1
     else:
-        print('  [WARN] Offline install failed, trying online...')
+        print(f'  [WARN] Offline install failed: {result.stderr[:150] if result.stderr else "unknown"}')
+        print('  Trying online install...')
         online_cmd = [
             python_exe, '-m', 'pip', 'install',
             '--no-warn-script-location',
