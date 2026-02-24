@@ -1,13 +1,21 @@
 {
-  "version": "6.0.5",
+  "version": "6.0.6",
   "release_date": "2026-02-24",
-  "core_version": "6.0.5",
+  "core_version": "6.0.6",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.0.6",
+      "date": "2026-02-24",
+      "changes": [
+        "FIX: SharePoint 'Folder not found' error — validate_folder_path() was bypassing _api_get() auth, using raw session.get() which had no preemptive SSPI token or OAuth Bearer token",
+        "FIX: SharePoint folder validation now uses _api_get() for consistent authentication across all API calls"
+      ]
+    },
     {
       "version": "6.0.5",
       "date": "2026-02-24",

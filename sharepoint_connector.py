@@ -1138,6 +1138,11 @@ class SharePointConnector:
         %23→#, etc., solving the T&E/R&D folder name issue. Falls back to
         legacy GetFolderByServerRelativeUrl for older SharePoint versions.
 
+        v6.0.6: Uses _api_get() instead of raw session.get() so that
+        preemptive SSPI tokens and OAuth Bearer tokens are included.
+        Without this, validate_folder_path always got 401 on SharePoint
+        Online where legacy auth is disabled.
+
         Reference: https://learn.microsoft.com/en-us/sharepoint/dev/
         solution-guidance/supporting-and-in-file-and-folder-with-the-resourcepath-api
         """
@@ -1145,10 +1150,8 @@ class SharePointConnector:
 
         # Strategy 1: Modern ResourcePath API (recommended by Microsoft)
         try:
-            resp = self.session.get(
-                f"{self.site_url}/_api/web/GetFolderByServerRelativePath(decodedUrl='{encoded}')",
-                timeout=self.timeout,
-                verify=self.ssl_verify,
+            resp = self._api_get(
+                f"/_api/web/GetFolderByServerRelativePath(decodedUrl='{encoded}')"
             )
             if resp.status_code == 200:
                 return True
@@ -1159,10 +1162,8 @@ class SharePointConnector:
         # Uses un-encoded path (literal chars) since this API auto-detects encoding
         try:
             legacy_encoded = quote(folder_path, safe='/:')
-            resp = self.session.get(
-                f"{self.site_url}/_api/web/GetFolderByServerRelativeUrl('{legacy_encoded}')",
-                timeout=self.timeout,
-                verify=self.ssl_verify,
+            resp = self._api_get(
+                f"/_api/web/GetFolderByServerRelativeUrl('{legacy_encoded}')"
             )
             if resp.status_code == 200:
                 return True
