@@ -1214,6 +1214,14 @@ Chain batches sequentially: each batch's commit becomes the next batch's parent,
 **Files**: `spell_checker.py`
 **Lesson**: When switching to a US-only dictionary, the COMMON_MISSPELLINGS dict is the right place for British→American corrections — it flags the British spelling as incorrect and suggests the American form. COMMON_WORDS should only contain the American form. Always check all spelling-related modules (spell_checker, terminology_checker, nlp/spelling/*) to ensure consistency.
 
+### 133. Proposal Compare "Add Proposal" Erased Previous Batch (v6.0.2)
+**Problem**: User uploaded 6 proposals (3 vendors × 2 terms) but only 2 were compared.
+**Root Cause**: `startExtraction()` at line 886 in `proposal-compare.js` did `State.proposals = []` which erased ALL previously loaded proposals when the user uploaded files in multiple batches via the "Add Proposal" flow. The upload phase correctly showed existing proposals as "already loaded" (line 589), but the extraction reset wiped them.
+**Fix**: Changed `State.proposals = []` to `State.proposals = State.proposals.slice()` (preserve existing array). New extractions are still pushed via `State.proposals.push(r.data)`, so they append to existing proposals instead of replacing them.
+**Also fixed**: `_groupByContractTerm()` now normalizes contract terms before grouping — case-insensitive, strips hyphens/dashes, collapses whitespace. "3 Year", "3-year", "3 year" all group together. Normalized keys map back to display labels (first seen original used as label).
+**Diagnostic logging**: Added `console.log` at 3 points: extraction (existing + new counts), term grouping (groups with counts), comparison start (proposals with term values, mode selected).
+**Lesson**: Any multi-batch upload flow must preserve state from previous batches. When `startExtraction()` resets `State.proposals`, all prior work is lost. The "Add Proposal" button correctly preserved proposals in the upload phase UI, but the extraction function undid it. Always test the full "upload → add more → extract" flow end to end.
+
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
 1. **Changelog update** in `version.json` (and copy to `static/version.json`)

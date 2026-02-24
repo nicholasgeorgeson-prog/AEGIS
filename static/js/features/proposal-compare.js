@@ -882,9 +882,11 @@ window.ProposalCompare = (function() {
                 throw new Error(result.error?.message || 'Upload failed');
             }
 
-            // Process results
-            State.proposals = [];
+            // Process results — preserve existing proposals (v6.0.2: Fix "Add Proposal" erasing previous batch)
+            var existingProposals = State.proposals ? State.proposals.slice() : [];
+            State.proposals = existingProposals;
             var results = result.data?.results || [];
+            console.log('[AEGIS ProposalCompare] Extraction: ' + results.length + ' new results, ' + existingProposals.length + ' existing proposals');
 
             results.forEach(function(r, idx) {
                 var metaEl = document.getElementById('pc-extract-meta-' + idx);
@@ -1980,14 +1982,26 @@ window.ProposalCompare = (function() {
      */
     function _groupByContractTerm(proposals) {
         var termMap = {};
+        // v6.0.2: Normalize terms for grouping — case-insensitive, strip hyphens/extra spaces
+        var _normTerm = function(t) {
+            return (t || '').trim().toLowerCase().replace(/[-–—]/g, ' ').replace(/\s+/g, ' ');
+        };
+        // Map normalized → display label (use first non-empty original as label)
+        var normToLabel = {};
         proposals.forEach(function(p) {
-            var term = (p.contract_term || '').trim();
-            if (!term) term = '';
-            if (!termMap[term]) termMap[term] = [];
-            termMap[term].push(p);
+            var raw = (p.contract_term || '').trim();
+            var norm = _normTerm(raw);
+            if (!norm) norm = '';
+            if (norm && !normToLabel[norm]) normToLabel[norm] = raw; // use first seen as display
+            if (!termMap[norm]) termMap[norm] = [];
+            termMap[norm].push(p);
         });
 
         var termKeys = Object.keys(termMap);
+
+        console.log('[AEGIS ProposalCompare] Term grouping:', termKeys.map(function(k) {
+            return (k || '(empty)') + ': ' + termMap[k].length + ' proposals';
+        }).join(', '));
 
         // Count how many DISTINCT non-empty terms exist
         var nonEmptyTerms = termKeys.filter(function(k) { return k !== ''; });
@@ -2003,7 +2017,7 @@ window.ProposalCompare = (function() {
 
         termKeys.forEach(function(term) {
             var termProposals = termMap[term];
-            var label = term || 'Unspecified Term';
+            var label = normToLabel[term] || term || 'Unspecified Term';
 
             if (termProposals.length < 2) {
                 // Single vendor in this term — exclude from comparison
@@ -2061,13 +2075,18 @@ window.ProposalCompare = (function() {
         if (!body) return;
 
         // ── Check for multi-term grouping ──
+        console.log('[AEGIS ProposalCompare] Starting comparison with ' + State.proposals.length + ' proposals:',
+            State.proposals.map(function(p) { return (p.company_name || p.filename) + ' [' + (p.contract_term || 'no term') + ']'; }));
         var termGrouping = _groupByContractTerm(State.proposals);
 
         if (termGrouping.isMultiTerm) {
             // Multi-term mode: run separate comparisons per term group
+            console.log('[AEGIS ProposalCompare] Multi-term mode activated: ' + Object.keys(termGrouping.groups).length + ' groups');
             await _startMultiTermComparison(termGrouping, body);
             return;
         }
+
+        console.log('[AEGIS ProposalCompare] Single comparison mode — sending all ' + State.proposals.length + ' proposals');
 
         // ── Single comparison mode (existing behavior) ──
         body.innerHTML =

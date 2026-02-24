@@ -26,7 +26,10 @@
         "NEW: Rendered document view toggle in Fix Assistant — switch between text paragraphs and formatted HTML preview",
         "NEW: Review Roles sub-demo in guide system — 6-scene walkthrough explaining Doc Owner vs Reviewer behavior",
         "NEW: Keyboard Shortcuts sub-demo for Fix Assistant — 4-scene walkthrough of all keyboard commands",
-        "FIX: CSRF auto-retry on 403 — both api() functions now automatically refresh token and retry"
+        "FIX: CSRF auto-retry on 403 — both api() functions now automatically refresh token and retry",
+        "FIX: Proposal Compare 'Add Proposal' no longer erases previously loaded proposals — appends new extractions to existing set",
+        "ENH: Multi-term grouping now normalizes contract term case and formatting (e.g., '3 Year' and '3-year' group together)",
+        "ENH: Diagnostic console logging for proposal comparison flow — logs proposal count, term grouping, and comparison mode"
       ],
       "tag": "Fix Assistant — Reviewer/Owner Mode"
     },
