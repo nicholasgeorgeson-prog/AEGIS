@@ -1,13 +1,22 @@
 {
-  "version": "6.0.2",
-  "release_date": "2026-02-23",
-  "core_version": "6.0.2",
+  "version": "6.0.3",
+  "release_date": "2026-02-24",
+  "core_version": "6.0.3",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.0.3",
+      "date": "2026-02-24",
+      "changes": [
+        "FIX: SharePoint batch scan 401 auth errors — each download now uses its own session for thread-safe NTLM/Negotiate authentication",
+        "ENH: SharePoint download_file() retries 401/403 with fresh auth session before failing (matches hyperlink validator pattern)",
+        "ENH: Refactored SharePoint download into _create_download_session() and _download_with_session() helpers for cleaner retry logic"
+      ]
+    },
     {
       "version": "6.0.2",
       "date": "2026-02-23",

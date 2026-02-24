@@ -876,11 +876,80 @@ class SharePointConnector:
             except Exception as e:
                 logger.error(f"SharePoint: Error listing subfolders of {folder_path}: {e}")
 
+    def _create_download_session(self):
+        """
+        Create a fresh requests.Session for a single file download.
+
+        v6.0.3: NTLM/Negotiate auth is connection-specific — the multi-step
+        challenge→response handshake requires the same TCP connection. When
+        multiple threads share self.session during batch scans (ThreadPoolExecutor
+        with 3 workers), the NTLM handshake state gets corrupted, causing 401
+        errors. Each download must use its own session for a clean handshake.
+        (Lesson 134, same pattern as hyperlink_validator._retry_with_fresh_auth)
+        """
+        fresh = requests.Session()
+        fresh.headers.update({
+            'Accept': 'application/json;odata=verbose',
+            'Content-Type': 'application/json;odata=verbose',
+            'User-Agent': 'AEGIS/6.0.3 SharePointConnector',
+        })
+        if WINDOWS_AUTH_AVAILABLE and HttpNegotiateAuth:
+            try:
+                fresh.auth = HttpNegotiateAuth()
+            except Exception as e:
+                logger.warning(f"SharePoint: Download session SSO setup failed: {e}")
+        return fresh
+
+    def _download_with_session(self, session, encoded_url, dest_path):
+        """
+        Execute the actual download using the given session.
+
+        Returns:
+            {'success': bool, 'path': str, 'size': int, 'message': str, 'status_code': int}
+        """
+        url = f"{self.site_url}/_api/web/GetFileByServerRelativeUrl('{encoded_url}')/$value"
+        resp = session.get(
+            url,
+            timeout=self.timeout,
+            verify=self.ssl_verify,
+            stream=True,
+            allow_redirects=True,
+        )
+
+        if resp.status_code == 200:
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            total_bytes = 0
+            with open(dest_path, 'wb') as f:
+                for chunk in resp.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+                        total_bytes += len(chunk)
+            return {
+                'success': True,
+                'path': dest_path,
+                'size': total_bytes,
+                'message': f'Downloaded {total_bytes:,} bytes',
+                'status_code': 200,
+            }
+        else:
+            return {
+                'success': False,
+                'path': dest_path,
+                'size': 0,
+                'message': '',
+                'status_code': resp.status_code,
+            }
+
     def download_file(self, server_relative_url: str, dest_path: str) -> Dict[str, Any]:
         """
         Download a single file from SharePoint.
 
         Uses /_api/web/GetFileByServerRelativeUrl('url')/$value for binary content.
+
+        v6.0.3: Each download creates its own requests.Session for thread-safe
+        NTLM/Negotiate auth. Shared sessions corrupt the multi-step handshake
+        when used across ThreadPoolExecutor workers during batch scans (Lesson 134).
+        401/403 errors now retry with a second fresh session before giving up.
 
         Args:
             server_relative_url: Server-relative URL of the file
@@ -891,63 +960,64 @@ class SharePointConnector:
         """
         encoded_url = quote(server_relative_url, safe='/:')
 
+        # v6.0.3: Use a fresh session per download for thread-safe NTLM auth
+        session = self._create_download_session()
+
         try:
-            resp = self._api_get(
-                f"/_api/web/GetFileByServerRelativeUrl('{encoded_url}')/$value",
-                stream=True
-            )
+            result = self._download_with_session(session, encoded_url, dest_path)
 
-            if resp.status_code == 200:
-                # Ensure destination directory exists
-                os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            if result['success']:
+                return result
 
-                total_bytes = 0
-                with open(dest_path, 'wb') as f:
-                    for chunk in resp.iter_content(chunk_size=8192):
-                        if chunk:
-                            f.write(chunk)
-                            total_bytes += len(chunk)
+            status_code = result['status_code']
 
-                return {
-                    'success': True,
-                    'path': dest_path,
-                    'size': total_bytes,
-                    'message': f'Downloaded {total_bytes:,} bytes',
-                }
+            if status_code in (401, 403):
+                # v6.0.3: Retry once with a brand-new session — NTLM handshake
+                # may have been corrupted by thread contention or session reuse.
+                # Same pattern as hyperlink_validator._retry_with_fresh_auth (Lesson 75)
+                logger.info(f"SharePoint {status_code} for {server_relative_url} — retrying with fresh auth session")
+                try:
+                    session.close()
+                except Exception:
+                    pass
 
-            elif resp.status_code in (401, 403):
+                try:
+                    retry_session = self._create_download_session()
+                    retry_result = self._download_with_session(retry_session, encoded_url, dest_path)
+
+                    if retry_result['success']:
+                        retry_result['message'] += f' (retry after {status_code})'
+                        return retry_result
+
+                    retry_session.close()
+                    logger.warning(f"SharePoint auth retry also failed ({retry_result['status_code']}) for {server_relative_url}")
+                except Exception as retry_e:
+                    logger.debug(f"SharePoint {status_code} retry error: {retry_e}")
+
                 return {
                     'success': False,
                     'path': dest_path,
                     'size': 0,
-                    'message': f'Access denied ({resp.status_code})',
+                    'message': f'Access denied ({status_code}) — retry also failed',
                 }
-            elif resp.status_code == 404:
+
+            elif status_code == 404:
                 # v5.9.41: Retry once with fresh session — SP returns transient 404s
                 logger.info(f"SharePoint 404 for {server_relative_url} — retrying with fresh session")
                 try:
-                    fresh = requests.Session()
-                    fresh.headers.update(self.session.headers)
-                    if WINDOWS_AUTH_AVAILABLE and HttpNegotiateAuth:
-                        fresh.auth = HttpNegotiateAuth()
-                    retry_resp = fresh.get(
-                        f"{self.site_url}/_api/web/GetFileByServerRelativeUrl('{encoded_url}')/$value",
-                        timeout=self.timeout, verify=self.ssl_verify, stream=True
-                    )
-                    if retry_resp.status_code == 200:
-                        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-                        total_bytes = 0
-                        with open(dest_path, 'wb') as f:
-                            for chunk in retry_resp.iter_content(chunk_size=8192):
-                                if chunk:
-                                    f.write(chunk)
-                                    total_bytes += len(chunk)
-                        fresh.close()
-                        return {
-                            'success': True, 'path': dest_path, 'size': total_bytes,
-                            'message': f'Downloaded {total_bytes:,} bytes (retry after transient 404)',
-                        }
-                    fresh.close()
+                    session.close()
+                except Exception:
+                    pass
+
+                try:
+                    retry_session = self._create_download_session()
+                    retry_result = self._download_with_session(retry_session, encoded_url, dest_path)
+
+                    if retry_result['success']:
+                        retry_result['message'] += ' (retry after transient 404)'
+                        return retry_result
+
+                    retry_session.close()
                 except Exception as retry_e:
                     logger.debug(f"SharePoint 404 retry also failed: {retry_e}")
 
@@ -962,7 +1032,7 @@ class SharePointConnector:
                     'success': False,
                     'path': dest_path,
                     'size': 0,
-                    'message': f'Download failed: HTTP {resp.status_code}',
+                    'message': f'Download failed: HTTP {status_code}',
                 }
 
         except Exception as e:
@@ -972,6 +1042,11 @@ class SharePointConnector:
                 'size': 0,
                 'message': f'Download error: {str(e)[:200]}',
             }
+        finally:
+            try:
+                session.close()
+            except Exception:
+                pass
 
     def get_file_type_breakdown(self, files: List[Dict]) -> Dict[str, int]:
         """Get count of files by extension."""

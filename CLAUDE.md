@@ -1222,6 +1222,14 @@ Chain batches sequentially: each batch's commit becomes the next batch's parent,
 **Diagnostic logging**: Added `console.log` at 3 points: extraction (existing + new counts), term grouping (groups with counts), comparison start (proposals with term values, mode selected).
 **Lesson**: Any multi-batch upload flow must preserve state from previous batches. When `startExtraction()` resets `State.proposals`, all prior work is lost. The "Add Proposal" button correctly preserved proposals in the upload phase UI, but the extraction function undid it. Always test the full "upload → add more → extract" flow end to end.
 
+### 134. SharePoint Batch Scan 401 — Thread-Unsafe Shared Session (v6.0.3)
+**Problem**: SharePoint batch document scan returned 401 auth errors for every file despite successful connection test.
+**Root Cause**: `sharepoint_connector.py` created a single `requests.Session()` at init (line 231) shared across ALL worker threads during batch scans. `_process_sharepoint_scan_async()` in `review_routes.py` passes the single connector to `ThreadPoolExecutor(max_workers=3)`, and each worker calls `connector.download_file()` which used `self._api_get()` on the shared session. NTLM/Negotiate authentication is connection-specific — the multi-step challenge→response handshake requires the same TCP connection throughout. When 3 concurrent threads hit the shared session, their NTLM handshake states corrupt each other → 401 on every download.
+**Fix**: (1) Added `_create_download_session()` method that creates a fresh `requests.Session()` with SSO auth for each download — each thread gets its own clean NTLM handshake. (2) Added `_download_with_session()` helper that executes the actual GET + file write. (3) `download_file()` now creates a per-call session, tries download, and on 401/403 retries once with a second fresh session (matching the existing 404 retry pattern and HV's `_retry_with_fresh_auth` pattern from Lesson 75). (4) Session is always closed in a `finally` block.
+**Key insight**: The 404 handler (lines 925-959) already had the correct fresh-session retry pattern, but the 401 handler at lines 918-924 returned immediate failure with no retry. The fix extends the same retry pattern to 401/403.
+**Files**: `sharepoint_connector.py`
+**Lesson**: NTLM/Negotiate auth is inherently connection-specific — NEVER share a `requests.Session()` across threads for NTLM-authenticated endpoints. Create a fresh session per request (per thread). This is the same pattern as the hyperlink validator's `_retry_with_fresh_auth` (Lesson 75). For batch operations with `ThreadPoolExecutor`, the shared connector object is fine for configuration (site_url, ssl_verify, timeout), but the actual HTTP session must be per-call, not per-connector.
+
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
 1. **Changelog update** in `version.json` (and copy to `static/version.json`)
