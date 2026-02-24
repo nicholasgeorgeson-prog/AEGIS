@@ -1243,6 +1243,22 @@ The `decodedUrl` parameter **auto-decodes** percent-encoded values before using 
 **Files**: `sharepoint_connector.py`
 **Lesson**: NEVER use the legacy `GetFolderByServerRelativeUrl` / `GetFileByServerRelativeUrl` APIs for paths that may contain special characters. Always use Microsoft's ResourcePath API (`GetFolderByServerRelativePath(decodedUrl=...)`, `GetFileByServerRelativePath(decodedUrl=...)`). The `decodedUrl` parameter handles all special character decoding. Use `quote(path, safe='/')` for encoding and `'` → `''` for OData single-quote escaping. Common folder names with special chars: T&E, R&D, P&ID, M&A, I&T.
 
+### 136. PDF Viewer Zoom/Pan — CSS Override, Wrong Scroll Target, No Position Preservation (v6.0.4)
+**Problem**: PDF zoom only zoomed into one location and there was no way to pan/scroll after zooming. Click-and-drag appeared broken.
+**Root Cause**: Three compounding issues: (1) CSS rule `.pc-review-doc-viewer .pdfv-page canvas { width: 100%; height: auto; }` overrode the explicit pixel dimensions set by `_renderPages()` when zooming — the canvas always stretched to 100% of container width regardless of zoom level. (2) `_initPanDrag()` scrolled `wrapper.parentElement` (the container) but `.pdfv-wrapper` itself had `overflow: auto` and was the actual scroll container. (3) `_setZoom()` called `_renderPages()` which re-rendered all canvases from scratch, losing the current scroll position — so zoom always jumped to top-left.
+**Fix**: (1) Removed `width: 100%` CSS override from `.pc-review-doc-viewer .pdfv-page canvas` — canvas dimensions are now controlled by pdf-viewer.js based on zoom level. (2) Changed `_initPanDrag()` to scroll `wrapper` directly (not `wrapper.parentElement`). (3) Added viewport center preservation to `_setZoom()` — tracks `centerFractionX/Y` before re-render and restores scroll position after. (4) Added auto-fit-width on initial render — computes fit scale from container width and first page dimensions.
+**Files**: `static/js/features/pdf-viewer.js`, `static/css/features/proposal-compare.css`
+**Lesson**: When a CSS rule and JavaScript both set element dimensions, CSS `width: 100%` wins over JavaScript `style.width = '500px'` if the CSS is more specific. For zoom to work, the CSS must NOT override JS-set dimensions. Also, when re-rendering content that has scroll position, always capture the viewport center as a fraction of total scroll content, re-render, then restore the scroll position using the same fraction against the new dimensions.
+
+### 137. Proposal Compare Duplicate Detection on Re-Upload (v6.0.4)
+**Problem**: Users could upload the same proposal file multiple times to the same project with no warning, creating duplicate entries that skewed comparison results.
+**Fix**: Two-stage duplicate detection:
+1. **File-level (in `addFiles()`)**: When adding files to the upload queue, check against `State.proposals` (already-extracted proposals) by filename (case-insensitive). Duplicate files trigger a `confirm()` prompt: user can replace existing or keep existing. Replace removes the old proposal from `State.proposals` and adds the new file; keep skips the file.
+2. **Post-extraction (in `_checkProjectDuplicates()`)**: After extraction, check new proposals against `State.projectProposals` (proposals already in the selected project) by company_name OR filename (case-insensitive). Duplicate triggers prompt with total amounts for comparison. Replace DELETEs old from DB via API and removes from `projectProposals` array; keep discards the new extraction.
+**Key pattern**: Company name matching is case-insensitive and trimmed. Both stages use `confirm()` for simplicity and reliability (no custom modal needed for a rare operation). DELETE is fire-and-forget with `.catch()` logging.
+**Files**: `static/js/features/proposal-compare.js`
+**Lesson**: Duplicate detection for multi-batch uploads needs to check at two levels: (1) against in-memory state (already loaded/extracted proposals) during file selection, and (2) against database state (project proposals) after extraction when server data is available. Always match by multiple fields (filename AND company_name) with case-insensitive comparison to catch renamed files with the same content.
+
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
 1. **Changelog update** in `version.json` (and copy to `static/version.json`)
