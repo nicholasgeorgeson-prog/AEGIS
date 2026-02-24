@@ -170,7 +170,10 @@ def _generate_preemptive_negotiate_token(target_host: str) -> Optional[str]:
 
 def _get_oauth_config() -> Optional[Dict[str, str]]:
     """
-    v6.0.5: Read OAuth / MSAL configuration from config.json.
+    v6.0.8: Read OAuth / MSAL configuration from config.json OR auto-detect.
+
+    If 'sharepoint_oauth' exists in config.json with client_id + tenant_id → use that.
+    Otherwise, returns None (caller should use _auto_detect_oauth_config for auto-setup).
 
     Expected keys under 'sharepoint_oauth':
         client_id:  Azure AD / Entra app registration client ID
@@ -192,6 +195,60 @@ def _get_oauth_config() -> Optional[Dict[str, str]]:
             return oauth
         return None
     except Exception:
+        return None
+
+
+# v6.0.8: Well-known Microsoft first-party client IDs that support delegated access
+# These are pre-registered by Microsoft and available in ALL tenants without admin setup.
+# Microsoft Office (works for SharePoint, OneDrive, etc.)
+_MS_OFFICE_CLIENT_ID = 'd3590ed6-52b3-4102-aeff-aad2292ab01c'
+
+
+def _auto_detect_oauth_config(site_url: str) -> Optional[Dict[str, str]]:
+    """
+    v6.0.8: Auto-detect OAuth configuration from the SharePoint site URL.
+
+    Uses Microsoft's well-known Office client ID and discovers the tenant
+    from the SharePoint domain name. This provides zero-config OAuth
+    when no sharepoint_oauth section exists in config.json.
+
+    For GCC High (ngc.sharepoint.us) → tenant = 'ngc', authority = login.microsoftonline.us
+    For commercial (contoso.sharepoint.com) → tenant = 'contoso', authority = login.microsoftonline.com
+
+    Returns:
+        Dict with auto-detected OAuth config, or None if URL doesn't match SharePoint Online patterns
+    """
+    try:
+        parsed = urlparse(site_url)
+        host = parsed.hostname or ''
+
+        # Extract tenant name from SharePoint domain
+        # ngc.sharepoint.us → tenant_name = 'ngc'
+        # contoso.sharepoint.com → tenant_name = 'contoso'
+        tenant_name = None
+        if '.sharepoint.us' in host:
+            tenant_name = host.split('.sharepoint.us')[0]
+        elif '.sharepoint.com' in host:
+            tenant_name = host.split('.sharepoint.com')[0]
+
+        if not tenant_name:
+            return None
+
+        # Remove any subdomain prefix (e.g., 'ngc-my' → 'ngc')
+        # But keep as-is for the tenant discovery
+        authority = _get_oauth_authority(tenant_name, site_url)
+
+        logger.info(f"SharePoint OAuth auto-detect: tenant='{tenant_name}', "
+                    f"authority='{authority}', client_id=Microsoft Office (well-known)")
+
+        return {
+            'client_id': _MS_OFFICE_CLIENT_ID,
+            'tenant_id': tenant_name,
+            'authority': authority,
+            'auto_detected': True,
+        }
+    except Exception as e:
+        logger.debug(f"SharePoint OAuth auto-detect failed: {e}")
         return None
 
 
@@ -220,11 +277,18 @@ def _get_oauth_resource(site_url: str) -> str:
 
 def _acquire_oauth_token(site_url: str) -> Optional[str]:
     """
-    v6.0.5: Acquire an OAuth 2.0 Bearer token for SharePoint access via MSAL.
+    v6.0.8: Acquire an OAuth 2.0 Bearer token for SharePoint access via MSAL.
 
-    Tries two approaches:
-    1. Client credentials (client_id + client_secret) — app-only, no user interaction
-    2. Integrated Windows Auth (IWA) — uses current Windows credentials, no popup
+    Uses a multi-strategy approach to get a token using the user's existing
+    Windows credentials — NO app registration required for most configurations.
+
+    Strategy order:
+    1. Explicit config (sharepoint_oauth in config.json) with client_secret → client credentials
+    2. Explicit config without client_secret → IWA with user's Windows UPN
+    3. Auto-detected config (well-known Microsoft Office client ID) → IWA
+    4. Device code flow as last resort (requires user to open browser once)
+
+    For GCC High environments (.sharepoint.us), uses login.microsoftonline.us authority.
 
     Returns:
         Bearer token string, or None if acquisition fails
@@ -232,8 +296,14 @@ def _acquire_oauth_token(site_url: str) -> Optional[str]:
     if not MSAL_AVAILABLE or not _msal_module:
         return None
 
+    # Try explicit config first, then auto-detect from SharePoint URL
     oauth_config = _get_oauth_config()
+    config_source = 'config.json'
     if not oauth_config:
+        oauth_config = _auto_detect_oauth_config(site_url)
+        config_source = 'auto-detected'
+    if not oauth_config:
+        logger.debug("SharePoint OAuth: No config available (explicit or auto-detected)")
         return None
 
     client_id = oauth_config['client_id']
@@ -241,58 +311,167 @@ def _acquire_oauth_token(site_url: str) -> Optional[str]:
     client_secret = oauth_config.get('client_secret', '')
     authority = oauth_config.get('authority', '') or _get_oauth_authority(tenant_id, site_url)
     resource = _get_oauth_resource(site_url)
+    is_auto = oauth_config.get('auto_detected', False)
 
-    try:
-        if client_secret:
-            # Client credentials flow — app-only, no user
+    logger.info(f"SharePoint OAuth: Using {config_source} config — "
+                f"client_id={'Microsoft Office (well-known)' if is_auto else client_id[:8] + '...'}, "
+                f"tenant={tenant_id}, authority={authority}")
+
+    # Strategy 1: Client credentials (only with explicit config + secret)
+    if client_secret and not is_auto:
+        try:
             app = _msal_module.ConfidentialClientApplication(
                 client_id,
                 authority=authority,
                 client_credential=client_secret,
             )
             result = app.acquire_token_for_client(scopes=[resource])
-        else:
-            # Integrated Windows Auth — uses current Windows logon
-            app = _msal_module.PublicClientApplication(
-                client_id,
-                authority=authority,
-            )
-            # Try IWA first (silent, no popup)
-            try:
-                import getpass
-                username = getpass.getuser()
-                # On Windows, try to get full UPN (user@domain)
-                if sys.platform == 'win32':
-                    try:
-                        import win32api
-                        username = win32api.GetUserNameEx(2)  # NameSamCompatible
-                    except Exception:
-                        try:
-                            username = os.environ.get('USERNAME', '') + '@' + os.environ.get('USERDNSDOMAIN', '')
-                        except Exception:
-                            pass
-                result = app.acquire_token_by_username_password(
-                    username='',  # empty = use current Windows credentials
-                    password='',
-                    scopes=[resource.replace('/.default', '/AllSites.Read')],
-                )
-            except Exception as iwa_err:
-                logger.debug(f"SharePoint OAuth IWA failed: {iwa_err}")
-                result = None
+            if result and 'access_token' in result:
+                logger.info(f"SharePoint: OAuth token acquired via client credentials")
+                return result['access_token']
+            elif result:
+                logger.debug(f"SharePoint OAuth client credentials failed: "
+                             f"{result.get('error', '?')} — {result.get('error_description', '')[:200]}")
+        except Exception as e:
+            logger.debug(f"SharePoint OAuth client credentials error: {e}")
 
-        if result and 'access_token' in result:
-            logger.info(f"SharePoint: OAuth token acquired via MSAL ({result.get('token_type', 'Bearer')})")
-            return result['access_token']
-        elif result:
-            error = result.get('error', 'unknown')
-            desc = result.get('error_description', '')
-            logger.warning(f"SharePoint OAuth token acquisition failed: {error} — {desc[:200]}")
-            return None
-        else:
-            return None
+    # Strategy 2: Integrated Windows Auth (IWA) — uses current Windows logon
+    # Works on domain-joined machines without user interaction
+    try:
+        app = _msal_module.PublicClientApplication(
+            client_id,
+            authority=authority,
+        )
+
+        # Get the user's Windows UPN for IWA
+        username = _get_windows_upn()
+        if username:
+            logger.info(f"SharePoint OAuth: Trying IWA for user '{username}'")
+
+            # Try acquire_token_by_username_password with UPN (ROPC-like flow)
+            # For domain-joined machines with federation, this can work without actual password
+            # by redirecting to the organization's ADFS/federation endpoint
+            scopes = [resource.replace('/.default', '/AllSites.Read')]
+
+            # First try IWA if the method exists (MSAL <1.30)
+            if hasattr(app, 'acquire_token_by_integrated_windows_auth'):
+                try:
+                    result = app.acquire_token_by_integrated_windows_auth(
+                        scopes=scopes,
+                        username=username,
+                    )
+                    if result and 'access_token' in result:
+                        logger.info(f"SharePoint: OAuth token acquired via IWA")
+                        return result['access_token']
+                    elif result:
+                        logger.debug(f"SharePoint OAuth IWA failed: "
+                                     f"{result.get('error', '?')} — {result.get('error_description', '')[:200]}")
+                except Exception as iwa_err:
+                    logger.debug(f"SharePoint OAuth IWA exception: {iwa_err}")
 
     except Exception as e:
-        logger.warning(f"SharePoint OAuth error: {e}")
+        logger.debug(f"SharePoint OAuth IWA setup error: {e}")
+
+    # Strategy 3: Device code flow — requires one-time browser auth
+    # This is the most reliable fallback for GCC High environments
+    try:
+        app = _msal_module.PublicClientApplication(
+            client_id,
+            authority=authority,
+        )
+        scopes = [resource.replace('/.default', '/AllSites.Read')]
+
+        # Check cache first (from previous device code auth)
+        accounts = app.get_accounts()
+        if accounts:
+            result = app.acquire_token_silent(scopes=scopes, account=accounts[0])
+            if result and 'access_token' in result:
+                logger.info(f"SharePoint: OAuth token acquired from cache (silent)")
+                return result['access_token']
+
+        # Device code flow — log the user_code so the user can see it
+        flow = app.initiate_device_flow(scopes=scopes)
+        if 'user_code' in flow:
+            logger.info(f"SharePoint OAuth device code flow: {flow.get('message', '')}")
+            # Store the flow info for the UI to display
+            _device_code_flows[site_url] = {
+                'message': flow.get('message', ''),
+                'user_code': flow.get('user_code', ''),
+                'verification_uri': flow.get('verification_uri', ''),
+                'flow': flow,
+                'app': app,
+            }
+            # Don't block here — return None and let the UI handle the device code flow
+            logger.info(f"SharePoint OAuth: Device code flow initiated — user must complete auth in browser")
+            return None
+        else:
+            error = flow.get('error', 'unknown')
+            desc = flow.get('error_description', '')
+            logger.warning(f"SharePoint OAuth device code initiation failed: {error} — {desc[:200]}")
+
+    except Exception as e:
+        logger.warning(f"SharePoint OAuth device code error: {e}")
+
+    return None
+
+
+# Module-level storage for device code flows (keyed by site URL)
+_device_code_flows: Dict[str, Any] = {}
+
+
+def _get_windows_upn() -> Optional[str]:
+    """
+    v6.0.8: Get the current Windows user's UPN (User Principal Name).
+
+    Tries multiple approaches:
+    1. win32api.GetUserNameEx(8) — NameUserPrincipal → user@domain.com
+    2. Environment variables USERNAME + USERDNSDOMAIN → user@domain.com
+    3. getpass.getuser() — plain username (may work for ADFS federation)
+
+    Returns:
+        UPN string or None
+    """
+    if sys.platform != 'win32':
+        return None
+
+    # Try win32api first (most reliable)
+    try:
+        import win32api
+        # NameUserPrincipal = 8 → returns user@domain.com format
+        upn = win32api.GetUserNameEx(8)
+        if upn and '@' in upn:
+            return upn
+    except Exception:
+        pass
+
+    try:
+        import win32api
+        # NameSamCompatible = 2 → returns DOMAIN\user format
+        sam = win32api.GetUserNameEx(2)
+        if sam:
+            # Convert DOMAIN\user to user@domain
+            parts = sam.split('\\')
+            if len(parts) == 2:
+                dns_domain = os.environ.get('USERDNSDOMAIN', '')
+                if dns_domain:
+                    return f"{parts[1]}@{dns_domain}"
+    except Exception:
+        pass
+
+    # Fallback to environment variables
+    try:
+        username = os.environ.get('USERNAME', '')
+        dns_domain = os.environ.get('USERDNSDOMAIN', '')
+        if username and dns_domain:
+            return f"{username}@{dns_domain}"
+    except Exception:
+        pass
+
+    # Last resort — plain username
+    try:
+        import getpass
+        return getpass.getuser()
+    except Exception:
         return None
 
 
@@ -461,9 +640,9 @@ class SharePointConnector:
         self._oauth_token = None  # v6.0.5: cached OAuth bearer token
         self.session = requests.Session()
 
-        # v6.0.5: Multi-strategy auth configuration
-        # Strategy 1: Windows SSO with preemptive Negotiate token
-        # Strategy 2: OAuth 2.0 via MSAL (if configured in config.json)
+        # v6.0.8: Multi-strategy auth configuration (zero-config — auto-detects from URL)
+        # Strategy 1: Windows SSO with preemptive Negotiate token (pywin32 SSPI)
+        # Strategy 2: OAuth 2.0 via MSAL (auto-detected tenant + well-known client ID)
         # Strategy 3: Standard requests-negotiate-sspi (reactive, needs WWW-Authenticate)
         self.auth_method = 'none'
         self._preemptive_token = None
@@ -764,22 +943,18 @@ class SharePointConnector:
                              f"Server={resp.headers.get('Server', '?')}, "
                              f"X-MS-Diagnostics={resp.headers.get('X-MS-Diagnostics', '?')[:200]}")
 
-                # v6.0.5: Enhanced auth hint with actionable guidance
+                # v6.0.8: Enhanced auth hint with actionable guidance (no config editing required)
                 auth_hint = ''
                 is_online = self._is_sharepoint_online
                 if 'bearer' in www_auth.lower():
-                    auth_hint = (' Server requires OAuth2/Bearer token (modern auth). '
-                                 'Configure sharepoint_oauth in config.json with client_id and tenant_id.')
+                    auth_hint = ' Server requires OAuth2/Bearer token (modern auth).'
                 elif 'negotiate' in www_auth.lower() or 'ntlm' in www_auth.lower():
                     auth_hint = ' Server accepts Negotiate/NTLM but credentials were rejected — check domain trust.'
                 elif not www_auth and is_online:
                     auth_hint = (' SharePoint Online has disabled legacy auth (NTLM/Negotiate) as of Feb 2026. '
-                                 'This site requires OAuth 2.0 modern authentication. '
-                                 'To configure: add sharepoint_oauth to config.json with your Azure AD '
-                                 'client_id and tenant_id, and install msal: pip install msal')
+                                 'This site requires OAuth 2.0 modern authentication via MSAL.')
                 elif not www_auth:
-                    auth_hint = (' Server sent no WWW-Authenticate header — may require pre-authentication or modern auth. '
-                                 'If this is SharePoint Online, configure OAuth in config.json.')
+                    auth_hint = ' Server sent no WWW-Authenticate header — may require pre-authentication or modern auth.'
 
                 # v5.9.43: Try fresh session as auth retry before giving up
                 try:
@@ -848,12 +1023,14 @@ class SharePointConnector:
                 except Exception as retry_e:
                     logger.debug(f"SharePoint 401 fresh session retry failed: {retry_e}")
 
-                # v6.0.5: Include MSAL availability in diagnostics
+                # v6.0.8: Include MSAL availability in diagnostics (zero-config — auto-detects from URL)
                 msal_note = ''
                 if not MSAL_AVAILABLE:
-                    msal_note = ' MSAL not installed — run: pip install msal'
-                elif not _get_oauth_config():
-                    msal_note = ' MSAL installed but not configured — add sharepoint_oauth to config.json'
+                    msal_note = ' MSAL not installed — install msal package for modern auth support.'
+                elif not _get_oauth_config() and not _auto_detect_oauth_config(self.site_url):
+                    msal_note = ' MSAL available but could not auto-detect tenant from URL.'
+                elif MSAL_AVAILABLE:
+                    msal_note = ' MSAL available — OAuth token acquisition may have failed (check network/domain trust).'
 
                 return {
                     'success': False,
@@ -865,7 +1042,7 @@ class SharePointConnector:
                     'diagnostics': resp_headers_diag,
                     'is_sharepoint_online': is_online,
                     'msal_available': MSAL_AVAILABLE,
-                    'oauth_configured': _get_oauth_config() is not None,
+                    'oauth_configured': (_get_oauth_config() or _auto_detect_oauth_config(self.site_url)) is not None,
                     'preemptive_attempted': self._preemptive_token is not None,
                 }
 

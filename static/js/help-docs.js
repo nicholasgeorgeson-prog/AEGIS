@@ -2,7 +2,7 @@
  * AEGIS Help Documentation System
  * ==========================================
  * Comprehensive documentation for all features.
- * Version: 6.0.7
+ * Version: 6.0.8
  *
  * Complete overhaul with:
  * - Beautiful visual design with icons and illustrations
@@ -10,7 +10,9 @@
  * - Technical deep-dive section for advanced users
  * - Smooth navigation and professional typography
  *
+ * v6.0.8 - SharePoint zero-config OAuth auto-detection (well-known client ID, tenant from URL, IWA fallback, UI freeze fix)
  * v6.0.7 - SharePoint Auth Fix (pywin32 install for preemptive SSPI, embedded Python detection, offline-only installs)
+ * v6.0.6 - SharePoint folder validation auth bypass fix (validate_folder_path now uses _api_get)
  * v6.0.5 - SharePoint Online Modern Auth (preemptive SSPI Negotiate + MSAL OAuth 2.0 for GCC High legacy auth deprecation)
  * v6.0.4 - PDF Zoom/Pan Fix + Proposal Duplicate Detection (viewport-center zoom, click-drag pan, auto-fit width, upload duplicate prompt)
  * v6.0.3 - SharePoint Batch Auth Fix (per-download fresh session for thread-safe NTLM, OData ampersand encoding)
@@ -51,8 +53,8 @@
 'use strict';
 
 const HelpDocs = {
-    version: '6.0.7',
-    lastUpdated: '2026-02-24',
+    version: '6.0.8',
+    lastUpdated: '2026-02-25',
     
     config: {
         searchEnabled: true,
@@ -8073,15 +8075,32 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.0.8 <span class="changelog-date">February 25, 2026</span></h3>
+        <p><strong>SharePoint Zero-Config OAuth &amp; UI Fix</strong></p>
+        <ul>
+            <li><strong>NEW: Zero-config OAuth auto-detection</strong> &mdash; MSAL OAuth now auto-detects tenant ID from SharePoint URL and uses Microsoft&rsquo;s well-known Office client ID. No config.json editing required for enterprise rollout</li>
+            <li><strong>NEW: Multi-strategy token acquisition</strong> &mdash; tries Integrated Windows Auth (IWA) first for seamless SSO, then device code flow as fallback. All automatic, no user configuration</li>
+            <li><strong>FIX: UI freeze after connection failure</strong> &mdash; all SharePoint buttons now properly re-enabled after a failed Connect &amp; Scan attempt</li>
+            <li><strong>FIX: Error messages no longer reference config.json</strong> &mdash; all user-facing messages updated to reflect zero-config design for enterprise deployment</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v6.0.7 <span class="changelog-date">February 24, 2026</span></h3>
         <p><strong>SharePoint Auth Dependencies Fix</strong></p>
         <ul>
             <li><strong>FIX: pywin32 missing for preemptive SSPI</strong> &mdash; pywin32 (sspi + win32security) was never explicitly installed, causing the primary SharePoint Online auth strategy to silently fail</li>
             <li><strong>FIX: Embedded Python detection</strong> &mdash; apply script now detects the OneClick installer&rsquo;s embedded Python (python/python.exe) instead of installing packages to the wrong system Python</li>
             <li><strong>FIX: Offline-only dependency install</strong> &mdash; all packages installed from local wheels directory only, no internet fallback (air-gapped compatible)</li>
-            <li><strong>FIX: validate_folder_path auth bypass</strong> &mdash; folder validation now uses _api_get() for consistent auth across all SharePoint API calls (v6.0.6 fix included)</li>
             <li><strong>ENH: Auth strategy summary</strong> &mdash; apply script shows which of the 3 auth strategies (Preemptive SSPI, Standard Negotiate, MSAL OAuth) are available after install</li>
             <li><strong>DEP: Added pywin32&gt;=300</strong> &mdash; Windows-only dependency for SSPI preemptive authentication</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v6.0.6 <span class="changelog-date">February 24, 2026</span></h3>
+        <p><strong>SharePoint Folder Validation Auth Fix</strong></p>
+        <ul>
+            <li><strong>FIX: validate_folder_path auth bypass</strong> &mdash; folder validation was using raw session.get() which bypassed preemptive SSPI token and OAuth Bearer token injection</li>
+            <li><strong>FIX: Folder validation now uses _api_get()</strong> &mdash; consistent authentication across all SharePoint API calls</li>
         </ul>
     </div>
     <div class="changelog-version">

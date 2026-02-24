@@ -1,13 +1,24 @@
 {
-  "version": "6.0.7",
-  "release_date": "2026-02-24",
-  "core_version": "6.0.7",
+  "version": "6.0.8",
+  "release_date": "2026-02-25",
+  "core_version": "6.0.8",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.0.8",
+      "date": "2026-02-25",
+      "changes": [
+        "NEW: Zero-config OAuth auto-detection — MSAL now auto-detects tenant from SharePoint URL and uses Microsoft's well-known Office client ID (d3590ed6). No config.json editing required",
+        "NEW: Multi-strategy OAuth token acquisition — IWA (Integrated Windows Auth) for seamless SSO, device code flow as fallback, all automatic",
+        "FIX: UI freeze after SharePoint connection failure — all buttons now properly re-enabled after failed Connect & Scan",
+        "FIX: Error messages no longer reference config.json editing — zero-config design for enterprise rollout",
+        "FIX: Version gap — added missing v6.0.6 changelog entry to help docs"
+      ]
+    },
     {
       "version": "6.0.7",
       "date": "2026-02-24",

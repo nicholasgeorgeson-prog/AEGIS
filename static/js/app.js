@@ -11907,10 +11907,16 @@ STEPS TO REPRODUCE
                         spConnectionStatus.innerHTML = `<strong>✗ Error</strong> — ${escapeHtml(err.message)}`;
                     }
                 } finally {
+                    // v6.0.8: Re-enable ALL buttons after Connect & Scan completes (success or failure)
+                    // This prevents UI freeze where buttons remain disabled after a connection error
                     btnSpConnectScan.disabled = false;
                     btnSpConnectScan.innerHTML = '<i data-lucide="cloud"></i> Connect &amp; Scan';
                     if (btnSpTest) btnSpTest.disabled = false;
                     if (btnSpDiscover) btnSpDiscover.disabled = false;
+                    // Only leave btnSpScan disabled if it was NOT auto-triggered (no scan_id = no scan started)
+                    if (btnSpScan && !btnSpScan.dataset.scanId) {
+                        btnSpScan.disabled = false;
+                    }
                     lucide?.createIcons?.();
                 }
             });
