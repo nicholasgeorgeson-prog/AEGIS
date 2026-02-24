@@ -21,15 +21,15 @@ Usage:
   python apply_v6.0.5.py
 
 After applying:
-  1. Restart AEGIS (double-click restart_aegis.sh or Ctrl+C + python3 app.py --debug)
-  2. On Windows: pip install msal PyJWT (or pip install --no-index --find-links=wheels msal PyJWT)
-  3. Hard refresh browser (Ctrl+Shift+R)
+  1. Restart AEGIS (double-click Restart_AEGIS.bat or Ctrl+C + python app.py --debug)
+  2. Hard refresh browser (Ctrl+Shift+R)
 """
 
 import os
 import sys
 import shutil
 import ssl
+import subprocess
 import urllib.request
 from datetime import datetime
 
@@ -46,6 +46,8 @@ FILES = {
     'static/version.json': 'Version 6.0.5 (static copy)',
     'CLAUDE.md': 'Session notes with Lesson 139',
     'static/js/help-docs.js': 'Help docs with v6.0.5 changelog',
+    'Install_AEGIS_OneClick.bat': 'Updated installer (v6.0.5 branding + MSAL)',
+    'repair_aegis.py': 'Repair tool with MSAL support',
 }
 
 # Binary wheel files (downloaded separately)
@@ -167,17 +169,65 @@ def main():
 
     print()
 
+    # Install new dependencies
+    print('[STEP 3] Installing new dependencies (msal, PyJWT)...')
+    python_exe = sys.executable
+    wheels_dir = os.path.join(os.getcwd(), 'wheels')
+
+    # Try offline first (from wheels), then online fallback
+    install_cmd = [
+        python_exe, '-m', 'pip', 'install',
+        '--no-index', f'--find-links={wheels_dir}',
+        '--no-warn-script-location',
+        'msal', 'PyJWT'
+    ]
+    print(f'  Running: pip install --no-index --find-links=wheels msal PyJWT')
+    result = subprocess.run(install_cmd, capture_output=True, text=True)
+
+    if result.returncode == 0:
+        print('  [OK] msal and PyJWT installed from wheels')
+        success_count += 1
+    else:
+        print('  [WARN] Offline install failed, trying online...')
+        online_cmd = [
+            python_exe, '-m', 'pip', 'install',
+            '--no-warn-script-location',
+            'msal', 'PyJWT'
+        ]
+        result2 = subprocess.run(online_cmd, capture_output=True, text=True)
+        if result2.returncode == 0:
+            print('  [OK] msal and PyJWT installed from PyPI')
+            success_count += 1
+        else:
+            print('  [FAIL] Could not install msal/PyJWT')
+            print(f'         {result2.stderr[:200] if result2.stderr else "Unknown error"}')
+            fail_count += 1
+
+    # Verify imports
+    print()
+    print('[STEP 4] Verifying new dependencies...')
+    for pkg, desc in [('msal', 'MSAL (SharePoint Online Auth)'), ('jwt', 'PyJWT (JSON Web Tokens)')]:
+        verify = subprocess.run(
+            [python_exe, '-c', f'import {pkg}; print(getattr({pkg}, "__version__", "ok"))'],
+            capture_output=True, text=True
+        )
+        if verify.returncode == 0:
+            ver = verify.stdout.strip()
+            print(f'  [OK] {desc} {ver}')
+        else:
+            print(f'  [FAIL] {desc} — import failed')
+            fail_count += 1
+
+    print()
+
     # Summary
     print('=' * 60)
     print(f'  Update complete: {success_count} succeeded, {fail_count} failed')
     print('=' * 60)
     print()
     print('Next steps:')
-    print('  1. Restart AEGIS server (python3 app.py --debug)')
-    print('  2. On Windows, install new dependencies:')
-    print('     pip install --no-index --find-links=wheels msal PyJWT')
-    print('     (or: pip install msal PyJWT  if internet available)')
-    print('  3. Hard refresh browser (Ctrl+Shift+R)')
+    print('  1. Restart AEGIS (double-click Restart_AEGIS.bat)')
+    print('  2. Hard refresh browser (Ctrl+Shift+R)')
     print()
     print('  Optional: Configure OAuth for SharePoint Online:')
     print('  Add to config.json:')
@@ -188,7 +238,7 @@ def main():
     print('    }')
     print()
     if fail_count > 0:
-        print(f'  [WARN] {fail_count} file(s) failed to download.')
+        print(f'  [WARN] {fail_count} file(s) failed to download or install.')
         print('  You may need to download them manually from GitHub.')
     print(f'  Backups saved to: {backup_dir}')
 
