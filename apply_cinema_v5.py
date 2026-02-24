@@ -40,8 +40,37 @@ def follow_redirects(url, ctx):
                 raise
     return url
 
+def cleanup_fragments(video_dir, filename):
+    """Remove partial/temp files from previous failed downloads."""
+    cleaned = 0
+    temp_name = filename + ".downloading"
+    temp_path = os.path.join(video_dir, temp_name)
+    if os.path.exists(temp_path):
+        size_mb = os.path.getsize(temp_path) / 1048576
+        os.remove(temp_path)
+        print(f"  Cleaned up: {temp_name} ({size_mb:.1f} MB fragment)", flush=True)
+        cleaned += 1
+
+    # Also check for the final file if it's suspiciously small (partial from previous crash)
+    final_path = os.path.join(video_dir, filename)
+    if os.path.exists(final_path):
+        size = os.path.getsize(final_path)
+        # Full video is ~571 MB. Anything under 500 MB is almost certainly a fragment.
+        if size < 500 * 1048576:
+            size_mb = size / 1048576
+            os.remove(final_path)
+            print(f"  Cleaned up: {filename} ({size_mb:.1f} MB fragment from previous crash)", flush=True)
+            cleaned += 1
+        else:
+            size_mb = size / 1048576
+            print(f"  Existing:   {filename} ({size_mb:.1f} MB — looks complete, will overwrite)", flush=True)
+
+    return cleaned
+
 def download_large(url, dest, ctx):
-    """Download with progress indicator for large files."""
+    """Download to a temp file, rename only on success."""
+    temp_dest = dest + ".downloading"
+
     print("  Resolving download URL...", flush=True)
 
     # Follow redirects first (GitHub -> S3)
@@ -63,39 +92,69 @@ def download_large(url, dest, ctx):
     chunk_size = 262144  # 256 KB chunks (smaller = more responsive)
     last_print = 0
     start_time = time.time()
+    success = False
 
     print(f"  Total size: {total_mb:.1f} MB", flush=True)
     print("  Downloading...", flush=True)
 
-    with open(dest, "wb") as f:
-        while True:
-            try:
-                chunk = resp.read(chunk_size)
-            except Exception as e:
-                print(f"\n  Read error at {downloaded/1048576:.1f} MB: {e}", flush=True)
-                break
-            if not chunk:
-                break
-            f.write(chunk)
-            downloaded += len(chunk)
-            dl_mb = downloaded / 1048576
+    try:
+        with open(temp_dest, "wb") as f:
+            while True:
+                try:
+                    chunk = resp.read(chunk_size)
+                except Exception as e:
+                    print(f"\n  Read error at {downloaded/1048576:.1f} MB: {e}", flush=True)
+                    break
+                if not chunk:
+                    break
+                f.write(chunk)
+                downloaded += len(chunk)
+                dl_mb = downloaded / 1048576
 
-            # Print progress every 10 MB (IDLE-friendly, no \r)
-            if dl_mb - last_print >= 10:
-                elapsed = time.time() - start_time
-                speed = dl_mb / elapsed if elapsed > 0 else 0
-                if total:
-                    pct = downloaded * 100 / total
-                    remaining = (total - downloaded) / 1048576 / speed if speed > 0 else 0
-                    print(f"    {dl_mb:.0f}/{total_mb:.0f} MB ({pct:.0f}%) - {speed:.1f} MB/s - ~{remaining:.0f}s left", flush=True)
-                else:
-                    print(f"    {dl_mb:.0f} MB - {speed:.1f} MB/s", flush=True)
-                last_print = dl_mb
+                # Print progress every 10 MB (IDLE-friendly, no \r)
+                if dl_mb - last_print >= 10:
+                    elapsed = time.time() - start_time
+                    speed = dl_mb / elapsed if elapsed > 0 else 0
+                    if total:
+                        pct = downloaded * 100 / total
+                        remaining = (total - downloaded) / 1048576 / speed if speed > 0 else 0
+                        print(f"    {dl_mb:.0f}/{total_mb:.0f} MB ({pct:.0f}%) - {speed:.1f} MB/s - ~{remaining:.0f}s left", flush=True)
+                    else:
+                        print(f"    {dl_mb:.0f} MB - {speed:.1f} MB/s", flush=True)
+                    last_print = dl_mb
 
-    resp.close()
-    elapsed = time.time() - start_time
-    print(f"  Download complete: {downloaded/1048576:.1f} MB in {elapsed:.0f}s", flush=True)
-    return downloaded
+        resp.close()
+        elapsed = time.time() - start_time
+
+        # Verify download completeness
+        if total > 0 and downloaded < total:
+            print(f"  INCOMPLETE: got {downloaded/1048576:.1f} of {total_mb:.1f} MB", flush=True)
+        elif downloaded > 0:
+            success = True
+            print(f"  Download complete: {downloaded/1048576:.1f} MB in {elapsed:.0f}s", flush=True)
+    except Exception as e:
+        print(f"  Write error: {e}", flush=True)
+
+    # Only move temp file to final destination if download succeeded
+    if success:
+        try:
+            # Remove existing final file if present
+            if os.path.exists(dest):
+                os.remove(dest)
+            os.rename(temp_dest, dest)
+        except Exception as e:
+            print(f"  Rename error: {e}", flush=True)
+            success = False
+
+    # Clean up temp file on failure
+    if not success and os.path.exists(temp_dest):
+        try:
+            os.remove(temp_dest)
+            print(f"  Cleaned up incomplete temp file", flush=True)
+        except Exception:
+            pass
+
+    return downloaded if success else 0
 
 def main():
     print("")
@@ -133,6 +192,12 @@ def main():
     ctx, method = get_ssl_context()
     print(f"  SSL:    {method}")
     print("", flush=True)
+
+    # Clean up any fragments from previous failed downloads
+    cleaned = cleanup_fragments(video_dir, FILENAME)
+    if cleaned:
+        print(f"  Cleaned {cleaned} leftover fragment(s)", flush=True)
+        print("", flush=True)
 
     try:
         size = download_large(ASSET_URL, dest, ctx)
