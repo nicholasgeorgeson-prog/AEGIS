@@ -257,20 +257,26 @@ class SharePointConnector:
     def _encode_sp_path(path: str) -> str:
         """
         v6.0.3: Encode a SharePoint server-relative path for use inside
-        OData function parameters like GetFolderByServerRelativeUrl('...').
+        GetFolderByServerRelativePath(decodedUrl='...') and
+        GetFileByServerRelativePath(decodedUrl='...') OData function parameters.
 
-        The key insight: inside OData single-quoted string parameters, '&' is
-        a literal character (NOT an HTTP query string separator). Folder names
-        like 'T&E' or 'R&D' must keep '&' literal. Using quote(safe='/:')
-        encodes '&' as '%26', which causes SharePoint to return 404/400 because
-        it looks for a folder literally named 'T%26E' instead of 'T&E'.
+        Uses Microsoft's recommended ResourcePath API (decodedUrl) instead of
+        the legacy ServerRelativeUrl API. The decodedUrl parameter automatically
+        decodes percent-encoded values before using them as paths, so:
+          - & → %26 (decoded back to & by SharePoint)
+          - # → %23 (decoded back to # by SharePoint)
+          - % → %25 (decoded back to % by SharePoint)
+          - ' → '' (OData single-quote escaping, NOT percent-encoded)
 
-        Also handles '#' and other chars that are valid in SharePoint folder
-        names but would break URL parsing if encoded incorrectly.
+        Reference: https://learn.microsoft.com/en-us/sharepoint/dev/
+        solution-guidance/supporting-and-in-file-and-folder-with-the-resourcepath-api
         """
-        # safe includes '/:&' — slash and colon are path separators,
-        # ampersand is literal inside OData single-quoted parameters
-        return quote(path, safe='/:&')
+        # Percent-encode everything except path separators (/)
+        # The decodedUrl parameter auto-decodes %26→&, %23→#, etc.
+        encoded = quote(path, safe='/')
+        # OData single-quote escaping: ' must be doubled inside '...' strings
+        encoded = encoded.replace("'", "''")
+        return encoded
 
     def _api_get(self, endpoint: str, stream: bool = False) -> requests.Response:
         """
@@ -745,7 +751,7 @@ class SharePointConnector:
 
             try:
                 resp = self.session.get(
-                    f"{self.site_url}/_api/web/GetFolderByServerRelativeUrl('{encoded}')",
+                    f"{self.site_url}/_api/web/GetFolderByServerRelativePath(decodedUrl='{encoded}')",
                     timeout=self.timeout,
                     verify=self.ssl_verify,
                 )
@@ -764,14 +770,34 @@ class SharePointConnector:
         v5.9.42: Check if a folder path exists on this SharePoint site.
         Used to validate URL-extracted paths before scanning.
 
-        v6.0.3: Uses _encode_sp_path() to keep '&' literal inside OData
-        single-quoted parameters. Folder names like 'T&E' and 'R&D' now
-        resolve correctly (previously encoded as T%26E → 404).
+        v6.0.3: Uses GetFolderByServerRelativePath(decodedUrl=...) API with
+        percent-encoded path. The decodedUrl parameter auto-decodes %26→&,
+        %23→#, etc., solving the T&E/R&D folder name issue. Falls back to
+        legacy GetFolderByServerRelativeUrl for older SharePoint versions.
+
+        Reference: https://learn.microsoft.com/en-us/sharepoint/dev/
+        solution-guidance/supporting-and-in-file-and-folder-with-the-resourcepath-api
         """
         encoded = self._encode_sp_path(folder_path)
+
+        # Strategy 1: Modern ResourcePath API (recommended by Microsoft)
         try:
             resp = self.session.get(
-                f"{self.site_url}/_api/web/GetFolderByServerRelativeUrl('{encoded}')",
+                f"{self.site_url}/_api/web/GetFolderByServerRelativePath(decodedUrl='{encoded}')",
+                timeout=self.timeout,
+                verify=self.ssl_verify,
+            )
+            if resp.status_code == 200:
+                return True
+        except Exception:
+            pass
+
+        # Strategy 2: Legacy API fallback for older SharePoint versions
+        # Uses un-encoded path (literal chars) since this API auto-detects encoding
+        try:
+            legacy_encoded = quote(folder_path, safe='/:')
+            resp = self.session.get(
+                f"{self.site_url}/_api/web/GetFolderByServerRelativeUrl('{legacy_encoded}')",
                 timeout=self.timeout,
                 verify=self.ssl_verify,
             )
@@ -817,14 +843,14 @@ class SharePointConnector:
         if len(files) >= max_files or depth > 10:
             return
 
-        # URL-encode the folder path for the REST API
-        # v6.0.3: Use _encode_sp_path() to keep '&' literal (T&E, R&D folders)
+        # v6.0.3: Use ResourcePath API (decodedUrl) with percent-encoded path.
+        # The decodedUrl parameter auto-decodes %26→&, %23→# etc.
         encoded_path = self._encode_sp_path(folder_path)
 
         try:
             # Get files in this folder
             resp = self._api_get(
-                f"/_api/web/GetFolderByServerRelativeUrl('{encoded_path}')/Files"
+                f"/_api/web/GetFolderByServerRelativePath(decodedUrl='{encoded_path}')/Files"
                 f"?$select=Name,ServerRelativeUrl,Length,TimeLastModified"
                 f"&$top={max_files - len(files)}"
             )
@@ -877,7 +903,7 @@ class SharePointConnector:
         if recursive and len(files) < max_files:
             try:
                 resp = self._api_get(
-                    f"/_api/web/GetFolderByServerRelativeUrl('{encoded_path}')/Folders"
+                    f"/_api/web/GetFolderByServerRelativePath(decodedUrl='{encoded_path}')/Folders"
                     f"?$select=Name,ServerRelativeUrl,ItemCount"
                 )
 
@@ -934,7 +960,7 @@ class SharePointConnector:
         Returns:
             {'success': bool, 'path': str, 'size': int, 'message': str, 'status_code': int}
         """
-        url = f"{self.site_url}/_api/web/GetFileByServerRelativeUrl('{encoded_url}')/$value"
+        url = f"{self.site_url}/_api/web/GetFileByServerRelativePath(decodedUrl='{encoded_url}')/$value"
         resp = session.get(
             url,
             timeout=self.timeout,
@@ -971,7 +997,9 @@ class SharePointConnector:
         """
         Download a single file from SharePoint.
 
-        Uses /_api/web/GetFileByServerRelativeUrl('url')/$value for binary content.
+        Uses /_api/web/GetFileByServerRelativePath(decodedUrl='...')/$value for
+        binary content. The decodedUrl parameter auto-decodes percent-encoded
+        special characters (%26→&, %23→#) in folder/file names.
 
         v6.0.3: Each download creates its own requests.Session for thread-safe
         NTLM/Negotiate auth. Shared sessions corrupt the multi-step handshake
@@ -985,7 +1013,7 @@ class SharePointConnector:
         Returns:
             {'success': bool, 'path': str, 'size': int, 'message': str}
         """
-        # v6.0.3: Keep '&' literal for folder names like T&E, R&D
+        # v6.0.3: Percent-encode for ResourcePath API (decodedUrl auto-decodes)
         encoded_url = self._encode_sp_path(server_relative_url)
 
         # v6.0.3: Use a fresh session per download for thread-safe NTLM auth

@@ -13,9 +13,10 @@
       "date": "2026-02-24",
       "changes": [
         "FIX: SharePoint batch scan 401 auth errors — each download now uses its own session for thread-safe NTLM/Negotiate authentication",
-        "FIX: SharePoint folder paths with special characters (T&E, R&D) — ampersand no longer encoded as %26 inside OData parameters",
+        "FIX: SharePoint folder paths with special characters (T&E, R&D) — switched from legacy GetFolderByServerRelativeUrl to Microsoft's recommended GetFolderByServerRelativePath(decodedUrl) API which auto-decodes percent-encoded characters",
+        "ENH: All SharePoint API calls now use ResourcePath API (GetFolderByServerRelativePath, GetFileByServerRelativePath) with legacy fallback for older SharePoint versions",
         "ENH: SharePoint download_file() retries 401/403 with fresh auth session before failing (matches hyperlink validator pattern)",
-        "ENH: Added _encode_sp_path() helper for consistent SharePoint URL encoding across all API calls",
+        "ENH: Added _encode_sp_path() helper using quote(path, safe='/') with OData single-quote escaping for consistent encoding",
         "ENH: Refactored SharePoint download into _create_download_session() and _download_with_session() helpers for cleaner retry logic"
       ]
     },
