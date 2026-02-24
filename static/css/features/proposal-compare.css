@@ -489,9 +489,10 @@
     padding: 8px;
 }
 
-.pc-review-doc-viewer .pdfv-wrapper { padding: 0; }
+.pc-review-doc-viewer .pdfv-wrapper { padding: 0; overflow: auto; max-height: 100%; }
 .pc-review-doc-viewer .pdfv-page { margin-bottom: 8px; }
-.pc-review-doc-viewer .pdfv-page canvas { width: 100%; height: auto; }
+/* v6.0.4: Removed width:100% override — it prevented zoom from working.
+   Canvas dimensions are now set by pdf-viewer.js based on zoom level. */
 
 .pc-doc-text {
     white-space: pre-wrap;

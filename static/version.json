@@ -1,13 +1,27 @@
 {
-  "version": "6.0.3",
+  "version": "6.0.4",
   "release_date": "2026-02-24",
-  "core_version": "6.0.3",
+  "core_version": "6.0.4",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.0.4",
+      "date": "2026-02-24",
+      "changes": [
+        "FIX: PDF viewer zoom now preserves viewport center — zooming in/out no longer jumps to top-left corner",
+        "FIX: PDF viewer click-and-drag panning now scrolls correctly — fixed wrong scroll target (wrapper vs parent)",
+        "FIX: PDF viewer auto-fits to container width on initial render — removes CSS width:100% override that prevented zoom",
+        "NEW: Proposal Compare duplicate detection — detects when same proposal is uploaded twice (by filename or company name)",
+        "ENH: Duplicate upload prompt: user can choose to replace existing or keep existing and skip new upload",
+        "ENH: Post-extraction duplicate check against project proposals — prevents same proposal from being added to project twice",
+        "ENH: PDF viewer module version updated to v3.1"
+      ],
+      "tag": "PDF Zoom Fix + Proposal Duplicate Detection"
+    },
     {
       "version": "6.0.3",
       "date": "2026-02-24",

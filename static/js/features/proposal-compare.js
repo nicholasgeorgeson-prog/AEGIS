@@ -678,14 +678,123 @@ window.ProposalCompare = (function() {
     }
 
     function addFiles(newFiles) {
+        var duplicateWarnings = [];
         for (const f of newFiles) {
-            // Don't add duplicates
+            // Don't add duplicates within pending files
             if (State.files.some(function(sf) { return sf.name === f.name && sf.size === f.size; })) continue;
+            // v6.0.4: Check if same filename already exists in loaded proposals
+            var existingMatch = State.proposals.find(function(p) {
+                return p.filename && p.filename.toLowerCase() === f.name.toLowerCase();
+            });
+            if (existingMatch) {
+                duplicateWarnings.push({
+                    file: f,
+                    existing: existingMatch
+                });
+                continue; // Skip adding — will prompt user below
+            }
             if (State.files.length >= 10) break;
             State.files.push(f);
         }
+        // v6.0.4: Prompt user about duplicate filenames
+        if (duplicateWarnings.length > 0) {
+            _promptDuplicateFiles(duplicateWarnings);
+        }
         renderFileList();
         updateExtractButton();
+    }
+
+    /**
+     * v6.0.4: Prompt user when uploading a file that matches an existing proposal.
+     * User can keep old, replace with new, or keep both.
+     */
+    function _promptDuplicateFiles(duplicates) {
+        duplicates.forEach(function(dup) {
+            var existingName = dup.existing.company_name || dup.existing.filename || 'Unknown';
+            var existingTerm = dup.existing.contract_term ? ' (' + dup.existing.contract_term + ')' : '';
+            var msg = 'The file "' + dup.file.name + '" appears to match an already-loaded proposal:\n\n' +
+                '  Existing: ' + existingName + existingTerm + '\n\n' +
+                'Do you want to replace the existing proposal with this new upload?\n\n' +
+                '• OK = Replace existing with new upload\n' +
+                '• Cancel = Keep existing, skip new upload';
+
+            if (confirm(msg)) {
+                // Replace: remove old proposal from State.proposals, add new file
+                var oldIdx = State.proposals.indexOf(dup.existing);
+                if (oldIdx !== -1) {
+                    State.proposals.splice(oldIdx, 1);
+                    console.log('[AEGIS ProposalCompare] Replaced existing proposal: ' + existingName);
+                }
+                if (State.files.length < 10) {
+                    State.files.push(dup.file);
+                }
+            } else {
+                console.log('[AEGIS ProposalCompare] Kept existing proposal, skipped: ' + dup.file.name);
+            }
+        });
+    }
+
+    /**
+     * v6.0.4: After extraction, check new proposals against project proposals.
+     * Detects duplicates by company_name or filename match.
+     * Prompts user to keep new or existing for each duplicate.
+     */
+    function _checkProjectDuplicates() {
+        var toRemove = [];
+        State.proposals.forEach(function(newProp, newIdx) {
+            var newName = (newProp.company_name || '').trim().toLowerCase();
+            var newFile = (newProp.filename || '').trim().toLowerCase();
+            if (!newName && !newFile) return;
+
+            var projectMatch = State.projectProposals.find(function(pp) {
+                var ppName = (pp.company_name || '').trim().toLowerCase();
+                var ppFile = (pp.filename || '').trim().toLowerCase();
+                // Match on filename (exact) or company name (exact)
+                if (newFile && ppFile && newFile === ppFile) return true;
+                if (newName && ppName && newName === ppName) return true;
+                return false;
+            });
+
+            if (projectMatch) {
+                var matchLabel = projectMatch.company_name || projectMatch.filename || 'Unknown';
+                var newLabel = newProp.company_name || newProp.filename || 'Unknown';
+                var newTotal = newProp.total_raw || 'N/A';
+                var existTotal = projectMatch.total_raw ||
+                    (projectMatch.total_amount != null ? '$' + Number(projectMatch.total_amount).toLocaleString() : 'N/A');
+
+                var msg = 'Duplicate proposal detected in this project!\n\n' +
+                    'New upload: "' + newLabel + '" (Total: ' + newTotal + ')\n' +
+                    'Already in project: "' + matchLabel + '" (Total: ' + existTotal + ')\n\n' +
+                    'Do you want to replace the existing with the new upload?\n\n' +
+                    '• OK = Replace existing with new upload\n' +
+                    '• Cancel = Keep existing, discard new upload';
+
+                if (confirm(msg)) {
+                    // Delete old from project DB
+                    if (projectMatch.id) {
+                        fetch('/api/proposal-compare/proposals/' + projectMatch.id, {
+                            method: 'DELETE',
+                            headers: { 'X-CSRF-Token': getCSRF() }
+                        }).catch(function(e) {
+                            console.warn('[AEGIS ProposalCompare] Failed to delete old project proposal:', e);
+                        });
+                    }
+                    // Remove from projectProposals array
+                    var ppIdx = State.projectProposals.indexOf(projectMatch);
+                    if (ppIdx !== -1) State.projectProposals.splice(ppIdx, 1);
+                    console.log('[AEGIS ProposalCompare] Replaced project proposal: ' + matchLabel + ' with: ' + newLabel);
+                } else {
+                    // Discard new upload
+                    toRemove.push(newIdx);
+                    console.log('[AEGIS ProposalCompare] Kept existing project proposal: ' + matchLabel);
+                }
+            }
+        });
+
+        // Remove discarded new proposals (in reverse to preserve indices)
+        for (var i = toRemove.length - 1; i >= 0; i--) {
+            State.proposals.splice(toRemove[i], 1);
+        }
     }
 
     function removeFile(index) {
@@ -931,6 +1040,11 @@ window.ProposalCompare = (function() {
                     }
                 }
             });
+
+            // v6.0.4: Check for duplicates against project proposals (same company + filename)
+            if (State.selectedProjectId && State.projectProposals.length > 0) {
+                _checkProjectDuplicates();
+            }
 
             // Auto-advance to review if we got at least 2 proposals (counting project proposals too)
             var totalAvailable = State.proposals.length + (State.projectProposals?.length || 0);

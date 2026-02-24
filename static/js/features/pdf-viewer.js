@@ -1,10 +1,11 @@
 /**
- * PDF.js Viewer Module v3.0 (v5.9.53)
+ * PDF.js Viewer Module v3.1 (v6.0.4)
  * Renders PDF pages into canvas elements with:
  * - HiDPI/Retina-aware rendering (devicePixelRatio)
- * - Zoom controls (+/−/fit width)
+ * - Zoom controls (+/−/fit width) with viewport center preservation
  * - Magnifier loupe on hover
- * - Click-to-drag panning when zoomed
+ * - Click-to-drag panning when zoomed (scrolls wrapper, not parent)
+ * - Auto-fit-width on initial render
  * - Text layer for selectable text (enables click-to-populate)
  * Used in Statement History and Proposal Compare doc viewer.
  */
@@ -131,6 +132,19 @@ TWR.PDFViewer = (function() {
             // v5.9.53: Click-to-drag panning
             _initPanDrag(state);
 
+            // v6.0.4: Auto-fit to container width on initial render
+            // Get first page to compute fit scale
+            const firstPage = await pdf.getPage(1);
+            const baseViewport = firstPage.getViewport({ scale: 1.0 });
+            const containerWidth = container.clientWidth - 32; // minus padding
+            if (containerWidth > 0 && baseViewport.width > 0) {
+                const fitScale = containerWidth / baseViewport.width;
+                state.currentScale = Math.max(state.minScale, Math.min(fitScale, state.maxScale));
+                if (state.zoomLabel) {
+                    state.zoomLabel.textContent = Math.round(state.currentScale * 50) + '%';
+                }
+            }
+
             // Render all pages
             await _renderPages(state);
 
@@ -232,9 +246,10 @@ TWR.PDFViewer = (function() {
     }
 
     /**
-     * v5.9.53: Click-to-drag panning for zoomed PDFs.
+     * v6.0.4: Click-to-drag panning for zoomed PDFs.
      * Only activates when NOT in magnifier mode and NOT selecting text.
      * Uses middle-click (always) or left-click with >5px movement threshold.
+     * Scrolls the wrapper element itself (which has overflow: auto).
      */
     function _initPanDrag(state) {
         const wrapper = state.wrapper;
@@ -256,10 +271,9 @@ TWR.PDFViewer = (function() {
                 moved = false;
                 startX = e.clientX;
                 startY = e.clientY;
-                // Use the scrollable parent (container or wrapper's parent)
-                const scrollEl = wrapper.parentElement;
-                scrollStartX = scrollEl.scrollLeft;
-                scrollStartY = scrollEl.scrollTop;
+                // v6.0.4: Scroll the wrapper itself (has overflow: auto), not its parent
+                scrollStartX = wrapper.scrollLeft;
+                scrollStartY = wrapper.scrollTop;
                 e.preventDefault();
             }
         });
@@ -274,9 +288,9 @@ TWR.PDFViewer = (function() {
             moved = true;
 
             wrapper.style.cursor = 'grabbing';
-            const scrollEl = wrapper.parentElement;
-            scrollEl.scrollLeft = scrollStartX - dx;
-            scrollEl.scrollTop = scrollStartY - dy;
+            // v6.0.4: Scroll wrapper directly
+            wrapper.scrollLeft = scrollStartX - dx;
+            wrapper.scrollTop = scrollStartY - dy;
         });
 
         function endDrag() {
@@ -290,12 +304,30 @@ TWR.PDFViewer = (function() {
         wrapper.addEventListener('mouseleave', endDrag);
     }
 
-    function _setZoom(state, newScale) {
+    async function _setZoom(state, newScale) {
+        const wrapper = state.wrapper;
+        const oldScale = state.currentScale;
+
+        // v6.0.4: Track viewport center before re-render so we can restore it
+        let centerFractionX = 0.5, centerFractionY = 0;
+        if (wrapper && wrapper.scrollWidth > 0 && wrapper.scrollHeight > 0) {
+            // Center of current viewport as fraction of total scroll content
+            centerFractionX = (wrapper.scrollLeft + wrapper.clientWidth / 2) / wrapper.scrollWidth;
+            centerFractionY = (wrapper.scrollTop + wrapper.clientHeight / 2) / wrapper.scrollHeight;
+        }
+
         state.currentScale = newScale;
         if (state.zoomLabel) {
             state.zoomLabel.textContent = Math.round(newScale * 50) + '%';
         }
-        _renderPages(state);
+
+        await _renderPages(state);
+
+        // v6.0.4: Restore viewport center after re-render
+        if (wrapper && wrapper.scrollWidth > 0) {
+            wrapper.scrollLeft = centerFractionX * wrapper.scrollWidth - wrapper.clientWidth / 2;
+            wrapper.scrollTop = centerFractionY * wrapper.scrollHeight - wrapper.clientHeight / 2;
+        }
     }
 
     function _fitWidth(state) {
