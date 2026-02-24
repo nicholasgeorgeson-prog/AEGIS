@@ -86,18 +86,18 @@ TWR.API = (function() {
             method,
             headers: {}
         };
-        
+
         // Add abort signal if provided
         if (options.signal) {
             opts.signal = options.signal;
         }
-        
+
         // Add CSRF token for non-GET requests
         const csrfToken = getCSRFToken();
         if (method !== 'GET' && csrfToken) {
             opts.headers['X-CSRF-Token'] = csrfToken;
         }
-        
+
         // Handle body
         if (body && !(body instanceof FormData)) {
             opts.headers['Content-Type'] = 'application/json';
@@ -109,10 +109,10 @@ TWR.API = (function() {
             }
             opts.body = body;
         }
-        
+
         try {
             const response = await fetch(`/api${endpoint}`, opts);
-            
+
             // Update CSRF token if provided in response
             const newToken = response.headers.get('X-CSRF-Token');
             if (newToken) {
@@ -122,7 +122,14 @@ TWR.API = (function() {
                 const meta = document.querySelector('meta[name="csrf-token"]');
                 if (meta) meta.setAttribute('content', newToken);
             }
-            
+
+            // v6.0.2: Auto-retry on CSRF 403 instead of asking user to retry manually
+            if (response.status === 403 && !options._csrfRetried) {
+                console.log('[TWR API] CSRF 403 — refreshing token and retrying...');
+                await fetchCSRFToken();
+                return api(endpoint, method, body, { ...options, _csrfRetried: true });
+            }
+
             // Handle specific error codes
             if (response.status === 403) {
                 await fetchCSRFToken();

@@ -5908,7 +5908,7 @@ function showModal(modalId) {
 // ============================================================
 // API HELPER
 // ============================================================
-async function api(endpoint, method = 'GET', body = null) {
+async function api(endpoint, method = 'GET', body = null, _retried) {
     const opts = {
         method,
         headers: {}
@@ -5932,9 +5932,26 @@ async function api(endpoint, method = 'GET', body = null) {
         const response = await fetch(`/api${endpoint}`, opts);
 
         const newToken = response.headers.get('X-CSRF-Token');
-        if (newToken) State.csrfToken = newToken;
+        if (newToken) {
+            State.csrfToken = newToken;
+            window.CSRF_TOKEN = newToken;
+            const meta = document.querySelector('meta[name="csrf-token"]');
+            if (meta) meta.setAttribute('content', newToken);
+        }
+
+        if (response.status === 403 && !_retried) {
+            // v6.0.2: Auto-retry with fresh CSRF token instead of asking user to retry
+            console.log('[TWR] CSRF 403 — refreshing token and retrying...');
+            await fetchCSRFToken();
+            // Update token in opts for retry
+            if (method !== 'GET' && State.csrfToken) {
+                opts.headers['X-CSRF-Token'] = State.csrfToken;
+            }
+            return api(endpoint, method, body, true);
+        }
 
         if (response.status === 403) {
+            // Second attempt also failed — report to user
             await fetchCSRFToken();
             toast('warning', 'Security token refreshed. Please try again.');
             return { success: false, error: 'CSRF token expired' };
