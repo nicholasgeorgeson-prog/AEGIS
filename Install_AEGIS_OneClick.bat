@@ -1,6 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
-title AEGIS One-Click Installer v5.9.26
+title AEGIS One-Click Installer v6.0.5
 color 0B
 
 echo.
@@ -9,7 +9,7 @@ echo.
 echo       A E G I S   I N S T A L L E R
 echo.
 echo       Aerospace Engineering Governance
-echo       ^& Inspection System  v5.9.26
+echo       ^& Inspection System  v6.0.5
 echo.
 echo  ============================================================
 echo.
@@ -317,6 +317,8 @@ del "%WHEELS%\*manylinux*aarch64*.whl" >nul 2>nul
 "%PYTHON_DIR%\python.exe" -m pip install --force-reinstall --no-index --find-links="%WHEELS%" --no-warn-script-location "setuptools<81" 2>nul
 :: Install colorama, typer, sspilib (required by spaCy/click/wasabi/pyspnego on Windows)
 "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location colorama typer sspilib 2>nul
+:: Install MSAL + PyJWT (required for SharePoint Online modern auth - v6.0.5)
+"%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location msal PyJWT 2>nul
 
 :: Install core packages (with dependency resolution so spaCy deps get pulled in)
 "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location flask 2>nul
@@ -489,10 +491,10 @@ echo  ---------------------------------------------------
 :: Create Start_AEGIS.bat
 (
 echo @echo off
-echo title AEGIS v5.9.26
+echo title AEGIS v6.0.5
 echo color 0B
 echo echo.
-echo echo  Starting AEGIS v5.9.26...
+echo echo  Starting AEGIS v6.0.5...
 echo echo  Once started, open your browser to: http://localhost:5050
 echo echo.
 echo echo  DO NOT close this window while using AEGIS.
@@ -572,10 +574,10 @@ echo  [OK] Export_Bugs.bat
 set "ICON_FILE=%INSTALL_DIR%\static\img\aegis_icon.ico"
 echo  Creating Desktop shortcut...
 if exist "%ICON_FILE%" (
-    powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.IconLocation = '%ICON_FILE%,0'; $s.Description = 'Start AEGIS v5.9.26 - Document Analysis Tool'; $s.Save()" 2>nul
+    powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.IconLocation = '%ICON_FILE%,0'; $s.Description = 'Start AEGIS v6.0.5 - Document Analysis Tool'; $s.Save()" 2>nul
     echo  [OK] Desktop shortcut created with AEGIS icon
 ) else (
-    powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.Description = 'Start AEGIS v5.9.26 - Document Analysis Tool'; $s.Save()" 2>nul
+    powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS.lnk'); $s.TargetPath = '%INSTALL_DIR%\Start_AEGIS.bat'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.Description = 'Start AEGIS v6.0.5 - Document Analysis Tool'; $s.Save()" 2>nul
     echo  [OK] Desktop shortcut created
 )
 
@@ -605,6 +607,7 @@ echo.
 "%PYTHON_DIR%\python.exe" -c "import torchvision; print('  [OK] TorchVision ' + torchvision.__version__)" 2>nul || echo  [SKIP] TorchVision (optional)
 "%PYTHON_DIR%\python.exe" -c "import requests_negotiate_sspi; print('  [OK] SSPI Auth')" 2>nul || echo  [SKIP] SSPI Auth (Windows auth)
 "%PYTHON_DIR%\python.exe" -c "import requests_ntlm; print('  [OK] NTLM Auth')" 2>nul || echo  [SKIP] NTLM Auth (Windows auth)
+"%PYTHON_DIR%\python.exe" -c "import msal; print('  [OK] MSAL ' + msal.__version__)" 2>nul || echo  [SKIP] MSAL (SharePoint Online auth)
 "%PYTHON_DIR%\python.exe" -c "import mammoth; print('  [OK] mammoth')" 2>nul || echo  [FAIL] mammoth
 "%PYTHON_DIR%\python.exe" -c "import reportlab; print('  [OK] reportlab')" 2>nul || echo  [SKIP] reportlab (optional)
 "%PYTHON_DIR%\python.exe" -c "import lxml; print('  [OK] lxml')" 2>nul || echo  [FAIL] lxml
@@ -619,7 +622,7 @@ echo       INSTALLATION COMPLETE!
 echo.
 echo  ============================================================
 echo.
-echo  AEGIS v5.9.26 installed to: %INSTALL_DIR%
+echo  AEGIS v6.0.5 installed to: %INSTALL_DIR%
 echo.
 echo  To start:
 echo    1. Double-click "AEGIS" on your Desktop

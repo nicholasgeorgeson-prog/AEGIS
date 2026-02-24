@@ -99,6 +99,7 @@ OPTIONAL_PACKAGES = [
     ('docling', 'docling', 'AI Document Extraction'),
     ('requests_negotiate_sspi', 'requests-negotiate-sspi', 'Windows SSO'),
     ('requests_ntlm', 'requests-ntlm', 'Windows Domain Auth'),
+    ('msal', 'msal', 'SharePoint Online Auth (OAuth)'),
 ]
 
 SPACY_CHAIN = ['colorama', 'typer', 'cymem', 'murmurhash', 'preshed', 'blis',
@@ -574,6 +575,16 @@ def main():
                 ok(f'sspilib installed ({method})')
             else:
                 warn(f'sspilib not available — Windows auth packages may fail')
+            print()
+
+        # Install MSAL + PyJWT if SharePoint Online auth needs it
+        if 'msal' in optional_names_set:
+            info('Installing PyJWT (required by MSAL)...')
+            success, method = pip_install('PyJWT', wheels_dirs)
+            if success:
+                ok(f'PyJWT installed ({method})')
+            else:
+                warn(f'PyJWT not available — MSAL may fail')
             print()
 
         for pip_name, _ in optional_failed:
