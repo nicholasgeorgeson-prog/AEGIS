@@ -2,13 +2,13 @@
 SharePoint Online Connector for AEGIS Document Review.
 
 Connects to SharePoint document libraries via REST API using Windows SSO
-(Negotiate/NTLM authentication). Zero external dependencies beyond requests
-and requests-negotiate-sspi (both already installed).
+(Negotiate/NTLM authentication) or OAuth 2.0 (MSAL) for SharePoint Online.
 
-v5.9.35 — Nicholas Georgeson
+v6.0.5 — Nicholas Georgeson
 
 Features:
-    - Windows SSO (Negotiate/NTLM) authentication
+    - Windows SSO (Negotiate/NTLM) authentication with preemptive token
+    - OAuth 2.0 / MSAL fallback for SharePoint Online (GCC High / commercial)
     - Multi-layer SSL fallback for corporate CA certificates
     - Auto-detection of default document library path
     - Recursive folder traversal with depth limit
@@ -28,6 +28,8 @@ import sys
 import time
 import logging
 import tempfile
+import json
+import base64
 from typing import Dict, List, Optional, Any
 from urllib.parse import urlparse, unquote, quote
 
@@ -52,6 +54,37 @@ WINDOWS_AUTH_AVAILABLE = False
 HttpNegotiateAuth = None
 _sp_auth_init_error = None
 _sp_auth_method = 'none'
+
+# v6.0.5: SSPI preemptive auth — generate Negotiate token without waiting for challenge
+SSPI_PREEMPTIVE_AVAILABLE = False
+_sspi_module = None
+_win32security_module = None
+try:
+    if sys.platform == 'win32':
+        import sspi
+        import win32security
+        import pywintypes
+        _sspi_module = sspi
+        _win32security_module = win32security
+        SSPI_PREEMPTIVE_AVAILABLE = True
+except ImportError:
+    pass
+except Exception:
+    pass
+
+# v6.0.5: MSAL (Microsoft Authentication Library) for OAuth 2.0 / modern auth
+# Required for SharePoint Online (GCC High, commercial) which has disabled legacy auth
+MSAL_AVAILABLE = False
+_msal_module = None
+try:
+    import msal
+    _msal_module = msal
+    MSAL_AVAILABLE = True
+    logger.info('[AEGIS SharePoint] MSAL available — OAuth 2.0 / modern auth supported')
+except ImportError:
+    logger.info('[AEGIS SharePoint] MSAL not installed — OAuth 2.0 auth unavailable. '
+                'Install with: pip install msal')
+
 try:
     if sys.platform == 'win32':
         from requests_negotiate_sspi import HttpNegotiateAuth
@@ -77,6 +110,190 @@ except ImportError as e:
 except Exception as e:
     _sp_auth_init_error = f'Unexpected: {e}'
     logger.error(f'[AEGIS SharePoint] Auth init error: {e}', exc_info=True)
+
+
+def _generate_preemptive_negotiate_token(target_host: str) -> Optional[str]:
+    """
+    v6.0.5: Generate a preemptive Negotiate (SPNEGO) token using Windows SSPI.
+
+    This bypasses the normal challenge-response flow where the server must first
+    send WWW-Authenticate: Negotiate in a 401 response. SharePoint Online
+    (GCC High / commercial) may return 401 with an EMPTY WWW-Authenticate header,
+    which causes requests-negotiate-sspi to never attempt authentication.
+
+    By generating the initial token proactively and attaching it to the first
+    request, we can authenticate even when the server doesn't advertise
+    Negotiate support in the 401 response.
+
+    Args:
+        target_host: The hostname to authenticate against (e.g., ngc.sharepoint.us)
+
+    Returns:
+        Base64-encoded Negotiate token string, or None if generation fails
+    """
+    if not SSPI_PREEMPTIVE_AVAILABLE or not _sspi_module or not _win32security_module:
+        return None
+
+    try:
+        # Build SPN (Service Principal Name) for HTTP service
+        targetspn = f'HTTP/{target_host}'
+
+        # Create client auth context for Negotiate scheme
+        # scflags: request mutual auth + sequence detect + confidentiality
+        pkg_info = _win32security_module.QuerySecurityPackageInfo('Negotiate')
+        clientauth = _sspi_module.ClientAuth(
+            'Negotiate',
+            targetspn=targetspn,
+            scflags=_win32security_module.ISC_REQ_MUTUAL_AUTH |
+                    _win32security_module.ISC_REQ_SEQUENCE_DETECT |
+                    _win32security_module.ISC_REQ_CONFIDENTIALITY,
+        )
+
+        # Generate initial (Type 1) token — no input buffer for first call
+        err, out_buf = clientauth.authorize(None)
+        # out_buf is a list of (buffer_data, buffer_type) tuples
+        if out_buf and len(out_buf) > 0:
+            token_data = out_buf[0].Buffer
+            if token_data:
+                token_b64 = base64.b64encode(token_data).decode('ascii')
+                logger.info(f"SharePoint: Generated preemptive Negotiate token ({len(token_b64)} chars) "
+                            f"for SPN={targetspn}")
+                return token_b64
+
+        logger.debug("SharePoint: SSPI authorize returned empty buffer")
+        return None
+
+    except Exception as e:
+        logger.debug(f"SharePoint: Preemptive Negotiate token generation failed: {e}")
+        return None
+
+
+def _get_oauth_config() -> Optional[Dict[str, str]]:
+    """
+    v6.0.5: Read OAuth / MSAL configuration from config.json.
+
+    Expected keys under 'sharepoint_oauth':
+        client_id:  Azure AD / Entra app registration client ID
+        tenant_id:  Azure AD / Entra tenant ID (GUID or domain)
+        client_secret: (optional) App secret — only for non-interactive flows
+        authority:  (optional) Override login endpoint (default: auto-detected from domain)
+
+    Returns:
+        Dict with OAuth config, or None if not configured
+    """
+    try:
+        config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
+        if not os.path.exists(config_path):
+            return None
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+        oauth = config.get('sharepoint_oauth', {})
+        if oauth.get('client_id') and oauth.get('tenant_id'):
+            return oauth
+        return None
+    except Exception:
+        return None
+
+
+def _get_oauth_authority(tenant_id: str, site_url: str) -> str:
+    """
+    v6.0.5: Determine the correct OAuth authority URL based on the SharePoint domain.
+
+    GCC High (.sharepoint.us) uses login.microsoftonline.us
+    Commercial (.sharepoint.com) uses login.microsoftonline.com
+    """
+    if '.sharepoint.us' in site_url.lower():
+        return f'https://login.microsoftonline.us/{tenant_id}'
+    else:
+        return f'https://login.microsoftonline.com/{tenant_id}'
+
+
+def _get_oauth_resource(site_url: str) -> str:
+    """
+    v6.0.5: Get the OAuth resource/scope for the SharePoint site.
+
+    For SharePoint REST API, the scope is the root site URL + /.default
+    """
+    parsed = urlparse(site_url)
+    return f'{parsed.scheme}://{parsed.netloc}/.default'
+
+
+def _acquire_oauth_token(site_url: str) -> Optional[str]:
+    """
+    v6.0.5: Acquire an OAuth 2.0 Bearer token for SharePoint access via MSAL.
+
+    Tries two approaches:
+    1. Client credentials (client_id + client_secret) — app-only, no user interaction
+    2. Integrated Windows Auth (IWA) — uses current Windows credentials, no popup
+
+    Returns:
+        Bearer token string, or None if acquisition fails
+    """
+    if not MSAL_AVAILABLE or not _msal_module:
+        return None
+
+    oauth_config = _get_oauth_config()
+    if not oauth_config:
+        return None
+
+    client_id = oauth_config['client_id']
+    tenant_id = oauth_config['tenant_id']
+    client_secret = oauth_config.get('client_secret', '')
+    authority = oauth_config.get('authority', '') or _get_oauth_authority(tenant_id, site_url)
+    resource = _get_oauth_resource(site_url)
+
+    try:
+        if client_secret:
+            # Client credentials flow — app-only, no user
+            app = _msal_module.ConfidentialClientApplication(
+                client_id,
+                authority=authority,
+                client_credential=client_secret,
+            )
+            result = app.acquire_token_for_client(scopes=[resource])
+        else:
+            # Integrated Windows Auth — uses current Windows logon
+            app = _msal_module.PublicClientApplication(
+                client_id,
+                authority=authority,
+            )
+            # Try IWA first (silent, no popup)
+            try:
+                import getpass
+                username = getpass.getuser()
+                # On Windows, try to get full UPN (user@domain)
+                if sys.platform == 'win32':
+                    try:
+                        import win32api
+                        username = win32api.GetUserNameEx(2)  # NameSamCompatible
+                    except Exception:
+                        try:
+                            username = os.environ.get('USERNAME', '') + '@' + os.environ.get('USERDNSDOMAIN', '')
+                        except Exception:
+                            pass
+                result = app.acquire_token_by_username_password(
+                    username='',  # empty = use current Windows credentials
+                    password='',
+                    scopes=[resource.replace('/.default', '/AllSites.Read')],
+                )
+            except Exception as iwa_err:
+                logger.debug(f"SharePoint OAuth IWA failed: {iwa_err}")
+                result = None
+
+        if result and 'access_token' in result:
+            logger.info(f"SharePoint: OAuth token acquired via MSAL ({result.get('token_type', 'Bearer')})")
+            return result['access_token']
+        elif result:
+            error = result.get('error', 'unknown')
+            desc = result.get('error_description', '')
+            logger.warning(f"SharePoint OAuth token acquisition failed: {error} — {desc[:200]}")
+            return None
+        else:
+            return None
+
+    except Exception as e:
+        logger.warning(f"SharePoint OAuth error: {e}")
+        return None
 
 
 def parse_sharepoint_url(url: str) -> Dict[str, str]:
@@ -208,6 +425,12 @@ class SharePointConnector:
         """
         Initialize SharePoint connector.
 
+        v6.0.5: Multi-strategy auth — tries Negotiate SSO (preemptive), then OAuth/MSAL.
+        SharePoint Online (GCC High / commercial) has disabled legacy auth (NTLM/Negotiate)
+        as of Feb 2026, returning 401 with empty WWW-Authenticate header. The preemptive
+        Negotiate token bypasses the empty header issue, and OAuth provides a modern auth
+        fallback for environments that only accept Bearer tokens.
+
         Args:
             site_url: SharePoint site URL (e.g., https://ngc.sharepoint.us/sites/MyTeam)
             timeout: HTTP request timeout in seconds (v5.9.38: increased from 30→45 for corporate networks)
@@ -227,30 +450,64 @@ class SharePointConnector:
         self._ssl_fallback_used = _is_corp
         if _is_corp:
             logger.info(f"SharePoint connector: Corporate domain detected — SSL verification disabled (certifi CA mismatch)")
+
+        # v6.0.5: Detect if this is SharePoint Online (requires modern auth)
+        _online_patterns = ('sharepoint.us', 'sharepoint.com', 'sharepoint-df.com')
+        self._is_sharepoint_online = any(p in site_url.lower() for p in _online_patterns)
+        if self._is_sharepoint_online:
+            logger.info(f"SharePoint connector: SharePoint Online detected — will try preemptive Negotiate + OAuth fallback")
+
         self._last_error_detail = ''  # v5.9.38: detailed error for diagnostics
+        self._oauth_token = None  # v6.0.5: cached OAuth bearer token
         self.session = requests.Session()
 
-        # Configure Windows SSO auth
+        # v6.0.5: Multi-strategy auth configuration
+        # Strategy 1: Windows SSO with preemptive Negotiate token
+        # Strategy 2: OAuth 2.0 via MSAL (if configured in config.json)
+        # Strategy 3: Standard requests-negotiate-sspi (reactive, needs WWW-Authenticate)
+        self.auth_method = 'none'
+        self._preemptive_token = None
+
+        # Try preemptive SSPI token generation first
+        if SSPI_PREEMPTIVE_AVAILABLE and sys.platform == 'win32':
+            parsed = urlparse(site_url)
+            token = _generate_preemptive_negotiate_token(parsed.hostname)
+            if token:
+                self._preemptive_token = token
+                self.auth_method = 'negotiate_preemptive'
+                logger.info(f"SharePoint connector: Preemptive Negotiate token generated for {parsed.hostname}")
+
+        # Also set up standard SSO auth as fallback (for the challenge-response flow)
         if WINDOWS_AUTH_AVAILABLE and HttpNegotiateAuth:
             try:
                 self.session.auth = HttpNegotiateAuth()
-                self.auth_method = 'negotiate'
+                if self.auth_method == 'none':
+                    self.auth_method = 'negotiate'
                 logger.info(f"SharePoint connector: Windows SSO (Negotiate) configured")
             except Exception as e:
                 logger.warning(f"SharePoint connector: SSO setup failed: {e}")
-                self.auth_method = 'none'
+                if self.auth_method == 'none':
+                    self.auth_method = 'none'
         else:
-            self.auth_method = 'none'
-            if sys.platform == 'win32':
+            if sys.platform == 'win32' and self.auth_method == 'none':
                 logger.warning("SharePoint connector: Windows auth packages missing — install requests-negotiate-sspi")
-            else:
+            elif sys.platform != 'win32':
                 logger.info("SharePoint connector: Non-Windows platform — SSO not available (expected on Mac dev)")
+
+        # v6.0.5: Try OAuth token acquisition if configured
+        if MSAL_AVAILABLE:
+            oauth_token = _acquire_oauth_token(site_url)
+            if oauth_token:
+                self._oauth_token = oauth_token
+                if self.auth_method == 'none':
+                    self.auth_method = 'oauth'
+                logger.info(f"SharePoint connector: OAuth token acquired via MSAL")
 
         # SharePoint REST API headers
         self.session.headers.update({
             'Accept': 'application/json;odata=verbose',
             'Content-Type': 'application/json;odata=verbose',
-            'User-Agent': 'AEGIS/5.9.38 SharePointConnector',
+            'User-Agent': 'AEGIS/6.0.5 SharePointConnector',
         })
 
     @staticmethod
@@ -282,6 +539,11 @@ class SharePointConnector:
         """
         Make a GET request to the SharePoint REST API with retry logic.
 
+        v6.0.5: Multi-strategy authentication:
+        1. Preemptive Negotiate token (bypasses empty WWW-Authenticate)
+        2. Standard requests-negotiate-sspi (reactive, needs WWW-Authenticate in 401)
+        3. OAuth Bearer token (MSAL, for SharePoint Online modern auth)
+
         v5.9.35: Added multi-layer SSL fallback for corporate CA certificates.
         Python's requests/certifi doesn't trust corporate CAs (same as Lesson 81).
         Strategy: try with SSL verification → retry with verify=False → retry with
@@ -299,16 +561,30 @@ class SharePointConnector:
         """
         url = f"{self.site_url}{endpoint}"
         ssl_retried = False  # Track if we already tried SSL fallback (doesn't count as a retry)
+        preemptive_tried = False  # v6.0.5: track if we tried preemptive Negotiate
+        oauth_tried = False  # v6.0.5: track if we tried OAuth Bearer
 
         attempt = 0
         while attempt < self.MAX_RETRIES:
             try:
+                # v6.0.5: Build request headers — may include preemptive auth token
+                extra_headers = {}
+                if self._preemptive_token and not preemptive_tried:
+                    extra_headers['Authorization'] = f'Negotiate {self._preemptive_token}'
+                    preemptive_tried = True
+                    logger.debug(f"SharePoint: Using preemptive Negotiate token for {endpoint}")
+                elif self._oauth_token and not oauth_tried:
+                    extra_headers['Authorization'] = f'Bearer {self._oauth_token}'
+                    oauth_tried = True
+                    logger.debug(f"SharePoint: Using OAuth Bearer token for {endpoint}")
+
                 resp = self.session.get(
                     url,
                     timeout=self.timeout,
                     stream=stream,
                     allow_redirects=True,
                     verify=self.ssl_verify,
+                    headers=extra_headers if extra_headers else None,
                 )
 
                 # Handle SharePoint throttling
@@ -318,6 +594,28 @@ class SharePointConnector:
                     time.sleep(retry_after)
                     attempt += 1
                     continue
+
+                # v6.0.5: If 401 with preemptive token, try OAuth before giving up
+                if resp.status_code == 401:
+                    www_auth = resp.headers.get('WWW-Authenticate', '')
+                    logger.debug(f"SharePoint 401: WWW-Authenticate='{www_auth[:200]}', "
+                                 f"preemptive_tried={preemptive_tried}, oauth_tried={oauth_tried}")
+
+                    # If preemptive Negotiate failed, try OAuth
+                    if preemptive_tried and not oauth_tried and self._oauth_token:
+                        logger.info(f"SharePoint: Preemptive Negotiate rejected — trying OAuth Bearer")
+                        continue  # Loop will use OAuth token on next iteration
+
+                    # If we haven't tried OAuth yet and have a token, try it
+                    if not oauth_tried and self._oauth_token:
+                        continue  # Loop will use OAuth token on next iteration
+
+                    # If we haven't tried preemptive but standard negotiate also got 401
+                    # and the WWW-Authenticate is empty, try preemptive on next loop
+                    if not preemptive_tried and self._preemptive_token and not www_auth:
+                        logger.info(f"SharePoint: Standard Negotiate got 401 with empty WWW-Authenticate "
+                                    f"— retrying with preemptive token")
+                        continue  # Loop will use preemptive token on next iteration
 
                 return resp
 
@@ -392,7 +690,10 @@ class SharePointConnector:
         self.ssl_verify = False
         self._ssl_fallback_used = True
 
-        if WINDOWS_AUTH_AVAILABLE and HttpNegotiateAuth:
+        # v6.0.5: If OAuth is our primary auth method, use that
+        if self.auth_method == 'oauth' and self._oauth_token:
+            self.session.headers['Authorization'] = f'Bearer {self._oauth_token}'
+        elif WINDOWS_AUTH_AVAILABLE and HttpNegotiateAuth:
             try:
                 self.session.auth = HttpNegotiateAuth()
             except Exception as e:
@@ -401,7 +702,7 @@ class SharePointConnector:
         self.session.headers.update({
             'Accept': 'application/json;odata=verbose',
             'Content-Type': 'application/json;odata=verbose',
-            'User-Agent': 'AEGIS/5.9.35 SharePointConnector',
+            'User-Agent': 'AEGIS/6.0.5 SharePointConnector',
         })
 
     def test_connection(self) -> Dict[str, Any]:
@@ -463,20 +764,39 @@ class SharePointConnector:
                              f"Server={resp.headers.get('Server', '?')}, "
                              f"X-MS-Diagnostics={resp.headers.get('X-MS-Diagnostics', '?')[:200]}")
 
-                # Detect if server is requesting OAuth/Bearer (modern auth only)
+                # v6.0.5: Enhanced auth hint with actionable guidance
                 auth_hint = ''
+                is_online = self._is_sharepoint_online
                 if 'bearer' in www_auth.lower():
-                    auth_hint = ' Server requires OAuth2/Bearer token (modern auth) — NTLM/Negotiate not accepted.'
+                    auth_hint = (' Server requires OAuth2/Bearer token (modern auth). '
+                                 'Configure sharepoint_oauth in config.json with client_id and tenant_id.')
                 elif 'negotiate' in www_auth.lower() or 'ntlm' in www_auth.lower():
                     auth_hint = ' Server accepts Negotiate/NTLM but credentials were rejected — check domain trust.'
+                elif not www_auth and is_online:
+                    auth_hint = (' SharePoint Online has disabled legacy auth (NTLM/Negotiate) as of Feb 2026. '
+                                 'This site requires OAuth 2.0 modern authentication. '
+                                 'To configure: add sharepoint_oauth to config.json with your Azure AD '
+                                 'client_id and tenant_id, and install msal: pip install msal')
                 elif not www_auth:
-                    auth_hint = ' Server sent no WWW-Authenticate header — may require pre-authentication or modern auth.'
+                    auth_hint = (' Server sent no WWW-Authenticate header — may require pre-authentication or modern auth. '
+                                 'If this is SharePoint Online, configure OAuth in config.json.')
 
                 # v5.9.43: Try fresh session as auth retry before giving up
                 try:
                     logger.info("SharePoint 401: Trying fresh SSO session...")
                     self._create_fresh_session()
-                    retry_resp = self._api_get('/_api/web')
+
+                    # v6.0.5: On fresh session retry, try preemptive token again
+                    retry_headers = {}
+                    if self._preemptive_token:
+                        retry_headers['Authorization'] = f'Negotiate {self._preemptive_token}'
+                        logger.info("SharePoint 401: Fresh session retry with preemptive Negotiate token")
+                    retry_resp = self.session.get(
+                        f"{self.site_url}/_api/web",
+                        timeout=self.timeout,
+                        verify=self.ssl_verify,
+                        headers=retry_headers if retry_headers else None,
+                    )
                     if retry_resp.status_code == 200:
                         try:
                             data = retry_resp.json()
@@ -493,17 +813,60 @@ class SharePointConnector:
                             }
                         except (ValueError, KeyError):
                             pass
+
+                    # v6.0.5: If fresh SSO also failed AND we have OAuth, try that
+                    if self._oauth_token:
+                        logger.info("SharePoint 401: SSO retries exhausted — trying OAuth Bearer token")
+                        oauth_resp = self.session.get(
+                            f"{self.site_url}/_api/web",
+                            timeout=self.timeout,
+                            verify=self.ssl_verify,
+                            headers={'Authorization': f'Bearer {self._oauth_token}'},
+                        )
+                        if oauth_resp.status_code == 200:
+                            try:
+                                data = oauth_resp.json()
+                                d = data.get('d', data)
+                                title = d.get('Title', 'Unknown')
+                                url = d.get('Url', self.site_url)
+                                # OAuth worked — switch to it as primary auth method
+                                self.auth_method = 'oauth'
+                                self.session.auth = None  # Remove SSO handler
+                                self.session.headers['Authorization'] = f'Bearer {self._oauth_token}'
+                                logger.info(f"SharePoint: Switched to OAuth auth — SSO not supported by this server")
+                                return {
+                                    'success': True,
+                                    'title': title,
+                                    'url': url,
+                                    'auth_method': 'oauth',
+                                    'message': f'Connected to "{title}" via OAuth 2.0 (modern auth)',
+                                    'status_code': 200,
+                                }
+                            except (ValueError, KeyError):
+                                pass
+
                 except Exception as retry_e:
                     logger.debug(f"SharePoint 401 fresh session retry failed: {retry_e}")
+
+                # v6.0.5: Include MSAL availability in diagnostics
+                msal_note = ''
+                if not MSAL_AVAILABLE:
+                    msal_note = ' MSAL not installed — run: pip install msal'
+                elif not _get_oauth_config():
+                    msal_note = ' MSAL installed but not configured — add sharepoint_oauth to config.json'
 
                 return {
                     'success': False,
                     'title': '',
                     'url': self.site_url,
                     'auth_method': self.auth_method,
-                    'message': f'Authentication failed (401) — Windows SSO credentials not accepted.{auth_hint}',
+                    'message': f'Authentication failed (401) — Windows SSO credentials not accepted.{auth_hint}{msal_note}',
                     'status_code': 401,
                     'diagnostics': resp_headers_diag,
+                    'is_sharepoint_online': is_online,
+                    'msal_available': MSAL_AVAILABLE,
+                    'oauth_configured': _get_oauth_config() is not None,
+                    'preemptive_attempted': self._preemptive_token is not None,
                 }
 
             elif resp.status_code == 403:
@@ -944,13 +1307,20 @@ class SharePointConnector:
         fresh.headers.update({
             'Accept': 'application/json;odata=verbose',
             'Content-Type': 'application/json;odata=verbose',
-            'User-Agent': 'AEGIS/6.0.3 SharePointConnector',
+            'User-Agent': 'AEGIS/6.0.5 SharePointConnector',
         })
-        if WINDOWS_AUTH_AVAILABLE and HttpNegotiateAuth:
+
+        # v6.0.5: Use OAuth if that's our primary auth method
+        if self.auth_method == 'oauth' and self._oauth_token:
+            fresh.headers['Authorization'] = f'Bearer {self._oauth_token}'
+        elif WINDOWS_AUTH_AVAILABLE and HttpNegotiateAuth:
             try:
                 fresh.auth = HttpNegotiateAuth()
             except Exception as e:
                 logger.warning(f"SharePoint: Download session SSO setup failed: {e}")
+            # v6.0.5: Also attach preemptive token for first request
+            if self._preemptive_token:
+                fresh.headers['Authorization'] = f'Negotiate {self._preemptive_token}'
         return fresh
 
     def _download_with_session(self, session, encoded_url, dest_path):

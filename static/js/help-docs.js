@@ -2,7 +2,7 @@
  * AEGIS Help Documentation System
  * ==========================================
  * Comprehensive documentation for all features.
- * Version: 6.0.4
+ * Version: 6.0.5
  *
  * Complete overhaul with:
  * - Beautiful visual design with icons and illustrations
@@ -10,6 +10,7 @@
  * - Technical deep-dive section for advanced users
  * - Smooth navigation and professional typography
  *
+ * v6.0.5 - SharePoint Online Modern Auth (preemptive SSPI Negotiate + MSAL OAuth 2.0 for GCC High legacy auth deprecation)
  * v6.0.4 - PDF Zoom/Pan Fix + Proposal Duplicate Detection (viewport-center zoom, click-drag pan, auto-fit width, upload duplicate prompt)
  * v6.0.3 - SharePoint Batch Auth Fix (per-download fresh session for thread-safe NTLM, OData ampersand encoding)
  * v6.0.2 - Fix Assistant Reviewer/Owner Mode + US English Dictionary + Duplicate Proposal Fix
@@ -49,7 +50,7 @@
 'use strict';
 
 const HelpDocs = {
-    version: '6.0.4',
+    version: '6.0.5',
     lastUpdated: '2026-02-24',
     
     config: {
@@ -8071,6 +8072,19 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.0.5 <span class="changelog-date">February 24, 2026</span></h3>
+        <p><strong>SharePoint Online Modern Auth</strong></p>
+        <ul>
+            <li><strong>FIX: SharePoint Online 401 with empty WWW-Authenticate</strong> &mdash; resolved auth failure on GCC High (.sharepoint.us) where Microsoft disabled legacy NTLM/Negotiate auth as of February 2026</li>
+            <li><strong>NEW: Preemptive SSPI Negotiate token</strong> &mdash; generates Windows SSO token via SSPI before the first request, bypassing the server&rsquo;s empty auth challenge header</li>
+            <li><strong>NEW: MSAL OAuth 2.0 integration</strong> &mdash; Microsoft Authentication Library support for modern auth with Azure AD/Entra, using client credentials or Integrated Windows Auth flows</li>
+            <li><strong>NEW: Multi-strategy auth cascade</strong> &mdash; preemptive Negotiate → standard Negotiate → OAuth Bearer → diagnostic messaging, with automatic fallback between strategies</li>
+            <li><strong>NEW: Auto-detect SharePoint Online</strong> &mdash; detects .sharepoint.com/.sharepoint.us domains and routes to modern auth. GCC High uses login.microsoftonline.us authority</li>
+            <li><strong>ENH: Enhanced 401 diagnostics</strong> &mdash; detailed error messages include auth method attempted, MSAL availability, OAuth config status, and SharePoint Online detection</li>
+            <li><strong>DEP: Added msal&gt;=1.20.0 and PyJWT&gt;=2.0.0</strong> &mdash; pure Python wheels included for offline installation</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v6.0.4 <span class="changelog-date">February 24, 2026</span></h3>
         <p><strong>PDF Viewer Fix &amp; Proposal Duplicate Detection</strong></p>
         <ul>

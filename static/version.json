@@ -1,13 +1,26 @@
 {
-  "version": "6.0.4",
+  "version": "6.0.5",
   "release_date": "2026-02-24",
-  "core_version": "6.0.4",
+  "core_version": "6.0.5",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.0.5",
+      "date": "2026-02-24",
+      "changes": [
+        "FIX: SharePoint Online 401 auth failure — server returns empty WWW-Authenticate header since Microsoft disabled legacy auth (NTLM/Negotiate) in Feb 2026",
+        "NEW: Preemptive SSPI Negotiate token — bypasses empty WWW-Authenticate header by generating auth token before first request",
+        "NEW: OAuth 2.0 / MSAL integration for SharePoint Online (GCC High / commercial) — modern auth fallback when NTLM/Negotiate is rejected",
+        "NEW: Multi-strategy auth cascade: preemptive Negotiate → standard Negotiate → OAuth Bearer → clear diagnostic messaging",
+        "ENH: SharePoint Online auto-detection (.sharepoint.us / .sharepoint.com) with environment-specific OAuth authority URLs",
+        "ENH: Detailed 401 diagnostics — reports WWW-Authenticate contents, MSAL availability, OAuth config status, and actionable setup instructions",
+        "DEP: Added msal>=1.20.0 and PyJWT>=2.0.0 to requirements.txt and wheels directory for offline install"
+      ]
+    },
     {
       "version": "6.0.4",
       "date": "2026-02-24",
