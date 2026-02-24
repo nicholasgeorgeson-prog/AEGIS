@@ -3202,6 +3202,54 @@
           "size": 91440
         }
       ]
+    },
+    "pdf_zoom_pan": {
+      "steps": [
+        {
+          "file": "pdf_zoom_pan__step0.mp3",
+          "hash": "4b996d04",
+          "size": 94608
+        },
+        {
+          "file": "pdf_zoom_pan__step1.mp3",
+          "hash": "566a25be",
+          "size": 104832
+        },
+        {
+          "file": "pdf_zoom_pan__step2.mp3",
+          "hash": "b6154104",
+          "size": 97344
+        },
+        {
+          "file": "pdf_zoom_pan__step3.mp3",
+          "hash": "d825f650",
+          "size": 94608
+        }
+      ]
+    },
+    "duplicate_detection": {
+      "steps": [
+        {
+          "file": "duplicate_detection__step0.mp3",
+          "hash": "a2467092",
+          "size": 100656
+        },
+        {
+          "file": "duplicate_detection__step1.mp3",
+          "hash": "48589a16",
+          "size": 105408
+        },
+        {
+          "file": "duplicate_detection__step2.mp3",
+          "hash": "676e4c95",
+          "size": 120240
+        },
+        {
+          "file": "duplicate_detection__step3.mp3",
+          "hash": "26116810",
+          "size": 115776
+        }
+      ]
     }
   }
 }

@@ -2,7 +2,7 @@
  * AEGIS Help Documentation System
  * ==========================================
  * Comprehensive documentation for all features.
- * Version: 6.0.0
+ * Version: 6.0.4
  *
  * Complete overhaul with:
  * - Beautiful visual design with icons and illustrations
@@ -10,6 +10,10 @@
  * - Technical deep-dive section for advanced users
  * - Smooth navigation and professional typography
  *
+ * v6.0.4 - PDF Zoom/Pan Fix + Proposal Duplicate Detection (viewport-center zoom, click-drag pan, auto-fit width, upload duplicate prompt)
+ * v6.0.3 - SharePoint Batch Auth Fix (per-download fresh session for thread-safe NTLM, OData ampersand encoding)
+ * v6.0.2 - Fix Assistant Reviewer/Owner Mode + US English Dictionary + Duplicate Proposal Fix
+ * v6.0.0 - 5-Module Learning System, Proposal Compare v2, Enhanced Security, 545+ audio clips
  * v5.9.21 - Animated HTML/CSS diagrams replace 5 static PNGs (Architecture, Checkers, Extraction, Docling, NLP Pipeline)
  * v5.9.20 - Data Explorer z-index fix, particle visibility through backdrops, Email Diagnostics .eml with attachments
  * v5.9.19 - Light mode metric card drill-down visibility, settings tab scroll indicators, global particle canvas
@@ -45,8 +49,8 @@
 'use strict';
 
 const HelpDocs = {
-    version: '5.9.53',
-    lastUpdated: '2026-02-22',
+    version: '6.0.4',
+    lastUpdated: '2026-02-24',
     
     config: {
         searchEnabled: true,
@@ -5290,6 +5294,14 @@ HelpDocs.content['pc-uploading'] = {
     <li><strong>Extraction notes</strong> — Any warnings or observations</li>
 </ul>
 <p>Edit company names before comparing to ensure clear labeling in the comparison matrix.</p>
+
+<h2><i data-lucide="copy-check"></i> Duplicate Detection (v6.0.4)</h2>
+<p>AEGIS detects duplicate proposals at two stages to prevent double-counting:</p>
+<ol>
+    <li><strong>File-Level (on upload)</strong> — When adding files, AEGIS checks filenames against already-extracted proposals. Duplicates trigger a prompt: <em>replace existing</em> or <em>keep existing</em></li>
+    <li><strong>Post-Extraction (project check)</strong> — After extraction, new proposals are checked against proposals already in the selected project by company name and filename. Duplicates show total amounts for comparison before you choose to replace or keep</li>
+</ol>
+<p>Both checks use case-insensitive matching. This prevents inflated totals when re-uploading corrected proposals or adding files to an existing project.</p>
 `
 };
 
@@ -5312,11 +5324,12 @@ HelpDocs.content['pc-review'] = {
 </ul>
 <p>Use the document viewer to cross-reference extracted data with the original source.</p>
 
-<h3><i data-lucide="zoom-in"></i> PDF Zoom Controls (v5.9.42)</h3>
+<h3><i data-lucide="zoom-in"></i> PDF Zoom Controls (v6.0.4)</h3>
 <p>PDF documents display a zoom toolbar above the page view:</p>
 <ul>
-    <li><strong>Zoom In / Out</strong> — Increase or decrease scale in 25% increments (range: 50%–300%)</li>
-    <li><strong>Fit Width</strong> — Auto-scales to fill the viewer panel width</li>
+    <li><strong>Zoom In / Out</strong> — Increase or decrease scale in 25% increments (range: 50%–300%). Zoom preserves the viewport center so your focus point stays in view</li>
+    <li><strong>Fit Width</strong> — Auto-scales to fill the viewer panel width. PDFs now auto-fit on initial render</li>
+    <li><strong>Click-and-Drag Panning</strong> — When zoomed in, click and drag the PDF to scroll in any direction. A grab cursor indicates when panning is available</li>
     <li><strong>Magnifier</strong> — Toggle a 3× zoom loupe that follows your cursor over the PDF. Ideal for reading small or scanned text</li>
 </ul>
 <p>All rendering uses HiDPI/Retina-aware canvas sizing for crisp text on high-resolution displays.</p>
@@ -8058,6 +8071,36 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.0.4 <span class="changelog-date">February 24, 2026</span></h3>
+        <p><strong>PDF Viewer Fix &amp; Proposal Duplicate Detection</strong></p>
+        <ul>
+            <li><strong>FIX: PDF viewer zoom preserves viewport center</strong> &mdash; zooming in/out keeps your focus point in view instead of jumping to the top-left corner</li>
+            <li><strong>FIX: PDF click-and-drag panning scrolls correctly</strong> &mdash; panning now scrolls the container (not the canvas) with a grab cursor for natural navigation</li>
+            <li><strong>FIX: PDF auto-fits to container width on render</strong> &mdash; initial render now calculates the optimal scale to fill the viewer panel width</li>
+            <li><strong>NEW: Proposal Compare duplicate detection</strong> &mdash; two-stage detection catches duplicate files on upload (by filename) and duplicate vendors post-extraction (by company name)</li>
+            <li><strong>ENH: Duplicate upload prompt (replace/keep)</strong> &mdash; when duplicates are detected, a confirmation dialog shows amounts for comparison and lets you replace or keep the existing proposal</li>
+            <li><strong>ENH: Post-extraction project duplicate check</strong> &mdash; after extraction, new proposals are cross-checked against existing project proposals to prevent double-counting</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v6.0.3 <span class="changelog-date">February 24, 2026</span></h3>
+        <p><strong>SharePoint Batch Auth Fix</strong></p>
+        <ul>
+            <li><strong>FIX: SharePoint batch scan 401 auth errors</strong> &mdash; each file download now uses its own fresh session for thread-safe NTLM/Negotiate authentication instead of sharing a single session across worker threads</li>
+            <li><strong>ENH: 401/403 retry with fresh auth session</strong> &mdash; failed downloads automatically retry once with a brand-new SSO session, matching the hyperlink validator pattern</li>
+            <li><strong>ENH: Refactored download into helper methods</strong> &mdash; _create_download_session() and _download_with_session() provide clean separation of concerns</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
+        <h3>v6.0.2 <span class="changelog-date">February 23, 2026</span></h3>
+        <p><strong>Fix Assistant Mode Toggle &amp; Quality Improvements</strong></p>
+        <ul>
+            <li><strong>NEW: Fix Assistant Reviewer/Owner mode toggle</strong> &mdash; Document Owners get Track Changes; Reviewers get recommendation comments without modifying text</li>
+            <li><strong>NEW: US English dictionary for spelling checker</strong> &mdash; 200+ British-to-American spelling corrections added</li>
+            <li><strong>FIX: Proposal Compare Add Proposal erased previous batch</strong> &mdash; multi-batch uploads now preserve previously extracted proposals</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v6.0.0 <span class="changelog-date">February 22, 2026</span></h3>
         <p><strong>Major Release &mdash; 5-Module Learning System, Proposal Compare v2, Enhanced Security</strong></p>
         <ul>

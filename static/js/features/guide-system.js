@@ -2202,6 +2202,48 @@ const AEGISGuide = {
                         { target: '.pc-results-container', narration: 'You can also print the analysis directly from the browser. Print-optimized CSS hides interactive controls like weight sliders and filter bars, formats tables for clean paper output, and shows all sections linearly. Use browser print or Control-P for a quick hard copy.', duration: 8500, navigate: 'proposal-compare' }
                     ]
                 },
+                // v6.0.4: PDF Zoom & Pan sub-demo
+                pdf_zoom_pan: {
+                    id: 'pdf_zoom_pan',
+                    title: 'PDF Zoom & Pan',
+                    icon: 'zoom-in',
+                    description: 'Viewport-center zoom, click-drag panning, and auto-fit width',
+                    preAction: async () => {
+                        try {
+                            if (window.ProposalCompare) ProposalCompare.open();
+                            await AEGISGuide._wait(300);
+                            AEGISGuide._injectPCDemo('review');
+                            await AEGISGuide._wait(200);
+                        } catch(e) { console.warn('[AEGIS Guide] PC demo preAction error:', e); }
+                    },
+                    scenes: [
+                        { target: '.pc-doc-viewer-pane', narration: 'When viewing a PDF in the Review phase, the document now auto-fits to your viewer panel width on initial render. No more manual zooming to see the full page — AEGIS calculates the optimal scale automatically based on your panel dimensions.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '.pc-doc-viewer-pane', narration: 'Use the plus and minus zoom buttons to increase or decrease scale in twenty-five percent increments, ranging from fifty to three hundred percent. Zooming now preserves your viewport center — the point you are looking at stays in view instead of jumping to the top-left corner.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '.pc-doc-viewer-pane', narration: 'When zoomed in past the panel width, you can click and drag the document to pan in any direction. The cursor changes to a grab hand to indicate panning is available. This makes it easy to navigate large documents without reaching for scrollbars.', duration: 8500, navigate: 'proposal-compare' },
+                        { target: '.pc-doc-viewer-pane', narration: 'The Fit Width button recalculates the scale to fill your panel width at any time. Combined with the magnifier loupe for fine detail, these controls give you full control over how you inspect proposal documents during the review phase.', duration: 8500, navigate: 'proposal-compare' }
+                    ]
+                },
+                // v6.0.4: Duplicate Detection sub-demo
+                duplicate_detection: {
+                    id: 'duplicate_detection',
+                    title: 'Duplicate Detection',
+                    icon: 'copy-check',
+                    description: 'Two-stage duplicate proposal detection on upload and post-extraction',
+                    preAction: async () => {
+                        try {
+                            if (window.ProposalCompare) ProposalCompare.open();
+                            await AEGISGuide._wait(300);
+                            AEGISGuide._injectPCDemo('upload');
+                            await AEGISGuide._wait(200);
+                        } catch(e) { console.warn('[AEGIS Guide] PC demo preAction error:', e); }
+                    },
+                    scenes: [
+                        { target: '.pc-upload-container', narration: 'AEGIS now detects duplicate proposals at two stages to prevent double-counting in your comparisons. The first check happens immediately when you add files — if a filename matches an already-extracted proposal, you are prompted to replace or keep the existing one.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '.pc-upload-container', narration: 'The second check happens after extraction when a project is selected. AEGIS cross-references new proposals against proposals already in your project by both company name and filename, using case-insensitive matching. This catches renamed files from the same vendor.', duration: 9000, navigate: 'proposal-compare' },
+                        { target: '.pc-upload-container', narration: 'When a duplicate is found, a confirmation dialog shows both the existing and new proposal totals for comparison. You can choose to replace the existing proposal with the new version, or keep the existing and discard the new upload. Replace removes the old proposal from the database automatically.', duration: 9500, navigate: 'proposal-compare' },
+                        { target: '.pc-upload-container', narration: 'This two-stage approach ensures accurate comparisons even when working with multiple upload batches or re-uploading corrected proposals. Combined with the Add Proposal flow that preserves previous batches, you can build up a comparison set incrementally without worrying about duplicates inflating your totals.', duration: 9500, navigate: 'proposal-compare' }
+                    ]
+                },
                 // v5.9.51: Pattern Learning sub-demo
                 pattern_learning: {
                     id: 'pattern_learning',

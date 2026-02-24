@@ -1259,6 +1259,19 @@ The `decodedUrl` parameter **auto-decodes** percent-encoded values before using 
 **Files**: `static/js/features/proposal-compare.js`
 **Lesson**: Duplicate detection for multi-batch uploads needs to check at two levels: (1) against in-memory state (already loaded/extracted proposals) during file selection, and (2) against database state (project proposals) after extraction when server data is available. Always match by multiple fields (filename AND company_name) with case-insensitive comparison to catch renamed files with the same content.
 
+### 138. Discovery-First Development Process (Mandatory)
+**Problem**: Shotgun approach of guessing at fixes without understanding the root cause caused repeated rework and wasted effort. Fixes that seemed logical based on API docs or code patterns turned out to be wrong because the actual runtime behavior differed from assumptions.
+**Root Cause**: Jumping to implementation before thoroughly understanding the problem domain, reading relevant logs, testing hypotheses, and researching what others have found with similar configurations.
+**Mandatory Process**: Before implementing ANY fix, ALWAYS follow this discovery-first workflow:
+1. **Collect evidence**: Read ALL available logs, error messages, and stack traces from the actual failing environment (not assumptions)
+2. **Research**: Search for the specific error/behavior others have encountered with the same technology stack (e.g., requests-negotiate-sspi + SharePoint + ThreadPoolExecutor)
+3. **Understand the system**: Read the relevant source code, API docs, and configuration to understand what's actually happening at runtime — not what should happen in theory
+4. **Form a hypothesis**: Based on evidence and research, propose a specific root cause with a clear explanation of WHY the current code fails
+5. **Validate before coding**: If possible, add diagnostic logging or a minimal test to confirm the hypothesis before writing the fix
+6. **Implement with confidence**: Only then write the fix, targeting the confirmed root cause
+**Anti-patterns to avoid**: (1) Changing API endpoints without evidence that the endpoint is the problem. (2) Adding retry logic without understanding why the initial request fails. (3) Switching library versions without confirming version-specific bugs. (4) Applying fixes from StackOverflow without verifying they match our exact configuration.
+**Lesson**: "This shotgun approach of just guessing is not working and is causing more re-work than progress." — Every fix must be preceded by a thorough discovery phase. Research first, implement second. When a fix doesn't work, go back to discovery rather than trying another guess.
+
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
 1. **Changelog update** in `version.json` (and copy to `static/version.json`)
