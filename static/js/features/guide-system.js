@@ -571,7 +571,71 @@ const AEGISGuide = {
                         { target: '#fav2-change-before', narration: 'The change preview shows the original text on top and the suggested replacement below, with a clear visual diff highlighting exactly what will change. Each fix includes a confidence badge indicating how safe the change is, and a category label showing the type of issue.', duration: 8000 },
                         { target: '#fav2-btn-accept', narration: 'For each fix, you choose Accept, Reject, or Skip using the action buttons or keyboard shortcuts. Press A to accept, R to reject, S to skip. Accepted fixes are queued for application. Rejected items are excluded. Skip moves to the next issue without deciding, so you can return later.', duration: 8000 },
                         { target: '#fav2-progress-bar', narration: 'The progress bar at the top tracks how many fixes you have reviewed out of the total. When you finish, the assistant returns you to the Export modal with your selections ready. The export can then apply accepted text corrections directly to your document.', duration: 7500 }
-                    ]
+                    ],
+                    subDemos: {
+                        review_roles: {
+                            id: 'review_roles',
+                            title: 'Review Roles',
+                            icon: 'users',
+                            description: 'Doc Owner vs Reviewer mode — how each role changes fix behavior',
+                            preAction: async () => {
+                                try {
+                                    if (document.body.classList.contains('landing-active')) {
+                                        if (window.TWR?.LandingPage?.hide) window.TWR.LandingPage.hide();
+                                        await AEGISGuide._wait(400);
+                                    }
+                                    const faModal = document.getElementById('fav2-modal');
+                                    if (faModal) {
+                                        faModal.style.display = 'flex';
+                                        faModal.style.zIndex = '148000';
+                                        AEGISGuide._faCleanup = () => {
+                                            faModal.style.display = 'none';
+                                            faModal.style.zIndex = '';
+                                        };
+                                    }
+                                    await AEGISGuide._wait(300);
+                                } catch(e) { console.warn('[AEGIS Guide] preAction error:', e); }
+                            },
+                            scenes: [
+                                { target: '#fav2-role-mode', narration: 'The Role dropdown in the Fix Assistant header lets you choose between two review modes: Document Owner and Reviewer. Your selection changes how accepted and rejected fixes are applied when you export the document. The role is remembered across sessions.', duration: 9000 },
+                                { target: '#fav2-role-hint', narration: 'The hint text next to the role dropdown shows the current behavior at a glance. In Document Owner mode, it reads Accept equals Track Changes, Reject equals Comment. In Reviewer mode, it changes to Accept equals Comment only, Reject equals No action.', duration: 9000 },
+                                { target: '#fav2-btn-accept', narration: 'In Document Owner mode, clicking Accept queues the fix as a Track Changes text replacement. When you export, the original text is physically replaced in the document with revision marks, so the author can see exactly what changed. This is the default mode for document authors fixing their own work.', duration: 10000 },
+                                { target: '#fav2-btn-reject', narration: 'When a Document Owner rejects a fix, a margin comment is added to the exported document noting the rejection along with any reviewer notes you typed. This creates an audit trail showing that the issue was reviewed and deliberately declined.', duration: 9500 },
+                                { target: '#fav2-btn-accept', narration: 'In Reviewer mode, clicking Accept adds a recommendation comment to the document instead of changing the text. This is designed for reviewers who want to suggest improvements without modifying the original author text. The comment includes the suggested replacement for the author to apply manually.', duration: 10000 },
+                                { target: '#fav2-btn-reject', narration: 'When a Reviewer rejects a fix, absolutely nothing is added to the document. No comment, no change, no trace. The reviewer is saying this issue does not warrant mentioning to the document author. This keeps the exported document clean with only actionable recommendations.', duration: 9500 }
+                            ]
+                        },
+                        keyboard_shortcuts: {
+                            id: 'keyboard_shortcuts',
+                            title: 'Keyboard Shortcuts',
+                            icon: 'keyboard',
+                            description: 'Speed up your review with keyboard navigation',
+                            preAction: async () => {
+                                try {
+                                    if (document.body.classList.contains('landing-active')) {
+                                        if (window.TWR?.LandingPage?.hide) window.TWR.LandingPage.hide();
+                                        await AEGISGuide._wait(400);
+                                    }
+                                    const faModal = document.getElementById('fav2-modal');
+                                    if (faModal) {
+                                        faModal.style.display = 'flex';
+                                        faModal.style.zIndex = '148000';
+                                        AEGISGuide._faCleanup = () => {
+                                            faModal.style.display = 'none';
+                                            faModal.style.zIndex = '';
+                                        };
+                                    }
+                                    await AEGISGuide._wait(300);
+                                } catch(e) { console.warn('[AEGIS Guide] preAction error:', e); }
+                            },
+                            scenes: [
+                                { target: '#fav2-btn-accept', narration: 'Press the A key to accept the current fix. The fix flashes green to confirm, and the assistant automatically advances to the next pending issue. This is much faster than clicking the button with your mouse.', duration: 8000 },
+                                { target: '#fav2-btn-reject', narration: 'Press the R key to reject. You can type a reviewer note in the text box below the fix before rejecting — the note travels with the rejection comment in the exported document. Press S to skip without making a decision.', duration: 8500 },
+                                { target: '#fav2-btn-prev', narration: 'Use the left and right arrow keys to navigate between fixes without making a decision. This lets you preview upcoming issues or revisit previous ones. The minimap on the left also shows your position in the document.', duration: 8500 },
+                                { target: '#fav2-search-input', narration: 'Press the forward slash key to jump to the search box. Type to filter fixes by text content, category, or severity. Press Escape to clear the search and return focus to the fix review. Press question mark to toggle the keyboard shortcuts reference panel.', duration: 9000 }
+                            ]
+                        }
+                    }
                 },
                 export_suite: {
                     id: 'export_suite',

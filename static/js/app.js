@@ -6591,6 +6591,7 @@ const FixAssistant = (function() {
 
     let isOpen = false;
     let _closingForFinish = false;  // v5.9.4: Flag to skip export modal re-show during handleFinishReview
+    let _openedFromExport = false;  // v6.0.2: Track if FA was opened from export modal
     let sessionStartTime = null;
     let documentId = null;
     let documentScoreBefore = null;
@@ -6670,6 +6671,10 @@ const FixAssistant = (function() {
 
         console.log('[TWR FixAssistant] Opening v3.0.109...');
 
+        // v6.0.2: Track if export modal was open when FA launched
+        const exportModal = document.getElementById('modal-export');
+        _openedFromExport = exportModal && exportModal.classList.contains('active');
+
         // Validate we have data
         if (!State.fixes || State.fixes.length === 0) {
             showNotification('No fixes available - scan a document first, or this document has no fixable issues', 'warning');
@@ -6729,10 +6734,13 @@ const FixAssistant = (function() {
 
         // Initialize document viewer
         const viewerContainer = els.documentViewer;
+        // v6.0.2: Pass html_preview for rendered document view toggle
+        const htmlPreview = State.reviewResults?.html_preview || null;
         if (viewerContainer && documentContent) {
             DocumentViewer.init(viewerContainer, documentContent, {
                 onPageChange: handlePageChange,
-                onParagraphClick: handleParagraphClick
+                onParagraphClick: handleParagraphClick,
+                htmlPreview: htmlPreview
             });
         } else if (!documentContent) {
             console.warn('[TWR FixAssistant] No document content available');
@@ -6842,7 +6850,8 @@ const FixAssistant = (function() {
         // v5.9.4: Re-show export modal (Fix Assistant's showModal() closed it on open)
         // Skip re-show if called from handleFinishReview() — it dispatches fixAssistantDone
         // which has its own re-show logic with stat updates
-        if (!_closingForFinish) {
+        // v6.0.2: Only re-show if FA was originally opened from the export modal
+        if (!_closingForFinish && _openedFromExport) {
             setTimeout(() => {
                 showModal('modal-export');
                 // Restore Fix Assistant stats in launcher if state has decisions
@@ -6857,6 +6866,7 @@ const FixAssistant = (function() {
             }, 100);
         }
         _closingForFinish = false;
+        _openedFromExport = false;
 
         console.log('[TWR FixAssistant] Closed');
     }
@@ -6917,6 +6927,7 @@ const FixAssistant = (function() {
 
         // v6.0.2: Review role mode toggle
         els.roleMode = document.getElementById('fav2-role-mode');
+        els.roleHint = document.getElementById('fav2-role-hint');
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -6939,6 +6950,12 @@ const FixAssistant = (function() {
             els.btnReject.title = isReviewer
                 ? 'Skip - no action (R)'
                 : 'Add rejection comment (R)';
+        }
+        // v6.0.2: Update contextual hint text below the role dropdown
+        if (els.roleHint) {
+            els.roleHint.textContent = isReviewer
+                ? 'Accept = Comment only, Reject = No action'
+                : 'Accept = Track Changes, Reject = Comment';
         }
         console.log('[TWR FixAssistant] Review role mode:', isReviewer ? 'reviewer' : 'owner');
     }

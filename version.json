@@ -18,7 +18,15 @@
         "ENH: Review role persists across sessions via localStorage",
         "ENH: Export modal label dynamically updates to reflect active review role",
         "ENH: Accept/Reject button tooltips update contextually based on review role",
-        "FIX: Spelling checker now uses US English dictionary — British spellings flagged with American corrections"
+        "FIX: Spelling checker now uses US English dictionary — British spellings flagged with American corrections",
+        "FIX: Role dropdown styling glitch — missing background-size caused arrow icon distortion on Windows",
+        "FIX: Fix Assistant close no longer unexpectedly shows export modal when opened directly",
+        "ENH: Role hint text below dropdown shows contextual behavior summary for selected role",
+        "ENH: Role options include emoji indicators for quick visual identification",
+        "NEW: Rendered document view toggle in Fix Assistant — switch between text paragraphs and formatted HTML preview",
+        "NEW: Review Roles sub-demo in guide system — 6-scene walkthrough explaining Doc Owner vs Reviewer behavior",
+        "NEW: Keyboard Shortcuts sub-demo for Fix Assistant — 4-scene walkthrough of all keyboard commands",
+        "FIX: CSRF auto-retry on 403 — both api() functions now automatically refresh token and retry"
       ],
       "tag": "Fix Assistant — Reviewer/Owner Mode"
     },

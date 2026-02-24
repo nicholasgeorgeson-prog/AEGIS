@@ -16,6 +16,8 @@ const DocumentViewer = (function() {
         totalPages: 0,
         activeParagraph: null,
         paragraphsByPage: {},
+        viewMode: 'text',          // v6.0.2: 'text' (paragraphs) or 'rendered' (HTML preview)
+        htmlPreview: null,         // v6.0.2: HTML preview content from mammoth/pymupdf4llm
         callbacks: {
             pageChange: [],
             paragraphClick: []
@@ -27,7 +29,8 @@ const DocumentViewer = (function() {
             pageInput: null,
             pageCurrent: null,
             pageTotal: null,
-            contentArea: null
+            contentArea: null,
+            viewModeBtn: null       // v6.0.2: toggle button
         }
     };
 
@@ -43,6 +46,16 @@ const DocumentViewer = (function() {
 
     function escapeRegex(string) {
         return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // v6.0.2: Sanitize HTML for rendered document view (remove scripts, event handlers)
+    function sanitizeHtml(html) {
+        if (!html) return '';
+        let clean = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+        clean = clean.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+        clean = clean.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '');
+        clean = clean.replace(/href\s*=\s*["']javascript:[^"']*["']/gi, 'href="#"');
+        return clean;
     }
 
     function clamp(value, min, max) {
@@ -153,27 +166,40 @@ const DocumentViewer = (function() {
             pagesHtml.push(renderPage(p));
         }
 
+        // v6.0.2: View mode toggle button (only if html_preview available)
+        const viewModeBtn = state.htmlPreview
+            ? `<button class="fav2-page-btn fav2-view-toggle" title="${state.viewMode === 'rendered' ? 'Switch to text view' : 'Switch to rendered document view'}">
+                    <span>${state.viewMode === 'rendered' ? '¶' : '📄'}</span>
+               </button>`
+            : '';
+
         // SAFE: pagesHtml built from renderParagraph which uses escapeHtml; numeric values
         state.container.innerHTML = `
         <div class="fav2-document-viewer">
-            <div class="fav2-viewer-header" ${!showNav ? 'style="display: none;"' : ''}>
-                <button class="fav2-page-btn fav2-page-prev" ${state.currentPage === 1 ? 'disabled' : ''} title="Previous page">
+            <div class="fav2-viewer-header" ${!showNav && !state.htmlPreview ? 'style="display: none;"' : ''}>
+                <button class="fav2-page-btn fav2-page-prev" ${state.currentPage === 1 ? 'disabled' : ''} title="Previous page" ${state.viewMode === 'rendered' ? 'style="display:none;"' : ''}>
                     <span>◀</span>
                 </button>
-                <div class="fav2-page-indicator">
+                <div class="fav2-page-indicator" ${state.viewMode === 'rendered' ? 'style="display:none;"' : ''}>
                     <span>Page </span>
                     <span class="fav2-page-current">${state.currentPage}</span>
                     <span class="fav2-page-sep"> / </span>
                     <span class="fav2-page-total">${state.totalPages}</span>
                 </div>
-                <button class="fav2-page-btn fav2-page-next" ${state.currentPage === state.totalPages ? 'disabled' : ''} title="Next page">
+                <button class="fav2-page-btn fav2-page-next" ${state.currentPage === state.totalPages ? 'disabled' : ''} title="Next page" ${state.viewMode === 'rendered' ? 'style="display:none;"' : ''}>
                     <span>▶</span>
                 </button>
-                <input type="number" class="fav2-page-jump" min="1" max="${state.totalPages}" placeholder="Go to..." title="Jump to page">
+                <input type="number" class="fav2-page-jump" min="1" max="${state.totalPages}" placeholder="Go to..." title="Jump to page" ${state.viewMode === 'rendered' ? 'style="display:none;"' : ''}>
+                ${viewModeBtn}
+                <span class="fav2-view-label">${state.viewMode === 'rendered' ? 'Document View' : 'Text View'}</span>
             </div>
-            <div class="fav2-viewer-content">
+            <div class="fav2-viewer-content" ${state.viewMode === 'rendered' ? 'style="display:none;"' : ''}>
                 ${pagesHtml.join('\n')}
             </div>
+            ${state.viewMode === 'rendered' && state.htmlPreview ? `
+            <div class="fav2-rendered-content">
+                ${sanitizeHtml(state.htmlPreview)}
+            </div>` : ''}
         </div>`;
 
         // Cache element references
@@ -191,7 +217,9 @@ const DocumentViewer = (function() {
             pageInput: viewer.querySelector('.fav2-page-jump'),
             pageCurrent: viewer.querySelector('.fav2-page-current'),
             pageTotal: viewer.querySelector('.fav2-page-total'),
-            contentArea: viewer.querySelector('.fav2-viewer-content')
+            contentArea: viewer.querySelector('.fav2-viewer-content'),
+            viewModeBtn: viewer.querySelector('.fav2-view-toggle'),
+            renderedContent: viewer.querySelector('.fav2-rendered-content')
         };
     }
 
@@ -287,6 +315,18 @@ const DocumentViewer = (function() {
         if (state.elements.contentArea) {
             state.elements.contentArea.addEventListener('click', handleParagraphClick);
         }
+        // v6.0.2: View mode toggle
+        if (state.elements.viewModeBtn) {
+            state.elements.viewModeBtn.addEventListener('click', handleViewModeToggle);
+        }
+    }
+
+    // v6.0.2: Toggle between text and rendered document views
+    function handleViewModeToggle() {
+        state.viewMode = state.viewMode === 'text' ? 'rendered' : 'text';
+        render();
+        setupEventListeners();
+        console.log('[TWR DocumentViewer] View mode:', state.viewMode);
     }
 
     function removeEventListeners() {
@@ -302,6 +342,9 @@ const DocumentViewer = (function() {
         }
         if (state.elements.contentArea) {
             state.elements.contentArea.removeEventListener('click', handleParagraphClick);
+        }
+        if (state.elements.viewModeBtn) {
+            state.elements.viewModeBtn.removeEventListener('click', handleViewModeToggle);
         }
     }
 
@@ -421,6 +464,8 @@ const DocumentViewer = (function() {
         state.content = documentContent;
         state.currentPage = 1;
         state.activeParagraph = null;
+        state.viewMode = options.viewMode || 'text';
+        state.htmlPreview = options.htmlPreview || null;
         state.callbacks = { pageChange: [], paragraphClick: [] };
 
         // Build internal data structures
@@ -463,6 +508,8 @@ const DocumentViewer = (function() {
         state.totalPages = 0;
         state.activeParagraph = null;
         state.paragraphsByPage = {};
+        state.viewMode = 'text';
+        state.htmlPreview = null;
         state.callbacks = { pageChange: [], paragraphClick: [] };
         state.elements = {};
 
