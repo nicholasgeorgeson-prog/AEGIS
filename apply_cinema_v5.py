@@ -156,6 +156,27 @@ def download_large(url, dest, ctx):
 
     return downloaded if success else 0
 
+def _find_aegis_static_video():
+    """Find the AEGIS static/video/ directory."""
+    home = os.path.expanduser("~")
+    candidates = [
+        # Running from within AEGIS directory
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "video"),
+        # Common AEGIS install paths (Windows)
+        os.path.join(home, "OneDrive - NGC", "Desktop", "Doc Review", "AEGIS", "static", "video"),
+        os.path.join(home, "OneDrive - NGC", "Desktop", "AEGIS", "static", "video"),
+        os.path.join(home, "Desktop", "Doc Review", "AEGIS", "static", "video"),
+        os.path.join(home, "Desktop", "AEGIS", "static", "video"),
+        os.path.join("C:\\", "AEGIS", "static", "video"),
+        # macOS
+        os.path.join(home, "Desktop", "Work_Tools", "TechWriterReview", "static", "video"),
+    ]
+    for c in candidates:
+        if os.path.isdir(c):
+            return c
+    return None
+
+
 def main():
     print("")
     print("  ==========================================================")
@@ -205,6 +226,25 @@ def main():
             print("")
             print(f"  SUCCESS! {size/1048576:.1f} MB downloaded to:")
             print(f"  {dest}")
+
+            # Also copy to AEGIS static/video/ so the app serves the new video
+            aegis_static = _find_aegis_static_video()
+            if aegis_static:
+                static_dest = os.path.join(aegis_static, "aegis-showcase.mp4")
+                try:
+                    import shutil
+                    shutil.copy2(dest, static_dest)
+                    print(f"")
+                    print(f"  INSTALLED: Copied to AEGIS app location:")
+                    print(f"  {static_dest}")
+                except Exception as ce:
+                    print(f"")
+                    print(f"  [WARN] Could not copy to AEGIS static folder: {ce}")
+                    print(f"  Manually copy the file to your AEGIS static/video/ folder.")
+            else:
+                print(f"")
+                print(f"  [NOTE] AEGIS static/video/ folder not found.")
+                print(f"  Manually copy this file to your AEGIS static/video/aegis-showcase.mp4")
         else:
             print("")
             print("  WARNING: Downloaded 0 bytes. Try the manual link below.")

@@ -2782,7 +2782,7 @@ window.CinematicVideo = (function() {
     // v6.0.1: VIDEO MODE — HTML5 <video> player for pre-rendered MP4
     // Falls back to Canvas animation if MP4 not available
     // =========================================================================
-    var VIDEO_SRC = '/static/video/aegis-showcase.mp4';
+    var VIDEO_SRC = '/static/video/aegis-showcase.mp4?v=6.0.2';
     var _videoMode = false;
     var _videoEl = null;
 

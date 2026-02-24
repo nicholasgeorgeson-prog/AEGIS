@@ -1,5 +1,5 @@
 @echo off
-:: AEGIS - Start Script (v5.9.35)
+:: AEGIS - Start Script (v6.0.2)
 :: Starts AEGIS server minimized and opens browser
 :: Double-click to launch AEGIS
 
@@ -25,8 +25,9 @@ for /f "tokens=5" %%a in ('netstat -aon ^| findstr :5050 2^>nul') do (
 timeout /t 1 >nul
 
 :: Start AEGIS minimized using PowerShell
+:: --no-browser prevents app.py from also opening a tab (we open it below after polling)
 echo Starting AEGIS (minimized)...
-powershell -Command "Start-Process '%PYTHON_EXE%' -ArgumentList 'app.py' -WorkingDirectory '%~dp0' -WindowStyle Minimized"
+powershell -Command "Start-Process '%PYTHON_EXE%' -ArgumentList 'app.py --no-browser' -WorkingDirectory '%~dp0' -WindowStyle Minimized"
 
 :: Wait for server to come up
 echo Waiting for server...
