@@ -231,7 +231,9 @@ def _discover_tenant_guid(tenant_name: str, site_url: str) -> Optional[str]:
     oidc_url = f'https://{login_host}/{tenant_name}.{onmicrosoft_tld}/.well-known/openid-configuration'
     try:
         logger.info(f"SharePoint tenant discovery: Trying OIDC endpoint at {oidc_url}")
-        resp = requests.get(oidc_url, timeout=10, verify=True)
+        # v6.1.1: Use verify=False because corporate SSL inspection replaces certs
+        # with internal CA that Python's certifi doesn't trust
+        resp = requests.get(oidc_url, timeout=10, verify=False)
         if resp.status_code == 200:
             data = resp.json()
             issuer = data.get('issuer', '')
@@ -382,20 +384,68 @@ def _get_oauth_resource(site_url: str) -> str:
     return f'{parsed.scheme}://{parsed.netloc}/.default'
 
 
-def _try_msal_app_creation(client_id: str, authority: str, label: str):
+def _try_msal_app_creation(client_id: str, authority: str, label: str, ssl_verify: bool = False):
     """
-    v6.1.0: Try to create an MSAL PublicClientApplication with the given authority.
-    Returns the app instance or None if authority validation fails.
+    v6.1.1: Try to create an MSAL PublicClientApplication with the given authority.
+
+    CRITICAL for GCC High / US Government cloud:
+    - instance_discovery=False: MSAL by default contacts the COMMERCIAL cloud's
+      instance discovery endpoint (login.microsoftonline.com) to validate the authority.
+      For GCC High (.microsoftonline.us), this validation FAILS because the commercial
+      endpoint doesn't know about government cloud authorities. Setting this to False
+      tells MSAL to trust the authority URL we give it without validation.
+    - verify=False: Corporate SSL inspection (proxy/WAF) replaces TLS certificates
+      with internal CA certs that Python's certifi bundle doesn't trust. MSAL uses
+      requests internally, and without verify=False, its HTTPS calls to
+      login.microsoftonline.us fail with SSL certificate errors.
+
+    Returns the app instance or None if creation fails.
     """
     try:
-        app = _msal_module.PublicClientApplication(
-            client_id,
-            authority=authority,
-        )
+        # v6.1.1 FIX: Both parameters are CRITICAL for GCC High environments
+        # Without instance_discovery=False → "Unable to get authority configuration"
+        # Without verify=False → SSL errors on corporate networks
+        kwargs = {
+            'client_id': client_id,
+            'authority': authority,
+        }
+
+        # instance_discovery=False — skip commercial cloud authority validation
+        # This parameter was added in MSAL Python 1.12.0
+        try:
+            kwargs['instance_discovery'] = False
+        except Exception:
+            pass  # Older MSAL versions may not support this kwarg
+
+        # verify=False — bypass corporate SSL inspection
+        # This parameter was added in MSAL Python 1.20.0
+        try:
+            kwargs['verify'] = ssl_verify
+        except Exception:
+            pass  # Older MSAL versions may not support this kwarg
+
+        logger.info(f"SharePoint OAuth: Creating MSAL app ({label}) with "
+                    f"instance_discovery=False, verify={ssl_verify}")
+        app = _msal_module.PublicClientApplication(**kwargs)
         logger.info(f"SharePoint OAuth: MSAL app created successfully ({label})")
         return app
+    except TypeError as te:
+        # If MSAL version doesn't support instance_discovery or verify kwargs,
+        # retry without them
+        logger.debug(f"SharePoint OAuth: MSAL kwargs not supported ({label}): {te} — "
+                     f"retrying with minimal params")
+        try:
+            app = _msal_module.PublicClientApplication(
+                client_id,
+                authority=authority,
+            )
+            logger.info(f"SharePoint OAuth: MSAL app created (minimal params, {label})")
+            return app
+        except Exception as e2:
+            logger.debug(f"SharePoint OAuth: MSAL app creation failed even with minimal params ({label}): {e2}")
+            return None
     except Exception as e:
-        logger.debug(f"SharePoint OAuth: MSAL app creation failed ({label}): {e}")
+        logger.warning(f"SharePoint OAuth: MSAL app creation failed ({label}): {e}")
         return None
 
 
@@ -415,6 +465,9 @@ def _acquire_oauth_token(site_url: str) -> Optional[str]:
     - Tenant GUID (discovered via OIDC endpoint) — most reliable
     - {tenant}.onmicrosoft.us for GCC High — domain format fallback
     - {tenant}.onmicrosoft.com for commercial — domain format fallback
+
+    v6.1.1 FIX: MSAL app creation uses instance_discovery=False (skip commercial
+    cloud authority validation for GCC High) and verify=False (bypass corporate SSL).
 
     For GCC High environments (.sharepoint.us), uses login.microsoftonline.us authority.
 
@@ -448,11 +501,19 @@ def _acquire_oauth_token(site_url: str) -> Optional[str]:
     # Strategy 1: Client credentials (only with explicit config + secret)
     if client_secret and not is_auto:
         try:
-            app = _msal_module.ConfidentialClientApplication(
-                client_id,
-                authority=authority,
-                client_credential=client_secret,
-            )
+            # v6.1.1: ConfidentialClientApplication also needs instance_discovery=False
+            # and verify=False for GCC High / corporate networks
+            cca_kwargs = {
+                'client_id': client_id,
+                'authority': authority,
+                'client_credential': client_secret,
+            }
+            try:
+                cca_kwargs['instance_discovery'] = False
+                cca_kwargs['verify'] = False
+            except Exception:
+                pass
+            app = _msal_module.ConfidentialClientApplication(**cca_kwargs)
             result = app.acquire_token_for_client(scopes=[resource])
             if result and 'access_token' in result:
                 logger.info(f"SharePoint: OAuth token acquired via client credentials")
@@ -463,8 +524,9 @@ def _acquire_oauth_token(site_url: str) -> Optional[str]:
         except Exception as e:
             logger.debug(f"SharePoint OAuth client credentials error: {e}")
 
-    # v6.1.0: Try to create MSAL app — validate authority is correct
-    app = _try_msal_app_creation(client_id, authority, f'authority={authority}')
+    # v6.1.1: Try to create MSAL app — validate authority is correct
+    # ssl_verify=False is critical for corporate networks with SSL inspection
+    app = _try_msal_app_creation(client_id, authority, f'authority={authority}', ssl_verify=False)
 
     # v6.1.0: If MSAL app creation fails (bad authority), try fallback authorities
     if app is None and is_auto:
@@ -485,7 +547,7 @@ def _acquire_oauth_token(site_url: str) -> Optional[str]:
 
             for fb_authority in fallback_authorities:
                 logger.info(f"SharePoint OAuth: Trying fallback authority: {fb_authority}")
-                app = _try_msal_app_creation(client_id, fb_authority, f'fallback={fb_authority}')
+                app = _try_msal_app_creation(client_id, fb_authority, f'fallback={fb_authority}', ssl_verify=False)
                 if app:
                     authority = fb_authority
                     break
@@ -495,30 +557,19 @@ def _acquire_oauth_token(site_url: str) -> Optional[str]:
                        f"Tenant discovery may have failed.")
         return None
 
-    # Strategy 2: Integrated Windows Auth (IWA) — uses current Windows logon
-    # Works on domain-joined machines without user interaction
+    # v6.1.1: Note — acquire_token_by_integrated_windows_auth() does NOT exist in
+    # MSAL Python. It only exists in MSAL.NET. The hasattr check always returned False,
+    # making this entire block dead code in v6.0.5 through v6.1.0.
+    # For zero-config SSO, we rely on:
+    #   1. Preemptive SSPI Negotiate token (Strategy 1 in __init__)
+    #   2. Device code flow (Strategy 3 below) for one-time interactive auth
+    #   3. Silent token from cache (checked at top of Strategy 3)
     username = _get_windows_upn()
     if username:
-        logger.info(f"SharePoint OAuth: Trying IWA for user '{username}'")
-        scopes = [resource.replace('/.default', '/AllSites.Read')]
-
-        if hasattr(app, 'acquire_token_by_integrated_windows_auth'):
-            try:
-                result = app.acquire_token_by_integrated_windows_auth(
-                    scopes=scopes,
-                    username=username,
-                )
-                if result and 'access_token' in result:
-                    logger.info(f"SharePoint: OAuth token acquired via IWA")
-                    return result['access_token']
-                elif result:
-                    iwa_error = result.get('error', '?')
-                    iwa_desc = result.get('error_description', '')[:200]
-                    logger.info(f"SharePoint OAuth IWA result: {iwa_error} — {iwa_desc}")
-            except Exception as iwa_err:
-                logger.info(f"SharePoint OAuth IWA exception: {iwa_err}")
+        logger.info(f"SharePoint OAuth: Windows user detected: '{username}' — "
+                     f"will use device code flow (IWA not available in MSAL Python)")
     else:
-        logger.info("SharePoint OAuth: No Windows UPN available for IWA (expected on non-Windows)")
+        logger.info("SharePoint OAuth: No Windows UPN available (expected on non-Windows)")
 
     # Strategy 3: Device code flow — requires one-time browser auth
     # This is the most reliable fallback for GCC High environments

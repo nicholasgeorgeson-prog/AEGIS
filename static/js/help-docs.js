@@ -2,7 +2,7 @@
  * AEGIS Help Documentation System
  * ==========================================
  * Comprehensive documentation for all features.
- * Version: 6.1.0
+ * Version: 6.1.1
  *
  * Complete overhaul with:
  * - Beautiful visual design with icons and illustrations
@@ -10,6 +10,7 @@
  * - Technical deep-dive section for advanced users
  * - Smooth navigation and professional typography
  *
+ * v6.1.1 - Fix: CRITICAL — MSAL instance_discovery=False + verify=False for GCC High (authority validation & corporate SSL)
  * v6.1.0 - Fix: CRITICAL — SharePoint OAuth tenant identifier format fixed (bare 'ngc' → 'ngc.onmicrosoft.us' or GUID via OIDC discovery)
  * v6.0.9 - Fix: OAuth packages (msal/PyJWT/pywin32) now install via online pip when local wheels missing
  * v6.0.8 - SharePoint zero-config OAuth auto-detection (well-known client ID, tenant from URL, IWA fallback, UI freeze fix)
@@ -8077,6 +8078,17 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.1.1 <span class="changelog-date">February 25, 2026</span></h3>
+        <p><strong>Fix: MSAL GCC High Authority Validation &amp; Corporate SSL</strong></p>
+        <ul>
+            <li><strong>FIX: CRITICAL &mdash; instance_discovery=False</strong> &mdash; MSAL&rsquo;s PublicClientApplication constructor validates the authority URL against the COMMERCIAL cloud&rsquo;s instance discovery endpoint by default. For GCC High (.microsoftonline.us), this validation always fails because the commercial endpoint doesn&rsquo;t know about government authorities. Setting <code>instance_discovery=False</code> tells MSAL to trust the authority URL directly</li>
+            <li><strong>FIX: CRITICAL &mdash; verify=False for MSAL</strong> &mdash; Corporate SSL inspection (proxy/WAF) replaces TLS certificates with internal CA certs that Python&rsquo;s certifi bundle doesn&rsquo;t trust. MSAL uses requests internally, and without <code>verify=False</code>, its HTTPS calls to login.microsoftonline.us fail silently</li>
+            <li><strong>FIX: OIDC discovery SSL</strong> &mdash; Tenant GUID discovery endpoint also now uses verify=False for the same corporate SSL inspection reason</li>
+            <li><strong>FIX: Removed dead IWA code</strong> &mdash; <code>acquire_token_by_integrated_windows_auth()</code> does not exist in MSAL Python (only in MSAL.NET). Was always silently skipped via <code>hasattr</code> check since v6.0.5. Replaced with clear logging about device code flow availability</li>
+            <li><strong>ENH: MSAL version compatibility</strong> &mdash; TypeError fallback for older MSAL versions that don&rsquo;t support <code>instance_discovery</code> or <code>verify</code> kwargs</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v6.1.0 <span class="changelog-date">February 25, 2026</span></h3>
         <p><strong>Fix: SharePoint OAuth Tenant Discovery</strong></p>
         <ul>

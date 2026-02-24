@@ -167,7 +167,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 6.1.0
+- **Current version**: 6.1.1
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -1326,6 +1326,17 @@ The `decodedUrl` parameter **auto-decodes** percent-encoded values before using 
 **GCC High vs Commercial**: GCC High uses `login.microsoftonline.us` + `onmicrosoft.us`. Commercial uses `login.microsoftonline.com` + `onmicrosoft.com`. The code auto-detects from the SharePoint URL domain.
 **Files**: `sharepoint_connector.py`
 **Lesson**: When auto-detecting Azure AD tenant from a SharePoint URL, the subdomain (e.g., `ngc` from `ngc.sharepoint.us`) is the tenant NAME but not a valid tenant IDENTIFIER for MSAL. Always convert to either: (1) `{name}.onmicrosoft.us` (GCC High) / `{name}.onmicrosoft.com` (commercial) for domain-based authority, or (2) the actual tenant GUID discovered via the public OIDC endpoint. The OIDC endpoint `https://login.microsoftonline.{us|com}/{tenant}.onmicrosoft.{us|com}/.well-known/openid-configuration` is publicly accessible, requires no authentication, and is the recommended discovery method per Microsoft documentation.
+
+### 144. MSAL instance_discovery=False + verify=False for GCC High (v6.1.1)
+**Problem**: After v6.1.0 fixed the tenant identifier format (ngc → ngc.onmicrosoft.us / GUID), MSAL still failed with the same "Unable to get authority configuration" error. The correct authority URL was being used, but MSAL's constructor still couldn't create the app.
+**Root Cause**: THREE compounding issues:
+1. **`instance_discovery=False` missing**: MSAL's `PublicClientApplication` constructor by default contacts the COMMERCIAL cloud's instance discovery endpoint (`login.microsoftonline.com/common/discovery/instance`) to validate the authority. For GCC High authorities (`login.microsoftonline.us`), this validation FAILS because the commercial endpoint doesn't know about US Government cloud authorities. The fix is `instance_discovery=False`, which tells MSAL to skip this validation and trust the authority URL directly.
+2. **`verify=False` missing in MSAL**: Corporate SSL inspection (proxy/WAF) replaces TLS certificates with internal CA certs that Python's certifi bundle doesn't trust. The SharePoint connector already set `self.ssl_verify = False` for its own `requests.Session`, but MSAL creates its OWN internal `requests.Session` for token acquisition. Without passing `verify=False` to the MSAL constructor, MSAL's internal HTTPS calls to `login.microsoftonline.us` fail with SSL certificate errors.
+3. **IWA is dead code**: `acquire_token_by_integrated_windows_auth()` does NOT exist in MSAL Python — it only exists in MSAL.NET. The `hasattr(app, 'acquire_token_by_integrated_windows_auth')` check always returned False, so Strategy 2 (IWA) was completely dead code since v6.0.5.
+**Fix**: (1) Added `instance_discovery=False` and `verify=False` to `_try_msal_app_creation()` via kwargs dict. (2) Added TypeError fallback for older MSAL versions that don't support these kwargs. (3) Same params added to `ConfidentialClientApplication` for client credentials flow. (4) OIDC discovery request changed from `verify=True` to `verify=False`. (5) Removed dead IWA code, replaced with informational logging about device code flow availability.
+**Confirmed NGC tenant GUID**: `83116fc8-b4d8-4b27-8ddf-e8f32e080b8e` (discovered via OIDC endpoint).
+**Files**: `sharepoint_connector.py`
+**Lesson**: For GCC High (US Government cloud), MSAL Python REQUIRES `instance_discovery=False` in the constructor. Without it, MSAL contacts the commercial cloud to validate the authority, which fails for all government endpoints. Additionally, on corporate networks with SSL inspection, `verify=False` must be passed to MSAL because it uses its own internal requests session (separate from the caller's session). These are constructor-time parameters — they cannot be set after app creation. Always test MSAL integration on the actual corporate network, not just from a dev machine where SSL inspection isn't present.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

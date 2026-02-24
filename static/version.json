@@ -1,13 +1,25 @@
 {
-  "version": "6.1.0",
+  "version": "6.1.1",
   "release_date": "2026-02-25",
-  "core_version": "6.1.0",
+  "core_version": "6.1.1",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.1.1",
+      "date": "2026-02-25",
+      "changes": [
+        "FIX: CRITICAL — MSAL PublicClientApplication now created with instance_discovery=False. Without this, MSAL validates GCC High authority against the COMMERCIAL cloud's instance discovery endpoint, which always fails for .microsoftonline.us authorities",
+        "FIX: CRITICAL — MSAL app creation now uses verify=False to bypass corporate SSL inspection. Corporate proxy/WAF replaces TLS certs with internal CA that Python's certifi bundle doesn't trust",
+        "FIX: OIDC tenant GUID discovery endpoint now uses verify=False (same corporate SSL issue)",
+        "FIX: Removed dead IWA code — acquire_token_by_integrated_windows_auth() does not exist in MSAL Python (only in MSAL.NET). Was always silently skipped via hasattr check",
+        "FIX: ConfidentialClientApplication also now uses instance_discovery=False and verify=False",
+        "ENH: MSAL app creation has TypeError fallback for older MSAL versions that don't support instance_discovery/verify kwargs"
+      ]
+    },
     {
       "version": "6.1.0",
       "date": "2026-02-25",
