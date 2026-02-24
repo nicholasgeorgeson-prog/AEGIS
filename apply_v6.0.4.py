@@ -41,8 +41,21 @@ CODE_FILES = [
     "static/js/features/proposal-compare.js",
     "static/css/features/proposal-compare.css",
 
-    # --- Documentation ---
+    # --- Documentation & Help ---
     "CLAUDE.md",
+    "static/js/help-docs.js",
+    "static/js/features/guide-system.js",
+
+    # --- Demo audio (new subDemos) ---
+    "static/audio/demo/manifest.json",
+    "static/audio/demo/pdf_zoom_pan__step0.mp3",
+    "static/audio/demo/pdf_zoom_pan__step1.mp3",
+    "static/audio/demo/pdf_zoom_pan__step2.mp3",
+    "static/audio/demo/pdf_zoom_pan__step3.mp3",
+    "static/audio/demo/duplicate_detection__step0.mp3",
+    "static/audio/demo/duplicate_detection__step1.mp3",
+    "static/audio/demo/duplicate_detection__step2.mp3",
+    "static/audio/demo/duplicate_detection__step3.mp3",
 ]
 
 
@@ -127,6 +140,9 @@ def main():
     print("    - NEW: Proposal Compare duplicate detection")
     print("    - ENH: Duplicate upload prompt (replace/keep)")
     print("    - ENH: Post-extraction project duplicate check")
+    print("    - DOC: Help docs updated with v6.0.2-6.0.4 changelog")
+    print("    - DOC: PDF zoom/pan + duplicate detection demo scenes")
+    print("    - DOC: 8 new voiceover audio clips for demos")
     print()
     print(f"  Install dir:  {install_dir}")
     print(f"  Files:        {len(CODE_FILES)}")
