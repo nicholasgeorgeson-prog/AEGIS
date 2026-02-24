@@ -1,32 +1,31 @@
 {
   "version": "1.0",
   "generated_by": "AEGIS Demo Audio Generator",
-  "voice": "en-US-AvaMultilingualNeural",
+  "voice": "en-US-AvaNeural",
   "provider": "edge-tts",
   "rate": "-8%",
-  "pitch": "-1Hz",
   "sections": {
     "accessibility_features": {
       "steps": [
         {
           "file": "accessibility_features__step0.mp3",
           "hash": "b484a0a2",
-          "size": 99072
+          "size": 98640
         },
         {
           "file": "accessibility_features__step1.mp3",
           "hash": "e0fcdb9a",
-          "size": 101376
+          "size": 102528
         },
         {
           "file": "accessibility_features__step2.mp3",
           "hash": "69b995bd",
-          "size": 109728
+          "size": 109584
         },
         {
           "file": "accessibility_features__step3.mp3",
           "hash": "ae577412",
-          "size": 95904
+          "size": 98208
         }
       ]
     },
@@ -35,32 +34,32 @@
         {
           "file": "adjudication__step0.mp3",
           "hash": "f662b0af",
-          "size": 102096
+          "size": 110304
         },
         {
           "file": "adjudication__step1.mp3",
           "hash": "9a3c6312",
-          "size": 110448
+          "size": 110304
         },
         {
           "file": "adjudication__step2.mp3",
           "hash": "a066dec6",
-          "size": 104688
+          "size": 109152
         },
         {
           "file": "adjudication__step3.mp3",
           "hash": "73b6f7cc",
-          "size": 97200
+          "size": 101376
         },
         {
           "file": "adjudication__step4.mp3",
           "hash": "e531d854",
-          "size": 100512
+          "size": 101232
         },
         {
           "file": "adjudication__step5.mp3",
           "hash": "e8e5c1b7",
-          "size": 97056
+          "size": 99504
         }
       ]
     },
@@ -69,27 +68,27 @@
         {
           "file": "adjudication_exports__step0.mp3",
           "hash": "6f24ac88",
-          "size": 94032
+          "size": 94464
         },
         {
           "file": "adjudication_exports__step1.mp3",
           "hash": "ba5009b7",
-          "size": 106560
+          "size": 106992
         },
         {
           "file": "adjudication_exports__step2.mp3",
           "hash": "5c5b3ab5",
-          "size": 128880
+          "size": 126864
         },
         {
           "file": "adjudication_exports__step3.mp3",
           "hash": "0335f0d4",
-          "size": 113904
+          "size": 113328
         },
         {
           "file": "adjudication_exports__step4.mp3",
           "hash": "66e11685",
-          "size": 114624
+          "size": 118512
         }
       ]
     },
@@ -98,22 +97,22 @@
         {
           "file": "adjudication_sharing__step0.mp3",
           "hash": "ea392e8d",
-          "size": 97488
+          "size": 99216
         },
         {
           "file": "adjudication_sharing__step1.mp3",
           "hash": "0125acfb",
-          "size": 91440
+          "size": 95472
         },
         {
           "file": "adjudication_sharing__step2.mp3",
           "hash": "d84c029a",
-          "size": 98064
+          "size": 97920
         },
         {
           "file": "adjudication_sharing__step3.mp3",
           "hash": "df165e44",
-          "size": 85680
+          "size": 87696
         }
       ]
     },
@@ -122,22 +121,22 @@
         {
           "file": "auto_adjudicate__step0.mp3",
           "hash": "f6cfc841",
-          "size": 99360
+          "size": 102816
         },
         {
           "file": "auto_adjudicate__step1.mp3",
           "hash": "7cd7cc5e",
-          "size": 111744
+          "size": 112320
         },
         {
           "file": "auto_adjudicate__step2.mp3",
           "hash": "b799fd56",
-          "size": 118368
+          "size": 116640
         },
         {
           "file": "auto_adjudicate__step3.mp3",
           "hash": "8f6bb6da",
-          "size": 122400
+          "size": 125856
         }
       ]
     },
@@ -146,32 +145,32 @@
         {
           "file": "batch__step0.mp3",
           "hash": "cb21a6f5",
-          "size": 67248
+          "size": 65376
         },
         {
           "file": "batch__step1.mp3",
           "hash": "871da30a",
-          "size": 87408
+          "size": 85248
         },
         {
           "file": "batch__step2.mp3",
           "hash": "45040953",
-          "size": 92304
+          "size": 95040
         },
         {
           "file": "batch__step3.mp3",
           "hash": "9ce841a1",
-          "size": 73584
+          "size": 74448
         },
         {
           "file": "batch__step4.mp3",
           "hash": "d5eba341",
-          "size": 100512
+          "size": 93744
         },
         {
           "file": "batch__step5.mp3",
           "hash": "759adab2",
-          "size": 93168
+          "size": 102240
         }
       ]
     },
@@ -180,22 +179,22 @@
         {
           "file": "batch_grouping__step0.mp3",
           "hash": "3fc61316",
-          "size": 101808
+          "size": 96912
         },
         {
           "file": "batch_grouping__step1.mp3",
           "hash": "2536e346",
-          "size": 87552
+          "size": 88992
         },
         {
           "file": "batch_grouping__step2.mp3",
           "hash": "edb94b2b",
-          "size": 81936
+          "size": 81792
         },
         {
           "file": "batch_grouping__step3.mp3",
           "hash": "91e6bdcb",
-          "size": 93600
+          "size": 93168
         }
       ]
     },
@@ -204,17 +203,17 @@
         {
           "file": "categories_view__step0.mp3",
           "hash": "1878986e",
-          "size": 123264
+          "size": 133344
         },
         {
           "file": "categories_view__step1.mp3",
           "hash": "aa415144",
-          "size": 100944
+          "size": 97488
         },
         {
           "file": "categories_view__step2.mp3",
           "hash": "f0461544",
-          "size": 90432
+          "size": 93888
         }
       ]
     },
@@ -223,17 +222,17 @@
         {
           "file": "change_navigation__step0.mp3",
           "hash": "1f1353f4",
-          "size": 89856
+          "size": 83376
         },
         {
           "file": "change_navigation__step1.mp3",
           "hash": "df5757c9",
-          "size": 81072
+          "size": 81504
         },
         {
           "file": "change_navigation__step2.mp3",
           "hash": "3644fbd5",
-          "size": 80064
+          "size": 85104
         }
       ]
     },
@@ -242,27 +241,27 @@
         {
           "file": "chart_interactions__step0.mp3",
           "hash": "fbdc9ad7",
-          "size": 89568
+          "size": 94032
         },
         {
           "file": "chart_interactions__step1.mp3",
           "hash": "f771d288",
-          "size": 94896
+          "size": 97344
         },
         {
           "file": "chart_interactions__step2.mp3",
           "hash": "dfbddf08",
-          "size": 89280
+          "size": 90720
         },
         {
           "file": "chart_interactions__step3.mp3",
           "hash": "fe06b4f8",
-          "size": 92016
+          "size": 87984
         },
         {
           "file": "chart_interactions__step4.mp3",
           "hash": "b801325a",
-          "size": 101664
+          "size": 99504
         }
       ]
     },
@@ -271,27 +270,27 @@
         {
           "file": "checker_categories__step0.mp3",
           "hash": "45c65e80",
-          "size": 107424
+          "size": 108432
         },
         {
           "file": "checker_categories__step1.mp3",
           "hash": "563d7cc8",
-          "size": 115488
+          "size": 121680
         },
         {
           "file": "checker_categories__step2.mp3",
           "hash": "3797301b",
-          "size": 121104
+          "size": 127872
         },
         {
           "file": "checker_categories__step3.mp3",
           "hash": "703d9320",
-          "size": 102960
+          "size": 99504
         },
         {
           "file": "checker_categories__step4.mp3",
           "hash": "a247d5b1",
-          "size": 113040
+          "size": 112320
         }
       ]
     },
@@ -300,27 +299,27 @@
         {
           "file": "checker_config__step0.mp3",
           "hash": "7ab2f9fc",
-          "size": 82944
+          "size": 86400
         },
         {
           "file": "checker_config__step1.mp3",
           "hash": "db2a8bbf",
-          "size": 110448
+          "size": 112176
         },
         {
           "file": "checker_config__step2.mp3",
           "hash": "0d2ae381",
-          "size": 123840
+          "size": 130608
         },
         {
           "file": "checker_config__step3.mp3",
           "hash": "880315af",
-          "size": 112320
+          "size": 119808
         },
         {
           "file": "checker_config__step4.mp3",
           "hash": "526bbfd2",
-          "size": 80352
+          "size": 84096
         }
       ]
     },
@@ -329,32 +328,32 @@
         {
           "file": "compare__step0.mp3",
           "hash": "3f98b421",
-          "size": 114624
+          "size": 116496
         },
         {
           "file": "compare__step1.mp3",
           "hash": "ce913569",
-          "size": 115488
+          "size": 119952
         },
         {
           "file": "compare__step2.mp3",
           "hash": "6ad4c9b1",
-          "size": 130752
+          "size": 130608
         },
         {
           "file": "compare__step3.mp3",
           "hash": "bf1ff82e",
-          "size": 121248
+          "size": 126432
         },
         {
           "file": "compare__step4.mp3",
           "hash": "0126dbce",
-          "size": 105696
+          "size": 105840
         },
         {
           "file": "compare__step5.mp3",
           "hash": "28384168",
-          "size": 97200
+          "size": 98784
         }
       ]
     },
@@ -363,12 +362,12 @@
         {
           "file": "compare_doc_switcher__step0.mp3",
           "hash": "091935b6",
-          "size": 89856
+          "size": 90864
         },
         {
           "file": "compare_doc_switcher__step1.mp3",
           "hash": "1f9b3fd9",
-          "size": 100656
+          "size": 104688
         },
         {
           "file": "compare_doc_switcher__step2.mp3",
@@ -378,7 +377,7 @@
         {
           "file": "compare_doc_switcher__step3.mp3",
           "hash": "043a171c",
-          "size": 108144
+          "size": 111312
         }
       ]
     },
@@ -387,17 +386,17 @@
         {
           "file": "compare_export__step0.mp3",
           "hash": "cfd10130",
-          "size": 100656
+          "size": 105408
         },
         {
           "file": "compare_export__step1.mp3",
           "hash": "c128f54a",
-          "size": 88848
+          "size": 89856
         },
         {
           "file": "compare_export__step2.mp3",
           "hash": "215dd5fa",
-          "size": 81648
+          "size": 83952
         }
       ]
     },
@@ -406,22 +405,22 @@
         {
           "file": "compare_viewer__step0.mp3",
           "hash": "0265d44d",
-          "size": 103968
+          "size": 103824
         },
         {
           "file": "compare_viewer__step1.mp3",
           "hash": "2e97d3ff",
-          "size": 104832
+          "size": 106704
         },
         {
           "file": "compare_viewer__step2.mp3",
           "hash": "762d0a68",
-          "size": 98496
+          "size": 100656
         },
         {
           "file": "compare_viewer__step3.mp3",
           "hash": "f988acc4",
-          "size": 103824
+          "size": 100512
         }
       ]
     },
@@ -430,17 +429,17 @@
         {
           "file": "comparison_history__step0.mp3",
           "hash": "4e357a52",
-          "size": 81648
+          "size": 83664
         },
         {
           "file": "comparison_history__step1.mp3",
           "hash": "3e0e2ec8",
-          "size": 82368
+          "size": 83664
         },
         {
           "file": "comparison_history__step2.mp3",
           "hash": "5931aae9",
-          "size": 95040
+          "size": 94320
         }
       ]
     },
@@ -449,17 +448,17 @@
         {
           "file": "comparison_view__step0.mp3",
           "hash": "1a0aee6b",
-          "size": 127008
+          "size": 119232
         },
         {
           "file": "comparison_view__step1.mp3",
           "hash": "1e2318a5",
-          "size": 120384
+          "size": 120816
         },
         {
           "file": "comparison_view__step2.mp3",
           "hash": "61816194",
-          "size": 111744
+          "size": 107424
         }
       ]
     },
@@ -468,17 +467,17 @@
         {
           "file": "data_management__step0.mp3",
           "hash": "ecbed0b2",
-          "size": 80352
+          "size": 81504
         },
         {
           "file": "data_management__step1.mp3",
           "hash": "f5578888",
-          "size": 73152
+          "size": 67824
         },
         {
           "file": "data_management__step2.mp3",
           "hash": "3c140f4d",
-          "size": 92736
+          "size": 94464
         }
       ]
     },
@@ -487,22 +486,22 @@
         {
           "file": "data_mgmt__step0.mp3",
           "hash": "1c500107",
-          "size": 89280
+          "size": 97056
         },
         {
           "file": "data_mgmt__step1.mp3",
           "hash": "27bbb6e0",
-          "size": 100080
+          "size": 98928
         },
         {
           "file": "data_mgmt__step2.mp3",
           "hash": "e8fb6713",
-          "size": 75888
+          "size": 77328
         },
         {
           "file": "data_mgmt__step3.mp3",
           "hash": "80a32c0e",
-          "size": 112896
+          "size": 112608
         }
       ]
     },
@@ -511,27 +510,27 @@
         {
           "file": "data_operations__step0.mp3",
           "hash": "5dd47c58",
-          "size": 100224
+          "size": 102384
         },
         {
           "file": "data_operations__step1.mp3",
           "hash": "a8fa6fa4",
-          "size": 96912
+          "size": 101376
         },
         {
           "file": "data_operations__step2.mp3",
           "hash": "639306e3",
-          "size": 120096
+          "size": 116064
         },
         {
           "file": "data_operations__step3.mp3",
           "hash": "601c37c2",
-          "size": 101376
+          "size": 103680
         },
         {
           "file": "data_operations__step4.mp3",
           "hash": "9c7efd02",
-          "size": 115200
+          "size": 118224
         }
       ]
     },
@@ -540,22 +539,22 @@
         {
           "file": "deep_validate__step0.mp3",
           "hash": "cfba0723",
-          "size": 96192
+          "size": 101520
         },
         {
           "file": "deep_validate__step1.mp3",
           "hash": "a70656e3",
-          "size": 101376
+          "size": 106272
         },
         {
           "file": "deep_validate__step2.mp3",
           "hash": "007c44b4",
-          "size": 86256
+          "size": 86832
         },
         {
           "file": "deep_validate__step3.mp3",
           "hash": "43098c4a",
-          "size": 102816
+          "size": 103536
         }
       ]
     },
@@ -564,22 +563,22 @@
         {
           "file": "details_source__step0.mp3",
           "hash": "11ece99c",
-          "size": 105984
+          "size": 112032
         },
         {
           "file": "details_source__step1.mp3",
           "hash": "306c69a6",
-          "size": 95616
+          "size": 96912
         },
         {
           "file": "details_source__step2.mp3",
           "hash": "0537990a",
-          "size": 87696
+          "size": 92160
         },
         {
           "file": "details_source__step3.mp3",
           "hash": "5a1681b0",
-          "size": 89856
+          "size": 89712
         }
       ]
     },
@@ -588,27 +587,27 @@
         {
           "file": "diagnostics_deep__step0.mp3",
           "hash": "0823b338",
-          "size": 107136
+          "size": 112176
         },
         {
           "file": "diagnostics_deep__step1.mp3",
           "hash": "af16c08a",
-          "size": 106704
+          "size": 120096
         },
         {
           "file": "diagnostics_deep__step2.mp3",
           "hash": "ab823604",
-          "size": 95184
+          "size": 100944
         },
         {
           "file": "diagnostics_deep__step3.mp3",
           "hash": "7deaaf69",
-          "size": 87840
+          "size": 85392
         },
         {
           "file": "diagnostics_deep__step4.mp3",
           "hash": "21e03769",
-          "size": 86256
+          "size": 90864
         }
       ]
     },
@@ -617,17 +616,17 @@
         {
           "file": "diagnostics_tab__step0.mp3",
           "hash": "95cfb167",
-          "size": 90288
+          "size": 95760
         },
         {
           "file": "diagnostics_tab__step1.mp3",
           "hash": "c9728856",
-          "size": 97056
+          "size": 97632
         },
         {
           "file": "diagnostics_tab__step2.mp3",
           "hash": "d9318b42",
-          "size": 86544
+          "size": 91728
         }
       ]
     },
@@ -641,27 +640,27 @@
         {
           "file": "dictionary__step1.mp3",
           "hash": "5930b6d9",
-          "size": 99360
+          "size": 101664
         },
         {
           "file": "dictionary__step2.mp3",
           "hash": "23f36803",
-          "size": 100224
+          "size": 100368
         },
         {
           "file": "dictionary__step3.mp3",
           "hash": "9ad9d596",
-          "size": 91296
+          "size": 91008
         },
         {
           "file": "dictionary__step4.mp3",
           "hash": "ca2af6e1",
-          "size": 102384
+          "size": 102528
         },
         {
           "file": "dictionary__step5.mp3",
           "hash": "7c8d6a44",
-          "size": 74304
+          "size": 78192
         }
       ]
     },
@@ -670,27 +669,27 @@
         {
           "file": "dictionary_exports__step0.mp3",
           "hash": "a102e9c2",
-          "size": 107280
+          "size": 114048
         },
         {
           "file": "dictionary_exports__step1.mp3",
           "hash": "3a8a9b86",
-          "size": 97344
+          "size": 93888
         },
         {
           "file": "dictionary_exports__step2.mp3",
           "hash": "24a612cc",
-          "size": 120240
+          "size": 122976
         },
         {
           "file": "dictionary_exports__step3.mp3",
           "hash": "84366fcb",
-          "size": 113040
+          "size": 114624
         },
         {
           "file": "dictionary_exports__step4.mp3",
           "hash": "efc4b408",
-          "size": 114624
+          "size": 121248
         }
       ]
     },
@@ -699,27 +698,27 @@
         {
           "file": "dictionary_imports__step0.mp3",
           "hash": "93d7562b",
-          "size": 112752
+          "size": 118944
         },
         {
           "file": "dictionary_imports__step1.mp3",
           "hash": "7e98c98f",
-          "size": 96624
+          "size": 103536
         },
         {
           "file": "dictionary_imports__step2.mp3",
           "hash": "2f64523d",
-          "size": 117792
+          "size": 121392
         },
         {
           "file": "dictionary_imports__step3.mp3",
           "hash": "14383fe4",
-          "size": 103536
+          "size": 107280
         },
         {
           "file": "dictionary_imports__step4.mp3",
           "hash": "8d51df82",
-          "size": 96912
+          "size": 99936
         }
       ]
     },
@@ -728,22 +727,22 @@
         {
           "file": "diff_views__step0.mp3",
           "hash": "176d5d22",
-          "size": 105984
+          "size": 104112
         },
         {
           "file": "diff_views__step1.mp3",
           "hash": "65c6cb04",
-          "size": 86256
+          "size": 92016
         },
         {
           "file": "diff_views__step2.mp3",
           "hash": "83a9b2bb",
-          "size": 88272
+          "size": 83232
         },
         {
           "file": "diff_views__step3.mp3",
           "hash": "6e5fcef5",
-          "size": 75312
+          "size": 74160
         }
       ]
     },
@@ -752,17 +751,17 @@
         {
           "file": "display_settings__step0.mp3",
           "hash": "de0eb686",
-          "size": 74016
+          "size": 78192
         },
         {
           "file": "display_settings__step1.mp3",
           "hash": "da2d6853",
-          "size": 88416
+          "size": 85824
         },
         {
           "file": "display_settings__step2.mp3",
           "hash": "59117a80",
-          "size": 89280
+          "size": 85248
         }
       ]
     },
@@ -771,22 +770,22 @@
         {
           "file": "document_config__step0.mp3",
           "hash": "e42295da",
-          "size": 88128
+          "size": 87120
         },
         {
           "file": "document_config__step1.mp3",
           "hash": "c5c6ec43",
-          "size": 66528
+          "size": 71424
         },
         {
           "file": "document_config__step2.mp3",
           "hash": "eb7fc8ae",
-          "size": 75456
+          "size": 72720
         },
         {
           "file": "document_config__step3.mp3",
           "hash": "0b2c9b46",
-          "size": 78912
+          "size": 81504
         }
       ]
     },
@@ -800,17 +799,17 @@
         {
           "file": "document_selection__step1.mp3",
           "hash": "7c6bbc91",
-          "size": 84672
+          "size": 85392
         },
         {
           "file": "document_selection__step2.mp3",
           "hash": "3ebf8a2d",
-          "size": 89280
+          "size": 87408
         },
         {
           "file": "document_selection__step3.mp3",
           "hash": "b5ea7a11",
-          "size": 85248
+          "size": 82800
         }
       ]
     },
@@ -819,22 +818,22 @@
         {
           "file": "document_viewer__step0.mp3",
           "hash": "30544514",
-          "size": 98784
+          "size": 94608
         },
         {
           "file": "document_viewer__step1.mp3",
           "hash": "1fd892ef",
-          "size": 100224
+          "size": 97344
         },
         {
           "file": "document_viewer__step2.mp3",
           "hash": "4c7ac91f",
-          "size": 82224
+          "size": 79344
         },
         {
           "file": "document_viewer__step3.mp3",
           "hash": "ae300147",
-          "size": 104112
+          "size": 104256
         }
       ]
     },
@@ -843,22 +842,22 @@
         {
           "file": "documents_analytics__step0.mp3",
           "hash": "a227a7c1",
-          "size": 88704
+          "size": 95184
         },
         {
           "file": "documents_analytics__step1.mp3",
           "hash": "22ed3f1a",
-          "size": 81072
+          "size": 77904
         },
         {
           "file": "documents_analytics__step2.mp3",
           "hash": "ec1aedca",
-          "size": 78912
+          "size": 79056
         },
         {
           "file": "documents_analytics__step3.mp3",
           "hash": "64ab0037",
-          "size": 82944
+          "size": 81792
         }
       ]
     },
@@ -867,22 +866,22 @@
         {
           "file": "documents_tab__step0.mp3",
           "hash": "7b357d8e",
-          "size": 90720
+          "size": 94320
         },
         {
           "file": "documents_tab__step1.mp3",
           "hash": "01d06eeb",
-          "size": 92736
+          "size": 92592
         },
         {
           "file": "documents_tab__step2.mp3",
           "hash": "4d86b66d",
-          "size": 100368
+          "size": 95040
         },
         {
           "file": "documents_tab__step3.mp3",
           "hash": "4bbfd355",
-          "size": 77760
+          "size": 76752
         }
       ]
     },
@@ -891,17 +890,17 @@
         {
           "file": "domain_analytics__step0.mp3",
           "hash": "731311be",
-          "size": 105840
+          "size": 110592
         },
         {
           "file": "domain_analytics__step1.mp3",
           "hash": "5c88fc60",
-          "size": 92160
+          "size": 91152
         },
         {
           "file": "domain_analytics__step2.mp3",
           "hash": "dee077cd",
-          "size": 84384
+          "size": 84960
         }
       ]
     },
@@ -910,22 +909,22 @@
         {
           "file": "edit_role__step0.mp3",
           "hash": "5e3098bf",
-          "size": 115776
+          "size": 124560
         },
         {
           "file": "edit_role__step1.mp3",
           "hash": "77f6e616",
-          "size": 91440
+          "size": 96480
         },
         {
           "file": "edit_role__step2.mp3",
           "hash": "5e22f004",
-          "size": 114336
+          "size": 119232
         },
         {
           "file": "edit_role__step3.mp3",
           "hash": "81a99d8e",
-          "size": 127440
+          "size": 133344
         }
       ]
     },
@@ -934,17 +933,17 @@
         {
           "file": "exclusions__step0.mp3",
           "hash": "ced2ac3b",
-          "size": 104976
+          "size": 107712
         },
         {
           "file": "exclusions__step1.mp3",
           "hash": "08629674",
-          "size": 111744
+          "size": 117216
         },
         {
           "file": "exclusions__step2.mp3",
           "hash": "cdfd7e3c",
-          "size": 130896
+          "size": 133056
         }
       ]
     },
@@ -953,22 +952,22 @@
         {
           "file": "exec_summary__step0.mp3",
           "hash": "d17fc980",
-          "size": 96192
+          "size": 97488
         },
         {
           "file": "exec_summary__step1.mp3",
           "hash": "ce0724f2",
-          "size": 103392
+          "size": 105696
         },
         {
           "file": "exec_summary__step2.mp3",
           "hash": "c646e9d7",
-          "size": 85680
+          "size": 88272
         },
         {
           "file": "exec_summary__step3.mp3",
           "hash": "a4575d07",
-          "size": 121392
+          "size": 118224
         }
       ]
     },
@@ -977,22 +976,22 @@
         {
           "file": "export_docx__step0.mp3",
           "hash": "02656ad8",
-          "size": 107136
+          "size": 108432
         },
         {
           "file": "export_docx__step1.mp3",
           "hash": "d0717b3d",
-          "size": 119232
+          "size": 115776
         },
         {
           "file": "export_docx__step2.mp3",
           "hash": "dbd630e4",
-          "size": 102240
+          "size": 102384
         },
         {
           "file": "export_docx__step3.mp3",
           "hash": "b1ba4fd2",
-          "size": 105264
+          "size": 106560
         }
       ]
     },
@@ -1001,22 +1000,22 @@
         {
           "file": "export_excel_csv__step0.mp3",
           "hash": "c9531e19",
-          "size": 143712
+          "size": 143136
         },
         {
           "file": "export_excel_csv__step1.mp3",
           "hash": "d89c1d6e",
-          "size": 95184
+          "size": 99936
         },
         {
           "file": "export_excel_csv__step2.mp3",
           "hash": "9b182e48",
-          "size": 124560
+          "size": 120240
         },
         {
           "file": "export_excel_csv__step3.mp3",
           "hash": "619c83be",
-          "size": 121392
+          "size": 120672
         }
       ]
     },
@@ -1025,27 +1024,27 @@
         {
           "file": "export_filters__step0.mp3",
           "hash": "6cda0f2f",
-          "size": 103680
+          "size": 100656
         },
         {
           "file": "export_filters__step1.mp3",
           "hash": "66f29fd6",
-          "size": 110448
+          "size": 113904
         },
         {
           "file": "export_filters__step2.mp3",
           "hash": "5da13dd7",
-          "size": 99360
+          "size": 98064
         },
         {
           "file": "export_filters__step3.mp3",
           "hash": "267fc3b0",
-          "size": 100944
+          "size": 96912
         },
         {
           "file": "export_filters__step4.mp3",
           "hash": "42584a13",
-          "size": 101520
+          "size": 106704
         }
       ]
     },
@@ -1054,22 +1053,22 @@
         {
           "file": "export_pdf__step0.mp3",
           "hash": "c0c7704d",
-          "size": 97920
+          "size": 98928
         },
         {
           "file": "export_pdf__step1.mp3",
           "hash": "503bd358",
-          "size": 106560
+          "size": 108000
         },
         {
           "file": "export_pdf__step2.mp3",
           "hash": "a5996576",
-          "size": 109584
+          "size": 110304
         },
         {
           "file": "export_pdf__step3.mp3",
           "hash": "d864e869",
-          "size": 95760
+          "size": 100080
         }
       ]
     },
@@ -1078,22 +1077,22 @@
         {
           "file": "export_results__step0.mp3",
           "hash": "40f231f4",
-          "size": 110880
+          "size": 115632
         },
         {
           "file": "export_results__step1.mp3",
           "hash": "75aed660",
-          "size": 123984
+          "size": 134784
         },
         {
           "file": "export_results__step2.mp3",
           "hash": "cf4817b7",
-          "size": 151632
+          "size": 152928
         },
         {
           "file": "export_results__step3.mp3",
           "hash": "018f3672",
-          "size": 109152
+          "size": 115488
         }
       ]
     },
@@ -1102,7 +1101,7 @@
         {
           "file": "export_suite__step0.mp3",
           "hash": "81d7d2d4",
-          "size": 104256
+          "size": 104976
         },
         {
           "file": "export_suite__step1.mp3",
@@ -1112,22 +1111,22 @@
         {
           "file": "export_suite__step2.mp3",
           "hash": "67fae135",
-          "size": 108720
+          "size": 111024
         },
         {
           "file": "export_suite__step3.mp3",
           "hash": "47f579c8",
-          "size": 104688
+          "size": 101808
         },
         {
           "file": "export_suite__step4.mp3",
           "hash": "961897c0",
-          "size": 108432
+          "size": 108000
         },
         {
           "file": "export_suite__step5.mp3",
           "hash": "9c637121",
-          "size": 106848
+          "size": 105840
         }
       ]
     },
@@ -1136,27 +1135,27 @@
         {
           "file": "extraction__step0.mp3",
           "hash": "eb54d9c8",
-          "size": 116352
+          "size": 117792
         },
         {
           "file": "extraction__step1.mp3",
           "hash": "fd4d577a",
-          "size": 106272
+          "size": 112176
         },
         {
           "file": "extraction__step2.mp3",
           "hash": "98ceee9c",
-          "size": 113616
+          "size": 108576
         },
         {
           "file": "extraction__step3.mp3",
           "hash": "f77dda54",
-          "size": 110304
+          "size": 111456
         },
         {
           "file": "extraction__step4.mp3",
           "hash": "3d8f91fc",
-          "size": 84096
+          "size": 87840
         }
       ]
     },
@@ -1165,22 +1164,22 @@
         {
           "file": "family_patterns__step0.mp3",
           "hash": "4c9d0a98",
-          "size": 84096
+          "size": 82512
         },
         {
           "file": "family_patterns__step1.mp3",
           "hash": "e4bda797",
-          "size": 111312
+          "size": 109872
         },
         {
           "file": "family_patterns__step2.mp3",
           "hash": "f03da8c6",
-          "size": 102240
+          "size": 108288
         },
         {
           "file": "family_patterns__step3.mp3",
           "hash": "06fbb5d0",
-          "size": 109872
+          "size": 111168
         }
       ]
     },
@@ -1189,27 +1188,27 @@
         {
           "file": "feature_tiles__step0.mp3",
           "hash": "da936456",
-          "size": 76320
+          "size": 78912
         },
         {
           "file": "feature_tiles__step1.mp3",
           "hash": "07a6dfff",
-          "size": 103680
+          "size": 104256
         },
         {
           "file": "feature_tiles__step2.mp3",
           "hash": "248473d7",
-          "size": 83664
+          "size": 80784
         },
         {
           "file": "feature_tiles__step3.mp3",
           "hash": "98011f23",
-          "size": 93456
+          "size": 90576
         },
         {
           "file": "feature_tiles__step4.mp3",
           "hash": "a34f2b5d",
-          "size": 88128
+          "size": 87696
         }
       ]
     },
@@ -1218,22 +1217,22 @@
         {
           "file": "file_input__step0.mp3",
           "hash": "23571e50",
-          "size": 105696
+          "size": 107712
         },
         {
           "file": "file_input__step1.mp3",
           "hash": "0cbe08b5",
-          "size": 104256
+          "size": 99936
         },
         {
           "file": "file_input__step2.mp3",
           "hash": "c79c824c",
-          "size": 94320
+          "size": 95184
         },
         {
           "file": "file_input__step3.mp3",
           "hash": "abdc455e",
-          "size": 102960
+          "size": 105840
         }
       ]
     },
@@ -1242,22 +1241,22 @@
         {
           "file": "file_loading__step0.mp3",
           "hash": "a430fe94",
-          "size": 117792
+          "size": 120240
         },
         {
           "file": "file_loading__step1.mp3",
           "hash": "119ffdd9",
-          "size": 103968
+          "size": 104688
         },
         {
           "file": "file_loading__step2.mp3",
           "hash": "5a17b716",
-          "size": 143136
+          "size": 139968
         },
         {
           "file": "file_loading__step3.mp3",
           "hash": "1344f6bc",
-          "size": 117504
+          "size": 119952
         }
       ]
     },
@@ -1266,22 +1265,22 @@
         {
           "file": "fix_assistant__step0.mp3",
           "hash": "d26689a4",
-          "size": 106704
+          "size": 108432
         },
         {
           "file": "fix_assistant__step1.mp3",
           "hash": "01569566",
-          "size": 104544
+          "size": 104832
         },
         {
           "file": "fix_assistant__step2.mp3",
           "hash": "11f4a3c8",
-          "size": 133776
+          "size": 126720
         },
         {
           "file": "fix_assistant__step3.mp3",
           "hash": "9934f559",
-          "size": 96048
+          "size": 94464
         }
       ]
     },
@@ -1290,27 +1289,27 @@
         {
           "file": "folder_scan__step0.mp3",
           "hash": "24d7104a",
-          "size": 111024
+          "size": 109872
         },
         {
           "file": "folder_scan__step1.mp3",
           "hash": "9deadf6f",
-          "size": 128304
+          "size": 123984
         },
         {
           "file": "folder_scan__step2.mp3",
           "hash": "9f0efcdd",
-          "size": 115776
+          "size": 110448
         },
         {
           "file": "folder_scan__step3.mp3",
           "hash": "6af13af1",
-          "size": 103248
+          "size": 105264
         },
         {
           "file": "folder_scan__step4.mp3",
           "hash": "f93c935d",
-          "size": 106416
+          "size": 104112
         }
       ]
     },
@@ -1319,42 +1318,42 @@
         {
           "file": "forge__step0.mp3",
           "hash": "6ced6c9a",
-          "size": 109296
+          "size": 107856
         },
         {
           "file": "forge__step1.mp3",
           "hash": "880be07c",
-          "size": 146880
+          "size": 148032
         },
         {
           "file": "forge__step2.mp3",
           "hash": "3e905880",
-          "size": 143568
+          "size": 138528
         },
         {
           "file": "forge__step3.mp3",
           "hash": "11e57e69",
-          "size": 104976
+          "size": 102240
         },
         {
           "file": "forge__step4.mp3",
           "hash": "1287a757",
-          "size": 118368
+          "size": 113472
         },
         {
           "file": "forge__step5.mp3",
           "hash": "9350fd38",
-          "size": 127008
+          "size": 134064
         },
         {
           "file": "forge__step6.mp3",
           "hash": "aa050d2f",
-          "size": 106560
+          "size": 105408
         },
         {
           "file": "forge__step7.mp3",
           "hash": "810f9b89",
-          "size": 183024
+          "size": 192384
         }
       ]
     },
@@ -1363,27 +1362,27 @@
         {
           "file": "forge_sub_modals__step0.mp3",
           "hash": "7faea958",
-          "size": 112320
+          "size": 113472
         },
         {
           "file": "forge_sub_modals__step1.mp3",
           "hash": "8c400d63",
-          "size": 103248
+          "size": 95184
         },
         {
           "file": "forge_sub_modals__step2.mp3",
           "hash": "e7ca0513",
-          "size": 102960
+          "size": 101232
         },
         {
           "file": "forge_sub_modals__step3.mp3",
           "hash": "7dde59e3",
-          "size": 96192
+          "size": 95184
         },
         {
           "file": "forge_sub_modals__step4.mp3",
           "hash": "1115d1fd",
-          "size": 104688
+          "size": 110736
         }
       ]
     },
@@ -1392,27 +1391,27 @@
         {
           "file": "function_tags__step0.mp3",
           "hash": "c3a00d84",
-          "size": 128592
+          "size": 135648
         },
         {
           "file": "function_tags__step1.mp3",
           "hash": "6e9b7a49",
-          "size": 120960
+          "size": 124128
         },
         {
           "file": "function_tags__step2.mp3",
           "hash": "41df55df",
-          "size": 112896
+          "size": 114048
         },
         {
           "file": "function_tags__step3.mp3",
           "hash": "42e25b94",
-          "size": 122256
+          "size": 121392
         },
         {
           "file": "function_tags__step4.mp3",
           "hash": "1bba9108",
-          "size": 100512
+          "size": 104256
         }
       ]
     },
@@ -1421,22 +1420,22 @@
         {
           "file": "general_tab__step0.mp3",
           "hash": "54d6996e",
-          "size": 92592
+          "size": 95328
         },
         {
           "file": "general_tab__step1.mp3",
           "hash": "b5e912c9",
-          "size": 73152
+          "size": 77040
         },
         {
           "file": "general_tab__step2.mp3",
           "hash": "f5724bc2",
-          "size": 87120
+          "size": 91152
         },
         {
           "file": "general_tab__step3.mp3",
           "hash": "6c98896b",
-          "size": 65232
+          "size": 69696
         }
       ]
     },
@@ -1445,22 +1444,22 @@
         {
           "file": "getting_started__step0.mp3",
           "hash": "8dd5a3c1",
-          "size": 101376
+          "size": 100512
         },
         {
           "file": "getting_started__step1.mp3",
           "hash": "e5c190ce",
-          "size": 80640
+          "size": 81936
         },
         {
           "file": "getting_started__step2.mp3",
           "hash": "1ba4b82e",
-          "size": 79200
+          "size": 77184
         },
         {
           "file": "getting_started__step3.mp3",
           "hash": "a927183b",
-          "size": 95184
+          "size": 98784
         }
       ]
     },
@@ -1469,27 +1468,27 @@
         {
           "file": "graph_controls__step0.mp3",
           "hash": "48401090",
-          "size": 90720
+          "size": 90432
         },
         {
           "file": "graph_controls__step1.mp3",
           "hash": "2559b253",
-          "size": 115776
+          "size": 116208
         },
         {
           "file": "graph_controls__step2.mp3",
           "hash": "cb772de5",
-          "size": 84384
+          "size": 83232
         },
         {
           "file": "graph_controls__step3.mp3",
           "hash": "2b744fff",
-          "size": 93456
+          "size": 91440
         },
         {
           "file": "graph_controls__step4.mp3",
           "hash": "23ed2c08",
-          "size": 109152
+          "size": 112752
         }
       ]
     },
@@ -1498,27 +1497,27 @@
         {
           "file": "graph_view__step0.mp3",
           "hash": "65408edd",
-          "size": 103824
+          "size": 100368
         },
         {
           "file": "graph_view__step1.mp3",
           "hash": "f9044f71",
-          "size": 112032
+          "size": 108864
         },
         {
           "file": "graph_view__step2.mp3",
           "hash": "b5489245",
-          "size": 100224
+          "size": 97488
         },
         {
           "file": "graph_view__step3.mp3",
           "hash": "9cb841a3",
-          "size": 106848
+          "size": 107424
         },
         {
           "file": "graph_view__step4.mp3",
           "hash": "bdfcb591",
-          "size": 95040
+          "size": 94176
         }
       ]
     },
@@ -1527,22 +1526,22 @@
         {
           "file": "heatmap_view__step0.mp3",
           "hash": "3067d544",
-          "size": 69696
+          "size": 69984
         },
         {
           "file": "heatmap_view__step1.mp3",
           "hash": "eeb9922a",
-          "size": 88704
+          "size": 85536
         },
         {
           "file": "heatmap_view__step2.mp3",
           "hash": "3041ae19",
-          "size": 73584
+          "size": 78336
         },
         {
           "file": "heatmap_view__step3.mp3",
           "hash": "b8b978dc",
-          "size": 96768
+          "size": 92304
         }
       ]
     },
@@ -1551,22 +1550,22 @@
         {
           "file": "help_navigation__step0.mp3",
           "hash": "3d778691",
-          "size": 93600
+          "size": 96048
         },
         {
           "file": "help_navigation__step1.mp3",
           "hash": "fe37e2ba",
-          "size": 88848
+          "size": 83952
         },
         {
           "file": "help_navigation__step2.mp3",
           "hash": "233de725",
-          "size": 89280
+          "size": 86832
         },
         {
           "file": "help_navigation__step3.mp3",
           "hash": "cc9f7c27",
-          "size": 86688
+          "size": 87696
         }
       ]
     },
@@ -1575,27 +1574,27 @@
         {
           "file": "history__step0.mp3",
           "hash": "67ea0259",
-          "size": 100944
+          "size": 105264
         },
         {
           "file": "history__step1.mp3",
           "hash": "2bb3160b",
-          "size": 97056
+          "size": 99072
         },
         {
           "file": "history__step2.mp3",
           "hash": "529efd2c",
-          "size": 106992
+          "size": 105264
         },
         {
           "file": "history__step3.mp3",
           "hash": "d8a7a42d",
-          "size": 100080
+          "size": 98496
         },
         {
           "file": "history__step4.mp3",
           "hash": "6080b677",
-          "size": 119376
+          "size": 123408
         }
       ]
     },
@@ -1604,22 +1603,22 @@
         {
           "file": "history_actions__step0.mp3",
           "hash": "d7399ada",
-          "size": 106848
+          "size": 106128
         },
         {
           "file": "history_actions__step1.mp3",
           "hash": "a9b1372d",
-          "size": 84960
+          "size": 88272
         },
         {
           "file": "history_actions__step2.mp3",
           "hash": "6beea265",
-          "size": 99360
+          "size": 103680
         },
         {
           "file": "history_actions__step3.mp3",
           "hash": "fc33cd3d",
-          "size": 115776
+          "size": 113904
         }
       ]
     },
@@ -1628,17 +1627,17 @@
         {
           "file": "history_overview__step0.mp3",
           "hash": "025096dd",
-          "size": 102240
+          "size": 103248
         },
         {
           "file": "history_overview__step1.mp3",
           "hash": "6c1083f2",
-          "size": 92160
+          "size": 91584
         },
         {
           "file": "history_overview__step2.mp3",
           "hash": "992acb01",
-          "size": 81936
+          "size": 79776
         }
       ]
     },
@@ -1647,12 +1646,12 @@
         {
           "file": "history_table__step0.mp3",
           "hash": "7d291911",
-          "size": 84384
+          "size": 85968
         },
         {
           "file": "history_table__step1.mp3",
           "hash": "7126b067",
-          "size": 99504
+          "size": 93312
         },
         {
           "file": "history_table__step2.mp3",
@@ -1662,7 +1661,7 @@
         {
           "file": "history_table__step3.mp3",
           "hash": "ad4b64bb",
-          "size": 95904
+          "size": 98640
         }
       ]
     },
@@ -1671,27 +1670,27 @@
         {
           "file": "hv_export_formats__step0.mp3",
           "hash": "92a7f827",
-          "size": 102816
+          "size": 107712
         },
         {
           "file": "hv_export_formats__step1.mp3",
           "hash": "42d8fb72",
-          "size": 101808
+          "size": 99504
         },
         {
           "file": "hv_export_formats__step2.mp3",
           "hash": "d74a246d",
-          "size": 101520
+          "size": 106704
         },
         {
           "file": "hv_export_formats__step3.mp3",
           "hash": "f6902f4f",
-          "size": 118368
+          "size": 123264
         },
         {
           "file": "hv_export_formats__step4.mp3",
           "hash": "6d57b30a",
-          "size": 99504
+          "size": 99360
         }
       ]
     },
@@ -1700,22 +1699,22 @@
         {
           "file": "inline_editing__step0.mp3",
           "hash": "a16cd605",
-          "size": 108000
+          "size": 112176
         },
         {
           "file": "inline_editing__step1.mp3",
           "hash": "34b13250",
-          "size": 111456
+          "size": 111600
         },
         {
           "file": "inline_editing__step2.mp3",
           "hash": "81640ac4",
-          "size": 109584
+          "size": 106560
         },
         {
           "file": "inline_editing__step3.mp3",
           "hash": "76d3c663",
-          "size": 81216
+          "size": 81072
         }
       ]
     },
@@ -1724,27 +1723,27 @@
         {
           "file": "keyboard_shortcuts__step0.mp3",
           "hash": "629d850e",
-          "size": 86544
+          "size": 87264
         },
         {
           "file": "keyboard_shortcuts__step1.mp3",
           "hash": "bbb650da",
-          "size": 103392
+          "size": 104400
         },
         {
           "file": "keyboard_shortcuts__step2.mp3",
           "hash": "36bd457e",
-          "size": 96336
+          "size": 96912
         },
         {
           "file": "keyboard_shortcuts__step3.mp3",
           "hash": "6282f125",
-          "size": 114912
+          "size": 120096
         },
         {
           "file": "keyboard_shortcuts__step4.mp3",
           "hash": "eb17b640",
-          "size": 103392
+          "size": 104256
         }
       ]
     },
@@ -1753,37 +1752,37 @@
         {
           "file": "landing__step0.mp3",
           "hash": "ea447217",
-          "size": 102960
+          "size": 101808
         },
         {
           "file": "landing__step1.mp3",
           "hash": "3bc70e24",
-          "size": 108432
+          "size": 112320
         },
         {
           "file": "landing__step2.mp3",
           "hash": "dc99b421",
-          "size": 137952
+          "size": 142416
         },
         {
           "file": "landing__step3.mp3",
           "hash": "bb04c195",
-          "size": 156816
+          "size": 164736
         },
         {
           "file": "landing__step4.mp3",
           "hash": "55757555",
-          "size": 101664
+          "size": 105696
         },
         {
           "file": "landing__step5.mp3",
           "hash": "2cf7671d",
-          "size": 95472
+          "size": 96336
         },
         {
           "file": "landing__step6.mp3",
           "hash": "a561587d",
-          "size": 90864
+          "size": 92448
         }
       ]
     },
@@ -1792,32 +1791,32 @@
         {
           "file": "learning_system__step0.mp3",
           "hash": "199cd834",
-          "size": 105264
+          "size": 106560
         },
         {
           "file": "learning_system__step1.mp3",
           "hash": "c7d86085",
-          "size": 115056
+          "size": 114768
         },
         {
           "file": "learning_system__step2.mp3",
           "hash": "8855378b",
-          "size": 111600
+          "size": 114480
         },
         {
           "file": "learning_system__step3.mp3",
           "hash": "8e072607",
-          "size": 110160
+          "size": 119232
         },
         {
           "file": "learning_system__step4.mp3",
           "hash": "5a8658a5",
-          "size": 96768
+          "size": 99792
         },
         {
           "file": "learning_system__step5.mp3",
           "hash": "7d00ee92",
-          "size": 114192
+          "size": 115632
         }
       ]
     },
@@ -1826,17 +1825,17 @@
         {
           "file": "link_history_export__step0.mp3",
           "hash": "4fbb5a7e",
-          "size": 92448
+          "size": 93888
         },
         {
           "file": "link_history_export__step1.mp3",
           "hash": "ba64b143",
-          "size": 93168
+          "size": 97344
         },
         {
           "file": "link_history_export__step2.mp3",
           "hash": "ef73e1f5",
-          "size": 119520
+          "size": 121968
         }
       ]
     },
@@ -1850,22 +1849,22 @@
         {
           "file": "metric_cards__step1.mp3",
           "hash": "189fbd19",
-          "size": 89568
+          "size": 88704
         },
         {
           "file": "metric_cards__step2.mp3",
           "hash": "f93d4208",
-          "size": 98496
+          "size": 99648
         },
         {
           "file": "metric_cards__step3.mp3",
           "hash": "c4d77002",
-          "size": 80784
+          "size": 81216
         },
         {
           "file": "metric_cards__step4.mp3",
           "hash": "5e7fb4ef",
-          "size": 55872
+          "size": 60192
         }
       ]
     },
@@ -1874,42 +1873,42 @@
         {
           "file": "metrics__step0.mp3",
           "hash": "438f2ce6",
-          "size": 102672
+          "size": 104256
         },
         {
           "file": "metrics__step1.mp3",
           "hash": "bd190f5c",
-          "size": 138960
+          "size": 144864
         },
         {
           "file": "metrics__step2.mp3",
           "hash": "d4e0aa96",
-          "size": 138240
+          "size": 137952
         },
         {
           "file": "metrics__step3.mp3",
           "hash": "4704a6db",
-          "size": 147312
+          "size": 141552
         },
         {
           "file": "metrics__step4.mp3",
           "hash": "23405d65",
-          "size": 139248
+          "size": 138816
         },
         {
           "file": "metrics__step5.mp3",
           "hash": "600575e1",
-          "size": 119520
+          "size": 125136
         },
         {
           "file": "metrics__step6.mp3",
           "hash": "95fc9433",
-          "size": 142128
+          "size": 147024
         },
         {
           "file": "metrics__step7.mp3",
           "hash": "a5996e48",
-          "size": 135360
+          "size": 145296
         }
       ]
     },
@@ -1918,27 +1917,27 @@
         {
           "file": "metrics_export__step0.mp3",
           "hash": "131ae27b",
-          "size": 105552
+          "size": 109008
         },
         {
           "file": "metrics_export__step1.mp3",
           "hash": "57467ef2",
-          "size": 107568
+          "size": 103104
         },
         {
           "file": "metrics_export__step2.mp3",
           "hash": "1f0e3f6f",
-          "size": 101232
+          "size": 104544
         },
         {
           "file": "metrics_export__step3.mp3",
           "hash": "087131d0",
-          "size": 105696
+          "size": 105408
         },
         {
           "file": "metrics_export__step4.mp3",
           "hash": "0377ad73",
-          "size": 92592
+          "size": 98784
         }
       ]
     },
@@ -1947,22 +1946,22 @@
         {
           "file": "modes_settings__step0.mp3",
           "hash": "d7a140b6",
-          "size": 103968
+          "size": 101808
         },
         {
           "file": "modes_settings__step1.mp3",
           "hash": "7f1ee95a",
-          "size": 114768
+          "size": 113184
         },
         {
           "file": "modes_settings__step2.mp3",
           "hash": "7bb39b49",
-          "size": 99216
+          "size": 104256
         },
         {
           "file": "modes_settings__step3.mp3",
           "hash": "62e8dad0",
-          "size": 95184
+          "size": 97776
         }
       ]
     },
@@ -1971,17 +1970,17 @@
         {
           "file": "network_auth__step0.mp3",
           "hash": "cb15e3c0",
-          "size": 92592
+          "size": 91440
         },
         {
           "file": "network_auth__step1.mp3",
           "hash": "dbf1b9d1",
-          "size": 100944
+          "size": 103536
         },
         {
           "file": "network_auth__step2.mp3",
           "hash": "c9fdfe1e",
-          "size": 103104
+          "size": 104688
         }
       ]
     },
@@ -1990,17 +1989,17 @@
         {
           "file": "output_preview__step0.mp3",
           "hash": "69928700",
-          "size": 78048
+          "size": 83664
         },
         {
           "file": "output_preview__step1.mp3",
           "hash": "7a712753",
-          "size": 92160
+          "size": 94752
         },
         {
           "file": "output_preview__step2.mp3",
           "hash": "0d0b54bb",
-          "size": 96048
+          "size": 96192
         }
       ]
     },
@@ -2009,22 +2008,22 @@
         {
           "file": "overview_cards__step0.mp3",
           "hash": "1e30eda2",
-          "size": 92304
+          "size": 88704
         },
         {
           "file": "overview_cards__step1.mp3",
           "hash": "a23a5e2e",
-          "size": 76032
+          "size": 77616
         },
         {
           "file": "overview_cards__step2.mp3",
           "hash": "2d6d4217",
-          "size": 99504
+          "size": 95616
         },
         {
           "file": "overview_cards__step3.mp3",
           "hash": "a32521bd",
-          "size": 105264
+          "size": 105120
         }
       ]
     },
@@ -2033,27 +2032,27 @@
         {
           "file": "overview_dashboard__step0.mp3",
           "hash": "434f5d9c",
-          "size": 96624
+          "size": 105264
         },
         {
           "file": "overview_dashboard__step1.mp3",
           "hash": "8d3c38f8",
-          "size": 98208
+          "size": 100224
         },
         {
           "file": "overview_dashboard__step2.mp3",
           "hash": "b364f801",
-          "size": 93744
+          "size": 91296
         },
         {
           "file": "overview_dashboard__step3.mp3",
           "hash": "a9d92ceb",
-          "size": 94608
+          "size": 94464
         },
         {
           "file": "overview_dashboard__step4.mp3",
           "hash": "55195512",
-          "size": 87120
+          "size": 85392
         }
       ]
     },
@@ -2062,27 +2061,27 @@
         {
           "file": "overview_tab__step0.mp3",
           "hash": "e70d667f",
-          "size": 98928
+          "size": 100512
         },
         {
           "file": "overview_tab__step1.mp3",
           "hash": "9558e36d",
-          "size": 101376
+          "size": 102528
         },
         {
           "file": "overview_tab__step2.mp3",
           "hash": "29ce7ec7",
-          "size": 82800
+          "size": 84672
         },
         {
           "file": "overview_tab__step3.mp3",
           "hash": "678d615c",
-          "size": 102672
+          "size": 107424
         },
         {
           "file": "overview_tab__step4.mp3",
           "hash": "1a1e2d9e",
-          "size": 103104
+          "size": 110304
         }
       ]
     },
@@ -2091,22 +2090,22 @@
         {
           "file": "pattern_learning__step0.mp3",
           "hash": "4bc9c570",
-          "size": 88272
+          "size": 91008
         },
         {
           "file": "pattern_learning__step1.mp3",
           "hash": "fc4b165c",
-          "size": 107424
+          "size": 111456
         },
         {
           "file": "pattern_learning__step2.mp3",
           "hash": "f341a3b0",
-          "size": 117072
+          "size": 119664
         },
         {
           "file": "pattern_learning__step3.mp3",
           "hash": "f9112b9b",
-          "size": 142992
+          "size": 141840
         }
       ]
     },
@@ -2115,27 +2114,27 @@
         {
           "file": "portfolio__step0.mp3",
           "hash": "d2d3f867",
-          "size": 130320
+          "size": 130896
         },
         {
           "file": "portfolio__step1.mp3",
           "hash": "763b686e",
-          "size": 94752
+          "size": 97056
         },
         {
           "file": "portfolio__step2.mp3",
           "hash": "d9dd304d",
-          "size": 116352
+          "size": 120960
         },
         {
           "file": "portfolio__step3.mp3",
           "hash": "777b068b",
-          "size": 113616
+          "size": 113904
         },
         {
           "file": "portfolio__step4.mp3",
           "hash": "90da988c",
-          "size": 113184
+          "size": 112176
         }
       ]
     },
@@ -2144,32 +2143,17 @@
         {
           "file": "portfolio_actions__step0.mp3",
           "hash": "6578ba91",
-          "size": 103392
+          "size": 102960
         },
         {
           "file": "portfolio_actions__step1.mp3",
           "hash": "2d78709e",
-          "size": 90288
+          "size": 90720
         },
         {
           "file": "portfolio_actions__step2.mp3",
           "hash": "e22a6db9",
-          "size": 113616
-        },
-        {
-          "file": "portfolio_actions__step3.mp3",
-          "hash": "0dc479ff",
-          "size": 17712
-        },
-        {
-          "file": "portfolio_actions__step4.mp3",
-          "hash": "728ae18b",
-          "size": 22176
-        },
-        {
-          "file": "portfolio_actions__step5.mp3",
-          "hash": "728ae18b",
-          "size": 22176
+          "size": 116640
         }
       ]
     },
@@ -2178,17 +2162,17 @@
         {
           "file": "preview_discovery__step0.mp3",
           "hash": "757c3972",
-          "size": 94320
+          "size": 97200
         },
         {
           "file": "preview_discovery__step1.mp3",
           "hash": "fda2cd77",
-          "size": 81648
+          "size": 89280
         },
         {
           "file": "preview_discovery__step2.mp3",
           "hash": "8c2d7336",
-          "size": 92448
+          "size": 95040
         }
       ]
     },
@@ -2197,22 +2181,22 @@
         {
           "file": "profile_management__step0.mp3",
           "hash": "860b2308",
-          "size": 101520
+          "size": 110448
         },
         {
           "file": "profile_management__step1.mp3",
           "hash": "902bf6bf",
-          "size": 94176
+          "size": 93888
         },
         {
           "file": "profile_management__step2.mp3",
           "hash": "c148544d",
-          "size": 85968
+          "size": 89856
         },
         {
           "file": "profile_management__step3.mp3",
           "hash": "7e74951d",
-          "size": 104832
+          "size": 102384
         }
       ]
     },
@@ -2221,22 +2205,22 @@
         {
           "file": "profiles__step0.mp3",
           "hash": "2e9f13b5",
-          "size": 109872
+          "size": 117216
         },
         {
           "file": "profiles__step1.mp3",
           "hash": "37f255d5",
-          "size": 98784
+          "size": 100944
         },
         {
           "file": "profiles__step2.mp3",
           "hash": "889c7603",
-          "size": 102528
+          "size": 104400
         },
         {
           "file": "profiles__step3.mp3",
           "hash": "9a8a8019",
-          "size": 90432
+          "size": 88704
         }
       ]
     },
@@ -2245,22 +2229,22 @@
         {
           "file": "progress_dashboard__step0.mp3",
           "hash": "b96d9ee5",
-          "size": 97200
+          "size": 93456
         },
         {
           "file": "progress_dashboard__step1.mp3",
           "hash": "e4e4a83d",
-          "size": 89280
+          "size": 88272
         },
         {
           "file": "progress_dashboard__step2.mp3",
           "hash": "dae3e955",
-          "size": 96480
+          "size": 99072
         },
         {
           "file": "progress_dashboard__step3.mp3",
           "hash": "e83ab49e",
-          "size": 93312
+          "size": 91584
         }
       ]
     },
@@ -2269,17 +2253,17 @@
         {
           "file": "project_dashboard__step0.mp3",
           "hash": "ce9651be",
-          "size": 94608
+          "size": 93024
         },
         {
           "file": "project_dashboard__step1.mp3",
           "hash": "258bf3a9",
-          "size": 100368
+          "size": 98784
         },
         {
           "file": "project_dashboard__step2.mp3",
           "hash": "4a8f182f",
-          "size": 119232
+          "size": 112464
         }
       ]
     },
@@ -2288,42 +2272,42 @@
         {
           "file": "proposal-compare__step0.mp3",
           "hash": "b841c824",
-          "size": 135648
+          "size": 145296
         },
         {
           "file": "proposal-compare__step1.mp3",
           "hash": "3fe6223b",
-          "size": 118080
+          "size": 118368
         },
         {
           "file": "proposal-compare__step2.mp3",
           "hash": "8584e422",
-          "size": 112032
+          "size": 112320
         },
         {
           "file": "proposal-compare__step3.mp3",
           "hash": "ed9be6a3",
-          "size": 115488
+          "size": 119232
         },
         {
           "file": "proposal-compare__step4.mp3",
           "hash": "66b46982",
-          "size": 115344
+          "size": 120384
         },
         {
           "file": "proposal-compare__step5.mp3",
           "hash": "e8d5ad0a",
-          "size": 97632
+          "size": 96624
         },
         {
           "file": "proposal-compare__step6.mp3",
           "hash": "5af31628",
-          "size": 111024
+          "size": 112032
         },
         {
           "file": "proposal-compare__step7.mp3",
           "hash": "cb49f67e",
-          "size": 107712
+          "size": 108000
         }
       ]
     },
@@ -2332,22 +2316,22 @@
         {
           "file": "proposals_analytics__step0.mp3",
           "hash": "d8dbd1ff",
-          "size": 91296
+          "size": 95904
         },
         {
           "file": "proposals_analytics__step1.mp3",
           "hash": "2c327191",
-          "size": 73440
+          "size": 75456
         },
         {
           "file": "proposals_analytics__step2.mp3",
           "hash": "6c0d7005",
-          "size": 66528
+          "size": 64656
         },
         {
           "file": "proposals_analytics__step3.mp3",
           "hash": "34d01c89",
-          "size": 92592
+          "size": 95184
         }
       ]
     },
@@ -2356,17 +2340,17 @@
         {
           "file": "quality_gates__step0.mp3",
           "hash": "f03c7fdf",
-          "size": 102096
+          "size": 105552
         },
         {
           "file": "quality_gates__step1.mp3",
           "hash": "12fd5c1d",
-          "size": 106416
+          "size": 107424
         },
         {
           "file": "quality_gates__step2.mp3",
           "hash": "d61ad256",
-          "size": 97920
+          "size": 104544
         }
       ]
     },
@@ -2375,22 +2359,22 @@
         {
           "file": "quality_tab__step0.mp3",
           "hash": "37482c8a",
-          "size": 80928
+          "size": 85680
         },
         {
           "file": "quality_tab__step1.mp3",
           "hash": "a5686c70",
-          "size": 94320
+          "size": 95040
         },
         {
           "file": "quality_tab__step2.mp3",
           "hash": "a6f2b6d4",
-          "size": 95040
+          "size": 96912
         },
         {
           "file": "quality_tab__step3.mp3",
           "hash": "31c6dc11",
-          "size": 69120
+          "size": 71136
         }
       ]
     },
@@ -2399,22 +2383,22 @@
         {
           "file": "raci_matrix__step0.mp3",
           "hash": "37313b2b",
-          "size": 99504
+          "size": 102384
         },
         {
           "file": "raci_matrix__step1.mp3",
           "hash": "53cf01cd",
-          "size": 130464
+          "size": 133776
         },
         {
           "file": "raci_matrix__step2.mp3",
           "hash": "f9e2cd09",
-          "size": 88272
+          "size": 90864
         },
         {
           "file": "raci_matrix__step3.mp3",
           "hash": "6a74ee7d",
-          "size": 103104
+          "size": 101952
         },
         {
           "file": "raci_matrix__step4.mp3",
@@ -2428,22 +2412,22 @@
         {
           "file": "red_flags__step0.mp3",
           "hash": "5509b955",
-          "size": 87552
+          "size": 89568
         },
         {
           "file": "red_flags__step1.mp3",
           "hash": "89283ab8",
-          "size": 124560
+          "size": 126432
         },
         {
           "file": "red_flags__step2.mp3",
           "hash": "e8d35520",
-          "size": 118224
+          "size": 120096
         },
         {
           "file": "red_flags__step3.mp3",
           "hash": "5bba2c5e",
-          "size": 98496
+          "size": 101952
         }
       ]
     },
@@ -2452,17 +2436,17 @@
         {
           "file": "reload_compare__step0.mp3",
           "hash": "3b2aaaf8",
-          "size": 84960
+          "size": 86544
         },
         {
           "file": "reload_compare__step1.mp3",
           "hash": "f810529d",
-          "size": 76896
+          "size": 77904
         },
         {
           "file": "reload_compare__step2.mp3",
           "hash": "024deb88",
-          "size": 104256
+          "size": 104688
         }
       ]
     },
@@ -2471,22 +2455,22 @@
         {
           "file": "results_aggregation__step0.mp3",
           "hash": "f3bbcb6f",
-          "size": 88992
+          "size": 94320
         },
         {
           "file": "results_aggregation__step1.mp3",
           "hash": "9258e80a",
-          "size": 98640
+          "size": 101376
         },
         {
           "file": "results_aggregation__step2.mp3",
           "hash": "1cb41858",
-          "size": 85536
+          "size": 87552
         },
         {
           "file": "results_aggregation__step3.mp3",
           "hash": "f11b76fc",
-          "size": 102240
+          "size": 101520
         }
       ]
     },
@@ -2495,32 +2479,32 @@
         {
           "file": "results_filtering__step0.mp3",
           "hash": "d06af005",
-          "size": 102960
+          "size": 103248
         },
         {
           "file": "results_filtering__step1.mp3",
           "hash": "4b6fa615",
-          "size": 88272
+          "size": 92016
         },
         {
           "file": "results_filtering__step2.mp3",
           "hash": "f65633e4",
-          "size": 87696
+          "size": 89424
         },
         {
           "file": "results_filtering__step3.mp3",
           "hash": "306c4759",
-          "size": 107856
+          "size": 113328
         },
         {
           "file": "results_filtering__step4.mp3",
           "hash": "752edcb8",
-          "size": 104256
+          "size": 107568
         },
         {
           "file": "results_filtering__step5.mp3",
           "hash": "a0e1c6cb",
-          "size": 89136
+          "size": 89712
         }
       ]
     },
@@ -2529,7 +2513,7 @@
         {
           "file": "results_filtering_hv__step0.mp3",
           "hash": "309e2821",
-          "size": 122112
+          "size": 124128
         },
         {
           "file": "results_filtering_hv__step1.mp3",
@@ -2539,17 +2523,17 @@
         {
           "file": "results_filtering_hv__step2.mp3",
           "hash": "75926626",
-          "size": 81936
+          "size": 83664
         },
         {
           "file": "results_filtering_hv__step3.mp3",
           "hash": "6f5eb381",
-          "size": 105120
+          "size": 104256
         },
         {
           "file": "results_filtering_hv__step4.mp3",
           "hash": "2d292b77",
-          "size": 110016
+          "size": 109872
         }
       ]
     },
@@ -2558,52 +2542,52 @@
         {
           "file": "review__step0.mp3",
           "hash": "22b29588",
-          "size": 108432
+          "size": 107856
         },
         {
           "file": "review__step1.mp3",
           "hash": "440dbbf0",
-          "size": 139824
+          "size": 135936
         },
         {
           "file": "review__step2.mp3",
           "hash": "fde0fff4",
-          "size": 159552
+          "size": 168192
         },
         {
           "file": "review__step3.mp3",
           "hash": "5c3a97df",
-          "size": 147312
+          "size": 151776
         },
         {
           "file": "review__step4.mp3",
           "hash": "8d7ddde4",
-          "size": 152064
+          "size": 142704
         },
         {
           "file": "review__step5.mp3",
           "hash": "a674fc38",
-          "size": 134640
+          "size": 145440
         },
         {
           "file": "review__step6.mp3",
           "hash": "bddf0d11",
-          "size": 130464
+          "size": 130896
         },
         {
           "file": "review__step7.mp3",
           "hash": "b03ba5e3",
-          "size": 131328
+          "size": 128016
         },
         {
           "file": "review__step8.mp3",
           "hash": "22b75955",
-          "size": 179136
+          "size": 185760
         },
         {
           "file": "review__step9.mp3",
           "hash": "fcb9fe94",
-          "size": 117792
+          "size": 123264
         }
       ]
     },
@@ -2612,22 +2596,22 @@
         {
           "file": "review_edit__step0.mp3",
           "hash": "faa9e839",
-          "size": 105696
+          "size": 106128
         },
         {
           "file": "review_edit__step1.mp3",
           "hash": "27017d94",
-          "size": 79200
+          "size": 81216
         },
         {
           "file": "review_edit__step2.mp3",
           "hash": "0f29b470",
-          "size": 96192
+          "size": 95760
         },
         {
           "file": "review_edit__step3.mp3",
           "hash": "7354d1a8",
-          "size": 79488
+          "size": 81360
         }
       ]
     },
@@ -2636,22 +2620,22 @@
         {
           "file": "review_options__step0.mp3",
           "hash": "42cfa588",
-          "size": 88848
+          "size": 90720
         },
         {
           "file": "review_options__step1.mp3",
           "hash": "fb0467ef",
-          "size": 95904
+          "size": 94464
         },
         {
           "file": "review_options__step2.mp3",
           "hash": "d089f0dd",
-          "size": 111600
+          "size": 102816
         },
         {
           "file": "review_options__step3.mp3",
           "hash": "741e3311",
-          "size": 93888
+          "size": 92448
         }
       ]
     },
@@ -2660,27 +2644,27 @@
         {
           "file": "review_presets__step0.mp3",
           "hash": "77e180b3",
-          "size": 125424
+          "size": 131760
         },
         {
           "file": "review_presets__step1.mp3",
           "hash": "1a0a1bb4",
-          "size": 106848
+          "size": 110880
         },
         {
           "file": "review_presets__step2.mp3",
           "hash": "b5e5d411",
-          "size": 105696
+          "size": 112464
         },
         {
           "file": "review_presets__step3.mp3",
           "hash": "7abb7da4",
-          "size": 101664
+          "size": 102528
         },
         {
           "file": "review_presets__step4.mp3",
           "hash": "4d6c17e4",
-          "size": 142992
+          "size": 144288
         }
       ]
     },
@@ -2689,27 +2673,27 @@
         {
           "file": "review_progress__step0.mp3",
           "hash": "c7305fa8",
-          "size": 86256
+          "size": 90432
         },
         {
           "file": "review_progress__step1.mp3",
           "hash": "048f670e",
-          "size": 130032
+          "size": 140112
         },
         {
           "file": "review_progress__step2.mp3",
           "hash": "99245cb6",
-          "size": 93600
+          "size": 93168
         },
         {
           "file": "review_progress__step3.mp3",
           "hash": "59ae2805",
-          "size": 103104
+          "size": 99648
         },
         {
           "file": "review_progress__step4.mp3",
           "hash": "0a222afa",
-          "size": 99216
+          "size": 97056
         }
       ]
     },
@@ -2718,7 +2702,7 @@
         {
           "file": "role_doc_matrix__step0.mp3",
           "hash": "86dbae83",
-          "size": 83088
+          "size": 86256
         },
         {
           "file": "role_doc_matrix__step1.mp3",
@@ -2728,12 +2712,12 @@
         {
           "file": "role_doc_matrix__step2.mp3",
           "hash": "7a8127b1",
-          "size": 81360
+          "size": 82368
         },
         {
           "file": "role_doc_matrix__step3.mp3",
           "hash": "ebfba4ef",
-          "size": 94032
+          "size": 95328
         }
       ]
     },
@@ -2742,52 +2726,52 @@
         {
           "file": "roles__step0.mp3",
           "hash": "531e96f1",
-          "size": 130896
+          "size": 134352
         },
         {
           "file": "roles__step1.mp3",
           "hash": "3dac443d",
-          "size": 125712
+          "size": 131328
         },
         {
           "file": "roles__step2.mp3",
           "hash": "1b927d70",
-          "size": 151632
+          "size": 149328
         },
         {
           "file": "roles__step3.mp3",
           "hash": "0e38bc89",
-          "size": 159696
+          "size": 158832
         },
         {
           "file": "roles__step4.mp3",
           "hash": "3261e4c5",
-          "size": 116352
+          "size": 115200
         },
         {
           "file": "roles__step5.mp3",
           "hash": "24a59051",
-          "size": 144432
+          "size": 149904
         },
         {
           "file": "roles__step6.mp3",
           "hash": "20f9096b",
-          "size": 116208
+          "size": 117504
         },
         {
           "file": "roles__step7.mp3",
           "hash": "5ed48387",
-          "size": 147888
+          "size": 150768
         },
         {
           "file": "roles__step8.mp3",
           "hash": "e00c274e",
-          "size": 120816
+          "size": 117936
         },
         {
           "file": "roles__step9.mp3",
           "hash": "f4004adf",
-          "size": 149328
+          "size": 151056
         }
       ]
     },
@@ -2796,22 +2780,22 @@
         {
           "file": "roles_analytics__step0.mp3",
           "hash": "3f93291a",
-          "size": 79632
+          "size": 85104
         },
         {
           "file": "roles_analytics__step1.mp3",
           "hash": "cad366f7",
-          "size": 87552
+          "size": 84096
         },
         {
           "file": "roles_analytics__step2.mp3",
           "hash": "45cff9d7",
-          "size": 70128
+          "size": 70848
         },
         {
           "file": "roles_analytics__step3.mp3",
           "hash": "302c9c66",
-          "size": 76896
+          "size": 78480
         }
       ]
     },
@@ -2820,22 +2804,22 @@
         {
           "file": "score_breakdown__step0.mp3",
           "hash": "7c9762f6",
-          "size": 114336
+          "size": 113904
         },
         {
           "file": "score_breakdown__step1.mp3",
           "hash": "988ebdbb",
-          "size": 108288
+          "size": 113616
         },
         {
           "file": "score_breakdown__step2.mp3",
           "hash": "fa4d621b",
-          "size": 119376
+          "size": 121104
         },
         {
           "file": "score_breakdown__step3.mp3",
           "hash": "dabc641c",
-          "size": 106848
+          "size": 105264
         }
       ]
     },
@@ -2844,22 +2828,22 @@
         {
           "file": "search_filtering__step0.mp3",
           "hash": "99ed5ee3",
-          "size": 96912
+          "size": 95472
         },
         {
           "file": "search_filtering__step1.mp3",
           "hash": "96d54006",
-          "size": 98784
+          "size": 96336
         },
         {
           "file": "search_filtering__step2.mp3",
           "hash": "7252e22c",
-          "size": 98208
+          "size": 98784
         },
         {
           "file": "search_filtering__step3.mp3",
           "hash": "a9bb0eaa",
-          "size": 86112
+          "size": 84384
         }
       ]
     },
@@ -2868,22 +2852,22 @@
         {
           "file": "selection_tools__step0.mp3",
           "hash": "c1a5cf79",
-          "size": 113616
+          "size": 119520
         },
         {
           "file": "selection_tools__step1.mp3",
           "hash": "17a2a92d",
-          "size": 111888
+          "size": 112464
         },
         {
           "file": "selection_tools__step2.mp3",
           "hash": "8fab1e97",
-          "size": 104256
+          "size": 105408
         },
         {
           "file": "selection_tools__step3.mp3",
           "hash": "5c0ed780",
-          "size": 118368
+          "size": 117792
         }
       ]
     },
@@ -2892,42 +2876,42 @@
         {
           "file": "settings__step0.mp3",
           "hash": "22b0190e",
-          "size": 90288
+          "size": 90720
         },
         {
           "file": "settings__step1.mp3",
           "hash": "a7213f0a",
-          "size": 103392
+          "size": 107280
         },
         {
           "file": "settings__step2.mp3",
           "hash": "cc333943",
-          "size": 118368
+          "size": 123264
         },
         {
           "file": "settings__step3.mp3",
           "hash": "ff9c7c22",
-          "size": 152784
+          "size": 156384
         },
         {
           "file": "settings__step4.mp3",
           "hash": "c50743a3",
-          "size": 103536
+          "size": 106704
         },
         {
           "file": "settings__step5.mp3",
           "hash": "ec7f9b57",
-          "size": 111456
+          "size": 107856
         },
         {
           "file": "settings__step6.mp3",
           "hash": "161d40e8",
-          "size": 125136
+          "size": 131184
         },
         {
           "file": "settings__step7.mp3",
           "hash": "c0e6893b",
-          "size": 162144
+          "size": 164736
         }
       ]
     },
@@ -2936,17 +2920,17 @@
         {
           "file": "sharing_settings__step0.mp3",
           "hash": "66bd4f93",
-          "size": 72864
+          "size": 71712
         },
         {
           "file": "sharing_settings__step1.mp3",
           "hash": "821684ae",
-          "size": 101520
+          "size": 99936
         },
         {
           "file": "sharing_settings__step2.mp3",
           "hash": "bcf86eae",
-          "size": 89712
+          "size": 88992
         }
       ]
     },
@@ -2955,17 +2939,17 @@
         {
           "file": "sorting_filtering__step0.mp3",
           "hash": "68068d76",
-          "size": 109440
+          "size": 116496
         },
         {
           "file": "sorting_filtering__step1.mp3",
           "hash": "77dcc2d6",
-          "size": 88128
+          "size": 88416
         },
         {
           "file": "sorting_filtering__step2.mp3",
           "hash": "7ccb14d7",
-          "size": 100944
+          "size": 104688
         }
       ]
     },
@@ -2974,27 +2958,27 @@
         {
           "file": "sow__step0.mp3",
           "hash": "afb2151f",
-          "size": 86112
+          "size": 89280
         },
         {
           "file": "sow__step1.mp3",
           "hash": "b6446785",
-          "size": 96624
+          "size": 97056
         },
         {
           "file": "sow__step2.mp3",
           "hash": "4bc16b87",
-          "size": 104400
+          "size": 100368
         },
         {
           "file": "sow__step3.mp3",
           "hash": "788ea09b",
-          "size": 109296
+          "size": 113904
         },
         {
           "file": "sow__step4.mp3",
           "hash": "568365e8",
-          "size": 99504
+          "size": 101664
         }
       ]
     },
@@ -3003,17 +2987,17 @@
         {
           "file": "statement_integration__step0.mp3",
           "hash": "22b0a7b1",
-          "size": 101808
+          "size": 102816
         },
         {
           "file": "statement_integration__step1.mp3",
           "hash": "1c663cff",
-          "size": 88128
+          "size": 93744
         },
         {
           "file": "statement_integration__step2.mp3",
           "hash": "3824df9d",
-          "size": 103536
+          "size": 103248
         },
         {
           "file": "statement_integration__step3.mp3",
@@ -3027,17 +3011,17 @@
         {
           "file": "statements_tab__step0.mp3",
           "hash": "1b752126",
-          "size": 88992
+          "size": 88704
         },
         {
           "file": "statements_tab__step1.mp3",
           "hash": "a5724cda",
-          "size": 101088
+          "size": 96912
         },
         {
           "file": "statements_tab__step2.mp3",
           "hash": "edcbc8c9",
-          "size": 64368
+          "size": 64944
         }
       ]
     },
@@ -3046,17 +3030,17 @@
         {
           "file": "template_upload__step0.mp3",
           "hash": "1a969fca",
-          "size": 81504
+          "size": 82224
         },
         {
           "file": "template_upload__step1.mp3",
           "hash": "17d7c423",
-          "size": 100656
+          "size": 103824
         },
         {
           "file": "template_upload__step2.mp3",
           "hash": "1201d980",
-          "size": 91872
+          "size": 92448
         }
       ]
     },
@@ -3065,27 +3049,27 @@
         {
           "file": "triage_mode__step0.mp3",
           "hash": "d6c96825",
-          "size": 118656
+          "size": 123552
         },
         {
           "file": "triage_mode__step1.mp3",
           "hash": "e44b9035",
-          "size": 89568
+          "size": 92880
         },
         {
           "file": "triage_mode__step2.mp3",
           "hash": "6684abce",
-          "size": 106272
+          "size": 103248
         },
         {
           "file": "triage_mode__step3.mp3",
           "hash": "aa92c131",
-          "size": 111744
+          "size": 108144
         },
         {
           "file": "triage_mode__step4.mp3",
           "hash": "8ea4d8c7",
-          "size": 108864
+          "size": 106272
         }
       ]
     },
@@ -3094,17 +3078,17 @@
         {
           "file": "updates_tab__step0.mp3",
           "hash": "3c2d8c7c",
-          "size": 61776
+          "size": 62352
         },
         {
           "file": "updates_tab__step1.mp3",
           "hash": "36a3c394",
-          "size": 96624
+          "size": 90864
         },
         {
           "file": "updates_tab__step2.mp3",
           "hash": "13fc4ee8",
-          "size": 90720
+          "size": 87552
         }
       ]
     },
@@ -3113,22 +3097,22 @@
         {
           "file": "upload_extract__step0.mp3",
           "hash": "c3c1ae4d",
-          "size": 87120
+          "size": 87696
         },
         {
           "file": "upload_extract__step1.mp3",
           "hash": "83e2d05b",
-          "size": 89424
+          "size": 88848
         },
         {
           "file": "upload_extract__step2.mp3",
           "hash": "9a25864a",
-          "size": 103248
+          "size": 102096
         },
         {
           "file": "upload_extract__step3.mp3",
           "hash": "05673fde",
-          "size": 86688
+          "size": 87840
         }
       ]
     },
@@ -3137,22 +3121,22 @@
         {
           "file": "upload_paste__step0.mp3",
           "hash": "c99973f3",
-          "size": 97344
+          "size": 99072
         },
         {
           "file": "upload_paste__step1.mp3",
           "hash": "bd39e62e",
-          "size": 101232
+          "size": 105840
         },
         {
           "file": "upload_paste__step2.mp3",
           "hash": "cf076d0d",
-          "size": 102672
+          "size": 107136
         },
         {
           "file": "upload_paste__step3.mp3",
           "hash": "e6ad9889",
-          "size": 71568
+          "size": 73440
         }
       ]
     },
@@ -3161,37 +3145,37 @@
         {
           "file": "validator__step0.mp3",
           "hash": "94a3ec5d",
-          "size": 103104
+          "size": 106848
         },
         {
           "file": "validator__step1.mp3",
           "hash": "f025cb7f",
-          "size": 113472
+          "size": 117936
         },
         {
           "file": "validator__step2.mp3",
           "hash": "4d9ec2ae",
-          "size": 122688
+          "size": 122112
         },
         {
           "file": "validator__step3.mp3",
           "hash": "bd59bdac",
-          "size": 151488
+          "size": 151776
         },
         {
           "file": "validator__step4.mp3",
           "hash": "6d200274",
-          "size": 134928
+          "size": 134784
         },
         {
           "file": "validator__step5.mp3",
           "hash": "a8e004d9",
-          "size": 134784
+          "size": 139536
         },
         {
           "file": "validator__step6.mp3",
           "hash": "1ec06b0e",
-          "size": 134928
+          "size": 138816
         }
       ]
     },
@@ -3200,22 +3184,22 @@
         {
           "file": "vendor_scores__step0.mp3",
           "hash": "08c0d189",
-          "size": 118656
+          "size": 121104
         },
         {
           "file": "vendor_scores__step1.mp3",
           "hash": "ab9481cb",
-          "size": 108864
+          "size": 113184
         },
         {
           "file": "vendor_scores__step2.mp3",
           "hash": "1860d063",
-          "size": 117360
+          "size": 123552
         },
         {
           "file": "vendor_scores__step3.mp3",
           "hash": "4de9e717",
-          "size": 88128
+          "size": 91440
         }
       ]
     }
