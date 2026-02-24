@@ -253,6 +253,25 @@ class SharePointConnector:
             'User-Agent': 'AEGIS/5.9.38 SharePointConnector',
         })
 
+    @staticmethod
+    def _encode_sp_path(path: str) -> str:
+        """
+        v6.0.3: Encode a SharePoint server-relative path for use inside
+        OData function parameters like GetFolderByServerRelativeUrl('...').
+
+        The key insight: inside OData single-quoted string parameters, '&' is
+        a literal character (NOT an HTTP query string separator). Folder names
+        like 'T&E' or 'R&D' must keep '&' literal. Using quote(safe='/:')
+        encodes '&' as '%26', which causes SharePoint to return 404/400 because
+        it looks for a folder literally named 'T%26E' instead of 'T&E'.
+
+        Also handles '#' and other chars that are valid in SharePoint folder
+        names but would break URL parsing if encoded incorrectly.
+        """
+        # safe includes '/:&' — slash and colon are path separators,
+        # ampersand is literal inside OData single-quoted parameters
+        return quote(path, safe='/:&')
+
     def _api_get(self, endpoint: str, stream: bool = False) -> requests.Response:
         """
         Make a GET request to the SharePoint REST API with retry logic.
@@ -722,7 +741,7 @@ class SharePointConnector:
         # Strategy 2: Probe common library names
         for lib_name in self.DEFAULT_LIBRARIES:
             test_path = f"{site_path}/{lib_name}"
-            encoded = quote(test_path, safe='/:')
+            encoded = self._encode_sp_path(test_path)
 
             try:
                 resp = self.session.get(
@@ -744,17 +763,24 @@ class SharePointConnector:
         """
         v5.9.42: Check if a folder path exists on this SharePoint site.
         Used to validate URL-extracted paths before scanning.
+
+        v6.0.3: Uses _encode_sp_path() to keep '&' literal inside OData
+        single-quoted parameters. Folder names like 'T&E' and 'R&D' now
+        resolve correctly (previously encoded as T%26E → 404).
         """
-        encoded = quote(folder_path, safe='/:')
+        encoded = self._encode_sp_path(folder_path)
         try:
             resp = self.session.get(
                 f"{self.site_url}/_api/web/GetFolderByServerRelativeUrl('{encoded}')",
                 timeout=self.timeout,
                 verify=self.ssl_verify,
             )
-            return resp.status_code == 200
+            if resp.status_code == 200:
+                return True
         except Exception:
-            return False
+            pass
+
+        return False
 
     def list_files(
         self,
@@ -792,7 +818,8 @@ class SharePointConnector:
             return
 
         # URL-encode the folder path for the REST API
-        encoded_path = quote(folder_path, safe='/:')
+        # v6.0.3: Use _encode_sp_path() to keep '&' literal (T&E, R&D folders)
+        encoded_path = self._encode_sp_path(folder_path)
 
         try:
             # Get files in this folder
@@ -958,7 +985,8 @@ class SharePointConnector:
         Returns:
             {'success': bool, 'path': str, 'size': int, 'message': str}
         """
-        encoded_url = quote(server_relative_url, safe='/:')
+        # v6.0.3: Keep '&' literal for folder names like T&E, R&D
+        encoded_url = self._encode_sp_path(server_relative_url)
 
         # v6.0.3: Use a fresh session per download for thread-safe NTLM auth
         session = self._create_download_session()

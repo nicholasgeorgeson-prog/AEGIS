@@ -1230,6 +1230,13 @@ Chain batches sequentially: each batch's commit becomes the next batch's parent,
 **Files**: `sharepoint_connector.py`
 **Lesson**: NTLM/Negotiate auth is inherently connection-specific — NEVER share a `requests.Session()` across threads for NTLM-authenticated endpoints. Create a fresh session per request (per thread). This is the same pattern as the hyperlink validator's `_retry_with_fresh_auth` (Lesson 75). For batch operations with `ThreadPoolExecutor`, the shared connector object is fine for configuration (site_url, ssl_verify, timeout), but the actual HTTP session must be per-call, not per-connector.
 
+### 135. SharePoint Folder Names with Ampersand — OData Encoding (v6.0.3)
+**Problem**: SharePoint batch scan returned 400 "Folder not found" for library path `/sites/AS-ENG/PAL/yyRelease/T&E`. Connection test passed but file discovery failed.
+**Root Cause**: `validate_folder_path()`, `_list_files_recursive()`, and `download_file()` all used `quote(path, safe='/:')` which encodes `&` as `%26`. Inside SharePoint OData function parameters like `GetFolderByServerRelativeUrl('/sites/.../T&E')`, the `&` character is LITERAL — it's inside single quotes and NOT an HTTP query string separator. When `&` is encoded as `%26`, SharePoint looks for a folder literally named `T%26E` instead of `T&E` → 404/400.
+**Fix**: (1) Added `_encode_sp_path()` static helper method that uses `quote(path, safe='/:&')` — keeps `&` literal alongside `/` and `:`. (2) Replaced all 4 `quote()` calls (`validate_folder_path`, `_list_files_recursive`, `auto_detect_library_path`, `download_file`) with `self._encode_sp_path()` for consistent encoding. (3) `parse_sharepoint_url()` already handles `Default.aspx` via the generic `/Forms/*.aspx` stripping at line 148-149.
+**Files**: `sharepoint_connector.py`
+**Lesson**: Inside OData single-quoted function parameters (`GetFolderByServerRelativeUrl('...')`), characters like `&` are literal — they're not interpreted as HTTP query string separators. When URL-encoding paths for SharePoint REST API calls, always include `&` in the `safe` parameter: `quote(path, safe='/:&')`. Common folder names with `&`: T&E (Travel & Expense), R&D (Research & Development), P&ID, M&A, I&T. Centralize encoding in a helper method to prevent inconsistency across different API call sites.
+
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
 1. **Changelog update** in `version.json` (and copy to `static/version.json`)
