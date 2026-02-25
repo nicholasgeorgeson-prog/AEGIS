@@ -167,7 +167,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 6.0.8
+- **Current version**: 6.0.9
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -1310,6 +1310,14 @@ The `decodedUrl` parameter **auto-decodes** percent-encoded values before using 
 **Fix**: (1) Added `btnSpScan` re-enable in the `finally` block: `if (btnSpScan && !btnSpScan.dataset.scanId) btnSpScan.disabled = false` — only leaves it disabled if a scan was actually started. (2) The modal close button (X) already worked, but the user may not have realized they needed to close the modal first.
 **Files**: `static/js/app.js`
 **Lesson**: When a modal disables buttons during an async operation, the `finally` block MUST re-enable ALL buttons, not just some. Any modal with a `.modal-overlay` creates a full-screen click blocker — if users can't close it, the entire app appears frozen. Always test the "operation failed immediately" path, not just the success path. The gap between "3 of 4 buttons re-enabled" was invisible during development because the 4th button (Scan All) was rarely used directly.
+
+### 142. Apply Script --no-index Silently Fails When Wheels Missing (v6.0.9)
+**Problem**: Apply scripts v6.0.7 and v6.0.8 both failed to install msal, PyJWT, and pywin32 on the Windows machine. The terminal showed `[FAIL]` but the user may not have noticed. AEGIS started without MSAL or pywin32, so all SharePoint Online auth strategies except the basic Negotiate (which can't work with empty WWW-Authenticate) were disabled.
+**Root Cause**: `pip_install()` in apply scripts used `--no-index --find-links=wheels/` (offline-only). The wheel files (`msal-1.35.0-py3-none-any.whl`, `pywin32-311-cp310-cp310-win_amd64.whl`, etc.) exist on the Mac dev machine but were NEVER included in the GitHub file downloads or the apply script's FILES dict. The `wheels/` directory on the Windows machine doesn't contain these wheels. pip with `--no-index` silently fails when no matching wheel is found — it prints an error but returns non-zero, which the script caught and printed `[FAIL]` but continued. The user had internet access (the machine can reach `ngc.sharepoint.us`), so online pip install would have worked.
+**Fix**: New `pip_install()` with two-strategy approach: (1) Try offline first (`--no-index --find-links=wheels/`), (2) If offline fails, try online (`pip install` without `--no-index`). Also: verify imports after install with clear `✓ INSTALLED` / `✗ NOT INSTALLED` summary. Also: check pip availability before attempting installs.
+**Key log evidence**: Terminal log showed `"Windows SSO (Negotiate) configured"` (Strategy 3 only) with NO "Preemptive SSPI" or "MSAL available" messages — confirming pywin32 and MSAL were both absent.
+**Files**: `apply_v6.0.9.py`
+**Lesson**: NEVER assume wheel files exist in the `wheels/` directory on the target machine when using apply scripts that download source files from GitHub. The apply script downloads `.py` and `.js` files — NOT `.whl` files. For packages that need to be installed, always try online pip as fallback after offline. The offline-first strategy is still preferred for air-gapped environments, but the fallback prevents silent failure on internet-connected machines. Additionally, the apply script should print a CLEAR summary of which packages were successfully installed vs failed, not just per-package `[OK]`/`[FAIL]` messages that scroll by.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

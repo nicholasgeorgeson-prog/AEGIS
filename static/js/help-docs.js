@@ -10,6 +10,7 @@
  * - Technical deep-dive section for advanced users
  * - Smooth navigation and professional typography
  *
+ * v6.0.9 - Fix: OAuth packages (msal/PyJWT/pywin32) now install via online pip when local wheels missing
  * v6.0.8 - SharePoint zero-config OAuth auto-detection (well-known client ID, tenant from URL, IWA fallback, UI freeze fix)
  * v6.0.7 - SharePoint Auth Fix (pywin32 install for preemptive SSPI, embedded Python detection, offline-only installs)
  * v6.0.6 - SharePoint folder validation auth bypass fix (validate_folder_path now uses _api_get)
@@ -53,7 +54,7 @@
 'use strict';
 
 const HelpDocs = {
-    version: '6.0.8',
+    version: '6.0.9',
     lastUpdated: '2026-02-25',
     
     config: {
@@ -8075,6 +8076,15 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.0.9 <span class="changelog-date">February 25, 2026</span></h3>
+        <p><strong>Fix: OAuth Dependency Installation</strong></p>
+        <ul>
+            <li><strong>FIX: CRITICAL &mdash; OAuth packages now install correctly</strong> &mdash; Previous apply scripts used <code>--no-index</code> (offline-only pip install) which silently failed when wheel files were not present on the Windows machine. v6.0.9 tries offline first, then falls back to online PyPI install</li>
+            <li><strong>FIX: Clear install verification</strong> &mdash; Apply script now shows explicit INSTALLED / NOT INSTALLED status for each auth package (msal, PyJWT, pywin32)</li>
+            <li><strong>FIX: pip availability check</strong> &mdash; Apply script verifies pip exists and shows version before attempting package installs</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v6.0.8 <span class="changelog-date">February 25, 2026</span></h3>
         <p><strong>SharePoint Zero-Config OAuth &amp; UI Fix</strong></p>
         <ul>
