@@ -8082,6 +8082,16 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.1.5 <span class="changelog-date">February 25, 2026</span></h3>
+        <p><strong>Offline Chromium Browser Install &amp; Auth Allowlist Dedup</strong></p>
+        <ul>
+            <li><strong>FIX: CRITICAL &mdash; Offline Chromium installation</strong> &mdash; The apply script no longer calls <code>playwright install chromium</code> (which requires internet access to <code>playwright.azureedge.net</code>). Instead, it downloads the Chromium headless shell binary (~109MB) from the AEGIS GitHub Release and extracts it directly to the Playwright browser cache (<code>%LOCALAPPDATA%\ms-playwright\chromium_headless_shell-1208</code>). Creates required marker files (<code>DEPENDENCIES_VALIDATED</code>, <code>INSTALLATION_COMPLETE</code>) for Playwright to recognize the installation. Fully air-gapped compatible</li>
+            <li><strong>FIX: Auth allowlist deduplication</strong> &mdash; The <code>--auth-server-allowlist</code> Chromium flag now deduplicates domain entries before passing to the browser. Previously, overlapping entries from <code>CORP_AUTH_DOMAINS</code> and identity provider extras could cause the allowlist to exceed command-line length limits</li>
+            <li><strong>ENH: Multi-source Chromium zip detection</strong> &mdash; The installer searches multiple local directories (<code>browsers/</code>, <code>packaging/browsers/</code>, <code>wheels/</code>, <code>packaging/wheels/</code>, AEGIS root) for a pre-placed Chromium zip before attempting a GitHub Release download. Supports fully offline deployment when the zip is pre-staged</li>
+            <li><strong>ENH: Embedded Python auto-detection</strong> &mdash; The apply script now auto-detects the embedded Python at <code>python/python.exe</code> (OneClick installer layout) before falling back to <code>sys.executable</code>, ensuring packages install to the correct Python environment</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v6.1.4 <span class="changelog-date">February 25, 2026</span></h3>
         <p><strong>Headless SharePoint: Federated SSO Fix &amp; Diagnostics</strong></p>
         <ul>

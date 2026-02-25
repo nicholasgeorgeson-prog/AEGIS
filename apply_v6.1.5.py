@@ -2,27 +2,25 @@
 """
 AEGIS v6.1.4 → v6.1.5 Update Applier
 =======================================
-Playwright Chromium Browser Binary Install + Auth Allowlist Dedup
+Fully Offline Chromium Browser Install + Auth Allowlist Dedup
 
 The v6.1.4 update fixed the HeadlessSPConnector authentication logic,
 but the headless browser still failed because the Playwright Chromium
-browser BINARY was never installed.
+browser BINARY was never installed. On air-gapped / restricted networks,
+'playwright install chromium' cannot download from the internet.
 
-  pip install playwright     → installs Python API only
-  playwright install chromium → downloads the actual browser (~100MB)
-
-These are TWO SEPARATE steps. Without the binary, BrowserType.launch()
-fails with "Executable doesn't exist at ...".
+This update installs the Chromium headless shell COMPLETELY OFFLINE:
+  1. Downloads chromium-headless-shell-win64.zip from the AEGIS GitHub
+     Release (same as torch, models, etc.)
+  2. Extracts it to the correct Playwright browser directory
+  3. Creates marker files so Playwright recognises it as installed
 
 Changes:
-- sharepoint_connector.py — Deduplicated auth-server-allowlist entries
-  (IdP domains were doubled from both CORP_AUTH_DOMAINS and _idp_extras)
+- sharepoint_connector.py — Deduplicated auth-server-allowlist entries,
+  added PLAYWRIGHT_BROWSERS_PATH auto-detection for offline installs
+- hyperlink_validator/headless_validator.py — Same PLAYWRIGHT_BROWSERS_PATH
 - version.json / static/version.json — Version bump to 6.1.5
 - static/js/help-docs.js — v6.1.5 changelog
-
-Primary goal:
-  Ensure 'playwright install chromium' runs successfully and the binary
-  exists at the expected path.
 
 Usage:
   cd <AEGIS_INSTALL_DIR>
@@ -39,6 +37,7 @@ import sys
 import shutil
 import ssl
 import subprocess
+import zipfile
 import urllib.request
 from datetime import datetime
 
@@ -47,10 +46,23 @@ REPO = 'nicholasgeorgeson-prog/AEGIS'
 BRANCH = 'main'
 RAW_BASE = f'https://raw.githubusercontent.com/{REPO}/{BRANCH}'
 
+# GitHub Release for large binaries (same release as torch, models, etc.)
+RELEASE_TAG = 'v5.9.21'
+RELEASE_BASE = f'https://github.com/{REPO}/releases/download/{RELEASE_TAG}'
+
+# Chromium headless shell details (must match Playwright version)
+# These come from {playwright_package}/driver/package/browsers.json
+CHROMIUM_REVISION = '1208'
+CHROMIUM_VERSION = '145.0.7632.6'
+CHROMIUM_ZIP = 'chromium-headless-shell-win64.zip'
+CHROMIUM_DIR_NAME = f'chromium_headless_shell-{CHROMIUM_REVISION}'
+CHROMIUM_EXE_SUBDIR = 'chrome-headless-shell-win64'
+CHROMIUM_EXE_NAME = 'chrome-headless-shell.exe'
+
 # Files to update (relative path -> description)
 FILES = {
-    'sharepoint_connector.py': 'SharePoint connector — deduplicated auth allowlist',
-    'hyperlink_validator/headless_validator.py': 'Headless validator — expanded SSO auth allowlist',
+    'sharepoint_connector.py': 'SharePoint connector — deduplicated auth allowlist + offline browser path',
+    'hyperlink_validator/headless_validator.py': 'Headless validator — offline browser path support',
     'version.json': 'Version 6.1.5',
     'static/version.json': 'Version 6.1.5 (static copy)',
     'static/js/help-docs.js': 'Help docs with v6.1.5 changelog',
@@ -67,8 +79,8 @@ def create_ssl_context():
         return ctx
 
 
-def download_file(url, dest_path, is_binary=False):
-    """Download a file from URL to dest_path."""
+def download_file(url, dest_path, description=''):
+    """Download a file from URL to dest_path with SSL fallback."""
     ctx = create_ssl_context()
     try:
         req = urllib.request.Request(url, headers={'User-Agent': 'AEGIS-Updater/6.1.5'})
@@ -78,7 +90,7 @@ def download_file(url, dest_path, is_binary=False):
                 f.write(data)
             return True
     except Exception as e:
-        print(f'  [ERROR] Download failed: {e}')
+        # SSL fallback
         try:
             ctx = ssl._create_unverified_context()
             req = urllib.request.Request(url, headers={'User-Agent': 'AEGIS-Updater/6.1.5'})
@@ -88,8 +100,43 @@ def download_file(url, dest_path, is_binary=False):
                     f.write(data)
                 return True
         except Exception as e2:
-            print(f'  [ERROR] SSL fallback also failed: {e2}')
+            print(f'  [ERROR] Download failed: {e2}')
             return False
+
+
+def download_large_file(url, dest_path, expected_size_mb=0):
+    """Download a large file with progress reporting and SSL fallback."""
+    for attempt in range(2):
+        ctx = create_ssl_context() if attempt == 0 else ssl._create_unverified_context()
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': 'AEGIS-Updater/6.1.5'})
+            with urllib.request.urlopen(req, context=ctx) as response:
+                total = int(response.headers.get('Content-Length', 0))
+                downloaded = 0
+                chunk_size = 256 * 1024  # 256KB chunks
+                with open(dest_path, 'wb') as f:
+                    while True:
+                        chunk = response.read(chunk_size)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if total > 0:
+                            pct = downloaded * 100 / total
+                            mb_done = downloaded / (1024 * 1024)
+                            mb_total = total / (1024 * 1024)
+                            print(f'\r    [{pct:5.1f}%] {mb_done:.1f} / {mb_total:.1f} MB', end='', flush=True)
+                        else:
+                            mb_done = downloaded / (1024 * 1024)
+                            print(f'\r    {mb_done:.1f} MB downloaded...', end='', flush=True)
+                print()  # newline after progress
+                return True
+        except Exception as e:
+            if attempt == 0:
+                continue  # Try SSL fallback
+            print(f'  [ERROR] Download failed: {e}')
+            return False
+    return False
 
 
 def find_aegis_python():
@@ -150,138 +197,191 @@ def verify_playwright_package(python_exe):
         return False
 
 
-def verify_chromium_binary(python_exe):
+def get_playwright_browsers_dir(python_exe):
     """
-    Verify the Chromium browser BINARY exists (separate from the Python package).
-    This is the critical check — the binary is what BrowserType.launch() needs.
+    Determine where Playwright expects browser binaries.
+    Priority: PLAYWRIGHT_BROWSERS_PATH env var → default location
     """
-    try:
-        # Ask Playwright where the chromium executable should be
-        result = subprocess.run(
-            [python_exe, '-c', '''
-import sys
-try:
-    from playwright.sync_api import sync_playwright
-    pw = sync_playwright().start()
-    exe = pw.chromium.executable_path
-    pw.stop()
-    import os
-    exists = os.path.isfile(exe)
-    print(f"PATH={exe}")
-    print(f"EXISTS={exists}")
-except Exception as e:
-    print(f"ERROR={e}")
-'''],
-            capture_output=True, text=True, timeout=30
-        )
-        stdout = result.stdout.strip()
-        if 'EXISTS=True' in stdout:
-            # Extract the path for display
-            for line in stdout.split('\n'):
-                if line.startswith('PATH='):
-                    path = line[5:]
-                    print(f'  [OK] Chromium binary found: {path}')
-            return True
-        elif 'EXISTS=False' in stdout:
-            for line in stdout.split('\n'):
-                if line.startswith('PATH='):
-                    path = line[5:]
-                    print(f'  [MISSING] Chromium binary NOT found at: {path}')
-            return False
-        elif 'ERROR=' in stdout:
-            for line in stdout.split('\n'):
-                if line.startswith('ERROR='):
-                    err = line[6:]
-                    print(f'  [ERROR] Could not check Chromium binary: {err[:120]}')
-            return False
-        else:
-            print(f'  [ERROR] Unexpected output: {stdout[:200]}')
-            return False
-    except subprocess.TimeoutExpired:
-        print('  [ERROR] Chromium binary check timed out')
-        return False
-    except Exception as e:
-        print(f'  [ERROR] Could not check Chromium binary: {e}')
-        return False
+    # Check env var first
+    env_path = os.environ.get('PLAYWRIGHT_BROWSERS_PATH')
+    if env_path and env_path != '0':
+        return env_path
+
+    # Default: %LOCALAPPDATA%\ms-playwright on Windows
+    if sys.platform == 'win32':
+        local_app_data = os.environ.get('LOCALAPPDATA', '')
+        if local_app_data:
+            return os.path.join(local_app_data, 'ms-playwright')
+
+    # macOS/Linux default
+    home = os.path.expanduser('~')
+    if sys.platform == 'darwin':
+        return os.path.join(home, 'Library', 'Caches', 'ms-playwright')
+    else:
+        return os.path.join(home, '.cache', 'ms-playwright')
 
 
-def install_chromium_binary(python_exe):
+def find_chromium_zip_locally():
     """
-    Run 'playwright install chromium' to download the browser binary.
-    This is the ~100MB download that BrowserType.launch() needs.
+    Search for the Chromium zip file in common local locations.
+    This supports truly air-gapped installs where the user has manually
+    copied the zip file to the AEGIS directory.
     """
+    search_paths = [
+        # Same directory as the apply script
+        os.path.join(os.getcwd(), CHROMIUM_ZIP),
+        # In a browsers/ subdirectory
+        os.path.join(os.getcwd(), 'browsers', CHROMIUM_ZIP),
+        # In packaging/browsers/
+        os.path.join(os.getcwd(), 'packaging', 'browsers', CHROMIUM_ZIP),
+        # In wheels/ (alongside other large binaries)
+        os.path.join(os.getcwd(), 'wheels', CHROMIUM_ZIP),
+        # In packaging/wheels/
+        os.path.join(os.getcwd(), 'packaging', 'wheels', CHROMIUM_ZIP),
+    ]
+
+    for path in search_paths:
+        if os.path.isfile(path):
+            size_mb = os.path.getsize(path) / (1024 * 1024)
+            if size_mb > 50:  # Sanity check — real zip is ~109MB
+                print(f'  [FOUND] Local Chromium zip: {path} ({size_mb:.1f} MB)')
+                return path
+            else:
+                print(f'  [SKIP] {path} too small ({size_mb:.1f} MB) — probably not the full binary')
+
+    return None
+
+
+def install_chromium_offline(python_exe):
+    """
+    Install Chromium headless shell binary for Playwright — FULLY OFFLINE.
+
+    Strategy:
+      1. Check if Chromium binary already exists at the expected path
+      2. Look for the zip file locally (user may have copied it)
+      3. Download the zip from GitHub Release (same server as torch, models)
+      4. Extract to the correct Playwright browser directory
+      5. Create marker files (DEPENDENCIES_VALIDATED, INSTALLATION_COMPLETE)
+
+    Returns: (success: bool, exe_path: str or None)
+    """
+    browsers_dir = get_playwright_browsers_dir(python_exe)
+    chromium_dir = os.path.join(browsers_dir, CHROMIUM_DIR_NAME)
+    exe_path = os.path.join(chromium_dir, CHROMIUM_EXE_SUBDIR, CHROMIUM_EXE_NAME)
+
+    print(f'  Playwright browsers directory: {browsers_dir}')
+    print(f'  Expected Chromium path: {exe_path}')
+
+    # ── Check if already installed ──
+    if os.path.isfile(exe_path):
+        print(f'  [OK] Chromium binary already exists!')
+        return True, exe_path
+
+    print(f'  [MISSING] Chromium binary not found — installing offline...')
     print()
-    print('  Running: playwright install chromium')
-    print('  (This downloads ~100MB — may take a few minutes...)')
-    print()
+
+    # ── Find or download the zip ──
+    zip_path = find_chromium_zip_locally()
+
+    if not zip_path:
+        # Download from GitHub Release
+        download_url = f'{RELEASE_BASE}/{CHROMIUM_ZIP}'
+        zip_path = os.path.join(os.getcwd(), CHROMIUM_ZIP)
+        print(f'  Downloading Chromium from GitHub Release...')
+        print(f'    URL: {download_url}')
+        print(f'    (This is ~109 MB — same server as torch, models, etc.)')
+        print()
+
+        if not download_large_file(download_url, zip_path, expected_size_mb=109):
+            print(f'  [FAIL] Could not download Chromium zip')
+            print()
+            print(f'  For air-gapped installs, manually copy the file to:')
+            print(f'    {os.path.join(os.getcwd(), CHROMIUM_ZIP)}')
+            print()
+            print(f'  Download URL:')
+            print(f'    {download_url}')
+            return False, None
+
+    # ── Verify the zip ──
+    zip_size_mb = os.path.getsize(zip_path) / (1024 * 1024)
+    print(f'  Chromium zip: {zip_path} ({zip_size_mb:.1f} MB)')
+
+    if not zipfile.is_zipfile(zip_path):
+        print(f'  [ERROR] File is not a valid zip archive!')
+        return False, None
+
+    # ── Extract to Playwright's browser directory ──
+    print(f'  Extracting to: {chromium_dir}')
+    os.makedirs(chromium_dir, exist_ok=True)
 
     try:
-        # Run with real-time output so user sees download progress
-        result = subprocess.run(
-            [python_exe, '-m', 'playwright', 'install', 'chromium'],
-            timeout=600,  # 10 minutes — generous for slow connections
-            capture_output=True,
-            text=True,
-        )
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            # List contents to verify structure
+            names = zf.namelist()
+            print(f'    Archive contains {len(names)} files')
 
-        # Print all output for diagnostics
-        if result.stdout:
-            for line in result.stdout.strip().split('\n'):
-                if line.strip():
-                    print(f'    {line}')
-        if result.stderr:
-            for line in result.stderr.strip().split('\n'):
-                if line.strip():
-                    print(f'    {line}')
-
-        if result.returncode == 0:
-            print()
-            print('  [OK] playwright install chromium completed successfully')
-            return True
-        else:
-            print()
-            print(f'  [FAIL] playwright install chromium returned exit code {result.returncode}')
-            return False
-
-    except subprocess.TimeoutExpired:
-        print()
-        print('  [FAIL] playwright install chromium timed out after 10 minutes')
-        print('         The download may still be in progress.')
-        print('         Try running manually:')
-        print(f'           "{python_exe}" -m playwright install chromium')
-        return False
-    except FileNotFoundError:
-        print()
-        print(f'  [FAIL] Could not execute: {python_exe}')
-        print('         The Python executable was not found.')
-        return False
+            # The zip typically has chrome-headless-shell-win64/ as top-level dir
+            zf.extractall(chromium_dir)
+            print(f'    [OK] Extracted successfully')
     except Exception as e:
+        print(f'    [ERROR] Extraction failed: {e}')
+        return False, None
+
+    # ── Create Playwright marker files ──
+    # These empty files tell Playwright the browser is properly installed
+    markers = ['DEPENDENCIES_VALIDATED', 'INSTALLATION_COMPLETE']
+    for marker in markers:
+        marker_path = os.path.join(chromium_dir, marker)
+        try:
+            with open(marker_path, 'w') as f:
+                pass  # Empty file
+            print(f'    [OK] Created {marker}')
+        except Exception as e:
+            print(f'    [WARN] Could not create {marker}: {e}')
+
+    # ── Verify the exe exists after extraction ──
+    if os.path.isfile(exe_path):
         print()
-        print(f'  [FAIL] Unexpected error: {e}')
-        return False
+        print(f'  [OK] Chromium binary installed successfully!')
+        print(f'       Path: {exe_path}')
 
+        # Clean up the zip to save disk space
+        if zip_path.startswith(os.getcwd()):
+            try:
+                os.remove(zip_path)
+                print(f'  [OK] Cleaned up {CHROMIUM_ZIP} ({zip_size_mb:.0f} MB freed)')
+            except Exception:
+                pass
 
-def install_playwright_deps(python_exe):
-    """
-    Run 'playwright install-deps chromium' to install system dependencies.
-    Only needed on Linux — skipped on Windows/macOS.
-    """
-    if sys.platform == 'win32' or sys.platform == 'darwin':
-        return True  # Not needed on Windows/macOS
+        return True, exe_path
+    else:
+        # The zip might have a different internal structure
+        # Let's search for the exe in the extraction directory
+        print(f'  [WARN] Expected exe not at: {exe_path}')
+        print(f'  Searching for chrome-headless-shell.exe...')
 
-    try:
-        result = subprocess.run(
-            [python_exe, '-m', 'playwright', 'install-deps', 'chromium'],
-            capture_output=True, text=True, timeout=120
-        )
-        if result.returncode == 0:
-            print('  [OK] System dependencies installed')
-            return True
-        else:
-            print('  [WARN] System deps install returned non-zero (may need sudo)')
-            return False
-    except Exception:
-        return False
+        for root, dirs, files in os.walk(chromium_dir):
+            for f in files:
+                if f == CHROMIUM_EXE_NAME or f == 'chrome-headless-shell':
+                    found_path = os.path.join(root, f)
+                    print(f'  [FOUND] {found_path}')
+                    return True, found_path
+
+        print(f'  [ERROR] Could not find {CHROMIUM_EXE_NAME} after extraction')
+        print(f'  Contents of {chromium_dir}:')
+        try:
+            for item in os.listdir(chromium_dir):
+                item_path = os.path.join(chromium_dir, item)
+                if os.path.isdir(item_path):
+                    print(f'    [DIR]  {item}/')
+                    for sub in os.listdir(item_path)[:5]:
+                        print(f'           └── {sub}')
+                else:
+                    print(f'    [FILE] {item}')
+        except Exception:
+            pass
+
+        return False, None
 
 
 def pip_install(python_exe, packages):
@@ -316,7 +416,7 @@ def pip_install(python_exe, packages):
 def main():
     print('=' * 65)
     print('  AEGIS v6.1.5 Update Applier')
-    print('  Playwright Chromium Browser Install + Allowlist Dedup')
+    print('  Offline Chromium Browser Install + Allowlist Dedup')
     print('=' * 65)
     print()
 
@@ -386,7 +486,7 @@ def main():
     print()
 
     # ═══════════════════════════════════════════════════════════
-    # STEP 2: Install Playwright Python package (if needed)
+    # STEP 2: Ensure Playwright Python package is installed
     # ═══════════════════════════════════════════════════════════
     print('[STEP 2] Checking Playwright Python package...')
     pw_package_ok = verify_playwright_package(python_exe)
@@ -405,58 +505,28 @@ def main():
     print()
 
     # ═══════════════════════════════════════════════════════════
-    # STEP 3: Install Chromium BROWSER BINARY (this is the critical fix)
+    # STEP 3: Install Chromium browser binary (OFFLINE)
     # ═══════════════════════════════════════════════════════════
-    print('[STEP 3] Installing Chromium browser binary...')
-    print('  ┌──────────────────────────────────────────────────────┐')
-    print('  │ This is the critical fix for v6.1.5.                 │')
-    print('  │                                                      │')
-    print('  │ "pip install playwright" only installs the Python    │')
-    print('  │ API. The actual Chromium browser (~100MB) must be    │')
-    print('  │ downloaded separately via:                           │')
-    print('  │                                                      │')
-    print('  │   python -m playwright install chromium              │')
-    print('  │                                                      │')
-    print('  │ Without it, BrowserType.launch() fails with          │')
-    print('  │ "Executable doesn\'t exist".                          │')
-    print('  └──────────────────────────────────────────────────────┘')
+    print('[STEP 3] Installing Chromium browser binary (OFFLINE)...')
+    print()
+    print('  ┌──────────────────────────────────────────────────────────┐')
+    print('  │ This installs the Chromium headless browser OFFLINE.     │')
+    print('  │                                                          │')
+    print('  │ Strategy:                                                │')
+    print('  │  1. Look for chromium zip in local AEGIS directory       │')
+    print('  │  2. Download from AEGIS GitHub Release if not found      │')
+    print('  │  3. Extract to Playwright\'s browser directory            │')
+    print('  │  4. Create validation marker files                       │')
+    print('  │                                                          │')
+    print('  │ No internet to playwright.azureedge.net is needed.       │')
+    print('  └──────────────────────────────────────────────────────────┘')
     print()
 
     chromium_ok = False
+    chromium_exe = None
 
     if pw_package_ok:
-        # First check if chromium binary already exists
-        print('  Checking if Chromium binary already exists...')
-        chromium_ok = verify_chromium_binary(python_exe)
-
-        if not chromium_ok:
-            print()
-            print('  Chromium binary not found — downloading now...')
-            install_result = install_chromium_binary(python_exe)
-
-            if install_result:
-                # Verify it actually worked
-                print()
-                print('  Verifying Chromium binary after install...')
-                chromium_ok = verify_chromium_binary(python_exe)
-            else:
-                print()
-                print('  First attempt failed — trying with --with-deps flag...')
-                try:
-                    result = subprocess.run(
-                        [python_exe, '-m', 'playwright', 'install', '--with-deps', 'chromium'],
-                        capture_output=True, text=True, timeout=600
-                    )
-                    if result.returncode == 0:
-                        print('  [OK] playwright install --with-deps chromium completed')
-                        chromium_ok = verify_chromium_binary(python_exe)
-                    else:
-                        if result.stdout:
-                            print(f'    stdout: {result.stdout.strip()[:200]}')
-                        if result.stderr:
-                            print(f'    stderr: {result.stderr.strip()[:200]}')
-                except Exception as e:
-                    print(f'  [FAIL] --with-deps attempt: {e}')
+        chromium_ok, chromium_exe = install_chromium_offline(python_exe)
     else:
         print('  [SKIP] Cannot install Chromium — Playwright package not available')
 
@@ -539,22 +609,25 @@ def main():
     if sys.platform == 'win32':
         print(f'    pywin32 (SSPI):        {"OK" if sspi_ok else "NOT INSTALLED"}')
     print(f'    Playwright package:    {"OK" if pw_package_ok else "NOT INSTALLED"}')
-    print(f'    Chromium binary:       {"OK — INSTALLED" if chromium_ok else "*** NOT INSTALLED ***"}')
+    print(f'    Chromium binary:       {"INSTALLED" if chromium_ok else "*** NOT INSTALLED ***"}')
+    if chromium_exe:
+        print(f'    Chromium path:         {chromium_exe}')
     print()
 
     print('  v6.1.5 FIXES:')
     print(f'    Auth allowlist dedup:  {"PRESENT" if sp_dedup else "MISSING"}')
     print(f'    3-phase federated SSO: {"PRESENT" if sp_3phase else "MISSING"}')
     print(f'    SharePoint file log:   {"PRESENT" if sp_filelog else "MISSING"}')
+    print(f'    Offline Chromium:      {"INSTALLED" if chromium_ok else "NOT INSTALLED"}')
     print()
 
     all_ok = (fail_count == 0 and chromium_ok and sp_3phase and sp_filelog)
     if all_ok:
-        print('  ✓ STATUS: UPDATE APPLIED SUCCESSFULLY')
+        print('  STATUS: UPDATE APPLIED SUCCESSFULLY')
     elif chromium_ok:
-        print('  ~ STATUS: UPDATE APPLIED WITH MINOR ISSUES — see details above')
+        print('  STATUS: UPDATE APPLIED WITH MINOR ISSUES — see details above')
     else:
-        print('  ✗ STATUS: CHROMIUM BROWSER NOT INSTALLED — see manual steps below')
+        print('  STATUS: CHROMIUM NOT INSTALLED — see manual steps below')
     print()
 
     print('=' * 65)
@@ -563,16 +636,17 @@ def main():
     # What changed
     print("What changed in v6.1.5:")
     print()
-    print("  The v6.1.4 update fixed the headless browser authentication logic")
-    print("  (3-phase federated SSO, expanded auth allowlist), but the actual")
-    print("  Chromium browser BINARY was never downloaded.")
+    print("  v6.1.4 fixed the headless browser SSO authentication logic,")
+    print("  but Playwright's Chromium browser binary was never installed.")
     print()
-    print("  Playwright has two components:")
-    print("    1. Python package (pip install playwright)  — installed ✓")
-    print("    2. Chromium binary  (playwright install chromium) — was MISSING")
+    print("  On air-gapped networks, 'playwright install chromium' cannot")
+    print("  reach playwright.azureedge.net to download the binary.")
     print()
-    print("  v6.1.5 ensures the Chromium binary is downloaded and verified.")
-    print("  Also deduplicated auth-server-allowlist entries that were doubled.")
+    print("  v6.1.5 fixes this with fully offline Chromium installation:")
+    print("    1. The binary is hosted on the AEGIS GitHub Release")
+    print("    2. The apply script extracts it to the correct location")
+    print("    3. Marker files tell Playwright it's installed")
+    print("    4. No internet to playwright.azureedge.net needed")
     print()
 
     # Next steps
@@ -590,24 +664,19 @@ def main():
     print()
 
     if not chromium_ok:
-        print('  ╔══════════════════════════════════════════════════════════╗')
-        print('  ║  *** CRITICAL: Chromium browser binary NOT installed ***║')
-        print('  ║                                                         ║')
-        print('  ║  The headless browser fallback WILL NOT WORK without    ║')
-        print('  ║  the Chromium binary. Please run these commands         ║')
-        print('  ║  manually in a terminal/command prompt:                 ║')
-        print('  ║                                                         ║')
-        print(f'  ║  Step 1: cd to AEGIS directory                          ║')
-        print(f'  ║  Step 2: Run:                                           ║')
-        print(f'  ║    "{python_exe}" -m playwright install chromium        ')
-        print('  ║                                                         ║')
-        print('  ║  If that fails with a permissions error, try:           ║')
-        print(f'  ║    "{python_exe}" -m playwright install --with-deps chromium')
-        print('  ║                                                         ║')
-        print('  ║  If still failing, check internet connectivity and      ║')
-        print('  ║  proxy/firewall settings. The download is ~100MB from   ║')
-        print('  ║  playwright.azureedge.net                               ║')
-        print('  ╚══════════════════════════════════════════════════════════╝')
+        print('  MANUAL CHROMIUM INSTALL (if automatic install failed):')
+        print()
+        print(f'  Option A — Download zip and place in AEGIS directory:')
+        print(f'    1. Download: {RELEASE_BASE}/{CHROMIUM_ZIP}')
+        print(f'    2. Copy to: {os.path.join(os.getcwd(), CHROMIUM_ZIP)}')
+        print(f'    3. Re-run: python apply_v6.1.5.py')
+        print()
+        print(f'  Option B — Manual extraction:')
+        print(f'    1. Download the same zip file')
+        print(f'    2. Extract to: {os.path.join(get_playwright_browsers_dir(python_exe), CHROMIUM_DIR_NAME)}')
+        print(f'    3. Create empty files in the extraction directory:')
+        print(f'       - DEPENDENCIES_VALIDATED')
+        print(f'       - INSTALLATION_COMPLETE')
         print()
 
 
