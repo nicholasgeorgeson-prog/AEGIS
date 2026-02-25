@@ -79,8 +79,18 @@ def create_ssl_context():
         return ctx
 
 
+def _cleanup_partial(path):
+    """Remove a partially downloaded file if it exists."""
+    try:
+        if path and os.path.exists(path):
+            os.remove(path)
+    except Exception:
+        pass
+
+
 def download_file(url, dest_path, description=''):
-    """Download a file from URL to dest_path with SSL fallback."""
+    """Download a file from URL to dest_path with SSL fallback.
+    Cleans up partial downloads on failure."""
     ctx = create_ssl_context()
     try:
         req = urllib.request.Request(url, headers={'User-Agent': 'AEGIS-Updater/6.1.5'})
@@ -90,6 +100,7 @@ def download_file(url, dest_path, description=''):
                 f.write(data)
             return True
     except Exception as e:
+        _cleanup_partial(dest_path)
         # SSL fallback
         try:
             ctx = ssl._create_unverified_context()
@@ -100,12 +111,15 @@ def download_file(url, dest_path, description=''):
                     f.write(data)
                 return True
         except Exception as e2:
+            _cleanup_partial(dest_path)
             print(f'  [ERROR] Download failed: {e2}')
             return False
 
 
 def download_large_file(url, dest_path, expected_size_mb=0):
-    """Download a large file with progress reporting and SSL fallback."""
+    """Download a large file with progress reporting and SSL fallback.
+    Prints progress at 10% intervals to avoid flooding the console.
+    Cleans up partial downloads on failure."""
     for attempt in range(2):
         ctx = create_ssl_context() if attempt == 0 else ssl._create_unverified_context()
         try:
@@ -113,7 +127,8 @@ def download_large_file(url, dest_path, expected_size_mb=0):
             with urllib.request.urlopen(req, context=ctx) as response:
                 total = int(response.headers.get('Content-Length', 0))
                 downloaded = 0
-                chunk_size = 256 * 1024  # 256KB chunks
+                chunk_size = 512 * 1024  # 512KB chunks (fewer iterations)
+                last_pct_reported = -10  # Track last reported percentage
                 with open(dest_path, 'wb') as f:
                     while True:
                         chunk = response.read(chunk_size)
@@ -121,17 +136,27 @@ def download_large_file(url, dest_path, expected_size_mb=0):
                             break
                         f.write(chunk)
                         downloaded += len(chunk)
+                        # Report progress at 10% intervals only
                         if total > 0:
-                            pct = downloaded * 100 / total
-                            mb_done = downloaded / (1024 * 1024)
-                            mb_total = total / (1024 * 1024)
-                            print(f'\r    [{pct:5.1f}%] {mb_done:.1f} / {mb_total:.1f} MB', end='', flush=True)
+                            pct = int(downloaded * 100 / total)
+                            if pct >= last_pct_reported + 10:
+                                last_pct_reported = (pct // 10) * 10
+                                mb_done = downloaded / (1024 * 1024)
+                                mb_total = total / (1024 * 1024)
+                                print(f'    [{last_pct_reported:3d}%] {mb_done:.1f} / {mb_total:.1f} MB')
                         else:
                             mb_done = downloaded / (1024 * 1024)
-                            print(f'\r    {mb_done:.1f} MB downloaded...', end='', flush=True)
-                print()  # newline after progress
+                            # Report every ~10 MB when total unknown
+                            mb_int = int(mb_done)
+                            if mb_int > 0 and mb_int % 10 == 0 and mb_int != getattr(download_large_file, '_last_mb', -1):
+                                download_large_file._last_mb = mb_int
+                                print(f'    {mb_done:.0f} MB downloaded...')
+                # Final line
+                mb_final = downloaded / (1024 * 1024)
+                print(f'    [100%] {mb_final:.1f} MB — download complete')
                 return True
         except Exception as e:
+            _cleanup_partial(dest_path)
             if attempt == 0:
                 continue  # Try SSL fallback
             print(f'  [ERROR] Download failed: {e}')
@@ -293,6 +318,8 @@ def install_chromium_offline(python_exe):
         print()
 
         if not download_large_file(download_url, zip_path, expected_size_mb=109):
+            # download_large_file already cleans up partial files
+            _cleanup_partial(zip_path)  # belt-and-suspenders
             print(f'  [FAIL] Could not download Chromium zip')
             print()
             print(f'  For air-gapped installs, manually copy the file to:')
@@ -325,6 +352,13 @@ def install_chromium_offline(python_exe):
             print(f'    [OK] Extracted successfully')
     except Exception as e:
         print(f'    [ERROR] Extraction failed: {e}')
+        # Clean up partially extracted directory
+        try:
+            if os.path.isdir(chromium_dir):
+                shutil.rmtree(chromium_dir, ignore_errors=True)
+                print(f'    [CLEANUP] Removed partial extraction: {chromium_dir}')
+        except Exception:
+            pass
         return False, None
 
     # ── Create Playwright marker files ──
