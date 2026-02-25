@@ -1522,12 +1522,19 @@ def sharepoint_connect_and_scan():
         max_files=max_files
     )
 
+    # v6.1.3: Track headless fallback state for error reporting
+    _headless_available = False
+    _headless_tried = False
+    _headless_error = ''
+
     if not result['success']:
         # v6.1.3: Try headless browser as fallback (uses Windows SSO like Chrome)
         headless_succeeded = False
         try:
             from sharepoint_connector import HeadlessSPConnector, HEADLESS_SP_AVAILABLE
+            _headless_available = HEADLESS_SP_AVAILABLE
             if HEADLESS_SP_AVAILABLE:
+                _headless_tried = True
                 logger.info("SharePoint: REST API auth failed — trying headless browser (Windows SSO)...")
                 headless_connector = HeadlessSPConnector(actual_site_url)
                 headless_result = headless_connector.connect_and_discover(
@@ -1543,38 +1550,74 @@ def sharepoint_connect_and_scan():
                     headless_succeeded = True
                     logger.info(f"SharePoint: Headless browser connected — {len(result.get('files', []))} files found")
                 else:
+                    _headless_error = headless_result.get('message', 'Headless browser authentication failed')
                     headless_connector.close()
-                    logger.warning(f"SharePoint: Headless fallback also failed: {headless_result.get('message', '')}")
+                    logger.warning(f"SharePoint: Headless fallback also failed: {_headless_error}")
+            else:
+                logger.warning("SharePoint: Playwright not installed — headless browser fallback unavailable")
         except Exception as e:
+            _headless_tried = True
+            _headless_error = str(e)
             logger.warning(f"SharePoint: Headless fallback exception: {e}")
 
     if not result['success']:
         connector.close()
-        # v6.1.2: Check if a device code flow was initiated during auth
-        # If so, include the device code info so the frontend can show it
-        device_flow_info = None
-        try:
-            from sharepoint_connector import get_pending_device_flow
-            device_flow_info = get_pending_device_flow(actual_site_url)
-        except Exception:
-            pass
+
+        # v6.1.3: Build informative error message based on what actually happened
+        original_error = result['message']
+        _is_aadsts_error = 'AADSTS' in original_error or 'blocked' in original_error.lower()
+
+        # If Playwright isn't installed, that's the actionable fix — tell the user
+        if not _headless_available:
+            error_msg = (
+                f"SharePoint REST API authentication failed: {original_error}\n\n"
+                "AEGIS v6.1.3 can bypass this with a headless browser, but Playwright is not installed.\n\n"
+                "To fix: Re-run apply_v6.1.3.py which will install Playwright automatically, "
+                "or run these commands from the AEGIS directory:\n"
+                "  python -m pip install playwright\n"
+                "  python -m playwright install chromium\n\n"
+                "Then restart AEGIS and try again."
+            )
+        elif _headless_tried and _headless_error:
+            error_msg = (
+                f"SharePoint REST API authentication failed: {original_error}\n\n"
+                f"Headless browser fallback also failed: {_headless_error}\n\n"
+                "Check the AEGIS log for more details."
+            )
+        else:
+            error_msg = original_error
+
         response_data = {
-            'message': result['message'],
+            'message': error_msg,
             'auth_method': result.get('auth_method', 'none'),
             'error_category': result.get('error_category', 'connection'),
             'parsed_site_url': actual_site_url,
             'parsed_library_path': library_path,
+            'headless_available': _headless_available,
+            'headless_tried': _headless_tried,
+            'headless_error': _headless_error,
         }
-        if device_flow_info:
-            response_data['device_code'] = device_flow_info
-            response_data['message'] += (
-                f"\n\nTo authenticate: Go to {device_flow_info.get('verification_uri', 'https://microsoft.com/devicelogin')} "
-                f"and enter code: {device_flow_info.get('user_code', '???')}"
-            )
+
+        # v6.1.3: Only show device code UI if headless is not an option AND
+        # the error is NOT AADSTS65002 (which blocks device code too)
+        if not _is_aadsts_error and not _headless_available:
+            device_flow_info = None
+            try:
+                from sharepoint_connector import get_pending_device_flow
+                device_flow_info = get_pending_device_flow(actual_site_url)
+            except Exception:
+                pass
+            if device_flow_info:
+                response_data['device_code'] = device_flow_info
+                response_data['message'] += (
+                    f"\n\nTo authenticate: Go to {device_flow_info.get('verification_uri', 'https://microsoft.com/devicelogin')} "
+                    f"and enter code: {device_flow_info.get('user_code', '???')}"
+                )
+
         return jsonify({
             'success': False,
             'data': response_data,
-            'error': {'message': result['message'], 'code': 'SP_CONNECT_FAILED'}
+            'error': {'message': error_msg, 'code': 'SP_CONNECT_FAILED'}
         }), 400
 
     files = result.get('files', [])

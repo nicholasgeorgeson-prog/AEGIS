@@ -310,14 +310,40 @@ def main():
 
     print()
 
-    # Check Playwright availability
-    print('[STEP 2] Checking Playwright (headless browser engine)...')
+    # Install and verify Playwright (REQUIRED for SharePoint GCC High headless browser)
+    print('[STEP 2] Installing Playwright (headless browser engine)...')
     pw_ok = verify_playwright(python_exe)
     if not pw_ok:
+        print('  Installing playwright package...')
+        pip_install(python_exe, ['playwright'])
+        pw_ok = verify_playwright(python_exe)
+
+    if pw_ok:
+        # Install Chromium browser binary
+        print('  Installing Chromium browser for Playwright...')
+        try:
+            result = subprocess.run(
+                [python_exe, '-m', 'playwright', 'install', 'chromium'],
+                capture_output=True, text=True, timeout=300
+            )
+            if result.returncode == 0:
+                print('  [OK] Chromium browser installed')
+            else:
+                err = result.stderr.strip().split('\n')[-1] if result.stderr else 'unknown error'
+                print(f'  [WARN] Chromium install: {err[:120]}')
+                print('         Try manually: python -m playwright install chromium')
+        except subprocess.TimeoutExpired:
+            print('  [WARN] Chromium install timed out (may still be downloading)')
+            print('         Try manually: python -m playwright install chromium')
+        except Exception as e:
+            print(f'  [WARN] Chromium install: {e}')
+    else:
         print()
-        print('  [INFO] Playwright is OPTIONAL but RECOMMENDED for SharePoint GCC High.')
-        print('         Without it, the headless browser fallback cannot activate.')
-        print('         To install: pip install playwright && playwright install chromium')
+        print('  [FAIL] Could not install Playwright.')
+        print('         The headless browser fallback for SharePoint GCC High will NOT work.')
+        print('         Try manually:')
+        print(f'           "{python_exe}" -m pip install playwright')
+        print(f'           "{python_exe}" -m playwright install chromium')
     print()
 
     # Verify existing auth dependencies
@@ -358,7 +384,7 @@ def main():
     print(f'    MSAL (OAuth 2.0):      {"OK" if msal_ok else "NOT INSTALLED"}')
     if sys.platform == 'win32':
         print(f'    pywin32 (SSPI):        {"OK" if sspi_ok else "NOT INSTALLED"}')
-    print(f'    Playwright (headless): {"OK" if pw_ok else "NOT INSTALLED (optional)"}')
+    print(f'    Playwright (headless): {"OK" if pw_ok else "NOT INSTALLED — headless fallback DISABLED"}')
     print()
 
     # v6.1.3 features
@@ -421,9 +447,11 @@ def main():
     print('  3. Try Connect & Scan with your SharePoint URL')
     print()
     if not pw_ok:
-        print('  ** RECOMMENDED: Install Playwright for headless browser support:')
-        print('     pip install playwright')
-        print('     playwright install chromium')
+        print('  *** CRITICAL: Playwright is NOT installed ***')
+        print('  The headless browser fallback for SharePoint GCC High will NOT work.')
+        print('  You MUST install Playwright for Connect & Scan to work:')
+        print(f'     "{python_exe}" -m pip install playwright')
+        print(f'     "{python_exe}" -m playwright install chromium')
         print()
 
 
