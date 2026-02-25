@@ -1,13 +1,23 @@
 {
-  "version": "6.1.5",
+  "version": "6.1.6",
   "release_date": "2026-02-25",
-  "core_version": "6.1.5",
+  "core_version": "6.1.6",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.1.6",
+      "date": "2026-02-25",
+      "changes": [
+        "FIX: CRITICAL — HeadlessSP SSO authentication failure. THREE compounding root causes identified and fixed: (1) chrome-headless-shell (bundled Playwright binary) lacks full SSPI/Negotiate support — now uses system Microsoft Edge (channel='msedge') which ships with Win10/11 and has full Windows Integrated Auth. (2) Playwright's new_context() creates incognito-like ephemeral contexts where Chrome 81+ disables ambient NTLM/Negotiate auth — switched to launchPersistentContext() with temp user_data_dir which creates a regular profile. (3) Added --enable-features=EnableAmbientAuthenticationInIncognito as belt-and-suspenders",
+        "FIX: Browser channel priority changed from chrome→bundled to msedge→chrome→bundled. Microsoft Edge is always available on Windows 10/11 and uses the 'new headless mode' (full browser binary with complete networking/auth stack), unlike chrome-headless-shell which is a stripped-down wrapper around Chromium's content module",
+        "FIX: User-Agent string updated to include Edge identifier (Edg/131.0.0.0) for proper WiaSupportedUserAgents matching on AD FS servers",
+        "ENH: Temp user_data_dir cleanup in close() prevents disk accumulation from browser profiles"
+      ]
+    },
     {
       "version": "6.1.5",
       "date": "2026-02-25",

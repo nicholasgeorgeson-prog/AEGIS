@@ -1382,8 +1382,23 @@ The `decodedUrl` parameter **auto-decodes** percent-encoded values before using 
 **Also fixed**: Duplicate auth allowlist entries in `_ensure_browser()`. The v6.1.4 update added identity provider domains to both `CORP_AUTH_DOMAINS` in headless_validator.py and the `_idp_extras` list in sharepoint_connector.py. Since HeadlessSPConnector imports `CORP_AUTH_DOMAINS`, every IdP domain appeared twice in the `--auth-server-allowlist` argument. Added set-based deduplication.
 **Lesson**: `pip install playwright` and `playwright install chromium` are TWO SEPARATE steps. The first installs the Python API, the second downloads the ~100MB browser binary. Without the binary, `BrowserType.launch()` fails immediately. Apply scripts must: (1) verify the package is installed, (2) run `playwright install chromium`, (3) VERIFY the binary exists at the expected path, (4) provide clear manual fallback instructions. The browser binary path is platform-specific and version-specific — don't hardcode it; use `browser.executable_path` from the Playwright API to check.
 
-### 150. Version Management Update
-- **Current version**: 6.1.5
+### 150. Headless Browser SSO — Three Compounding Root Causes (v6.1.6)
+**Problem**: HeadlessSPConnector v6.1.3-v6.1.5 FAILED on Windows. SSO redirect chain timed out after 30 seconds — browser reached Azure AD login page but Windows credentials were never passed.
+**Root Cause**: THREE compounding issues, all must be fixed together:
+1. **chrome-headless-shell lacks full SSPI/Negotiate**: The bundled Playwright binary is `chrome-headless-shell`, a "lightweight wrapper around Chromium's //content module" designed for scraping/screenshots. Chromium bug #741872 (Windows Auth in headless) was fixed in the NEW headless mode (full Chrome binary), not in headless-shell. The log showed "Browser started (Chromium fallback)" — confirming `channel='chrome'` failed and fell back to the stripped-down binary.
+2. **`new_context()` creates incognito-like profiles where ambient auth is disabled**: Chrome 81+ disabled NTLM/Negotiate ambient authentication in incognito/private profiles (Chromium issue #458369). Playwright's `browser.new_context()` creates ephemeral contexts that behave like incognito — the browser never passes Windows credentials to the server. Confirmed by Playwright issue #1707 where `launchPersistentContext()` fixed SSO.
+3. **No explicit ambient auth enablement**: Even with persistent context, the `--enable-features=EnableAmbientAuthenticationInIncognito` Chromium flag provides belt-and-suspenders safety.
+**Fix**: Three-part rewrite of `_ensure_browser()`:
+1. Use `launchPersistentContext()` with a temp `user_data_dir` instead of `launch()` + `new_context()` — creates a "regular" profile where ambient auth IS enabled.
+2. Try `channel='msedge'` first (always on Win10/11), then `chrome`, then bundled — branded browsers use the new headless mode with full SSPI.
+3. Add `--enable-features=EnableAmbientAuthenticationInIncognito` to launch args.
+4. Update User-Agent to include `Edg/131.0.0.0` for AD FS `WiaSupportedUserAgents` matching.
+5. Clean up temp `user_data_dir` in `close()` via `shutil.rmtree()`.
+**Research sources**: Playwright issues #1707, #33566, #33850, #32324. Chromium bugs #741872 (issues.chromium.org/40529746), #458369. Chrome headless-shell docs.
+**Lesson**: For headless browser Windows SSO authentication, ALL THREE conditions must be met: (1) Use a full browser binary (Edge/Chrome new headless mode), NOT chrome-headless-shell. (2) Use `launchPersistentContext()` with a `user_data_dir`, NOT `launch()` + `new_context()` — the latter creates incognito-like contexts where ambient auth is disabled. (3) Include `--enable-features=EnableAmbientAuthenticationInIncognito` for safety. Also include identity provider domains (`*.microsoftonline.com`, `*.microsoftonline.us`, `*.windows.net`, `*.adfs.*`) in `--auth-server-allowlist` — the Kerberos challenge happens on the IdP, not the target site.
+
+### 151. Version Management Update
+- **Current version**: 6.1.6
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

@@ -2029,11 +2029,15 @@ class HeadlessSPConnector:
         self._ssl_fallback_used = False
 
         # Playwright objects — lazy-initialized
+        # v6.1.6: Uses launchPersistentContext instead of launch+new_context
+        # so that ambient auth (NTLM/Negotiate) is enabled (regular profile,
+        # not incognito-like). Chrome 81+ disables ambient auth in incognito.
         self._playwright = None
-        self._browser = None
-        self._context = None
+        self._browser = None       # Not used with persistent context, kept for close()
+        self._context = None       # The persistent browser context
         self._page = None
         self._authenticated = False
+        self._user_data_dir = None  # Temp dir for persistent context
 
         # Import CORP_AUTH_DOMAINS from headless_validator if available
         try:
@@ -2049,8 +2053,32 @@ class HeadlessSPConnector:
         logger.info(f'[HeadlessSP] Connector created for {self.site_url}')
 
     def _ensure_browser(self):
-        """Lazy-start Playwright browser with SSO auth passthrough."""
-        if self._browser is not None:
+        """
+        Lazy-start Playwright browser with SSO auth passthrough.
+
+        v6.1.6: THREE critical changes from v6.1.3-v6.1.5:
+
+        1. Uses launchPersistentContext() instead of launch() + new_context().
+           Chrome 81+ disabled ambient auth (NTLM/Negotiate) in incognito-like
+           profiles. Playwright's new_context() creates ephemeral contexts that
+           behave like incognito — ambient credentials are NOT passed.
+           launchPersistentContext() with a user_data_dir creates a "regular"
+           profile where ambient auth IS enabled by default.
+           (Source: Playwright issue #1707, Chromium issue #458369)
+
+        2. Tries channel='msedge' first (not 'chrome'). Microsoft Edge ships
+           with Windows 10/11 and is always available. When using a channel,
+           Playwright uses the REAL browser binary with the NEW headless mode
+           (full browser, full SSPI/Negotiate support). The bundled
+           chrome-headless-shell is a stripped-down binary that may lack full
+           SSPI auth integration.
+           (Source: Chromium bug #741872, Chrome docs on headless-shell)
+
+        3. Adds --enable-features=EnableAmbientAuthenticationInIncognito as
+           belt-and-suspenders — explicitly enables ambient auth even if the
+           profile is somehow treated as private/incognito.
+        """
+        if self._context is not None:
             return
 
         if not HEADLESS_SP_AVAILABLE:
@@ -2059,10 +2087,7 @@ class HeadlessSPConnector:
         logger.info('[HeadlessSP] Starting Playwright browser...')
         self._playwright = _sp_sync_playwright().start()
 
-        # Build launch args — same pattern as HeadlessValidator
-        # v6.1.4: IdP domains are now included in CORP_AUTH_DOMAINS (headless_validator.py)
-        # and in the fallback list above, so no need to add them again here.
-        # Just deduplicate to avoid doubled entries in the allowlist string.
+        # Build auth allowlist — deduplicate domains
         _idp_extras = [
             '*.microsoftonline.com', '*.microsoftonline.us',
             '*.login.microsoftonline.com', '*.login.microsoftonline.us',
@@ -2078,47 +2103,34 @@ class HeadlessSPConnector:
         allowlist = ','.join(_auth_domains)
         logger.info(f'[HeadlessSP] Auth allowlist: {allowlist}')
 
+        # v6.1.6: Common args for all browser channels
         base_args = [
             '--disable-blink-features=AutomationControlled',
             '--disable-dev-shm-usage',
             '--no-sandbox',
-            '--disable-infobars',
-            '--disable-extensions',
             '--disable-gpu',
-            '--window-size=1920,1080',
             f'--auth-server-allowlist={allowlist}',
             f'--auth-negotiate-delegate-allowlist={allowlist}',
+            # v6.1.6: Enable ambient auth in private/incognito-like contexts
+            '--enable-features=EnableAmbientAuthenticationInIncognito',
         ]
 
-        # Try Chrome channel first (real Chrome), fall back to Chromium
-        try:
-            self._browser = self._playwright.chromium.launch(
-                headless=True,
-                channel='chrome',
-                args=base_args,
-            )
-            logger.info('[HeadlessSP] Browser started (Chrome channel) with SSO allowlist')
-        except Exception:
-            fallback_args = [
-                '--disable-blink-features=AutomationControlled',
-                '--disable-dev-shm-usage',
-                '--no-sandbox',
-                '--disable-gpu',
-                f'--auth-server-allowlist={allowlist}',
-                f'--auth-negotiate-delegate-allowlist={allowlist}',
-            ]
-            self._browser = self._playwright.chromium.launch(
-                headless=True,
-                args=fallback_args,
-            )
-            logger.info('[HeadlessSP] Browser started (Chromium fallback) with SSO allowlist')
+        # v6.1.6: Create a temp user_data_dir for persistent context
+        # This ensures the browser uses a "regular" profile (not incognito),
+        # which enables ambient NTLM/Negotiate authentication by default.
+        import tempfile
+        self._user_data_dir = tempfile.mkdtemp(prefix='aegis_sp_browser_')
+        logger.info(f'[HeadlessSP] User data dir: {self._user_data_dir}')
 
-        # Create ONE persistent context for the session
-        self._context = self._browser.new_context(
+        # Common kwargs for launchPersistentContext
+        _ctx_kwargs = dict(
+            user_data_dir=self._user_data_dir,
+            headless=True,
+            args=base_args,
             user_agent=(
                 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                 'AppleWebKit/537.36 (KHTML, like Gecko) '
-                'Chrome/121.0.0.0 Safari/537.36'
+                'Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0'
             ),
             viewport={'width': 1920, 'height': 1080},
             java_script_enabled=True,
@@ -2128,7 +2140,42 @@ class HeadlessSPConnector:
             accept_downloads=True,
         )
 
-        self._page = self._context.new_page()
+        # v6.1.6: Try branded browsers first — they use the NEW headless mode
+        # (full browser binary with full SSPI/Negotiate/Kerberos support).
+        # The bundled chrome-headless-shell is stripped down and may lack auth.
+        #
+        # Priority: msedge (always on Win10/11) → chrome → bundled chromium
+        _channels_to_try = [
+            ('msedge', 'Microsoft Edge (new headless, full SSPI)'),
+            ('chrome', 'Google Chrome (new headless, full SSPI)'),
+            (None, 'Bundled Chromium (headless shell)'),
+        ]
+
+        for channel, desc in _channels_to_try:
+            try:
+                kwargs = dict(_ctx_kwargs)
+                if channel:
+                    kwargs['channel'] = channel
+                self._context = self._playwright.chromium.launch_persistent_context(**kwargs)
+                logger.info(f'[HeadlessSP] Browser started: {desc} with SSO allowlist')
+                break
+            except Exception as e:
+                logger.info(f'[HeadlessSP] Channel {channel or "bundled"} failed: {str(e)[:100]}')
+                self._context = None
+                continue
+
+        if self._context is None:
+            raise RuntimeError(
+                'Could not launch any browser for headless SP connector. '
+                'Ensure Microsoft Edge or Chrome is installed, or run: '
+                'python -m playwright install chromium'
+            )
+
+        # With persistent context, pages[0] is created automatically
+        if self._context.pages:
+            self._page = self._context.pages[0]
+        else:
+            self._page = self._context.new_page()
 
         # Block non-essential resources for speed
         def _handle_route(route):
@@ -2801,7 +2848,7 @@ class HeadlessSPConnector:
         }
 
     def close(self):
-        """Close browser and Playwright."""
+        """Close browser and Playwright, clean up temp user data dir."""
         try:
             if self._page:
                 self._page.close()
@@ -2809,6 +2856,7 @@ class HeadlessSPConnector:
         except Exception:
             pass
         try:
+            # v6.1.6: With persistent context, closing context closes browser
             if self._context:
                 self._context.close()
                 self._context = None
@@ -2824,6 +2872,14 @@ class HeadlessSPConnector:
             if self._playwright:
                 self._playwright.stop()
                 self._playwright = None
+        except Exception:
+            pass
+        # v6.1.6: Clean up temp user data directory
+        try:
+            if self._user_data_dir and os.path.isdir(self._user_data_dir):
+                import shutil
+                shutil.rmtree(self._user_data_dir, ignore_errors=True)
+                self._user_data_dir = None
         except Exception:
             pass
         logger.info('[HeadlessSP] Browser closed')

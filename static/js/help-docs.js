@@ -2,7 +2,7 @@
  * AEGIS Help Documentation System
  * ==========================================
  * Comprehensive documentation for all features.
- * Version: 6.1.5
+ * Version: 6.1.6
  *
  * Complete overhaul with:
  * - Beautiful visual design with icons and illustrations
@@ -10,6 +10,7 @@
  * - Technical deep-dive section for advanced users
  * - Smooth navigation and professional typography
  *
+ * v6.1.6 - HeadlessSP SSO fix: launchPersistentContext + msedge channel + EnableAmbientAuthenticationInIncognito
  * v6.1.5 - Playwright Chromium browser binary install fix + auth allowlist deduplication
  * v6.1.4 - Headless SP: Federated SSO fix (3-phase auth, ADFS allowlist, sharepoint.log diagnostics)
  * v6.1.3 - Headless Browser SharePoint Connector (Playwright + Windows SSO bypass for GCC High AADSTS65002)
@@ -8082,6 +8083,17 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.1.6 <span class="changelog-date">February 25, 2026</span></h3>
+        <p><strong>HeadlessSP SSO Authentication Fix &mdash; 3 Root Causes</strong></p>
+        <ul>
+            <li><strong>FIX: CRITICAL &mdash; chrome-headless-shell lacks SSPI</strong> &mdash; The bundled Playwright binary (<code>chrome-headless-shell</code>) is a stripped-down wrapper around Chromium&rsquo;s content module that lacks full SSPI/Negotiate Windows authentication support. Now uses system Microsoft Edge (<code>channel='msedge'</code>) which ships with Windows 10/11 and runs in the &ldquo;new headless mode&rdquo; &mdash; a full browser binary with complete networking and auth stack. Falls back to Chrome, then bundled Chromium</li>
+            <li><strong>FIX: CRITICAL &mdash; Incognito ambient auth disabled</strong> &mdash; Chrome 81+ disabled ambient NTLM/Negotiate authentication in incognito/private profiles. Playwright&rsquo;s <code>new_context()</code> creates ephemeral contexts that behave like incognito. Switched to <code>launchPersistentContext()</code> with a temp <code>user_data_dir</code> which creates a regular profile where ambient auth is enabled by default (Playwright issue #1707, Chromium issue #458369)</li>
+            <li><strong>FIX: User-Agent for AD FS</strong> &mdash; Updated User-Agent string to include Edge identifier (<code>Edg/131.0.0.0</code>) for proper <code>WiaSupportedUserAgents</code> matching on AD FS servers that gate Windows Integrated Auth by browser string</li>
+            <li><strong>ENH: Ambient auth feature flag</strong> &mdash; Added <code>--enable-features=EnableAmbientAuthenticationInIncognito</code> as belt-and-suspenders to explicitly enable ambient NTLM/Negotiate auth even if the profile is treated as private</li>
+            <li><strong>ENH: Temp profile cleanup</strong> &mdash; <code>close()</code> now cleans up the temporary <code>user_data_dir</code> via <code>shutil.rmtree()</code> to prevent disk accumulation from browser profiles</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v6.1.5 <span class="changelog-date">February 25, 2026</span></h3>
         <p><strong>Offline Chromium Browser Install &amp; Auth Allowlist Dedup</strong></p>
         <ul>
