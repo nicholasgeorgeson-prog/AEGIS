@@ -2,7 +2,7 @@
  * AEGIS Help Documentation System
  * ==========================================
  * Comprehensive documentation for all features.
- * Version: 6.0.8
+ * Version: 6.1.0
  *
  * Complete overhaul with:
  * - Beautiful visual design with icons and illustrations
@@ -10,6 +10,7 @@
  * - Technical deep-dive section for advanced users
  * - Smooth navigation and professional typography
  *
+ * v6.1.0 - Fix: CRITICAL — SharePoint OAuth tenant identifier format fixed (bare 'ngc' → 'ngc.onmicrosoft.us' or GUID via OIDC discovery)
  * v6.0.9 - Fix: OAuth packages (msal/PyJWT/pywin32) now install via online pip when local wheels missing
  * v6.0.8 - SharePoint zero-config OAuth auto-detection (well-known client ID, tenant from URL, IWA fallback, UI freeze fix)
  * v6.0.7 - SharePoint Auth Fix (pywin32 install for preemptive SSPI, embedded Python detection, offline-only installs)
@@ -54,7 +55,7 @@
 'use strict';
 
 const HelpDocs = {
-    version: '6.0.9',
+    version: '6.1.0',
     lastUpdated: '2026-02-25',
     
     config: {
@@ -8076,6 +8077,16 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.1.0 <span class="changelog-date">February 25, 2026</span></h3>
+        <p><strong>Fix: SharePoint OAuth Tenant Discovery</strong></p>
+        <ul>
+            <li><strong>FIX: CRITICAL &mdash; OAuth tenant identifier format</strong> &mdash; The bare tenant name extracted from the SharePoint URL (e.g., &lsquo;ngc&rsquo; from ngc.sharepoint.us) is NOT a valid Azure AD identifier. MSAL authority discovery failed with &ldquo;Unable to get authority configuration.&rdquo; Now uses proper format: <code>ngc.onmicrosoft.us</code> for GCC High or discovered tenant GUID via OIDC endpoint</li>
+            <li><strong>NEW: Automatic tenant GUID discovery</strong> &mdash; Queries Microsoft&rsquo;s public OpenID Connect discovery endpoint to resolve the actual tenant GUID. Zero configuration required &mdash; works automatically for both GCC High (.sharepoint.us) and commercial (.sharepoint.com)</li>
+            <li><strong>NEW: Fallback tenant discovery</strong> &mdash; If OIDC fails, tries SharePoint 401 Bearer realm header to extract tenant GUID. Multiple fallback authorities ensure maximum compatibility</li>
+            <li><strong>ENH: Enhanced auth diagnostics</strong> &mdash; Startup logging now shows all active auth strategies, primary method, and tenant discovery results for easier troubleshooting</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v6.0.9 <span class="changelog-date">February 25, 2026</span></h3>
         <p><strong>Fix: OAuth Dependency Installation</strong></p>
         <ul>

@@ -167,7 +167,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 6.0.9
+- **Current version**: 6.1.0
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -1318,6 +1318,14 @@ The `decodedUrl` parameter **auto-decodes** percent-encoded values before using 
 **Key log evidence**: Terminal log showed `"Windows SSO (Negotiate) configured"` (Strategy 3 only) with NO "Preemptive SSPI" or "MSAL available" messages — confirming pywin32 and MSAL were both absent.
 **Files**: `apply_v6.0.9.py`
 **Lesson**: NEVER assume wheel files exist in the `wheels/` directory on the target machine when using apply scripts that download source files from GitHub. The apply script downloads `.py` and `.js` files — NOT `.whl` files. For packages that need to be installed, always try online pip as fallback after offline. The offline-first strategy is still preferred for air-gapped environments, but the fallback prevents silent failure on internet-connected machines. Additionally, the apply script should print a CLEAR summary of which packages were successfully installed vs failed, not just per-package `[OK]`/`[FAIL]` messages that scroll by.
+
+### 143. MSAL Authority Requires Full Tenant Identifier — Not Bare Subdomain (v6.1.0)
+**Problem**: After v6.0.9 successfully installed MSAL and pywin32, SharePoint OAuth still failed: `Unable to get authority configuration for https://login.microsoftonline.us/ngc`. MSAL couldn't discover the Azure AD tenant configuration.
+**Root Cause**: `_auto_detect_oauth_config()` extracted the tenant name from the SharePoint URL — `ngc.sharepoint.us` → `ngc` — and used it directly in the MSAL authority URL as `https://login.microsoftonline.us/ngc`. But the bare subdomain `ngc` is NOT a valid Azure AD tenant identifier. MSAL validates the authority by querying `https://login.microsoftonline.us/ngc/.well-known/openid-configuration`, which returns an error because Azure AD doesn't recognize `ngc` alone. Valid tenant identifiers are: (1) the tenant GUID (e.g., `aaaabbbb-0000-cccc-1111-dddd2222eeee`), (2) the full `.onmicrosoft` domain (e.g., `ngc.onmicrosoft.us` for GCC High or `contoso.onmicrosoft.com` for commercial), or (3) a verified custom domain.
+**Fix**: Three-part approach: (1) New `_discover_tenant_guid()` function queries Microsoft's public OIDC discovery endpoint at `https://login.microsoftonline.us/{tenant}.onmicrosoft.us/.well-known/openid-configuration` to resolve the actual tenant GUID. This endpoint is unauthenticated and returns the GUID in the `issuer` field. (2) Fallback: if OIDC fails, tries extracting GUID from the SharePoint 401 `WWW-Authenticate: Bearer realm="{guid}"` header. (3) If no GUID discovered, uses `{tenant}.onmicrosoft.us` domain format (valid for MSAL). Also added authority fallback cascade in `_acquire_oauth_token()` — if MSAL app creation fails with one authority, tries domain format, then `organizations` multi-tenant endpoint.
+**GCC High vs Commercial**: GCC High uses `login.microsoftonline.us` + `onmicrosoft.us`. Commercial uses `login.microsoftonline.com` + `onmicrosoft.com`. The code auto-detects from the SharePoint URL domain.
+**Files**: `sharepoint_connector.py`
+**Lesson**: When auto-detecting Azure AD tenant from a SharePoint URL, the subdomain (e.g., `ngc` from `ngc.sharepoint.us`) is the tenant NAME but not a valid tenant IDENTIFIER for MSAL. Always convert to either: (1) `{name}.onmicrosoft.us` (GCC High) / `{name}.onmicrosoft.com` (commercial) for domain-based authority, or (2) the actual tenant GUID discovered via the public OIDC endpoint. The OIDC endpoint `https://login.microsoftonline.{us|com}/{tenant}.onmicrosoft.{us|com}/.well-known/openid-configuration` is publicly accessible, requires no authentication, and is the recommended discovery method per Microsoft documentation.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

@@ -204,16 +204,102 @@ def _get_oauth_config() -> Optional[Dict[str, str]]:
 _MS_OFFICE_CLIENT_ID = 'd3590ed6-52b3-4102-aeff-aad2292ab01c'
 
 
+def _discover_tenant_guid(tenant_name: str, site_url: str) -> Optional[str]:
+    """
+    v6.1.0: Discover the Azure AD tenant GUID from the SharePoint URL.
+
+    Uses two strategies:
+    1. OpenID Connect discovery endpoint (most reliable, public, works for all clouds)
+    2. SharePoint 401 response WWW-Authenticate realm (fallback)
+
+    Args:
+        tenant_name: Short tenant name extracted from URL (e.g., 'ngc')
+        site_url: Full SharePoint site URL
+
+    Returns:
+        Tenant GUID string, or None if discovery fails
+    """
+    import re as _re
+
+    is_gcc_high = '.sharepoint.us' in site_url.lower()
+    login_host = 'login.microsoftonline.us' if is_gcc_high else 'login.microsoftonline.com'
+    onmicrosoft_tld = 'onmicrosoft.us' if is_gcc_high else 'onmicrosoft.com'
+
+    # Strategy 1: OpenID Configuration endpoint (public, no auth needed)
+    # This is the most reliable method, especially for GCC High where
+    # SharePoint returns empty WWW-Authenticate headers
+    oidc_url = f'https://{login_host}/{tenant_name}.{onmicrosoft_tld}/.well-known/openid-configuration'
+    try:
+        logger.info(f"SharePoint tenant discovery: Trying OIDC endpoint at {oidc_url}")
+        resp = requests.get(oidc_url, timeout=10, verify=True)
+        if resp.status_code == 200:
+            data = resp.json()
+            issuer = data.get('issuer', '')
+            # Extract GUID from issuer URL like:
+            # https://login.microsoftonline.us/aaaabbbb-0000-cccc-1111-dddd2222eeee/v2.0
+            guid_match = _re.search(
+                r'/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})',
+                issuer
+            )
+            if guid_match:
+                tenant_guid = guid_match.group(1)
+                logger.info(f"SharePoint tenant discovery: Found tenant GUID via OIDC: {tenant_guid}")
+                return tenant_guid
+            else:
+                logger.debug(f"SharePoint tenant discovery: OIDC returned issuer but no GUID: {issuer}")
+        else:
+            logger.debug(f"SharePoint tenant discovery: OIDC returned status {resp.status_code}")
+    except Exception as e:
+        logger.debug(f"SharePoint tenant discovery: OIDC request failed: {e}")
+
+    # Strategy 2: SharePoint 401 Bearer realm (fallback)
+    # Send an unauthenticated request to SharePoint's client.svc — the 401
+    # response may contain WWW-Authenticate: Bearer realm="{tenant_guid}"
+    # Note: GCC High often returns empty WWW-Authenticate, so this is a fallback only
+    try:
+        svc_url = f'{site_url.rstrip("/")}/_vti_bin/client.svc'
+        logger.debug(f"SharePoint tenant discovery: Trying Bearer realm at {svc_url}")
+        resp = requests.get(
+            svc_url,
+            headers={'Authorization': 'Bearer'},
+            verify=False,
+            timeout=15,
+            allow_redirects=False,
+        )
+        www_auth = resp.headers.get('WWW-Authenticate', '')
+        if www_auth:
+            realm_match = _re.search(
+                r'realm="([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"',
+                www_auth
+            )
+            if realm_match:
+                tenant_guid = realm_match.group(1)
+                logger.info(f"SharePoint tenant discovery: Found tenant GUID via 401 realm: {tenant_guid}")
+                return tenant_guid
+            else:
+                logger.debug(f"SharePoint tenant discovery: WWW-Authenticate has no GUID realm: "
+                             f"{www_auth[:100]}")
+        else:
+            logger.debug(f"SharePoint tenant discovery: Empty WWW-Authenticate header (expected for GCC High)")
+    except Exception as e:
+        logger.debug(f"SharePoint tenant discovery: Bearer realm request failed: {e}")
+
+    return None
+
+
 def _auto_detect_oauth_config(site_url: str) -> Optional[Dict[str, str]]:
     """
-    v6.0.8: Auto-detect OAuth configuration from the SharePoint site URL.
+    v6.1.0: Auto-detect OAuth configuration from the SharePoint site URL.
 
     Uses Microsoft's well-known Office client ID and discovers the tenant
-    from the SharePoint domain name. This provides zero-config OAuth
-    when no sharepoint_oauth section exists in config.json.
+    from the SharePoint domain name. Resolves the full tenant identifier
+    using either '{tenant}.onmicrosoft.us' domain format (for GCC High)
+    or the discovered tenant GUID via OIDC discovery.
 
-    For GCC High (ngc.sharepoint.us) → tenant = 'ngc', authority = login.microsoftonline.us
-    For commercial (contoso.sharepoint.com) → tenant = 'contoso', authority = login.microsoftonline.com
+    v6.0.9 FIX: The bare tenant name (e.g., 'ngc') is NOT a valid Azure AD
+    tenant identifier. MSAL needs either:
+    - The tenant GUID (e.g., 'aaaabbbb-0000-cccc-1111-dddd2222eeee')
+    - The full domain (e.g., 'ngc.onmicrosoft.us')
 
     Returns:
         Dict with auto-detected OAuth config, or None if URL doesn't match SharePoint Online patterns
@@ -226,24 +312,41 @@ def _auto_detect_oauth_config(site_url: str) -> Optional[Dict[str, str]]:
         # ngc.sharepoint.us → tenant_name = 'ngc'
         # contoso.sharepoint.com → tenant_name = 'contoso'
         tenant_name = None
+        is_gcc_high = False
         if '.sharepoint.us' in host:
             tenant_name = host.split('.sharepoint.us')[0]
+            is_gcc_high = True
         elif '.sharepoint.com' in host:
             tenant_name = host.split('.sharepoint.com')[0]
 
         if not tenant_name:
             return None
 
-        # Remove any subdomain prefix (e.g., 'ngc-my' → 'ngc')
-        # But keep as-is for the tenant discovery
-        authority = _get_oauth_authority(tenant_name, site_url)
+        # Remove '-my' suffix from personal OneDrive URLs (e.g., 'ngc-my' → 'ngc')
+        if tenant_name.endswith('-my'):
+            tenant_name = tenant_name[:-3]
 
-        logger.info(f"SharePoint OAuth auto-detect: tenant='{tenant_name}', "
+        # v6.1.0 FIX: Build a valid Azure AD tenant identifier
+        # The bare name (e.g., 'ngc') doesn't work for MSAL authority discovery.
+        # Use '{tenant}.onmicrosoft.us' for GCC High or '{tenant}.onmicrosoft.com' for commercial
+        onmicrosoft_tld = 'onmicrosoft.us' if is_gcc_high else 'onmicrosoft.com'
+        tenant_domain = f'{tenant_name}.{onmicrosoft_tld}'
+
+        # Try to discover the actual tenant GUID for maximum reliability
+        tenant_guid = _discover_tenant_guid(tenant_name, site_url)
+
+        # Use GUID if discovered, otherwise use the .onmicrosoft domain format
+        tenant_id = tenant_guid or tenant_domain
+        authority = _get_oauth_authority(tenant_id, site_url)
+
+        logger.info(f"SharePoint OAuth auto-detect: tenant_name='{tenant_name}', "
+                    f"tenant_id='{tenant_id}' ({'GUID' if tenant_guid else 'domain'}), "
                     f"authority='{authority}', client_id=Microsoft Office (well-known)")
 
         return {
             'client_id': _MS_OFFICE_CLIENT_ID,
-            'tenant_id': tenant_name,
+            'tenant_id': tenant_id,
+            'tenant_name': tenant_name,
             'authority': authority,
             'auto_detected': True,
         }
@@ -258,6 +361,10 @@ def _get_oauth_authority(tenant_id: str, site_url: str) -> str:
 
     GCC High (.sharepoint.us) uses login.microsoftonline.us
     Commercial (.sharepoint.com) uses login.microsoftonline.com
+
+    Args:
+        tenant_id: Valid Azure AD tenant identifier (GUID or domain like 'ngc.onmicrosoft.us')
+        site_url: SharePoint site URL (used to determine cloud instance)
     """
     if '.sharepoint.us' in site_url.lower():
         return f'https://login.microsoftonline.us/{tenant_id}'
@@ -275,18 +382,39 @@ def _get_oauth_resource(site_url: str) -> str:
     return f'{parsed.scheme}://{parsed.netloc}/.default'
 
 
+def _try_msal_app_creation(client_id: str, authority: str, label: str):
+    """
+    v6.1.0: Try to create an MSAL PublicClientApplication with the given authority.
+    Returns the app instance or None if authority validation fails.
+    """
+    try:
+        app = _msal_module.PublicClientApplication(
+            client_id,
+            authority=authority,
+        )
+        logger.info(f"SharePoint OAuth: MSAL app created successfully ({label})")
+        return app
+    except Exception as e:
+        logger.debug(f"SharePoint OAuth: MSAL app creation failed ({label}): {e}")
+        return None
+
+
 def _acquire_oauth_token(site_url: str) -> Optional[str]:
     """
-    v6.0.8: Acquire an OAuth 2.0 Bearer token for SharePoint access via MSAL.
+    v6.1.0: Acquire an OAuth 2.0 Bearer token for SharePoint access via MSAL.
 
     Uses a multi-strategy approach to get a token using the user's existing
     Windows credentials — NO app registration required for most configurations.
 
     Strategy order:
     1. Explicit config (sharepoint_oauth in config.json) with client_secret → client credentials
-    2. Explicit config without client_secret → IWA with user's Windows UPN
-    3. Auto-detected config (well-known Microsoft Office client ID) → IWA
-    4. Device code flow as last resort (requires user to open browser once)
+    2. IWA (Integrated Windows Auth) — seamless SSO using current Windows logon
+    3. Device code flow — one-time browser auth (interactive, last resort)
+
+    v6.1.0 FIX: Uses proper tenant identifier format:
+    - Tenant GUID (discovered via OIDC endpoint) — most reliable
+    - {tenant}.onmicrosoft.us for GCC High — domain format fallback
+    - {tenant}.onmicrosoft.com for commercial — domain format fallback
 
     For GCC High environments (.sharepoint.us), uses login.microsoftonline.us authority.
 
@@ -335,50 +463,66 @@ def _acquire_oauth_token(site_url: str) -> Optional[str]:
         except Exception as e:
             logger.debug(f"SharePoint OAuth client credentials error: {e}")
 
+    # v6.1.0: Try to create MSAL app — validate authority is correct
+    app = _try_msal_app_creation(client_id, authority, f'authority={authority}')
+
+    # v6.1.0: If MSAL app creation fails (bad authority), try fallback authorities
+    if app is None and is_auto:
+        tenant_name = oauth_config.get('tenant_name', '')
+        if tenant_name:
+            # Build fallback authority list
+            is_gcc_high = '.sharepoint.us' in site_url.lower()
+            login_host = 'login.microsoftonline.us' if is_gcc_high else 'login.microsoftonline.com'
+            onmicrosoft_tld = 'onmicrosoft.us' if is_gcc_high else 'onmicrosoft.com'
+
+            fallback_authorities = []
+            # If we used a GUID, try domain format; if domain, try other formats
+            domain_authority = f'https://{login_host}/{tenant_name}.{onmicrosoft_tld}'
+            if authority != domain_authority:
+                fallback_authorities.append(domain_authority)
+            # Try 'organizations' as last resort (multi-tenant)
+            fallback_authorities.append(f'https://{login_host}/organizations')
+
+            for fb_authority in fallback_authorities:
+                logger.info(f"SharePoint OAuth: Trying fallback authority: {fb_authority}")
+                app = _try_msal_app_creation(client_id, fb_authority, f'fallback={fb_authority}')
+                if app:
+                    authority = fb_authority
+                    break
+
+    if app is None:
+        logger.warning(f"SharePoint OAuth: Could not create MSAL app with any authority. "
+                       f"Tenant discovery may have failed.")
+        return None
+
     # Strategy 2: Integrated Windows Auth (IWA) — uses current Windows logon
     # Works on domain-joined machines without user interaction
-    try:
-        app = _msal_module.PublicClientApplication(
-            client_id,
-            authority=authority,
-        )
+    username = _get_windows_upn()
+    if username:
+        logger.info(f"SharePoint OAuth: Trying IWA for user '{username}'")
+        scopes = [resource.replace('/.default', '/AllSites.Read')]
 
-        # Get the user's Windows UPN for IWA
-        username = _get_windows_upn()
-        if username:
-            logger.info(f"SharePoint OAuth: Trying IWA for user '{username}'")
-
-            # Try acquire_token_by_username_password with UPN (ROPC-like flow)
-            # For domain-joined machines with federation, this can work without actual password
-            # by redirecting to the organization's ADFS/federation endpoint
-            scopes = [resource.replace('/.default', '/AllSites.Read')]
-
-            # First try IWA if the method exists (MSAL <1.30)
-            if hasattr(app, 'acquire_token_by_integrated_windows_auth'):
-                try:
-                    result = app.acquire_token_by_integrated_windows_auth(
-                        scopes=scopes,
-                        username=username,
-                    )
-                    if result and 'access_token' in result:
-                        logger.info(f"SharePoint: OAuth token acquired via IWA")
-                        return result['access_token']
-                    elif result:
-                        logger.debug(f"SharePoint OAuth IWA failed: "
-                                     f"{result.get('error', '?')} — {result.get('error_description', '')[:200]}")
-                except Exception as iwa_err:
-                    logger.debug(f"SharePoint OAuth IWA exception: {iwa_err}")
-
-    except Exception as e:
-        logger.debug(f"SharePoint OAuth IWA setup error: {e}")
+        if hasattr(app, 'acquire_token_by_integrated_windows_auth'):
+            try:
+                result = app.acquire_token_by_integrated_windows_auth(
+                    scopes=scopes,
+                    username=username,
+                )
+                if result and 'access_token' in result:
+                    logger.info(f"SharePoint: OAuth token acquired via IWA")
+                    return result['access_token']
+                elif result:
+                    iwa_error = result.get('error', '?')
+                    iwa_desc = result.get('error_description', '')[:200]
+                    logger.info(f"SharePoint OAuth IWA result: {iwa_error} — {iwa_desc}")
+            except Exception as iwa_err:
+                logger.info(f"SharePoint OAuth IWA exception: {iwa_err}")
+    else:
+        logger.info("SharePoint OAuth: No Windows UPN available for IWA (expected on non-Windows)")
 
     # Strategy 3: Device code flow — requires one-time browser auth
     # This is the most reliable fallback for GCC High environments
     try:
-        app = _msal_module.PublicClientApplication(
-            client_id,
-            authority=authority,
-        )
         scopes = [resource.replace('/.default', '/AllSites.Read')]
 
         # Check cache first (from previous device code auth)
@@ -673,7 +817,7 @@ class SharePointConnector:
             elif sys.platform != 'win32':
                 logger.info("SharePoint connector: Non-Windows platform — SSO not available (expected on Mac dev)")
 
-        # v6.0.5: Try OAuth token acquisition if configured
+        # v6.1.0: Try OAuth token acquisition if configured
         if MSAL_AVAILABLE:
             oauth_token = _acquire_oauth_token(site_url)
             if oauth_token:
@@ -681,12 +825,29 @@ class SharePointConnector:
                 if self.auth_method == 'none':
                     self.auth_method = 'oauth'
                 logger.info(f"SharePoint connector: OAuth token acquired via MSAL")
+        elif self._is_sharepoint_online:
+            logger.warning(f"SharePoint connector: MSAL not installed — OAuth unavailable for SharePoint Online. "
+                           f"Install with: pip install msal")
+
+        # v6.1.0: Auth strategy summary for diagnostics
+        strategies = []
+        if self._preemptive_token:
+            strategies.append('Preemptive-SSPI')
+        if self._oauth_token:
+            strategies.append('OAuth-Bearer')
+        if WINDOWS_AUTH_AVAILABLE:
+            strategies.append('Negotiate-SSO')
+        if not strategies:
+            strategies.append('NONE')
+        logger.info(f"SharePoint connector: Auth strategies active: {', '.join(strategies)} | "
+                    f"Primary method: {self.auth_method} | "
+                    f"Online={self._is_sharepoint_online} | SSL-verify={self.ssl_verify}")
 
         # SharePoint REST API headers
         self.session.headers.update({
             'Accept': 'application/json;odata=verbose',
             'Content-Type': 'application/json;odata=verbose',
-            'User-Agent': 'AEGIS/6.0.5 SharePointConnector',
+            'User-Agent': 'AEGIS/6.1.0 SharePointConnector',
         })
 
     @staticmethod
