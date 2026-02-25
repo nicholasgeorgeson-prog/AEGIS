@@ -1356,8 +1356,23 @@ The `decodedUrl` parameter **auto-decodes** percent-encoded values before using 
 **Files**: `sharepoint_connector.py` (HeadlessSPConnector class + HEADLESS_SP_AVAILABLE flag), `routes/review_routes.py` (auto-fallback + max_workers=1).
 **Lesson**: When all Python-based auth strategies fail for a corporate SSO-protected service, the headless browser is the ultimate fallback — it uses the OS credential store and TLS stack exactly like Chrome. The `--auth-server-allowlist` flag + `page.evaluate(fetch())` pattern lets you call any REST API through the browser's authenticated session without any auth library. This approach works for ANY corporate service that Chrome can access — SharePoint, JIRA, Confluence, ServiceNow, etc.
 
-### 147. Version Management Update
-- **Current version**: 6.1.3
+### 148. Federated SSO Authentication — Navigate to Homepage, Not API (v6.1.4)
+**Problem**: HeadlessSPConnector v6.1.3 FAILED on the Windows machine. Log analysis showed headless fallback was being attempted (response times jumped from ~1.5s to ~5-7s) but authentication always failed. No diagnostic messages in any log file.
+**Root Cause**: TWO compounding issues:
+1. **Premature login detection**: `_authenticate()` navigated to `/_api/web`, which immediately redirected to `login.microsoftonline.us`. The login URL detection code at line 2132 checked `if any(p in current_url for p in login_patterns)` — it matched `'login.microsoftonline'` in the redirect URL and returned failure BEFORE the federated SSO redirect chain could complete. The SSO flow is: SharePoint → Azure AD (`login.microsoftonline.us`) → Org ADFS → Kerberos/Negotiate via `--auth-server-allowlist` → SAML token → Azure AD → SharePoint cookie. The code was checking the URL MID-CHAIN, not after completion.
+2. **Missing identity provider domains in auth allowlist**: `--auth-server-allowlist` only included SharePoint and corporate domains (`*.ngc.sharepoint.us`, `*.myngc.com`, etc.) but NOT the identity provider domains (`*.microsoftonline.us`, `*.windows.net`, `*.adfs.*`) where the actual Kerberos/Negotiate challenge happens. Without these domains in the allowlist, Chromium wouldn't pass Windows SSO credentials to Azure AD or ADFS.
+3. **No file-based logging**: `logging.getLogger('aegis.sharepoint')` had no `FileHandler` — all connector diagnostics went to stdout only, invisible in exported log files. The user exported `app.log` which showed request/response codes but zero HeadlessSP messages.
+**Fix**: Three-part:
+1. **3-phase authentication**: Phase 1: Navigate to site homepage (NOT `/_api/web`). Phase 2: If on login page, wait up to 30s for SSO redirect chain to complete via `page.wait_for_url(f'**{sp_host}**')`. Phase 3: Verify auth by calling `page.evaluate(fetch('/_api/web'))` from within the browser's JavaScript context.
+2. **Expanded auth allowlist**: Added `*.microsoftonline.com`, `*.microsoftonline.us`, `*.windows.net`, `*.login.windows.net`, `*.adfs.*` to both HeadlessSPConnector AND HeadlessValidator allowlists.
+3. **File-based logging**: Added `RotatingFileHandler` writing to `logs/sharepoint.log` (5MB, 2 backups).
+**Key insight from HV comparison**: The HeadlessValidator's `validate_url()` uses `wait_until='domcontentloaded'` and checks the final URL AFTER navigation completes. The SP connector was checking the URL DURING the redirect chain and bailing out early.
+**Also applied to HV**: Same expanded auth allowlist domains added to `headless_validator.py`'s `CORP_AUTH_DOMAINS` and `LOGIN_PAGE_INDICATORS['url_patterns']` updated with `login.microsoftonline.us` (GCC High variant).
+**Files**: `sharepoint_connector.py` (3 edits), `routes/review_routes.py` (error msg), `hyperlink_validator/headless_validator.py` (auth domains), `version.json`, `static/version.json`, `static/js/help-docs.js`, `apply_v6.1.4.py`
+**Lesson**: When implementing headless browser SSO authentication: (1) Navigate to the site HOMEPAGE, not an API endpoint — API endpoints trigger immediate redirects that look like "login pages" mid-chain. (2) The `--auth-server-allowlist` must include ALL domains in the SSO chain: the target site domains AND the identity provider domains (Azure AD, ADFS, etc.). (3) After navigation, WAIT for the SSO chain to complete before checking the URL — use `page.wait_for_url()` to wait for the browser to return to the target domain. (4) Verify auth separately via `page.evaluate(fetch())` — don't trust the URL alone. (5) Always add file-based logging for headless browser operations — stdout is invisible in production log exports.
+
+### 149. Version Management Update
+- **Current version**: 6.1.4
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

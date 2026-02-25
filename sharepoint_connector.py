@@ -49,6 +49,28 @@ except (ImportError, AttributeError):
 # Logger MUST be created before auth init block (auth init logs messages)
 logger = logging.getLogger('aegis.sharepoint')
 
+# v6.1.4: Add file handler so SharePoint connector diagnostics go to logs/ dir
+# Previously logger only wrote to stdout, making it invisible in exported logs
+try:
+    from pathlib import Path as _sp_Path
+    from logging.handlers import RotatingFileHandler as _sp_RFH
+    _sp_log_dir = _sp_Path(__file__).parent / 'logs'
+    _sp_log_dir.mkdir(exist_ok=True)
+    _sp_file_handler = _sp_RFH(
+        _sp_log_dir / 'sharepoint.log',
+        maxBytes=5 * 1024 * 1024,  # 5 MB
+        backupCount=2,
+        encoding='utf-8',
+    )
+    _sp_file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s [%(levelname)s] %(name)s - %(message)s'
+    ))
+    logger.addHandler(_sp_file_handler)
+    if not logger.level:
+        logger.setLevel(logging.DEBUG)
+except Exception:
+    pass  # Don't crash if log setup fails
+
 # Windows SSO auth — same pattern as hyperlink_validator/validator.py
 WINDOWS_AUTH_AVAILABLE = False
 HttpNegotiateAuth = None
@@ -2038,7 +2060,18 @@ class HeadlessSPConnector:
         self._playwright = _sp_sync_playwright().start()
 
         # Build launch args — same pattern as HeadlessValidator
-        allowlist = ','.join(self._corp_domains)
+        # v6.1.4: Include identity provider domains (Azure AD, ADFS) in allowlist
+        # The federated SSO chain redirects to these servers which issue the
+        # Negotiate challenge — they MUST be in the allowlist or SSO silently fails
+        _auth_domains = list(self._corp_domains) + [
+            '*.microsoftonline.com', '*.microsoftonline.us',
+            '*.login.microsoftonline.com', '*.login.microsoftonline.us',
+            '*.windows.net', '*.login.windows.net',
+            '*.adfs.*',  # Catch ADFS servers on any domain
+        ]
+        allowlist = ','.join(_auth_domains)
+        logger.info(f'[HeadlessSP] Auth allowlist: {allowlist}')
+
         base_args = [
             '--disable-blink-features=AutomationControlled',
             '--disable-dev-shm-usage',
@@ -2064,6 +2097,7 @@ class HeadlessSPConnector:
                 '--disable-blink-features=AutomationControlled',
                 '--disable-dev-shm-usage',
                 '--no-sandbox',
+                '--disable-gpu',
                 f'--auth-server-allowlist={allowlist}',
                 f'--auth-negotiate-delegate-allowlist={allowlist}',
             ]
@@ -2102,7 +2136,21 @@ class HeadlessSPConnector:
 
     def _authenticate(self) -> Dict[str, Any]:
         """
-        Navigate to the SharePoint site to establish the SSO session.
+        Establish an authenticated browser session with SharePoint.
+
+        v6.1.4: Rewritten to handle federated SSO (Azure AD + ADFS) properly.
+
+        SharePoint Online (GCC High) uses federated authentication:
+            1. Browser navigates to SharePoint site
+            2. SharePoint redirects to Azure AD (login.microsoftonline.us)
+            3. Azure AD redirects to org's ADFS for Windows Integrated Auth
+            4. ADFS authenticates via Negotiate/Kerberos (--auth-server-allowlist)
+            5. ADFS returns SAML token → Azure AD → SharePoint cookie set
+
+        The key insight: we navigate to the SITE HOMEPAGE (not /_api/web) and
+        let the full redirect chain complete. Then we check where the browser
+        ended up — if back on SharePoint, auth succeeded. Only if the browser
+        is STILL on a login page after the full timeout does auth fail.
 
         Returns:
             {success: bool, title: str, message: str}
@@ -2112,74 +2160,207 @@ class HeadlessSPConnector:
 
         self._ensure_browser()
 
+        parsed = urlparse(self.site_url)
+        sp_host = parsed.hostname or ''
+
         try:
-            # Navigate to the REST API web endpoint — triggers SSO handshake
-            api_url = f'{self.site_url}/_api/web'
-            logger.info(f'[HeadlessSP] Authenticating via navigation to {api_url}')
+            # Phase 1: Navigate to the site HOMEPAGE — triggers the full federated
+            # SSO redirect chain (SharePoint → Azure AD → ADFS → back to SharePoint)
+            # DO NOT navigate to /_api/web — that returns JSON and some auth flows
+            # don't handle it correctly
+            site_url = self.site_url
+            logger.info(f'[HeadlessSP] Phase 1: Navigating to {site_url} (triggers SSO)')
 
-            response = self._page.goto(api_url, timeout=self.timeout, wait_until='networkidle')
+            response = self._page.goto(
+                site_url,
+                timeout=self.timeout,
+                wait_until='domcontentloaded',  # Don't wait for all resources
+            )
 
-            if response is None:
-                return {
-                    'success': False,
-                    'title': '',
-                    'message': 'No response from SharePoint — navigation returned None',
-                }
+            # Log the initial response and URL
+            initial_url = self._page.url
+            initial_status = response.status if response else 'None'
+            logger.info(f'[HeadlessSP] Initial response: HTTP {initial_status}, URL: {initial_url[:200]}')
 
+            # Phase 2: Wait for the federated SSO redirect chain to complete.
+            # The browser will bounce through login.microsoftonline.us → ADFS → back.
+            # We wait for the URL to return to a SharePoint domain, or timeout.
             final_url = self._page.url.lower()
 
-            # Check for login page redirect — SSO failed
-            login_indicators = [
-                '/adfs/ls/', '/adfs/oauth2/', 'login.microsoftonline',
-                'login.windows.net', 'wa=wsignin', '/saml/', '/sso/',
-                'login.', '/auth/', '/signin', '/logon',
+            # If we're still on a login/auth page, wait for SSO to complete
+            _login_patterns = [
+                'login.microsoftonline', 'login.windows.net',
+                '/adfs/', '/saml/', 'wa=wsignin', '/oauth2/',
             ]
-            for indicator in login_indicators:
-                if indicator in final_url:
+            is_on_login = any(p in final_url for p in _login_patterns)
+
+            if is_on_login:
+                logger.info(f'[HeadlessSP] Phase 2: On login page, waiting for SSO redirect chain...')
+                logger.info(f'[HeadlessSP]   Current URL: {final_url[:200]}')
+
+                # Wait for the URL to change back to the SharePoint domain
+                # The --auth-server-allowlist flag should auto-handle the Negotiate challenge
+                try:
+                    # Wait up to 30 seconds for the browser to land on the SP domain
+                    self._page.wait_for_url(
+                        f'**{sp_host}**',
+                        timeout=30000,
+                        wait_until='domcontentloaded',
+                    )
+                    final_url = self._page.url.lower()
+                    logger.info(f'[HeadlessSP] SSO redirect completed — now at: {final_url[:200]}')
+                except Exception as wait_err:
+                    # Timeout or error waiting for redirect — check where we are now
+                    final_url = self._page.url.lower()
+                    logger.warning(
+                        f'[HeadlessSP] SSO wait timeout/error: {str(wait_err)[:100]}. '
+                        f'Current URL: {final_url[:200]}'
+                    )
+
+                    # If STILL on login page after waiting, SSO truly failed
+                    still_on_login = any(p in final_url for p in _login_patterns)
+                    if still_on_login:
+                        # Check for ADFS login form — indicates Kerberos/Negotiate failed
+                        page_content = ''
+                        try:
+                            page_content = self._page.content()[:2000]
+                        except Exception:
+                            pass
+
+                        _has_password_field = (
+                            'type="password"' in page_content
+                            or 'passwordInput' in page_content
+                            or 'loginButton' in page_content
+                        )
+
+                        if _has_password_field:
+                            msg = (
+                                'SSO redirect did not auto-authenticate — '
+                                'landed on a login form with password field. '
+                                'Windows Integrated Auth (Kerberos) may not be '
+                                'configured for this ADFS server. '
+                                f'Final URL: {final_url[:150]}'
+                            )
+                        else:
+                            msg = (
+                                'SSO redirect timed out — still on auth page after 30s. '
+                                f'Final URL: {final_url[:150]}'
+                            )
+                        logger.error(f'[HeadlessSP] Auth failed: {msg}')
+                        return {'success': False, 'title': '', 'message': msg}
+
+            # Phase 3: We should be on the SharePoint site now.
+            # Navigate to the REST API to verify authentication and get site title.
+            logger.info(f'[HeadlessSP] Phase 3: Verifying auth via /_api/web')
+            final_url = self._page.url.lower()
+
+            # If we ended up on the SP site (even a redirect to a subpage), try API
+            if sp_host in final_url or 'sharepoint' in final_url:
+                # Use page.evaluate(fetch()) to call the API — this uses the
+                # browser's authenticated session cookies
+                try:
+                    api_result = self._page.evaluate('''async (url) => {
+                        try {
+                            const resp = await fetch(url, {
+                                method: 'GET',
+                                headers: {
+                                    'Accept': 'application/json;odata=verbose',
+                                },
+                                credentials: 'include',
+                            });
+                            if (resp.ok) {
+                                const data = await resp.json();
+                                return { success: true, status: resp.status, data: data };
+                            }
+                            return {
+                                success: false,
+                                status: resp.status,
+                                error: await resp.text().catch(() => 'no body')
+                            };
+                        } catch (e) {
+                            return { success: false, status: 0, error: e.message || String(e) };
+                        }
+                    }''', f'{self.site_url}/_api/web')
+
+                    if api_result and api_result.get('success'):
+                        data = api_result.get('data', {})
+                        title = data.get('d', {}).get('Title', '')
+                        self._authenticated = True
+                        logger.info(f'[HeadlessSP] Authenticated successfully — site: "{title}"')
+                        return {
+                            'success': True,
+                            'title': title,
+                            'message': f'Authenticated to "{title}" via headless browser SSO',
+                        }
+                    else:
+                        api_status = api_result.get('status', 0) if api_result else 0
+                        api_error = (api_result.get('error', '')[:200]) if api_result else ''
+                        logger.warning(
+                            f'[HeadlessSP] API check returned HTTP {api_status}: {api_error}'
+                        )
+                        # If we got a 401/403 from the API even though we're on SP,
+                        # the session cookies may not have been set correctly
+                        if api_status in (401, 403):
+                            return {
+                                'success': False,
+                                'title': '',
+                                'message': (
+                                    f'Reached SharePoint site but REST API returned HTTP {api_status}. '
+                                    'The browser session may not have the correct auth cookies.'
+                                ),
+                            }
+                        # For other errors, still mark as authenticated since we're on SP
+                        self._authenticated = True
+                        return {
+                            'success': True,
+                            'title': '',
+                            'message': f'On SharePoint site (API check: HTTP {api_status})',
+                        }
+
+                except Exception as api_err:
+                    logger.warning(f'[HeadlessSP] API verify exception: {api_err}')
+                    # We're on the SP site, API call failed — still try to proceed
+                    self._authenticated = True
                     return {
-                        'success': False,
+                        'success': True,
                         'title': '',
-                        'message': (
-                            f'Windows SSO did not auto-authenticate — '
-                            f'redirected to login page ({indicator}). '
-                            f'Ensure the user is logged into their Windows domain.'
-                        ),
+                        'message': 'On SharePoint site (API verify failed, will try anyway)',
                     }
 
-            # Check if we got a valid response
-            status = response.status
-            if status == 200:
-                # Try to parse the response as JSON to confirm we're authenticated
-                try:
-                    body_text = self._page.evaluate('document.body.innerText')
-                    data = json.loads(body_text)
-                    title = data.get('d', {}).get('Title', '')
-                    self._authenticated = True
-                    logger.info(f'[HeadlessSP] Authenticated successfully — site: {title}')
-                    return {'success': True, 'title': title, 'message': f'Authenticated to {title}'}
-                except (json.JSONDecodeError, Exception):
-                    # Got a 200 but not JSON — could be HTML page, still consider authenticated
-                    self._authenticated = True
-                    logger.info('[HeadlessSP] Got 200 response (not JSON) — assuming authenticated')
-                    return {'success': True, 'title': '', 'message': 'Authenticated (non-JSON response)'}
-
-            elif status in (401, 403):
+            else:
+                # Ended up somewhere unexpected
+                logger.error(
+                    f'[HeadlessSP] Ended up on unexpected URL: {final_url[:200]}'
+                )
                 return {
                     'success': False,
                     'title': '',
-                    'message': f'Authentication failed — SharePoint returned HTTP {status}',
+                    'message': (
+                        f'Browser navigated to unexpected URL after auth flow: '
+                        f'{final_url[:150]}'
+                    ),
                 }
-            else:
-                # Other status codes — try anyway, auth might still work for API calls
-                self._authenticated = True
-                logger.info(f'[HeadlessSP] Got HTTP {status} — will try API calls anyway')
-                return {'success': True, 'title': '', 'message': f'HTTP {status} — trying API access'}
 
         except Exception as e:
+            err_msg = str(e)[:300]
+            logger.error(f'[HeadlessSP] Auth exception: {err_msg}')
+
+            # Check for common Playwright errors
+            if 'timeout' in err_msg.lower():
+                return {
+                    'success': False,
+                    'title': '',
+                    'message': (
+                        f'Navigation timed out after {self.timeout // 1000}s. '
+                        'SharePoint or the auth server may be unreachable. '
+                        f'Error: {err_msg[:150]}'
+                    ),
+                }
+
             return {
                 'success': False,
                 'title': '',
-                'message': f'Browser navigation failed: {str(e)[:200]}',
+                'message': f'Browser navigation failed: {err_msg[:200]}',
             }
 
     def _api_get(self, endpoint: str) -> Optional[Dict]:

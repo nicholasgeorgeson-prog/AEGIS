@@ -2,7 +2,7 @@
  * AEGIS Help Documentation System
  * ==========================================
  * Comprehensive documentation for all features.
- * Version: 6.1.3
+ * Version: 6.1.4
  *
  * Complete overhaul with:
  * - Beautiful visual design with icons and illustrations
@@ -10,6 +10,7 @@
  * - Technical deep-dive section for advanced users
  * - Smooth navigation and professional typography
  *
+ * v6.1.4 - Headless SP: Federated SSO fix (3-phase auth, ADFS allowlist, sharepoint.log diagnostics)
  * v6.1.3 - Headless Browser SharePoint Connector (Playwright + Windows SSO bypass for GCC High AADSTS65002)
  * v6.1.2 - SharePoint Device Code Flow UI + URL Misroute Fix (visible OAuth prompt, folder_scan_start URL guard)
  * v6.1.1 - Fix: CRITICAL — MSAL instance_discovery=False + verify=False for GCC High (authority validation & corporate SSL)
@@ -8080,6 +8081,16 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.1.4 <span class="changelog-date">February 25, 2026</span></h3>
+        <p><strong>Headless SharePoint: Federated SSO Fix &amp; Diagnostics</strong></p>
+        <ul>
+            <li><strong>FIX: CRITICAL &mdash; Federated SSO authentication</strong> &mdash; HeadlessSPConnector authentication completely rewritten for federated SSO (Azure AD + ADFS). Previous version navigated to <code>/_api/web</code> which immediately redirected to <code>login.microsoftonline.us</code> &mdash; the login URL was detected and returned failure before SSO could complete. Now uses three-phase auth: (1) navigate to site homepage to trigger SSO, (2) wait for redirect chain to complete (up to 30s), (3) verify via <code>page.evaluate(fetch())</code></li>
+            <li><strong>FIX: Auth allowlist expanded</strong> &mdash; Added identity provider domains (<code>*.microsoftonline.com</code>, <code>*.microsoftonline.us</code>, <code>*.windows.net</code>, <code>*.adfs.*</code>) to <code>--auth-server-allowlist</code>. The Kerberos/Negotiate challenge happens on the ADFS server during federated auth, not on SharePoint &mdash; the ADFS domain must be in the allowlist or SSO silently fails</li>
+            <li><strong>NEW: SharePoint diagnostic logging</strong> &mdash; <code>aegis.sharepoint</code> logger now writes to <code>logs/sharepoint.log</code> (5MB rotating, 2 backups). Previously all connector messages went to stdout only, making them invisible in exported log files</li>
+            <li><strong>ENH: Detailed SSO failure diagnostics</strong> &mdash; Detects and reports: login form with password field (Windows Integrated Auth not configured on ADFS), SSO timeout (auth server unreachable), unexpected redirect URL. All logged to <code>sharepoint.log</code> for troubleshooting</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v6.1.3 <span class="changelog-date">February 25, 2026</span></h3>
         <p><strong>Headless Browser SharePoint Connector</strong></p>
         <ul>

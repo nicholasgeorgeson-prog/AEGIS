@@ -1582,7 +1582,7 @@ def sharepoint_connect_and_scan():
             error_msg = (
                 f"SharePoint REST API authentication failed: {original_error}\n\n"
                 f"Headless browser fallback also failed: {_headless_error}\n\n"
-                "Check the AEGIS log for more details."
+                "Check logs/sharepoint.log for detailed diagnostics."
             )
         else:
             error_msg = original_error

@@ -60,17 +60,26 @@ def is_playwright_available() -> bool:
 BLOCKED_RESOURCE_TYPES = {'image', 'stylesheet', 'font', 'media', 'imageset'}
 
 # v5.9.44: Corporate domains that need auth-server-allowlist for automatic SSO
+# v6.1.4: Added identity provider domains (Azure AD, ADFS, Windows auth) so the
+#          headless browser passes Windows SSO credentials during federated auth chains.
+#          Without these, Chromium won't send Negotiate/Kerberos tokens to the IdP.
 CORP_AUTH_DOMAINS = [
     '*.myngc.com', '*.northgrum.com', '*.northropgrumman.com',
     '*.ngc.sharepoint.us', '*.sharepoint.com', '*.sharepoint.us',
     '*.mil', '*.gov', '*.service-now.com', '*.servicenow.com',
     '*.teams.microsoft.com',
+    # v6.1.4: Identity provider domains for federated SSO
+    '*.microsoftonline.com', '*.microsoftonline.us',
+    '*.login.microsoftonline.com', '*.login.microsoftonline.us',
+    '*.windows.net', '*.login.windows.net',
+    '*.adfs.*',  # Catch ADFS servers on any domain
 ]
 
 # v5.9.44: Login page detection patterns
 LOGIN_PAGE_INDICATORS = {
     'url_patterns': [
         '/adfs/ls/', '/adfs/oauth2/', 'login.microsoftonline.com',
+        'login.microsoftonline.us',  # v6.1.4: GCC High variant
         'login.windows.net', 'sts.windows.net', '/idp/SSO',
         'wa=wsignin', 'SAMLRequest=', '/saml/', '/sso/',
         'login.', '/auth/', '/signin', '/logon',
