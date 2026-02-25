@@ -886,6 +886,14 @@ def folder_scan_start():
     if not folder_path_str:
         raise ValidationError('No folder_path provided')
 
+    # v6.1.2: Detect when a SharePoint URL is accidentally pasted into the local folder field
+    if folder_path_str.startswith(('http://', 'https://')) or 'sharepoint' in folder_path_str.lower():
+        raise ValidationError(
+            'This looks like a SharePoint URL, not a local folder path. '
+            'Please paste SharePoint links in the "Paste SharePoint link" field below, '
+            'then click "Connect & Scan".'
+        )
+
     folder_path = Path(folder_path_str)
     if not folder_path.exists():
         raise ValidationError(f'Folder not found: {folder_path_str}')
@@ -1516,13 +1524,30 @@ def sharepoint_connect_and_scan():
 
     if not result['success']:
         connector.close()
+        # v6.1.2: Check if a device code flow was initiated during auth
+        # If so, include the device code info so the frontend can show it
+        device_flow_info = None
+        try:
+            from sharepoint_connector import get_pending_device_flow
+            device_flow_info = get_pending_device_flow(actual_site_url)
+        except Exception:
+            pass
+        response_data = {
+            'message': result['message'],
+            'auth_method': result.get('auth_method', 'none'),
+            'error_category': result.get('error_category', 'connection'),
+            'parsed_site_url': actual_site_url,
+            'parsed_library_path': library_path,
+        }
+        if device_flow_info:
+            response_data['device_code'] = device_flow_info
+            response_data['message'] += (
+                f"\n\nTo authenticate: Go to {device_flow_info.get('verification_uri', 'https://microsoft.com/devicelogin')} "
+                f"and enter code: {device_flow_info.get('user_code', '???')}"
+            )
         return jsonify({
             'success': False,
-            'data': {
-                'message': result['message'],
-                'auth_method': result.get('auth_method', 'none'),
-                'error_category': result.get('error_category', 'connection'),
-            },
+            'data': response_data,
             'error': {'message': result['message'], 'code': 'SP_CONNECT_FAILED'}
         }), 400
 
@@ -1629,6 +1654,64 @@ def sharepoint_connect_and_scan():
             }
         }
     })
+
+
+@review_bp.route('/api/review/sharepoint-device-code-complete', methods=['POST'])
+@require_csrf
+@handle_api_errors
+def sharepoint_device_code_complete():
+    """
+    v6.1.2: Complete a pending device code flow for SharePoint OAuth.
+
+    The user has entered the device code in their browser — this endpoint
+    waits for MSAL to confirm the auth and returns the token status.
+
+    After successful auth, the user can retry Connect & Scan.
+    """
+    try:
+        from sharepoint_connector import complete_device_flow, get_pending_device_flow
+    except ImportError:
+        return jsonify({
+            'success': False,
+            'error': {'message': 'SharePoint connector not available', 'code': 'SP_UNAVAILABLE'}
+        }), 500
+
+    data = request.get_json() or {}
+    site_url = data.get('site_url', '').strip()
+
+    if not site_url:
+        return jsonify({
+            'success': False,
+            'error': {'message': 'site_url is required', 'code': 'MISSING_URL'}
+        }), 400
+
+    # Check if there's a pending flow
+    pending = get_pending_device_flow(site_url)
+    if not pending:
+        return jsonify({
+            'success': False,
+            'error': {'message': 'No pending device code flow for this site', 'code': 'NO_FLOW'}
+        }), 404
+
+    # Wait for user to complete auth (blocks up to 120s)
+    token = complete_device_flow(site_url, timeout=120)
+    if token:
+        return jsonify({
+            'success': True,
+            'data': {
+                'message': 'Authentication successful! You can now retry Connect & Scan.',
+                'auth_method': 'oauth',
+                'token_acquired': True,
+            }
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'data': {
+                'message': 'Authentication timed out or failed. Please try again.',
+            },
+            'error': {'message': 'Device code flow failed', 'code': 'AUTH_FAILED'}
+        }), 408
 
 
 @review_bp.route('/api/review/sharepoint-scan-start', methods=['POST'])

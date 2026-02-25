@@ -1,13 +1,24 @@
 {
-  "version": "6.1.1",
+  "version": "6.1.2",
   "release_date": "2026-02-25",
-  "core_version": "6.1.1",
+  "core_version": "6.1.2",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.1.2",
+      "date": "2026-02-25",
+      "changes": [
+        "FIX: CRITICAL — SharePoint URL pasted into local folder scan field now detected and redirected. Previously showed misleading 'Folder not found' error instead of guiding user to the SharePoint Connect & Scan input",
+        "NEW: Device code flow UI — when SharePoint Online requires browser-based OAuth, the Connect & Scan panel now displays the verification URL and device code with a styled authentication panel. User completes auth in their browser and clicks 'I've Completed Authentication' to retry",
+        "NEW: Device code completion endpoint (/api/review/sharepoint-device-code-complete) — waits up to 120s for user to enter the code at microsoft.com/devicelogin, then returns token status",
+        "ENH: Device code flow state exposed via get_pending_device_flow() and complete_device_flow() module-level functions in sharepoint_connector.py",
+        "ENH: Connect & Scan error response now includes device_code object with verification_uri and user_code when OAuth device code flow is pending"
+      ]
+    },
     {
       "version": "6.1.1",
       "date": "2026-02-25",

@@ -11888,13 +11888,88 @@ STEPS TO REPRODUCE
                     } else {
                         // Connection failed
                         const errMsg = json.data?.message || json.error?.message || 'Connection failed';
+                        const deviceCode = json.data?.device_code;
+
                         if (spConnectionStatus) {
-                            spConnectionStatus.style.background = 'rgba(239,68,68,0.1)';
-                            spConnectionStatus.style.border = '1px solid rgba(239,68,68,0.3)';
-                            spConnectionStatus.style.color = 'var(--danger, #ef4444)';
-                            spConnectionStatus.innerHTML = `<strong>✗ Failed</strong> — ${escapeHtml(errMsg)}`;
+                            spConnectionStatus.classList.remove('hidden');
+                            if (deviceCode && deviceCode.user_code) {
+                                // v6.1.2: Device code flow — show auth instructions
+                                spConnectionStatus.style.background = 'rgba(214,168,74,0.15)';
+                                spConnectionStatus.style.border = '1px solid rgba(214,168,74,0.4)';
+                                spConnectionStatus.style.color = 'var(--text-primary, #e6edf3)';
+                                const verifyUrl = deviceCode.verification_uri || 'https://microsoft.com/devicelogin';
+                                spConnectionStatus.innerHTML = `
+                                    <div style="text-align:center;padding:8px 0;">
+                                        <strong style="color:#D6A84A;font-size:14px;">🔐 Authentication Required</strong>
+                                        <p style="margin:8px 0 4px;font-size:12px;opacity:0.8;">SharePoint Online requires browser authentication. Complete these steps:</p>
+                                        <p style="margin:4px 0;font-size:13px;">
+                                            1. Open <a href="${escapeHtml(verifyUrl)}" target="_blank" style="color:#D6A84A;text-decoration:underline;">${escapeHtml(verifyUrl)}</a>
+                                        </p>
+                                        <p style="margin:4px 0;font-size:13px;">
+                                            2. Enter code: <strong style="color:#D6A84A;font-size:16px;letter-spacing:2px;user-select:all;">${escapeHtml(deviceCode.user_code)}</strong>
+                                        </p>
+                                        <p style="margin:4px 0;font-size:13px;">3. Sign in with your NGC credentials</p>
+                                        <button type="button" id="btn-sp-device-complete" class="btn btn-primary btn-sm" style="margin-top:8px;">
+                                            <i data-lucide="check-circle"></i> I've Completed Authentication
+                                        </button>
+                                        <p style="margin:4px 0;font-size:11px;opacity:0.6;">After authenticating, click the button above, then retry Connect & Scan</p>
+                                    </div>`;
+                                lucide?.createIcons?.();
+
+                                // Wire up the "I've Completed" button
+                                const btnComplete = document.getElementById('btn-sp-device-complete');
+                                if (btnComplete) {
+                                    btnComplete.addEventListener('click', async () => {
+                                        btnComplete.disabled = true;
+                                        btnComplete.innerHTML = '<i data-lucide="loader" class="spin"></i> Verifying...';
+                                        lucide?.createIcons?.();
+                                        try {
+                                            const csrf2 = await _freshCSRF();
+                                            const completeResp = await fetch('/api/review/sharepoint-device-code-complete', {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                    'X-CSRF-Token': csrf2
+                                                },
+                                                body: JSON.stringify({
+                                                    site_url: json.data?.parsed_site_url || siteUrl
+                                                })
+                                            });
+                                            const completeJson = await completeResp.json();
+                                            if (completeJson.success) {
+                                                window.showToast?.('Authentication successful! Retrying connection...', 'success');
+                                                spConnectionStatus.style.background = 'rgba(34,197,94,0.1)';
+                                                spConnectionStatus.style.border = '1px solid rgba(34,197,94,0.3)';
+                                                spConnectionStatus.style.color = 'var(--success, #22c55e)';
+                                                spConnectionStatus.innerHTML = '<strong>✓ Authenticated</strong> — Click "Connect & Scan" to proceed';
+                                            } else {
+                                                window.showToast?.(completeJson.data?.message || 'Auth verification failed', 'error');
+                                                btnComplete.disabled = false;
+                                                btnComplete.innerHTML = '<i data-lucide="check-circle"></i> I\'ve Completed Authentication';
+                                                lucide?.createIcons?.();
+                                            }
+                                        } catch (err2) {
+                                            console.error('[TWR SP] Device code complete error:', err2);
+                                            window.showToast?.('Verification failed: ' + err2.message, 'error');
+                                            btnComplete.disabled = false;
+                                            btnComplete.innerHTML = '<i data-lucide="check-circle"></i> I\'ve Completed Authentication';
+                                            lucide?.createIcons?.();
+                                        }
+                                    });
+                                }
+
+                                window.showToast?.('SharePoint requires browser authentication — see instructions below', 'info');
+                            } else {
+                                // Regular connection failure (no device code)
+                                spConnectionStatus.style.background = 'rgba(239,68,68,0.1)';
+                                spConnectionStatus.style.border = '1px solid rgba(239,68,68,0.3)';
+                                spConnectionStatus.style.color = 'var(--danger, #ef4444)';
+                                spConnectionStatus.innerHTML = `<strong>✗ Failed</strong> — ${escapeHtml(errMsg)}`;
+                                window.showToast?.(errMsg, 'error');
+                            }
+                        } else {
+                            window.showToast?.(errMsg, 'error');
                         }
-                        window.showToast?.(errMsg, 'error');
                     }
                 } catch (err) {
                     console.error('[TWR SP] Connect & Scan error:', err);

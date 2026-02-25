@@ -614,6 +614,78 @@ def _acquire_oauth_token(site_url: str) -> Optional[str]:
 _device_code_flows: Dict[str, Any] = {}
 
 
+def get_pending_device_flow(site_url: str) -> Optional[Dict[str, str]]:
+    """
+    v6.1.2: Check if a device code flow is pending for a given site URL.
+    Returns the user-visible info (message, user_code, verification_uri) or None.
+    """
+    flow = _device_code_flows.get(site_url)
+    if flow:
+        return {
+            'message': flow.get('message', ''),
+            'user_code': flow.get('user_code', ''),
+            'verification_uri': flow.get('verification_uri', ''),
+        }
+    # Also check if any flow matches by site_url prefix (in case of URL normalization)
+    for key, flow in _device_code_flows.items():
+        if key.rstrip('/') == site_url.rstrip('/'):
+            return {
+                'message': flow.get('message', ''),
+                'user_code': flow.get('user_code', ''),
+                'verification_uri': flow.get('verification_uri', ''),
+            }
+    return None
+
+
+def complete_device_flow(site_url: str, timeout: int = 120) -> Optional[str]:
+    """
+    v6.1.2: Complete a pending device code flow by waiting for the user
+    to enter the code in their browser.
+
+    Args:
+        site_url: The site URL used when initiating the flow
+        timeout: Max seconds to wait for user to complete auth
+
+    Returns:
+        Bearer token string, or None if flow failed/timed out
+    """
+    flow_info = None
+    for key in list(_device_code_flows.keys()):
+        if key.rstrip('/') == site_url.rstrip('/'):
+            flow_info = _device_code_flows[key]
+            break
+
+    if not flow_info:
+        logger.warning(f"SharePoint: No pending device code flow for {site_url}")
+        return None
+
+    app = flow_info.get('app')
+    flow = flow_info.get('flow')
+    if not app or not flow:
+        logger.warning(f"SharePoint: Invalid device code flow state for {site_url}")
+        return None
+
+    try:
+        # This blocks until the user enters the code or timeout
+        logger.info(f"SharePoint: Waiting for device code flow completion (timeout={timeout}s)...")
+        result = app.acquire_token_by_device_flow(flow, exit_condition=lambda flow: flow.get('interval', 5))
+        if result and 'access_token' in result:
+            logger.info(f"SharePoint: Device code flow completed — token acquired!")
+            # Clean up the pending flow
+            for key in list(_device_code_flows.keys()):
+                if key.rstrip('/') == site_url.rstrip('/'):
+                    del _device_code_flows[key]
+            return result['access_token']
+        else:
+            error = result.get('error', 'unknown') if result else 'no_result'
+            desc = result.get('error_description', '') if result else ''
+            logger.warning(f"SharePoint: Device code flow failed: {error} — {desc[:200]}")
+            return None
+    except Exception as e:
+        logger.error(f"SharePoint: Device code flow error: {e}")
+        return None
+
+
 def _get_windows_upn() -> Optional[str]:
     """
     v6.0.8: Get the current Windows user's UPN (User Principal Name).

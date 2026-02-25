@@ -2,7 +2,7 @@
  * AEGIS Help Documentation System
  * ==========================================
  * Comprehensive documentation for all features.
- * Version: 6.1.1
+ * Version: 6.1.2
  *
  * Complete overhaul with:
  * - Beautiful visual design with icons and illustrations
@@ -10,6 +10,7 @@
  * - Technical deep-dive section for advanced users
  * - Smooth navigation and professional typography
  *
+ * v6.1.2 - SharePoint Device Code Flow UI + URL Misroute Fix (visible OAuth prompt, folder_scan_start URL guard)
  * v6.1.1 - Fix: CRITICAL — MSAL instance_discovery=False + verify=False for GCC High (authority validation & corporate SSL)
  * v6.1.0 - Fix: CRITICAL — SharePoint OAuth tenant identifier format fixed (bare 'ngc' → 'ngc.onmicrosoft.us' or GUID via OIDC discovery)
  * v6.0.9 - Fix: OAuth packages (msal/PyJWT/pywin32) now install via online pip when local wheels missing
@@ -8078,6 +8079,16 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.1.2 <span class="changelog-date">February 25, 2026</span></h3>
+        <p><strong>SharePoint Device Code Flow UI &amp; URL Misroute Fix</strong></p>
+        <ul>
+            <li><strong>FIX: CRITICAL &mdash; URL misroute guard</strong> &mdash; SharePoint URLs pasted into the local folder scan field now show a clear error message directing users to the &ldquo;Paste SharePoint link&rdquo; field below. Previously showed misleading &ldquo;Folder not found&rdquo; error with the full URL as if it were a filesystem path</li>
+            <li><strong>NEW: Device code flow UI</strong> &mdash; When SharePoint Online requires browser-based OAuth authentication, the Connect &amp; Scan panel now displays a styled authentication panel with the verification URL (<code>microsoft.com/devicelogin</code>) and the device code. Users complete authentication in their browser, then click &ldquo;I&rsquo;ve Completed Authentication&rdquo; to retry the connection</li>
+            <li><strong>NEW: Device code completion endpoint</strong> &mdash; <code>/api/review/sharepoint-device-code-complete</code> waits up to 120 seconds for the user to enter the code at microsoft.com/devicelogin, then returns the token acquisition status</li>
+            <li><strong>ENH: Connect &amp; Scan error response</strong> &mdash; When OAuth device code flow is initiated, the error response now includes the <code>device_code</code> object with <code>verification_uri</code> and <code>user_code</code> so the frontend can display them immediately</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v6.1.1 <span class="changelog-date">February 25, 2026</span></h3>
         <p><strong>Fix: MSAL GCC High Authority Validation &amp; Corporate SSL</strong></p>
         <ul>
