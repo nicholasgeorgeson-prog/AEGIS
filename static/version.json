@@ -1,13 +1,24 @@
 {
-  "version": "6.0.6",
+  "version": "6.0.7",
   "release_date": "2026-02-24",
-  "core_version": "6.0.6",
+  "core_version": "6.0.7",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.0.7",
+      "date": "2026-02-24",
+      "changes": [
+        "FIX: SharePoint auth — pywin32 (sspi + win32security) was never explicitly installed, causing preemptive SSPI Negotiate strategy to silently fail on all requests",
+        "FIX: Apply script now auto-detects embedded Python (python/python.exe) vs system Python — packages were being installed to wrong Python",
+        "FIX: Apply script now installs pywin32 (preemptive SSPI), msal (OAuth), and PyJWT with clear auth strategy summary",
+        "ENH: Apply script Step 5 shows which auth strategies are available and which will work for SharePoint Online",
+        "DEP: Added pywin32>=300 to requirements.txt (Windows-only, for SSPI preemptive auth)"
+      ]
+    },
     {
       "version": "6.0.6",
       "date": "2026-02-24",

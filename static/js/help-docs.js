@@ -2,7 +2,7 @@
  * AEGIS Help Documentation System
  * ==========================================
  * Comprehensive documentation for all features.
- * Version: 6.0.5
+ * Version: 6.0.7
  *
  * Complete overhaul with:
  * - Beautiful visual design with icons and illustrations
@@ -10,6 +10,7 @@
  * - Technical deep-dive section for advanced users
  * - Smooth navigation and professional typography
  *
+ * v6.0.7 - SharePoint Auth Fix (pywin32 install for preemptive SSPI, embedded Python detection, offline-only installs)
  * v6.0.5 - SharePoint Online Modern Auth (preemptive SSPI Negotiate + MSAL OAuth 2.0 for GCC High legacy auth deprecation)
  * v6.0.4 - PDF Zoom/Pan Fix + Proposal Duplicate Detection (viewport-center zoom, click-drag pan, auto-fit width, upload duplicate prompt)
  * v6.0.3 - SharePoint Batch Auth Fix (per-download fresh session for thread-safe NTLM, OData ampersand encoding)
@@ -50,7 +51,7 @@
 'use strict';
 
 const HelpDocs = {
-    version: '6.0.5',
+    version: '6.0.7',
     lastUpdated: '2026-02-24',
     
     config: {
@@ -8072,6 +8073,18 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.0.7 <span class="changelog-date">February 24, 2026</span></h3>
+        <p><strong>SharePoint Auth Dependencies Fix</strong></p>
+        <ul>
+            <li><strong>FIX: pywin32 missing for preemptive SSPI</strong> &mdash; pywin32 (sspi + win32security) was never explicitly installed, causing the primary SharePoint Online auth strategy to silently fail</li>
+            <li><strong>FIX: Embedded Python detection</strong> &mdash; apply script now detects the OneClick installer&rsquo;s embedded Python (python/python.exe) instead of installing packages to the wrong system Python</li>
+            <li><strong>FIX: Offline-only dependency install</strong> &mdash; all packages installed from local wheels directory only, no internet fallback (air-gapped compatible)</li>
+            <li><strong>FIX: validate_folder_path auth bypass</strong> &mdash; folder validation now uses _api_get() for consistent auth across all SharePoint API calls (v6.0.6 fix included)</li>
+            <li><strong>ENH: Auth strategy summary</strong> &mdash; apply script shows which of the 3 auth strategies (Preemptive SSPI, Standard Negotiate, MSAL OAuth) are available after install</li>
+            <li><strong>DEP: Added pywin32&gt;=300</strong> &mdash; Windows-only dependency for SSPI preemptive authentication</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v6.0.5 <span class="changelog-date">February 24, 2026</span></h3>
         <p><strong>SharePoint Online Modern Auth</strong></p>
         <ul>

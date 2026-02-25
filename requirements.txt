@@ -168,6 +168,12 @@ typer>=0.9.0
 # SSPI (required by pyspnego/requests-ntlm on Windows)
 sspilib>=0.3.0
 
+# pywin32 - Windows SSPI auth (v6.0.7)
+# Required for preemptive Negotiate token generation (sspi + win32security)
+# This is the PRIMARY auth strategy for SharePoint Online (GCC High)
+# Only installed on Windows (pip auto-skips on other platforms)
+pywin32>=300; sys_platform == "win32"
+
 # MSAL - Microsoft Authentication Library for OAuth 2.0 / modern auth (v6.0.5)
 # Required for SharePoint Online (GCC High / commercial) which has disabled
 # legacy auth (NTLM/Negotiate) as of Feb 2026

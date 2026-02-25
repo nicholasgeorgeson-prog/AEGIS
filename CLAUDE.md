@@ -167,7 +167,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 6.0.2
+- **Current version**: 6.0.7
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -1284,6 +1284,16 @@ The `decodedUrl` parameter **auto-decodes** percent-encoded values before using 
 **Dependencies**: `msal>=1.20.0` (pure Python), `PyJWT>=2.0.0` (required by MSAL). Both are `py3-none-any` wheels — platform-independent. Pre-existing deps (cffi, cryptography) already in wheels for Windows.
 **Files**: `sharepoint_connector.py`, `requirements.txt`
 **Lesson**: When a server returns 401 with an empty `WWW-Authenticate` header, `requests-negotiate-sspi` will NEVER attempt authentication — it requires the header to contain "Negotiate" or "NTLM". This is the signature of SharePoint Online's legacy auth deprecation. The fix requires either: (1) preemptive token generation via SSPI (bypasses the response-hook mechanism entirely), or (2) OAuth 2.0 via MSAL (the Microsoft-recommended path for SharePoint Online). Always auto-detect `.sharepoint.com` / `.sharepoint.us` domains and route to modern auth. For GCC High, use `login.microsoftonline.us` authority, NOT `login.microsoftonline.com`.
+
+### 140. Preemptive SSPI Requires pywin32 — Not Installed by Default (v6.0.7)
+**Problem**: SharePoint auth still returned 401 after v6.0.5/v6.0.6 fixes. The "MSAL not installed" diagnostic message distracted from the real issue.
+**Root Cause**: THREE compounding issues:
+1. **pywin32 never explicitly installed**: The preemptive SSPI strategy (Strategy 1) imports `sspi` and `win32security` from pywin32. The wheel existed in `wheels/pywin32-311-cp310-cp310-win_amd64.whl` but was NEVER explicitly installed — it only got installed if the "stragglers loop" happened to pick it up. Without pywin32, `SSPI_PREEMPTIVE_AVAILABLE = False` and the primary auth strategy silently did nothing.
+2. **Apply script installed to wrong Python**: `sys.executable` in the apply script pointed to the system Python (whatever `python` resolves to on PATH), but AEGIS runs on the embedded Python in `python/python.exe` (OneClick installer layout). Packages were installed to system Python's site-packages, invisible to AEGIS's embedded Python.
+3. **MSAL also not installed (same wrong-Python issue)**: Same root cause — msal was installed to system Python, not embedded Python.
+**Result**: All three auth strategies failed: (1) Preemptive SSPI — pywin32 not installed → `SSPI_PREEMPTIVE_AVAILABLE = False`. (2) Standard Negotiate — `requests-negotiate-sspi` IS installed but SharePoint Online returns empty `WWW-Authenticate`, so it never fires. (3) MSAL OAuth — msal not installed (wrong Python) → `MSAL_AVAILABLE = False`.
+**Fix**: (1) Apply script now auto-detects embedded Python at `python/python.exe` (searched before falling back to `sys.executable`). (2) Apply script installs `pywin32` explicitly (needed for `sspi` + `win32security`). (3) Runs pywin32 post-install script if present. (4) All installs are offline-only (`--no-index --find-links=wheels/`), no internet fallback. (5) Step 5 shows auth strategy availability summary. (6) Added `pywin32>=300; sys_platform == "win32"` to `requirements.txt`.
+**Lesson**: When developing on Mac but deploying to Windows embedded Python: (1) **ALWAYS check which Python pip installs to** — `sys.executable` in an apply script may not be the same Python that runs the app. Look for `python/python.exe` in the install directory. (2) **Every import in the app must have a corresponding explicit install** — don't rely on the stragglers loop or transitive deps. The wheel existing in `wheels/` is NOT enough; it must be explicitly installed. (3) **Auth cascade failures are silent** — each strategy sets a flag (`SSPI_PREEMPTIVE_AVAILABLE`, `MSAL_AVAILABLE`) at import time. If all flags are False, the connector falls through to standard `session.get()` with no auth, which gets 401. Add diagnostic logging that shows which strategies are available at connector init time.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
