@@ -1,13 +1,24 @@
 {
-  "version": "6.1.8",
+  "version": "6.1.9",
   "release_date": "2026-02-25",
-  "core_version": "6.1.8",
+  "core_version": "6.1.9",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.1.9",
+      "date": "2026-02-25",
+      "changes": [
+        "FIX: CRITICAL — SharePoint subsite (sub-web) detection. When a document library lives under a subsite (e.g., /sites/AS-ENG/PAL/SITE where PAL is a subsite), all API calls were targeting the parent web (/sites/AS-ENG/_api/web/...) instead of the subsite web (/sites/AS-ENG/PAL/_api/web/...). This caused /Files, /Folders, and all List Items API fallback strategies to return empty or HTTP 500 errors. New _detect_subweb() method probes intermediate path segments with /_api/web to discover subsites, then re-routes self.site_url to the correct web context before file listing begins",
+        "FIX: Subweb detection added to BOTH HeadlessSP and REST connectors — integrated as Step 2b in connect_and_discover() between folder validation and file listing",
+        "FIX: NLTK averaged_perceptron_tagger missing — apply script now downloads required NLTK data packages (averaged_perceptron_tagger, averaged_perceptron_tagger_eng, punkt, punkt_tab, stopwords, wordnet) to resolve health check warnings",
+        "ENH: Subweb detection probes deepest-to-shallowest path segments to find the closest subweb to the document library, ensuring API calls target the correct web context even with multiple nested subsites",
+        "ENH: Detailed subweb detection logging to sharepoint.log — every probe result (success/failure with HTTP status) and the final re-route decision are logged for diagnostics"
+      ]
+    },
     {
       "version": "6.1.8",
       "date": "2026-02-25",

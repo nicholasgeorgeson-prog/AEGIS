@@ -8084,6 +8084,17 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.1.9 <span class="changelog-date">February 25, 2026</span></h3>
+        <p><strong>SharePoint Subsite (Sub-Web) Detection &mdash; API Routing Fix</strong></p>
+        <ul>
+            <li><strong>FIX: CRITICAL &mdash; Subsite detection for document libraries</strong> &mdash; When a document library lives under a SharePoint subsite (e.g., <code>/sites/AS-ENG/PAL/SITE</code> where <code>PAL</code> is a subsite), all API calls were targeting the parent web (<code>/sites/AS-ENG/_api/web/...</code>) instead of the subsite web (<code>/sites/AS-ENG/PAL/_api/web/...</code>). This caused <code>/Files</code>, <code>/Folders</code>, and all List Items API fallback strategies to return empty results or HTTP 500 &ldquo;Incorrect function&rdquo; errors. New <code>_detect_subweb()</code> method probes intermediate path segments with <code>/_api/web</code> to discover subsites, then re-routes the API base URL to the correct web context</li>
+            <li><strong>FIX: Both connectors updated</strong> &mdash; Subweb detection added to both HeadlessSP and REST connectors as Step 2b in <code>connect_and_discover()</code>, between folder path validation and file listing</li>
+            <li><strong>FIX: NLTK data packages</strong> &mdash; Apply script now downloads required NLTK data packages (<code>averaged_perceptron_tagger</code>, <code>averaged_perceptron_tagger_eng</code>, <code>punkt</code>, <code>punkt_tab</code>, <code>stopwords</code>, <code>wordnet</code>) to resolve health check warnings</li>
+            <li><strong>ENH: Deepest-first probing</strong> &mdash; Subweb detection probes path segments from deepest to shallowest to find the closest subweb to the document library. Handles multiple levels of nested subsites correctly</li>
+            <li><strong>ENH: Full diagnostic logging</strong> &mdash; Every subweb probe result (success/failure with HTTP status) and the final re-route decision are logged to <code>sharepoint.log</code></li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v6.1.8 <span class="changelog-date">February 25, 2026</span></h3>
         <p><strong>SharePoint List Items API Fallback &mdash; Zero-File Discovery Fix</strong></p>
         <ul>

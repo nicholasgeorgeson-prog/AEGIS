@@ -1534,6 +1534,19 @@ class SharePointConnector:
                 'ssl_fallback': self._ssl_fallback_used,
             }
 
+        # Step 2b: Detect subsites in the library path (v6.1.9)
+        try:
+            subweb_url = self._detect_subweb(library_path)
+            if subweb_url:
+                old_site = self.site_url
+                self.site_url = subweb_url
+                logger.info(
+                    f'[SharePoint] *** SUBWEB RE-ROUTE: site_url changed from '
+                    f'"{old_site}" to "{self.site_url}" ***'
+                )
+        except Exception as e:
+            logger.warning(f'[SharePoint] Subweb detection failed (non-fatal): {e}')
+
         # Step 3: Discover files
         try:
             files = self.list_files(library_path, recursive=recursive, max_files=max_files)
@@ -1558,6 +1571,62 @@ class SharePointConnector:
             'message': f'Connected to "{title}" — found {len(files)} document(s)',
             'ssl_fallback': self._ssl_fallback_used,
         }
+
+    def _detect_subweb(self, library_path: str) -> Optional[str]:
+        """
+        v6.1.9: Detect if the library_path contains a SharePoint subsite (sub-web).
+
+        Same logic as HeadlessSPConnector._detect_subweb but uses requests.Session
+        instead of page.evaluate for the probe.
+
+        See HeadlessSPConnector._detect_subweb for full documentation.
+        """
+        parsed = urlparse(self.site_url)
+        current_site_path = parsed.path.rstrip('/')
+        lib_path = library_path.rstrip('/')
+
+        if not lib_path.lower().startswith(current_site_path.lower()):
+            logger.info(f'[SharePoint] _detect_subweb: library_path does not start with site_path — skipping')
+            return None
+
+        remainder = lib_path[len(current_site_path):].strip('/')
+        parts = remainder.split('/')
+        logger.info(f'[SharePoint] _detect_subweb: checking {len(parts)} path segments: {parts}')
+
+        if len(parts) <= 1:
+            logger.info(f'[SharePoint] _detect_subweb: only 1 segment — library name, no subweb possible')
+            return None
+
+        for i in range(len(parts) - 1, 0, -1):
+            candidate_path = current_site_path + '/' + '/'.join(parts[:i])
+            candidate_url = f'{parsed.scheme}://{parsed.netloc}{candidate_path}'
+
+            logger.info(f'[SharePoint] _detect_subweb: probing "{candidate_path}" as potential subweb...')
+
+            try:
+                resp = self.session.get(
+                    f'{candidate_url}/_api/web?$select=Title,Url',
+                    timeout=self.timeout,
+                    verify=self.ssl_verify,
+                    headers={'Accept': 'application/json;odata=verbose'},
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    web_title = data.get('d', {}).get('Title', '?')
+                    web_url = data.get('d', {}).get('Url', candidate_url)
+                    logger.info(
+                        f'[SharePoint] _detect_subweb: ✓ SUBWEB FOUND at "{candidate_path}" '
+                        f'(Title="{web_title}", Url="{web_url}")'
+                    )
+                    return candidate_url
+                else:
+                    logger.info(f'[SharePoint] _detect_subweb: ✗ "{candidate_path}" not a subweb (HTTP {resp.status_code})')
+            except Exception as e:
+                logger.debug(f'[SharePoint] _detect_subweb: probe error for "{candidate_path}": {e}')
+                continue
+
+        logger.info(f'[SharePoint] _detect_subweb: no subwebs found')
+        return None
 
     def auto_detect_library_path(self) -> Optional[str]:
         """
@@ -2649,6 +2718,106 @@ class HeadlessSPConnector:
             logger.info(f'[HeadlessSP] validate_folder_path: ✗ NOT FOUND')
         return data is not None
 
+    def _detect_subweb(self, library_path: str) -> Optional[str]:
+        """
+        v6.1.9: Detect if the library_path contains a SharePoint subsite (sub-web).
+
+        SharePoint has a hierarchy: Site Collection → Subsites → Libraries.
+        The REST API (/_api/web/...) only operates within the CURRENT web context.
+        If self.site_url is the parent site (e.g., /sites/AS-ENG) but the library
+        lives under a subsite (e.g., /sites/AS-ENG/PAL/SITE), then ALL API calls
+        go to the wrong web — GetList returns 500, /Files returns empty, etc.
+
+        This method probes each path segment between the current site_url path and
+        the library_path by calling /_api/web. If a segment responds successfully,
+        it's a subweb and we need to re-route self.site_url.
+
+        Example:
+            site_url = https://ngc.sharepoint.us/sites/AS-ENG
+            library_path = /sites/AS-ENG/PAL/SITE
+            → probe /sites/AS-ENG/PAL/_api/web → SUCCESS (PAL is a subsite)
+            → update site_url to https://ngc.sharepoint.us/sites/AS-ENG/PAL
+            → now _api_get calls go to the correct web context
+
+        Args:
+            library_path: Server-relative path to the document library
+
+        Returns:
+            New site_url if a subweb was detected, or None if no subweb found
+        """
+        parsed = urlparse(self.site_url)
+        current_site_path = parsed.path.rstrip('/')
+        lib_path = library_path.rstrip('/')
+
+        # Only search between the current site path and the library path
+        # e.g., site=/sites/AS-ENG, lib=/sites/AS-ENG/PAL/SITE
+        # → candidates: /sites/AS-ENG/PAL (one level deeper, the last part SITE is the library)
+        if not lib_path.lower().startswith(current_site_path.lower()):
+            logger.info(f'[HeadlessSP] _detect_subweb: library_path "{lib_path}" '
+                        f'does not start with site_path "{current_site_path}" — skipping')
+            return None
+
+        # Get the path segments between the current site and the library
+        remainder = lib_path[len(current_site_path):].strip('/')
+        parts = remainder.split('/')
+        logger.info(f'[HeadlessSP] _detect_subweb: checking {len(parts)} path segments '
+                    f'between site and library: {parts}')
+
+        if len(parts) <= 1:
+            # Only one segment = that's the library name itself, not a subsite
+            logger.info(f'[HeadlessSP] _detect_subweb: only 1 segment — library name, no subweb possible')
+            return None
+
+        # Check each intermediate path (not the final segment which is the library itself)
+        # Deepest first, so we find the closest subweb to the library
+        for i in range(len(parts) - 1, 0, -1):
+            candidate_path = current_site_path + '/' + '/'.join(parts[:i])
+            candidate_url = f'{parsed.scheme}://{parsed.netloc}{candidate_path}'
+
+            logger.info(f'[HeadlessSP] _detect_subweb: probing "{candidate_path}" as potential subweb...')
+
+            # Probe: call /_api/web on the candidate path
+            # If it returns successfully, this is a subweb
+            probe_url = f'{candidate_url}/_api/web?$select=Title,Url'
+            try:
+                result = self._page.evaluate('''async (url) => {
+                    try {
+                        const resp = await fetch(url, {
+                            method: 'GET',
+                            headers: {
+                                'Accept': 'application/json;odata=verbose',
+                            },
+                            credentials: 'include',
+                        });
+                        if (resp.ok) {
+                            const data = await resp.json();
+                            return { success: true, data: data };
+                        }
+                        return { success: false, status: resp.status };
+                    } catch (e) {
+                        return { success: false, error: e.message || String(e) };
+                    }
+                }''', probe_url)
+
+                if result and result.get('success'):
+                    web_title = result.get('data', {}).get('d', {}).get('Title', '?')
+                    web_url = result.get('data', {}).get('d', {}).get('Url', candidate_url)
+                    logger.info(
+                        f'[HeadlessSP] _detect_subweb: ✓ SUBWEB FOUND at "{candidate_path}" '
+                        f'(Title="{web_title}", Url="{web_url}")'
+                    )
+                    return candidate_url
+                else:
+                    status = result.get('status', '?') if result else '?'
+                    logger.info(f'[HeadlessSP] _detect_subweb: ✗ "{candidate_path}" is not a subweb (HTTP {status})')
+
+            except Exception as e:
+                logger.debug(f'[HeadlessSP] _detect_subweb: probe error for "{candidate_path}": {e}')
+                continue
+
+        logger.info(f'[HeadlessSP] _detect_subweb: no subwebs found between site and library')
+        return None
+
     def auto_detect_library_path(self) -> Optional[str]:
         """Auto-detect the default document library path."""
         parsed = urlparse(self.site_url)
@@ -3255,6 +3424,22 @@ class HeadlessSPConnector:
                            'Please enter the library path.',
                 'ssl_fallback': False,
             }
+
+        # Step 2b: Detect subsites in the library path (v6.1.9)
+        # If the library lives under a subsite (e.g., /sites/AS-ENG/PAL/SITE
+        # where PAL is a subsite), we need to re-route self.site_url to the
+        # subsite's URL so that _api_get calls go to the correct web context.
+        try:
+            subweb_url = self._detect_subweb(library_path)
+            if subweb_url:
+                old_site = self.site_url
+                self.site_url = subweb_url
+                logger.info(
+                    f'[HeadlessSP] *** SUBWEB RE-ROUTE: site_url changed from '
+                    f'"{old_site}" to "{self.site_url}" ***'
+                )
+        except Exception as e:
+            logger.warning(f'[HeadlessSP] Subweb detection failed (non-fatal): {e}')
 
         # Step 3: Discover files
         logger.info(f'[HeadlessSP] Step 3: Listing files in "{library_path}" (recursive={recursive})')
