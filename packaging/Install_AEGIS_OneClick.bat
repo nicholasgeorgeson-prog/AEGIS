@@ -317,6 +317,8 @@ del "%WHEELS%\*manylinux*aarch64*.whl" >nul 2>nul
 "%PYTHON_DIR%\python.exe" -m pip install --force-reinstall --no-index --find-links="%WHEELS%" --no-warn-script-location "setuptools<81" 2>nul
 :: Install colorama, typer, sspilib (required by spaCy/click/wasabi/pyspnego on Windows)
 "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location colorama typer sspilib 2>nul
+:: Install pywin32 (required for preemptive SSPI Negotiate - SharePoint Online auth v6.0.7)
+"%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location pywin32 2>nul
 :: Install MSAL + PyJWT (required for SharePoint Online modern auth - v6.0.5)
 "%PYTHON_DIR%\python.exe" -m pip install --no-index --find-links="%WHEELS%" --no-warn-script-location msal PyJWT 2>nul
 
@@ -430,9 +432,15 @@ echo.
 echo  Installing NLTK data packages...
 echo  ^(punkt, punkt_tab, taggers, stopwords, wordnet, cmudict^)
 
-:: If bundled NLTK data exists, use it
-if exist "%INSTALL_DIR%\models\nltk_data" (
-    echo  Using bundled NLTK data...
+:: v6.1.9: Check project-root nltk_data/ first (bundled offline ZIPs)
+if exist "%INSTALL_DIR%\nltk_data\tokenizers\punkt.zip" (
+    echo  Using bundled nltk_data/ from project directory...
+    set "NLTK_DATA=%INSTALL_DIR%\nltk_data"
+    :: Extract any ZIPs that haven't been extracted yet
+    "%PYTHON_DIR%\python.exe" -c "import os, zipfile; nltk_dir=r'%INSTALL_DIR%\nltk_data'; [((lambda z,d: zipfile.ZipFile(z).extractall(os.path.dirname(z)) if not os.path.isdir(d) else None)(os.path.join(nltk_dir,cat,name+'.zip'),os.path.join(nltk_dir,cat,name)) for cat,name in [('tokenizers','punkt'),('tokenizers','punkt_tab'),('taggers','averaged_perceptron_tagger'),('taggers','averaged_perceptron_tagger_eng'),('corpora','stopwords'),('corpora','wordnet'),('corpora','omw-1.4'),('corpora','cmudict')] if os.path.exists(os.path.join(nltk_dir,cat,name+'.zip')))]" 2>nul
+    echo  [OK] NLTK data ready ^(bundled offline ZIPs^)
+) else if exist "%INSTALL_DIR%\models\nltk_data" (
+    echo  Using bundled NLTK data from models directory...
     set "NLTK_DATA=%INSTALL_DIR%\models\nltk_data"
     echo  [OK] NLTK data ready ^(bundled^)
 ) else (
@@ -506,7 +514,7 @@ echo set "TRANSFORMERS_OFFLINE=1"
 echo set "HF_HUB_DISABLE_TELEMETRY=1"
 echo set "DO_NOT_TRACK=1"
 echo set "TOKENIZERS_PARALLELISM=false"
-echo if exist "%INSTALL_DIR%\models\nltk_data" set "NLTK_DATA=%INSTALL_DIR%\models\nltk_data"
+echo if exist "%INSTALL_DIR%\nltk_data" ^(set "NLTK_DATA=%INSTALL_DIR%\nltk_data"^) else ^(if exist "%INSTALL_DIR%\models\nltk_data" set "NLTK_DATA=%INSTALL_DIR%\models\nltk_data"^)
 echo if exist "%INSTALL_DIR%\models\sentence_transformers" set "SENTENCE_TRANSFORMERS_HOME=%INSTALL_DIR%\models\sentence_transformers"
 echo "%PYTHON_DIR%\python.exe" app.py
 echo echo.
@@ -607,6 +615,7 @@ echo.
 "%PYTHON_DIR%\python.exe" -c "import torchvision; print('  [OK] TorchVision ' + torchvision.__version__)" 2>nul || echo  [SKIP] TorchVision (optional)
 "%PYTHON_DIR%\python.exe" -c "import requests_negotiate_sspi; print('  [OK] SSPI Auth')" 2>nul || echo  [SKIP] SSPI Auth (Windows auth)
 "%PYTHON_DIR%\python.exe" -c "import requests_ntlm; print('  [OK] NTLM Auth')" 2>nul || echo  [SKIP] NTLM Auth (Windows auth)
+"%PYTHON_DIR%\python.exe" -c "import sspi, win32security; print('  [OK] pywin32 (SSPI preemptive auth)')" 2>nul || echo  [SKIP] pywin32 (SharePoint preemptive SSPI)
 "%PYTHON_DIR%\python.exe" -c "import msal; print('  [OK] MSAL ' + msal.__version__)" 2>nul || echo  [SKIP] MSAL (SharePoint Online auth)
 "%PYTHON_DIR%\python.exe" -c "import mammoth; print('  [OK] mammoth')" 2>nul || echo  [FAIL] mammoth
 "%PYTHON_DIR%\python.exe" -c "import reportlab; print('  [OK] reportlab')" 2>nul || echo  [SKIP] reportlab (optional)

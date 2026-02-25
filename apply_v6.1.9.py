@@ -21,13 +21,15 @@ This update adds _detect_subweb() to both HeadlessSP and REST connectors that
 probes intermediate path segments with /_api/web to discover subsites, then
 re-routes self.site_url before file listing begins.
 
-Also fixes NLTK averaged_perceptron_tagger missing from health check.
+Also installs NLTK data packages offline from bundled ZIP files for the
+health check (averaged_perceptron_tagger, punkt, stopwords, wordnet, etc.).
 
 Changes:
 - sharepoint_connector.py — _detect_subweb() method + Step 2b integration
   in connect_and_discover() for BOTH connectors
 - version.json / static/version.json — Version bump to 6.1.9
 - static/js/help-docs.js — v6.1.9 changelog
+- nltk_data/ — 8 NLTK data ZIP packages (offline install, ~57MB total)
 
 Usage:
   cd <AEGIS_INSTALL_DIR>
@@ -44,6 +46,7 @@ import os
 import sys
 import ssl
 import shutil
+import zipfile
 import urllib.request
 from datetime import datetime
 
@@ -52,13 +55,26 @@ REPO = 'nicholasgeorgeson-prog/AEGIS'
 BRANCH = 'main'
 RAW_BASE = f'https://raw.githubusercontent.com/{REPO}/{BRANCH}'
 
-# Files to update (relative path -> description)
+# Source files to update (relative path -> description)
 FILES = {
     'sharepoint_connector.py': 'SharePoint connector — subweb detection + API re-routing',
     'version.json': 'Version 6.1.9',
     'static/version.json': 'Version 6.1.9 (static copy)',
     'static/js/help-docs.js': 'Help docs with v6.1.9 changelog',
 }
+
+# NLTK data packages to install offline
+# Format: (zip_filename, category_subdir, find_path_for_verification)
+NLTK_DATA_PACKAGES = [
+    ('punkt.zip', 'tokenizers', 'tokenizers/punkt'),
+    ('punkt_tab.zip', 'tokenizers', 'tokenizers/punkt_tab'),
+    ('averaged_perceptron_tagger.zip', 'taggers', 'taggers/averaged_perceptron_tagger'),
+    ('averaged_perceptron_tagger_eng.zip', 'taggers', 'taggers/averaged_perceptron_tagger_eng'),
+    ('stopwords.zip', 'corpora', 'corpora/stopwords'),
+    ('wordnet.zip', 'corpora', 'corpora/wordnet'),
+    ('omw-1.4.zip', 'corpora', 'corpora/omw-1.4'),
+    ('cmudict.zip', 'corpora', 'corpora/cmudict'),
+]
 
 
 def create_ssl_context():
@@ -96,79 +112,77 @@ def download_file(url, dest_path, description=''):
             return False
 
 
-def find_python_exe():
-    """Find the correct Python executable (embedded or system)."""
-    # Check for embedded Python (OneClick installer layout)
-    embedded = os.path.join('python', 'python.exe')
-    if os.path.isfile(embedded):
-        return embedded
-    # Fall back to current interpreter
-    return sys.executable
+def install_nltk_data_offline():
+    """Download and extract NLTK data packages from GitHub to local nltk_data/ directory.
 
+    This is a fully offline-compatible approach:
+    1. Downloads ZIP files from GitHub (the AEGIS repo bundles them)
+    2. Extracts to nltk_data/{category}/{package_name}/
+    3. app.py sets NLTK_DATA env var to point here on startup
 
-def install_nltk_data(python_exe):
-    """Download required NLTK data packages."""
+    No nltk.download() calls needed — no runtime internet dependency.
+    """
     print()
-    print('Step 4: Installing NLTK data packages...')
+    print('Step 4: Installing NLTK data packages (offline from GitHub)...')
 
-    nltk_packages = [
-        'averaged_perceptron_tagger',
-        'averaged_perceptron_tagger_eng',
-        'punkt',
-        'punkt_tab',
-        'stopwords',
-        'wordnet',
-    ]
+    nltk_dir = os.path.join(os.getcwd(), 'nltk_data')
+    os.makedirs(nltk_dir, exist_ok=True)
 
-    # Build a Python command that downloads all NLTK data
-    nltk_cmd = '; '.join([f"nltk.download('{pkg}', quiet=True)" for pkg in nltk_packages])
-    full_cmd = f'import nltk; {nltk_cmd}; print("NLTK data download complete")'
+    success_count = 0
+    fail_count = 0
+    skip_count = 0
 
-    import subprocess
-    try:
-        result = subprocess.run(
-            [python_exe, '-c', full_cmd],
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-        if result.returncode == 0:
-            print('  [OK] NLTK data packages installed successfully')
-            for pkg in nltk_packages:
-                print(f'    ✓ {pkg}')
-            return True
-        else:
-            print(f'  [WARN] NLTK download returned non-zero exit code')
-            if result.stderr:
-                print(f'    stderr: {result.stderr[:200]}')
-            # Try installing packages one at a time
-            print('  Retrying individual packages...')
-            for pkg in nltk_packages:
-                try:
-                    r = subprocess.run(
-                        [python_exe, '-c', f"import nltk; nltk.download('{pkg}', quiet=True)"],
-                        capture_output=True,
-                        text=True,
-                        timeout=30,
-                    )
-                    status = '✓' if r.returncode == 0 else '✗'
-                    print(f'    {status} {pkg}')
-                except Exception:
-                    print(f'    ✗ {pkg} (timeout/error)')
-            return True
-    except FileNotFoundError:
-        print(f'  [WARN] Python executable not found: {python_exe}')
-        print('         NLTK data can be installed manually:')
-        print(f'         {python_exe} -c "import nltk; nltk.download(\'averaged_perceptron_tagger\')"')
-        return False
-    except subprocess.TimeoutExpired:
-        print('  [WARN] NLTK download timed out after 120s')
-        print('         This may work on next attempt. Try running:')
-        print(f'         {python_exe} -c "import nltk; nltk.download(\'averaged_perceptron_tagger\')"')
-        return False
-    except Exception as e:
-        print(f'  [WARN] NLTK download failed: {e}')
-        return False
+    for zip_name, category, find_path in NLTK_DATA_PACKAGES:
+        # Create category directory
+        category_dir = os.path.join(nltk_dir, category)
+        os.makedirs(category_dir, exist_ok=True)
+
+        # Check if already extracted
+        package_name = zip_name.replace('.zip', '')
+        extracted_dir = os.path.join(category_dir, package_name)
+        if os.path.isdir(extracted_dir):
+            print(f'  [SKIP] {find_path} — already installed')
+            skip_count += 1
+            continue
+
+        # Download ZIP from GitHub
+        zip_path = os.path.join(category_dir, zip_name)
+        zip_url = f'{RAW_BASE}/nltk_data/{category}/{zip_name}'
+        print(f'  [{find_path}] Downloading {zip_name}...')
+
+        if not download_file(zip_url, zip_path):
+            print(f'    FAILED to download')
+            fail_count += 1
+            continue
+
+        size = os.path.getsize(zip_path)
+        print(f'    Downloaded ({size:,} bytes)')
+
+        # Extract ZIP
+        try:
+            with zipfile.ZipFile(zip_path, 'r') as zf:
+                zf.extractall(category_dir)
+            if os.path.isdir(extracted_dir):
+                print(f'    Extracted to {find_path}/')
+                success_count += 1
+            else:
+                print(f'    [WARN] Extracted but directory not found at {extracted_dir}')
+                fail_count += 1
+        except Exception as e:
+            print(f'    [ERROR] Extraction failed: {e}')
+            fail_count += 1
+
+    print()
+    total = success_count + skip_count
+    if fail_count == 0:
+        print(f'  [OK] All {total} NLTK data packages ready '
+              f'({success_count} installed, {skip_count} already present)')
+    else:
+        print(f'  [WARN] {total} ready, {fail_count} failed')
+        print('         Failed packages may affect some NLP features but AEGIS will still run.')
+        print('         You can retry by running this script again.')
+
+    return fail_count == 0
 
 
 def main():
@@ -225,8 +239,8 @@ def main():
     print(f'  [DIR] logs/')
     print()
 
-    # ── Step 3: Download updated files from GitHub ──
-    print('Step 3: Downloading updated files from GitHub...')
+    # ── Step 3: Download updated source files from GitHub ──
+    print('Step 3: Downloading updated source files from GitHub...')
     all_ok = True
     for rel_path, description in FILES.items():
         url = f'{RAW_BASE}/{rel_path}'
@@ -241,15 +255,72 @@ def main():
 
     print()
     if not all_ok:
-        print('[WARNING] Some files failed to download.')
+        print('[WARNING] Some source files failed to download.')
         print('          You can restore from backups at:')
         print(f'          {os.path.abspath(backup_dir)}')
         print()
 
-    # ── Step 4: Install NLTK data packages ──
-    python_exe = find_python_exe()
-    print(f'  Using Python: {python_exe}')
-    install_nltk_data(python_exe)
+    # ── Step 4: Install NLTK data packages (offline from GitHub ZIPs) ──
+    install_nltk_data_offline()
+
+    # ── Step 5: Verify NLTK data (if nltk is available) ──
+    print()
+    print('Step 5: Verifying NLTK data installation...')
+    python_exe = os.path.join('python', 'python.exe') if os.path.isfile(os.path.join('python', 'python.exe')) else sys.executable
+    try:
+        import subprocess
+        nltk_dir = os.path.join(os.getcwd(), 'nltk_data')
+        verify_cmd = (
+            f'import os; os.environ["NLTK_DATA"]=r"{nltk_dir}"; import nltk; '
+            f'items = ["tokenizers/punkt","tokenizers/punkt_tab",'
+            f'"taggers/averaged_perceptron_tagger","taggers/averaged_perceptron_tagger_eng",'
+            f'"corpora/stopwords","corpora/wordnet"]; '
+            f'ok = 0; fail = 0\n'
+            f'for item in items:\n'
+            f'    try:\n'
+            f'        nltk.data.find(item); ok += 1; print(f"  OK  {{item}}")\n'
+            f'    except LookupError:\n'
+            f'        fail += 1; print(f"  MISSING  {{item}}")\n'
+            f'print(f"\\n  {{ok}} found, {{fail}} missing")'
+        )
+        # Write verify script to temp file to avoid shell quoting issues
+        verify_script = os.path.join(os.getcwd(), '_verify_nltk.py')
+        with open(verify_script, 'w') as f:
+            f.write(f'import os\nos.environ["NLTK_DATA"] = r"{nltk_dir}"\nimport nltk\n')
+            f.write('items = [\n')
+            f.write('    "tokenizers/punkt", "tokenizers/punkt_tab",\n')
+            f.write('    "taggers/averaged_perceptron_tagger", "taggers/averaged_perceptron_tagger_eng",\n')
+            f.write('    "corpora/stopwords", "corpora/wordnet",\n')
+            f.write(']\n')
+            f.write('ok = 0\nfail = 0\n')
+            f.write('for item in items:\n')
+            f.write('    try:\n')
+            f.write('        nltk.data.find(item)\n')
+            f.write('        ok += 1\n')
+            f.write('        print(f"  OK  {item}")\n')
+            f.write('    except LookupError:\n')
+            f.write('        fail += 1\n')
+            f.write('        print(f"  MISSING  {item}")\n')
+            f.write('print(f"\\n  {ok} found, {fail} missing")\n')
+
+        result = subprocess.run(
+            [python_exe, verify_script],
+            capture_output=True, text=True, timeout=30,
+        )
+        if result.stdout:
+            print(result.stdout)
+        if result.returncode != 0 and result.stderr:
+            print(f'  [WARN] Verification had errors: {result.stderr[:200]}')
+
+        # Clean up temp script
+        try:
+            os.remove(verify_script)
+        except Exception:
+            pass
+
+    except Exception as e:
+        print(f'  [SKIP] Verification skipped: {e}')
+        print('         NLTK data files are in nltk_data/ — they will be used on next AEGIS start.')
 
     # ── Summary ──
     print()
@@ -257,30 +328,28 @@ def main():
     print('  v6.1.9 Update Summary')
     print('=' * 70)
     print()
-    print('  THE FIX:')
+    print('  SHAREPOINT FIX:')
     print()
-    print('    SharePoint document library under a subsite (sub-web) returned')
-    print('    0 files because API calls targeted the wrong web context.')
+    print('    Document library under a subsite (sub-web) returned 0 files')
+    print('    because API calls targeted the wrong web context.')
     print()
     print('    Example: /sites/AS-ENG/PAL/SITE')
     print('      - PAL is a SUBSITE (sub-web), not a regular folder')
     print('      - API calls were going to /sites/AS-ENG/_api/web/...')
     print('      - They SHOULD go to /sites/AS-ENG/PAL/_api/web/...')
     print()
-    print('    Why validation passed but listing failed:')
-    print('      - GetFolderByServerRelativePath resolves globally (any web)')
-    print('      - /Files, /Folders, GetList() are web-scoped (current web only)')
-    print('      - validate_folder_path() succeeded → ItemCount=69')
-    print('      - But /Files returned 0, GetList returned 500')
-    print()
     print('    Solution: _detect_subweb() probes intermediate path segments')
     print('    with /_api/web to discover subsites, then re-routes')
     print('    self.site_url to the correct web context.')
     print()
-    print('  NLTK FIX:')
+    print('  NLTK DATA FIX:')
     print()
-    print('    Downloaded averaged_perceptron_tagger and other NLTK data')
-    print('    packages required by the health check endpoint.')
+    print('    Installed 8 NLTK data packages offline from bundled ZIP files:')
+    print('      - punkt, punkt_tab (tokenizers)')
+    print('      - averaged_perceptron_tagger, averaged_perceptron_tagger_eng (taggers)')
+    print('      - stopwords, wordnet, omw-1.4, cmudict (corpora)')
+    print('    These are stored in nltk_data/ and loaded by app.py on startup.')
+    print('    No internet connection required — fully air-gap compatible.')
     print()
     print('  NEXT STEPS:')
     print()
@@ -292,10 +361,10 @@ def main():
     print()
     print('    3. Try SharePoint Connect & Scan with your library URL')
     print()
-    print('    4. Check logs/sharepoint.log — it will show:')
-    print('       - Subweb detection probes and results')
-    print('       - The site_url re-route (if subweb found)')
-    print('       - File listing from the correct web context')
+    print('    4. Run Health Check (Settings > Health Check) to verify')
+    print('       NLTK data packages show as "ok"')
+    print()
+    print('    5. Check logs/sharepoint.log for subweb detection diagnostics')
     print()
     print('  ROLLBACK:')
     print(f'    Backups at: {os.path.abspath(backup_dir)}')

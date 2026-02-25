@@ -11,6 +11,13 @@ This script downloads and caches:
 The downloaded files are placed in the packaging/ directory so the installer
 can copy them to the target machine.
 
+NOTE (v6.1.9): NLTK data packages are now ALSO bundled as ZIP files in
+the project root nltk_data/ directory (8 packages, ~57MB total). The apply
+script (apply_v6.1.9.py) downloads these from GitHub and extracts them.
+app.py sets NLTK_DATA env var to point to nltk_data/ on startup. This
+packaging script is still useful for creating fresh offline bundles but
+is no longer the only way to get NLTK data packages offline.
+
 Usage:
     cd packaging
     python prepare_offline_data.py

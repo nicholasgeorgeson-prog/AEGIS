@@ -99,6 +99,7 @@ OPTIONAL_PACKAGES = [
     ('docling', 'docling', 'AI Document Extraction'),
     ('requests_negotiate_sspi', 'requests-negotiate-sspi', 'Windows SSO'),
     ('requests_ntlm', 'requests-ntlm', 'Windows Domain Auth'),
+    ('sspi', 'pywin32', 'SSPI Preemptive Auth (SharePoint Online)'),
     ('msal', 'msal', 'SharePoint Online Auth (OAuth)'),
 ]
 
@@ -577,6 +578,16 @@ def main():
                 warn(f'sspilib not available — Windows auth packages may fail')
             print()
 
+        # Install pywin32 if SSPI preemptive auth needs it
+        if 'pywin32' in optional_names_set:
+            info('Installing pywin32 (required for SSPI preemptive Negotiate — SharePoint Online)...')
+            success, method = pip_install('pywin32', wheels_dirs)
+            if success:
+                ok(f'pywin32 installed ({method})')
+            else:
+                warn(f'pywin32 not available — preemptive SSPI auth will be unavailable')
+            print()
+
         # Install MSAL + PyJWT if SharePoint Online auth needs it
         if 'msal' in optional_names_set:
             info('Installing PyJWT (required by MSAL)...')
@@ -656,7 +667,13 @@ def main():
 
 
 def check_nltk_data():
-    """Check and fix NLTK data."""
+    """Check and fix NLTK data.
+
+    v6.1.9: Checks bundled nltk_data/ directory first (offline-compatible).
+    The AEGIS project bundles 8 NLTK data ZIP packages in nltk_data/ which
+    app.py sets via NLTK_DATA env var on startup. If packages are missing,
+    tries to extract from bundled ZIPs before falling back to online download.
+    """
     header('[Phase 4] Checking NLTK data')
     print()
 
@@ -666,39 +683,57 @@ def check_nltk_data():
         warn('NLTK not available, skipping data check')
         return
 
+    # Ensure local nltk_data/ is on the search path (same as app.py lines 59-62)
+    local_nltk_dir = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), 'nltk_data')
+    if os.path.isdir(local_nltk_dir):
+        os.environ['NLTK_DATA'] = local_nltk_dir
+        if local_nltk_dir not in nltk.data.path:
+            nltk.data.path.insert(0, local_nltk_dir)
+        info(f'Using bundled nltk_data/ at: {local_nltk_dir}')
+
     datasets = [
-        ('corpora/wordnet', 'wordnet'),
-        ('tokenizers/punkt', 'punkt'),
-        ('tokenizers/punkt_tab', 'punkt_tab'),
-        ('corpora/stopwords', 'stopwords'),
-        ('taggers/averaged_perceptron_tagger_eng', 'averaged_perceptron_tagger_eng'),
-        ('corpora/omw-1.4', 'omw-1.4'),
+        ('corpora/wordnet', 'wordnet', 'corpora'),
+        ('tokenizers/punkt', 'punkt', 'tokenizers'),
+        ('tokenizers/punkt_tab', 'punkt_tab', 'tokenizers'),
+        ('corpora/stopwords', 'stopwords', 'corpora'),
+        ('taggers/averaged_perceptron_tagger', 'averaged_perceptron_tagger', 'taggers'),
+        ('taggers/averaged_perceptron_tagger_eng', 'averaged_perceptron_tagger_eng', 'taggers'),
+        ('corpora/omw-1.4', 'omw-1.4', 'corpora'),
+        ('corpora/cmudict', 'cmudict', 'corpora'),
     ]
 
-    for path, name in datasets:
+    for path, name, category in datasets:
         try:
             nltk.data.find(path)
             ok(name)
         except LookupError:
-            warn(f'{name} missing - downloading...')
-            try:
-                import ssl
-                ssl._create_default_https_context = ssl._create_unverified_context
-            except Exception:
-                pass
-            nltk.download(name, quiet=True)
+            # Try extracting from bundled ZIP first (offline-compatible)
+            fixed = False
+            if os.path.isdir(local_nltk_dir):
+                try:
+                    import zipfile
+                    zip_path = os.path.join(local_nltk_dir, category, f'{name}.zip')
+                    extract_dir = os.path.join(local_nltk_dir, category, name)
+                    if os.path.exists(zip_path) and not os.path.isdir(extract_dir):
+                        zipfile.ZipFile(zip_path).extractall(os.path.join(local_nltk_dir, category))
+                        if os.path.isdir(extract_dir):
+                            ok(f'{name} (extracted from bundled ZIP)')
+                            fixed = True
+                except Exception as e:
+                    warn(f'{name} ZIP extraction failed: {e}')
 
-    # Fix wordnet zip extraction bug
-    try:
-        import zipfile
-        nltk_dir = os.path.join(os.path.expanduser('~'), 'nltk_data', 'corpora')
-        zip_path = os.path.join(nltk_dir, 'wordnet.zip')
-        dir_path = os.path.join(nltk_dir, 'wordnet')
-        if os.path.exists(zip_path) and not os.path.isdir(dir_path):
-            zipfile.ZipFile(zip_path).extractall(nltk_dir)
-            ok('Extracted wordnet.zip')
-    except Exception:
-        pass
+            if not fixed:
+                warn(f'{name} missing - downloading...')
+                try:
+                    import ssl
+                    ssl._create_default_https_context = ssl._create_unverified_context
+                except Exception:
+                    pass
+                try:
+                    nltk.download(name, quiet=True)
+                    ok(f'{name} (downloaded)')
+                except Exception as e:
+                    fail(f'{name} download failed: {e}')
 
 
 def final_summary(fail_count, optional_missing=0):

@@ -19,6 +19,11 @@ This script installs:
 1. spaCy English model (en_core_web_sm)
 2. NLTK data: punkt, punkt_tab, averaged_perceptron_tagger,
    averaged_perceptron_tagger_eng, stopwords, wordnet, omw-1.4, cmudict
+
+v6.1.9: NLTK data packages are bundled as ZIP files in the project's
+nltk_data/ directory (8 packages, ~57MB total). The --offline flag now
+defaults to this directory. app.py sets NLTK_DATA env var to point here
+on startup, so no nltk.download() calls are needed at runtime.
 """
 
 import os
@@ -112,7 +117,13 @@ def install_spacy_model():
 
 
 def install_nltk_data(offline_dir=None):
-    """Download all required NLTK data packages."""
+    """Download all required NLTK data packages.
+
+    v6.1.9: The project bundles all 8 NLTK data ZIP packages in nltk_data/
+    directory (organized by category: tokenizers/, taggers/, corpora/).
+    When --offline is passed, checks both the specified dir AND the project's
+    bundled nltk_data/ directory. The bundled ZIPs are the primary offline source.
+    """
     print_step("Setting up NLTK data...")
 
     # Handle SSL certificate issues (common on macOS)
@@ -129,6 +140,14 @@ def install_nltk_data(offline_dir=None):
         print_error("NLTK is not installed. Run: pip install nltk")
         return False
 
+    # v6.1.9: Ensure the project's bundled nltk_data/ is on the NLTK search path
+    project_nltk_dir = Path(__file__).parent / 'nltk_data'
+    if project_nltk_dir.is_dir():
+        os.environ['NLTK_DATA'] = str(project_nltk_dir)
+        if str(project_nltk_dir) not in nltk.data.path:
+            nltk.data.path.insert(0, str(project_nltk_dir))
+        print_step(f"Using bundled nltk_data/ at: {project_nltk_dir}")
+
     success_count = 0
     fail_count = 0
 
@@ -141,6 +160,23 @@ def install_nltk_data(offline_dir=None):
             continue
         except LookupError:
             pass
+
+        # v6.1.9: Try extracting from project's bundled nltk_data/ ZIPs
+        if project_nltk_dir.is_dir():
+            parts = find_path.split('/')
+            if len(parts) == 2:
+                bundled_zip = project_nltk_dir / parts[0] / f"{name}.zip"
+                extract_dir = project_nltk_dir / parts[0] / name
+                if bundled_zip.exists() and not extract_dir.is_dir():
+                    try:
+                        with zipfile.ZipFile(str(bundled_zip), 'r') as zf:
+                            zf.extractall(str(project_nltk_dir / parts[0]))
+                        if extract_dir.is_dir():
+                            print_success(f"  {name} - extracted from bundled ZIP")
+                            success_count += 1
+                            continue
+                    except Exception as e:
+                        print_warn(f"  {name} - bundled ZIP extraction failed: {e}")
 
         # Try offline first if directory provided
         if offline_dir:
