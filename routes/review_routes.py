@@ -1523,6 +1523,32 @@ def sharepoint_connect_and_scan():
     )
 
     if not result['success']:
+        # v6.1.3: Try headless browser as fallback (uses Windows SSO like Chrome)
+        headless_succeeded = False
+        try:
+            from sharepoint_connector import HeadlessSPConnector, HEADLESS_SP_AVAILABLE
+            if HEADLESS_SP_AVAILABLE:
+                logger.info("SharePoint: REST API auth failed — trying headless browser (Windows SSO)...")
+                headless_connector = HeadlessSPConnector(actual_site_url)
+                headless_result = headless_connector.connect_and_discover(
+                    library_path=library_path,
+                    recursive=recursive,
+                    max_files=max_files,
+                )
+                if headless_result['success']:
+                    # Replace connector and result — continue with headless
+                    connector.close()
+                    connector = headless_connector
+                    result = headless_result
+                    headless_succeeded = True
+                    logger.info(f"SharePoint: Headless browser connected — {len(result.get('files', []))} files found")
+                else:
+                    headless_connector.close()
+                    logger.warning(f"SharePoint: Headless fallback also failed: {headless_result.get('message', '')}")
+        except Exception as e:
+            logger.warning(f"SharePoint: Headless fallback exception: {e}")
+
+    if not result['success']:
         connector.close()
         # v6.1.2: Check if a device code flow was initiated during auth
         # If so, include the device code info so the frontend can show it
@@ -2035,7 +2061,11 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
                     state['current_file'] = ', '.join(chunk_names)
 
             # Process chunk with ThreadPoolExecutor
-            with ThreadPoolExecutor(max_workers=min(FOLDER_SCAN_MAX_WORKERS, len(chunk))) as executor:
+            # v6.1.3: Use max_workers=1 for HeadlessSPConnector — Playwright sync API is
+            # single-threaded, concurrent browser operations would corrupt state
+            _is_headless_sp = hasattr(connector, '_page')  # HeadlessSPConnector has _page attr
+            _workers = 1 if _is_headless_sp else min(FOLDER_SCAN_MAX_WORKERS, len(chunk))
+            with ThreadPoolExecutor(max_workers=_workers) as executor:
                 future_to_file = {
                     executor.submit(_review_sharepoint_file, f): f
                     for f in chunk

@@ -2,7 +2,7 @@
  * AEGIS Help Documentation System
  * ==========================================
  * Comprehensive documentation for all features.
- * Version: 6.1.2
+ * Version: 6.1.3
  *
  * Complete overhaul with:
  * - Beautiful visual design with icons and illustrations
@@ -10,6 +10,7 @@
  * - Technical deep-dive section for advanced users
  * - Smooth navigation and professional typography
  *
+ * v6.1.3 - Headless Browser SharePoint Connector (Playwright + Windows SSO bypass for GCC High AADSTS65002)
  * v6.1.2 - SharePoint Device Code Flow UI + URL Misroute Fix (visible OAuth prompt, folder_scan_start URL guard)
  * v6.1.1 - Fix: CRITICAL — MSAL instance_discovery=False + verify=False for GCC High (authority validation & corporate SSL)
  * v6.1.0 - Fix: CRITICAL — SharePoint OAuth tenant identifier format fixed (bare 'ngc' → 'ngc.onmicrosoft.us' or GUID via OIDC discovery)
@@ -8079,6 +8080,18 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.1.3 <span class="changelog-date">February 25, 2026</span></h3>
+        <p><strong>Headless Browser SharePoint Connector</strong></p>
+        <ul>
+            <li><strong>NEW: HeadlessSPConnector</strong> &mdash; When SharePoint REST API authentication fails (e.g., AADSTS65002 error in GCC High where first-party OAuth client IDs are blocked), AEGIS now automatically falls back to a Playwright-powered headless browser that uses the same Windows SSO credentials as Chrome. Zero OAuth tokens, zero config.json editing, zero IT admin involvement required</li>
+            <li><strong>NEW: Browser-based REST API calls</strong> &mdash; The headless connector uses <code>page.evaluate(fetch(...))</code> to call SharePoint REST API endpoints from within the browser&rsquo;s authenticated JavaScript context. This produces identical JSON responses to the standard REST-based connector, maintaining full compatibility with the existing scan pipeline</li>
+            <li><strong>NEW: HEADLESS_SP_AVAILABLE flag</strong> &mdash; Playwright availability checked at module load time. If Playwright is not installed, the headless fallback is silently skipped and the standard auth cascade continues as before</li>
+            <li><strong>ENH: Transparent auto-fallback</strong> &mdash; The Connect &amp; Scan endpoint automatically tries the headless browser when REST API auth fails. The frontend is completely unchanged &mdash; the user just sees &ldquo;Connected via headless browser (Windows SSO)&rdquo; instead of an authentication error</li>
+            <li><strong>ENH: Three-strategy file download</strong> &mdash; (A) fetch() as base64 via page.evaluate, (B) Playwright download API via page navigation, (C) response.body() direct extraction. Falls through strategies until one succeeds</li>
+            <li><strong>ENH: Thread-safe batch downloads</strong> &mdash; Headless connector automatically forces <code>max_workers=1</code> in ThreadPoolExecutor since Playwright&rsquo;s sync API is single-threaded. Sequential downloads through one authenticated browser session are still much faster than failing on every file</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v6.1.2 <span class="changelog-date">February 25, 2026</span></h3>
         <p><strong>SharePoint Device Code Flow UI &amp; URL Misroute Fix</strong></p>
         <ul>

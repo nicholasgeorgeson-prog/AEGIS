@@ -85,6 +85,15 @@ except ImportError:
     logger.info('[AEGIS SharePoint] MSAL not installed — OAuth 2.0 auth unavailable. '
                 'Install with: pip install msal')
 
+# v6.1.3: Headless browser connector availability (uses Playwright + Windows SSO)
+HEADLESS_SP_AVAILABLE = False
+try:
+    from playwright.sync_api import sync_playwright as _sp_sync_playwright
+    HEADLESS_SP_AVAILABLE = True
+    logger.info('[AEGIS SharePoint] Playwright available — headless browser SharePoint connector enabled')
+except ImportError:
+    logger.info('[AEGIS SharePoint] Playwright not installed — headless browser connector unavailable')
+
 try:
     if sys.platform == 'win32':
         from requests_negotiate_sspi import HttpNegotiateAuth
@@ -1950,6 +1959,687 @@ class SharePointConnector:
             self.session.close()
         except Exception:
             pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
+
+# ============================================================================
+# HeadlessSPConnector — Playwright-based SharePoint access via Windows SSO
+# ============================================================================
+
+class HeadlessSPConnector:
+    """
+    v6.1.3: Headless browser SharePoint connector.
+
+    Uses Playwright + Windows SSO to access SharePoint REST API endpoints
+    through an authenticated browser session. Bypasses MSAL/OAuth entirely —
+    uses the same Windows credentials that Chrome uses.
+
+    This is the fallback connector when REST API auth fails (e.g., AADSTS65002
+    on GCC High where first-party client IDs are blocked).
+
+    Architecture:
+        - Launches headless Chromium with --auth-server-allowlist for automatic SSO
+        - Navigates to SharePoint site to establish authenticated session
+        - Uses page.evaluate(fetch(...)) to call SharePoint REST API from
+          the browser's authenticated JavaScript context
+        - Returns identical data formats to SharePointConnector for polymorphism
+
+    Thread safety:
+        - Playwright sync API is single-threaded
+        - All browser operations must happen on the same thread
+        - Batch scans should use max_workers=1 when using this connector
+    """
+
+    SUPPORTED_EXTENSIONS = {'.docx', '.pdf', '.doc'}
+
+    # Same resource types blocked as headless_validator.py for speed
+    BLOCKED_RESOURCE_TYPES = {'image', 'stylesheet', 'font', 'media', 'imageset'}
+
+    def __init__(self, site_url: str, timeout: int = 45):
+        self.site_url = site_url.rstrip('/')
+        self.timeout = timeout * 1000  # Playwright uses milliseconds
+        self.auth_method = 'headless_browser'
+        self._ssl_fallback_used = False
+
+        # Playwright objects — lazy-initialized
+        self._playwright = None
+        self._browser = None
+        self._context = None
+        self._page = None
+        self._authenticated = False
+
+        # Import CORP_AUTH_DOMAINS from headless_validator if available
+        try:
+            from hyperlink_validator.headless_validator import CORP_AUTH_DOMAINS
+            self._corp_domains = CORP_AUTH_DOMAINS
+        except ImportError:
+            self._corp_domains = [
+                '*.myngc.com', '*.northgrum.com', '*.northropgrumman.com',
+                '*.ngc.sharepoint.us', '*.sharepoint.com', '*.sharepoint.us',
+                '*.mil', '*.gov',
+            ]
+
+        logger.info(f'[HeadlessSP] Connector created for {self.site_url}')
+
+    def _ensure_browser(self):
+        """Lazy-start Playwright browser with SSO auth passthrough."""
+        if self._browser is not None:
+            return
+
+        if not HEADLESS_SP_AVAILABLE:
+            raise RuntimeError('Playwright is not installed — headless SP connector unavailable')
+
+        logger.info('[HeadlessSP] Starting Playwright browser...')
+        self._playwright = _sp_sync_playwright().start()
+
+        # Build launch args — same pattern as HeadlessValidator
+        allowlist = ','.join(self._corp_domains)
+        base_args = [
+            '--disable-blink-features=AutomationControlled',
+            '--disable-dev-shm-usage',
+            '--no-sandbox',
+            '--disable-infobars',
+            '--disable-extensions',
+            '--disable-gpu',
+            '--window-size=1920,1080',
+            f'--auth-server-allowlist={allowlist}',
+            f'--auth-negotiate-delegate-allowlist={allowlist}',
+        ]
+
+        # Try Chrome channel first (real Chrome), fall back to Chromium
+        try:
+            self._browser = self._playwright.chromium.launch(
+                headless=True,
+                channel='chrome',
+                args=base_args,
+            )
+            logger.info('[HeadlessSP] Browser started (Chrome channel) with SSO allowlist')
+        except Exception:
+            fallback_args = [
+                '--disable-blink-features=AutomationControlled',
+                '--disable-dev-shm-usage',
+                '--no-sandbox',
+                f'--auth-server-allowlist={allowlist}',
+                f'--auth-negotiate-delegate-allowlist={allowlist}',
+            ]
+            self._browser = self._playwright.chromium.launch(
+                headless=True,
+                args=fallback_args,
+            )
+            logger.info('[HeadlessSP] Browser started (Chromium fallback) with SSO allowlist')
+
+        # Create ONE persistent context for the session
+        self._context = self._browser.new_context(
+            user_agent=(
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                'AppleWebKit/537.36 (KHTML, like Gecko) '
+                'Chrome/121.0.0.0 Safari/537.36'
+            ),
+            viewport={'width': 1920, 'height': 1080},
+            java_script_enabled=True,
+            ignore_https_errors=True,
+            locale='en-US',
+            timezone_id='America/New_York',
+            accept_downloads=True,
+        )
+
+        self._page = self._context.new_page()
+
+        # Block non-essential resources for speed
+        def _handle_route(route):
+            if route.request.resource_type in self.BLOCKED_RESOURCE_TYPES:
+                route.abort()
+            else:
+                route.continue_()
+
+        self._page.route('**/*', _handle_route)
+        logger.info('[HeadlessSP] Browser context and page created')
+
+    def _authenticate(self) -> Dict[str, Any]:
+        """
+        Navigate to the SharePoint site to establish the SSO session.
+
+        Returns:
+            {success: bool, title: str, message: str}
+        """
+        if self._authenticated:
+            return {'success': True, 'title': '', 'message': 'Already authenticated'}
+
+        self._ensure_browser()
+
+        try:
+            # Navigate to the REST API web endpoint — triggers SSO handshake
+            api_url = f'{self.site_url}/_api/web'
+            logger.info(f'[HeadlessSP] Authenticating via navigation to {api_url}')
+
+            response = self._page.goto(api_url, timeout=self.timeout, wait_until='networkidle')
+
+            if response is None:
+                return {
+                    'success': False,
+                    'title': '',
+                    'message': 'No response from SharePoint — navigation returned None',
+                }
+
+            final_url = self._page.url.lower()
+
+            # Check for login page redirect — SSO failed
+            login_indicators = [
+                '/adfs/ls/', '/adfs/oauth2/', 'login.microsoftonline',
+                'login.windows.net', 'wa=wsignin', '/saml/', '/sso/',
+                'login.', '/auth/', '/signin', '/logon',
+            ]
+            for indicator in login_indicators:
+                if indicator in final_url:
+                    return {
+                        'success': False,
+                        'title': '',
+                        'message': (
+                            f'Windows SSO did not auto-authenticate — '
+                            f'redirected to login page ({indicator}). '
+                            f'Ensure the user is logged into their Windows domain.'
+                        ),
+                    }
+
+            # Check if we got a valid response
+            status = response.status
+            if status == 200:
+                # Try to parse the response as JSON to confirm we're authenticated
+                try:
+                    body_text = self._page.evaluate('document.body.innerText')
+                    data = json.loads(body_text)
+                    title = data.get('d', {}).get('Title', '')
+                    self._authenticated = True
+                    logger.info(f'[HeadlessSP] Authenticated successfully — site: {title}')
+                    return {'success': True, 'title': title, 'message': f'Authenticated to {title}'}
+                except (json.JSONDecodeError, Exception):
+                    # Got a 200 but not JSON — could be HTML page, still consider authenticated
+                    self._authenticated = True
+                    logger.info('[HeadlessSP] Got 200 response (not JSON) — assuming authenticated')
+                    return {'success': True, 'title': '', 'message': 'Authenticated (non-JSON response)'}
+
+            elif status in (401, 403):
+                return {
+                    'success': False,
+                    'title': '',
+                    'message': f'Authentication failed — SharePoint returned HTTP {status}',
+                }
+            else:
+                # Other status codes — try anyway, auth might still work for API calls
+                self._authenticated = True
+                logger.info(f'[HeadlessSP] Got HTTP {status} — will try API calls anyway')
+                return {'success': True, 'title': '', 'message': f'HTTP {status} — trying API access'}
+
+        except Exception as e:
+            return {
+                'success': False,
+                'title': '',
+                'message': f'Browser navigation failed: {str(e)[:200]}',
+            }
+
+    def _api_get(self, endpoint: str) -> Optional[Dict]:
+        """
+        Call a SharePoint REST API endpoint via page.evaluate(fetch(...)).
+
+        This executes a fetch() call within the browser's authenticated JavaScript
+        context, so the request automatically includes the SSO credentials.
+
+        Args:
+            endpoint: REST API path, e.g., '/_api/web' or '/_api/web/GetFolderBy...'
+
+        Returns:
+            Parsed JSON response dict, or None on failure.
+        """
+        if not self._page:
+            self._ensure_browser()
+
+        # Build full URL if endpoint is relative
+        if endpoint.startswith('/'):
+            full_url = f'{self.site_url}{endpoint}'
+        else:
+            full_url = endpoint
+
+        try:
+            # Use page.evaluate to call fetch() in the browser context
+            result = self._page.evaluate('''async (url) => {
+                try {
+                    const resp = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json;odata=verbose',
+                            'Content-Type': 'application/json;odata=verbose',
+                        },
+                        credentials: 'include',
+                    });
+                    const status = resp.status;
+                    if (status === 200 || status === 201) {
+                        const data = await resp.json();
+                        return { success: true, status: status, data: data };
+                    } else {
+                        const text = await resp.text().catch(() => '');
+                        return { success: false, status: status, error: text.substring(0, 500) };
+                    }
+                } catch (e) {
+                    return { success: false, status: 0, error: e.message || String(e) };
+                }
+            }''', full_url)
+
+            if result and result.get('success'):
+                return result.get('data')
+            else:
+                status = result.get('status', 0) if result else 0
+                error = result.get('error', 'Unknown error') if result else 'evaluate returned None'
+                logger.warning(f'[HeadlessSP] API GET {endpoint}: HTTP {status} — {error[:200]}')
+                return None
+
+        except Exception as e:
+            logger.error(f'[HeadlessSP] API GET {endpoint} exception: {e}')
+            return None
+
+    def test_connection(self) -> Dict[str, Any]:
+        """Test the connection via headless browser SSO."""
+        auth_result = self._authenticate()
+        if not auth_result['success']:
+            return {
+                'success': False,
+                'message': auth_result['message'],
+                'auth_method': 'headless_browser',
+            }
+
+        # Try the REST API via evaluate
+        data = self._api_get('/_api/web')
+        if data:
+            title = data.get('d', {}).get('Title', auth_result.get('title', ''))
+            return {
+                'success': True,
+                'title': title,
+                'auth_method': 'headless_browser',
+                'message': f'Connected via headless browser (Windows SSO) — site: {title}',
+            }
+        else:
+            # Auth succeeded but API call failed — maybe JSON didn't parse
+            # Still return success if authenticate() worked
+            return {
+                'success': True,
+                'title': auth_result.get('title', ''),
+                'auth_method': 'headless_browser',
+                'message': 'Connected via headless browser (Windows SSO)',
+            }
+
+    def validate_folder_path(self, folder_path: str) -> bool:
+        """Check if a folder path exists on SharePoint."""
+        encoded = SharePointConnector._encode_sp_path(folder_path)
+        data = self._api_get(
+            f"/_api/web/GetFolderByServerRelativePath(decodedUrl='{encoded}')"
+            f"?$select=Name,ServerRelativeUrl,ItemCount"
+        )
+        return data is not None
+
+    def auto_detect_library_path(self) -> Optional[str]:
+        """Auto-detect the default document library path."""
+        parsed = urlparse(self.site_url)
+        site_path = parsed.path.rstrip('/')
+
+        # Strategy 1: Query Lists API
+        data = self._api_get(
+            f"/_api/web/Lists?$filter=BaseTemplate eq 101 and Hidden eq false"
+            f"&$select=Title,RootFolder/ServerRelativeUrl&$expand=RootFolder"
+        )
+        if data:
+            results = data.get('d', {}).get('results', [])
+            for lib in results:
+                root = lib.get('RootFolder', {})
+                srv_url = root.get('ServerRelativeUrl', '')
+                if srv_url:
+                    logger.info(f'[HeadlessSP] Lists API detected library: {srv_url}')
+                    return srv_url
+
+        # Strategy 2: Probe common names
+        for lib_name in SharePointConnector.DEFAULT_LIBRARIES:
+            test_path = f'{site_path}/{lib_name}'
+            if self.validate_folder_path(test_path):
+                logger.info(f'[HeadlessSP] Probe detected library: {test_path}')
+                return test_path
+
+        return None
+
+    def list_files(
+        self,
+        folder_path: str,
+        recursive: bool = True,
+        max_files: int = 500,
+    ) -> List[Dict[str, Any]]:
+        """List documents in a SharePoint folder via headless browser REST API."""
+        files = []
+        self._list_files_recursive(folder_path, files, recursive, max_files, depth=0)
+        return files[:max_files]
+
+    def _list_files_recursive(
+        self,
+        folder_path: str,
+        files: List[Dict],
+        recursive: bool,
+        max_files: int,
+        depth: int = 0,
+    ):
+        """Recursively list files in a SharePoint folder."""
+        if len(files) >= max_files or depth > 10:
+            return
+
+        encoded_path = SharePointConnector._encode_sp_path(folder_path)
+
+        # Get files in this folder
+        data = self._api_get(
+            f"/_api/web/GetFolderByServerRelativePath(decodedUrl='{encoded_path}')/Files"
+            f"?$select=Name,ServerRelativeUrl,Length,TimeLastModified"
+            f"&$top={max_files - len(files)}"
+        )
+
+        if data:
+            results = data.get('d', {}).get('results', [])
+            for item in results:
+                if len(files) >= max_files:
+                    break
+
+                name = item.get('Name', '')
+                ext = os.path.splitext(name)[1].lower()
+
+                if ext not in self.SUPPORTED_EXTENSIONS:
+                    continue
+
+                server_rel_url = item.get('ServerRelativeUrl', '')
+                files.append({
+                    'name': name,
+                    'filename': name,
+                    'server_relative_url': server_rel_url,
+                    'size': int(item.get('Length', 0)),
+                    'modified': item.get('TimeLastModified', ''),
+                    'extension': ext,
+                    'folder': os.path.dirname(server_rel_url),
+                    'relative_path': server_rel_url,
+                })
+
+        # Recurse into subfolders
+        if recursive and len(files) < max_files:
+            folder_data = self._api_get(
+                f"/_api/web/GetFolderByServerRelativePath(decodedUrl='{encoded_path}')/Folders"
+                f"?$select=Name,ServerRelativeUrl,ItemCount"
+            )
+            if folder_data:
+                folders = folder_data.get('d', {}).get('results', [])
+                for subfolder in folders:
+                    if len(files) >= max_files:
+                        break
+
+                    subfolder_name = subfolder.get('Name', '')
+                    if subfolder_name.startswith('_') or subfolder_name == 'Forms':
+                        continue
+
+                    subfolder_url = subfolder.get('ServerRelativeUrl', '')
+                    if subfolder_url:
+                        self._list_files_recursive(
+                            subfolder_url, files, recursive, max_files, depth + 1
+                        )
+
+    def download_file(self, server_relative_url: str, dest_path: str) -> Dict[str, Any]:
+        """
+        Download a file from SharePoint via the headless browser.
+
+        Strategy A: Use page.evaluate(fetch()) to get file as base64
+        Strategy B: Navigate to file URL and use Playwright's download API
+
+        Args:
+            server_relative_url: Server-relative path (e.g., /sites/Team/Docs/file.docx)
+            dest_path: Local filesystem path to save the file
+
+        Returns:
+            {success: bool, path: str, size: int, message: str}
+        """
+        if not self._page:
+            return {
+                'success': False,
+                'path': dest_path,
+                'size': 0,
+                'message': 'Browser not initialized',
+            }
+
+        encoded_path = SharePointConnector._encode_sp_path(server_relative_url)
+        file_api_url = (
+            f"{self.site_url}/_api/web/"
+            f"GetFileByServerRelativePath(decodedUrl='{encoded_path}')/$value"
+        )
+
+        filename = os.path.basename(server_relative_url)
+
+        # Strategy A: Fetch as base64 via page.evaluate
+        try:
+            logger.info(f'[HeadlessSP] Downloading (fetch): {filename}')
+            result = self._page.evaluate('''async (url) => {
+                try {
+                    const resp = await fetch(url, {
+                        method: 'GET',
+                        credentials: 'include',
+                    });
+                    if (!resp.ok) {
+                        return { success: false, status: resp.status, error: 'HTTP ' + resp.status };
+                    }
+                    const blob = await resp.blob();
+                    return await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve({
+                            success: true,
+                            data: reader.result,
+                            size: blob.size,
+                        });
+                        reader.onerror = () => reject(reader.error);
+                        reader.readAsDataURL(blob);
+                    });
+                } catch (e) {
+                    return { success: false, status: 0, error: e.message || String(e) };
+                }
+            }''', file_api_url)
+
+            if result and result.get('success'):
+                data_url = result.get('data', '')
+                # data_url format: "data:application/octet-stream;base64,AAAA..."
+                if ';base64,' in data_url:
+                    b64_data = data_url.split(';base64,', 1)[1]
+                    file_bytes = base64.b64decode(b64_data)
+
+                    # Ensure parent directory exists
+                    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+
+                    with open(dest_path, 'wb') as f:
+                        f.write(file_bytes)
+
+                    size = len(file_bytes)
+                    logger.info(f'[HeadlessSP] Downloaded {filename}: {size:,} bytes')
+                    return {
+                        'success': True,
+                        'path': dest_path,
+                        'size': size,
+                        'message': f'Downloaded via headless browser ({size:,} bytes)',
+                    }
+                else:
+                    logger.warning(f'[HeadlessSP] Unexpected data URL format for {filename}')
+                    # Fall through to Strategy B
+
+        except Exception as e:
+            logger.warning(f'[HeadlessSP] Strategy A (fetch) failed for {filename}: {e}')
+
+        # Strategy B: Navigate directly and use Playwright's download handler
+        try:
+            logger.info(f'[HeadlessSP] Downloading (navigate): {filename}')
+
+            with self._page.expect_download(timeout=self.timeout) as download_info:
+                self._page.goto(file_api_url, timeout=self.timeout)
+
+            download = download_info.value
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            download.save_as(dest_path)
+
+            size = os.path.getsize(dest_path) if os.path.exists(dest_path) else 0
+            logger.info(f'[HeadlessSP] Downloaded (navigate) {filename}: {size:,} bytes')
+            return {
+                'success': True,
+                'path': dest_path,
+                'size': size,
+                'message': f'Downloaded via headless browser navigate ({size:,} bytes)',
+            }
+
+        except Exception as e:
+            logger.warning(f'[HeadlessSP] Strategy B (navigate) failed for {filename}: {e}')
+
+            # Final fallback: try direct page.goto without expect_download
+            try:
+                response = self._page.goto(file_api_url, timeout=self.timeout)
+                if response and response.status == 200:
+                    body = response.body()
+                    if body and len(body) > 0:
+                        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                        with open(dest_path, 'wb') as f:
+                            f.write(body)
+                        size = len(body)
+                        logger.info(f'[HeadlessSP] Downloaded (body) {filename}: {size:,} bytes')
+                        return {
+                            'success': True,
+                            'path': dest_path,
+                            'size': size,
+                            'message': f'Downloaded via headless browser body ({size:,} bytes)',
+                        }
+            except Exception as e2:
+                logger.error(f'[HeadlessSP] All download strategies failed for {filename}: {e2}')
+
+        return {
+            'success': False,
+            'path': dest_path,
+            'size': 0,
+            'message': f'All download strategies failed for {filename}',
+        }
+
+    def connect_and_discover(
+        self,
+        library_path: str = '',
+        recursive: bool = True,
+        max_files: int = 500,
+    ) -> Dict[str, Any]:
+        """
+        Combined authenticate + test + discover — same interface as SharePointConnector.
+
+        Returns identical dict format for polymorphic use.
+        """
+        # Step 1: Test connection (authenticates via browser SSO)
+        probe = self.test_connection()
+        if not probe['success']:
+            return {
+                'success': False,
+                'title': '',
+                'auth_method': 'headless_browser',
+                'library_path': '',
+                'files': [],
+                'message': probe.get('message', 'Headless browser authentication failed'),
+                'ssl_fallback': False,
+                'error_category': 'auth',
+            }
+
+        title = probe.get('title', '')
+
+        # Step 2: Resolve library path
+        if library_path:
+            if not self.validate_folder_path(library_path):
+                logger.info(f'[HeadlessSP] Path "{library_path}" not found, trying truncation...')
+                parts = library_path.rstrip('/').split('/')
+                found = False
+                for i in range(len(parts), 2, -1):
+                    candidate = '/'.join(parts[:i])
+                    if self.validate_folder_path(candidate):
+                        library_path = candidate
+                        found = True
+                        logger.info(f'[HeadlessSP] Validated truncated path: {library_path}')
+                        break
+                if not found:
+                    logger.info('[HeadlessSP] URL path not valid, falling back to auto-detect')
+                    library_path = ''
+
+        if not library_path:
+            try:
+                detected = self.auto_detect_library_path()
+                if detected:
+                    library_path = detected
+                    logger.info(f'[HeadlessSP] Auto-detected library: {library_path}')
+            except Exception as e:
+                logger.debug(f'[HeadlessSP] Library auto-detect failed: {e}')
+
+        if not library_path:
+            return {
+                'success': True,
+                'title': title,
+                'auth_method': 'headless_browser',
+                'library_path': '',
+                'files': [],
+                'message': f'Connected to "{title}" but could not detect document library. '
+                           'Please enter the library path.',
+                'ssl_fallback': False,
+            }
+
+        # Step 3: Discover files
+        try:
+            files = self.list_files(library_path, recursive=recursive, max_files=max_files)
+        except Exception as e:
+            logger.error(f'[HeadlessSP] Discovery error: {e}')
+            return {
+                'success': True,
+                'title': title,
+                'auth_method': 'headless_browser',
+                'library_path': library_path,
+                'files': [],
+                'message': f'Connected to "{title}" but failed to list files: {str(e)[:200]}',
+                'ssl_fallback': False,
+            }
+
+        return {
+            'success': True,
+            'title': title,
+            'auth_method': 'headless_browser',
+            'library_path': library_path,
+            'files': files,
+            'message': f'Connected to "{title}" via headless browser (Windows SSO) — '
+                       f'found {len(files)} document(s)',
+            'ssl_fallback': False,
+        }
+
+    def close(self):
+        """Close browser and Playwright."""
+        try:
+            if self._page:
+                self._page.close()
+                self._page = None
+        except Exception:
+            pass
+        try:
+            if self._context:
+                self._context.close()
+                self._context = None
+        except Exception:
+            pass
+        try:
+            if self._browser:
+                self._browser.close()
+                self._browser = None
+        except Exception:
+            pass
+        try:
+            if self._playwright:
+                self._playwright.stop()
+                self._playwright = None
+        except Exception:
+            pass
+        logger.info('[HeadlessSP] Browser closed')
 
     def __enter__(self):
         return self
