@@ -16,7 +16,9 @@ Changes:
   _list_files_recursive(), connect_and_discover(), _api_get().
   Defensive URL-decode check for library_path.
 - routes/review_routes.py — Route-level logging of parsed site_url and
-  library_path.
+  library_path. URL guard added to ALL 3 folder scan endpoints.
+- scan_history.py — get_statement_review_stats method (fixes 500 errors)
+- routes/scan_history_routes.py — Statement review stats endpoint
 - version.json / static/version.json — Version bump to 6.1.7
 - static/js/help-docs.js — v6.1.7 changelog
 - CLAUDE.md — Lesson #152 (Diagnostic-first approach)
@@ -47,7 +49,9 @@ RAW_BASE = f'https://raw.githubusercontent.com/{REPO}/{BRANCH}'
 # Files to update (relative path -> description)
 FILES = {
     'sharepoint_connector.py': 'SharePoint connector — diagnostic logging + URL-decode guard',
-    'routes/review_routes.py': 'Review routes — route-level SP logging',
+    'routes/review_routes.py': 'Review routes — SP logging + URL guard on all folder endpoints',
+    'scan_history.py': 'Scan history DB — get_statement_review_stats method (fixes 500 errors)',
+    'routes/scan_history_routes.py': 'Scan history routes — statement review stats endpoint',
     'version.json': 'Version 6.1.7',
     'static/version.json': 'Version 6.1.7 (static copy)',
     'static/js/help-docs.js': 'Help docs with v6.1.7 changelog',
@@ -176,19 +180,24 @@ def main():
         print(f'    • {rel_path} — {desc}')
     print()
     print('  What this update does:')
-    print('    This is a DIAGNOSTIC build. It adds detailed logging to the')
-    print('    HeadlessSP document discovery chain so that logs/sharepoint.log')
-    print('    will reveal exactly why 0 documents are being found.')
     print()
-    print('    Logging added to:')
-    print('      • validate_folder_path() — input path, encoded path, result')
-    print('      • _list_files_recursive() — file counts, names, subfolders')
-    print('      • connect_and_discover() — validation/truncation/auto-detect chain')
-    print('      • _api_get() — full URL being fetched')
-    print('      • Route handler — parsed site_url and library_path')
+    print('    1. DIAGNOSTIC LOGGING (SharePoint document discovery):')
+    print('       Adds detailed logging to the HeadlessSP discovery chain so')
+    print('       logs/sharepoint.log reveals exactly why 0 documents are found.')
+    print('       • validate_folder_path() — input path, encoded path, result')
+    print('       • _list_files_recursive() — file counts, names, subfolders')
+    print('       • connect_and_discover() — validation/truncation/auto-detect chain')
+    print('       • _api_get() — full URL being fetched')
+    print('       • Route handler — parsed site_url and library_path')
+    print('       • Defensive URL-decode check (if library_path has %26, decode it)')
     print()
-    print('    Also added:')
-    print('      • Defensive URL-decode check (if library_path has %26, decode it)')
+    print('    2. FIX: SharePoint URL guard on ALL folder scan endpoints')
+    print('       Previously only the async endpoint had the guard.')
+    print('       The sync endpoint and preview endpoint now also detect URLs.')
+    print()
+    print('    3. FIX: get_statement_review_stats method (500 errors)')
+    print('       Deploys scan_history.py with the missing method that caused')
+    print('       repeated 500 errors on the Statement History endpoints.')
     print()
     print('  Backups at:')
     print(f'    {os.path.abspath(backup_dir)}')

@@ -10,7 +10,7 @@
  * - Technical deep-dive section for advanced users
  * - Smooth navigation and professional typography
  *
- * v6.1.7 - HeadlessSP diagnostic logging: comprehensive path validation/discovery tracing + defensive URL decode
+ * v6.1.7 - HeadlessSP diagnostic logging + URL guard all folder endpoints + scan_history.py deploy (fixes 500 errors)
  * v6.1.6 - HeadlessSP SSO fix: launchPersistentContext + msedge channel + EnableAmbientAuthenticationInIncognito
  * v6.1.5 - Playwright Chromium browser binary install fix + auth allowlist deduplication
  * v6.1.4 - Headless SP: Federated SSO fix (3-phase auth, ADFS allowlist, sharepoint.log diagnostics)
@@ -8090,6 +8090,8 @@ HelpDocs.content['version-history'] = {
             <li><strong>DIAG: Comprehensive path tracing</strong> &mdash; Added detailed logging throughout the HeadlessSP document discovery chain: <code>connect_and_discover()</code>, <code>validate_folder_path()</code>, and <code>_list_files_recursive()</code> now log exact paths, encoded URLs, API responses, file counts, subfolder names, and validation results at every step. Check <code>logs/sharepoint.log</code> for full diagnostics</li>
             <li><strong>FIX: Defensive URL-decode</strong> &mdash; If <code>library_path</code> arrives still percent-encoded (e.g., <code>T%26E</code> instead of <code>T&amp;E</code>), <code>connect_and_discover()</code> now automatically decodes it before folder validation. Prevents silent failures when special characters in folder names are double-encoded</li>
             <li><strong>ENH: Route-level logging</strong> &mdash; The <code>sharepoint-connect-and-scan</code> endpoint now logs the parsed <code>site_url</code> and <code>library_path</code> before calling the connector, providing end-to-end traceability from HTTP request to SharePoint API call</li>
+            <li><strong>FIX: URL guard on all folder endpoints</strong> &mdash; The SharePoint URL detection guard (from v6.1.2) was only on the async <code>folder-scan-start</code> endpoint. Now added to all 3 folder scan endpoints (sync, async, preview) &mdash; pasting a SharePoint URL into the local folder field now shows a clear error message instead of &ldquo;Folder not found&rdquo;</li>
+            <li><strong>FIX: Statement History 500 errors</strong> &mdash; Deploys <code>scan_history.py</code> with the <code>get_statement_review_stats()</code> method that was missing on the Windows machine. Resolves the repeated <code>AttributeError: 'ScanHistoryDB' object has no attribute 'get_statement_review_stats'</code> errors (5 occurrences in recent diagnostic logs)</li>
         </ul>
     </div>
     <div class="changelog-version">

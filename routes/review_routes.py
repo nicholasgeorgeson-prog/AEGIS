@@ -454,6 +454,14 @@ def folder_scan():
     if not folder_path_str:
         raise ValidationError('No folder_path provided')
 
+    # v6.1.7: Detect when a SharePoint URL is accidentally pasted into the local folder field
+    if folder_path_str.startswith(('http://', 'https://')) or 'sharepoint' in folder_path_str.lower():
+        raise ValidationError(
+            'This looks like a SharePoint URL, not a local folder path. '
+            'Please paste SharePoint links in the "Paste SharePoint link" field below, '
+            'then click "Connect & Scan".'
+        )
+
     folder_path = Path(folder_path_str)
     if not folder_path.exists():
         raise ValidationError(f'Folder not found: {folder_path_str}')
@@ -776,6 +784,14 @@ def folder_discover():
 
     if not folder_path_str:
         raise ValidationError('No folder_path provided')
+
+    # v6.1.7: Detect when a SharePoint URL is accidentally pasted into the local folder field
+    if folder_path_str.startswith(('http://', 'https://')) or 'sharepoint' in folder_path_str.lower():
+        raise ValidationError(
+            'This looks like a SharePoint URL, not a local folder path. '
+            'Please paste SharePoint links in the "Paste SharePoint link" field below, '
+            'then click "Connect & Scan".'
+        )
 
     folder_path = Path(folder_path_str)
     if not folder_path.exists():

@@ -15,6 +15,8 @@
         "DIAG: HeadlessSP document library discovery — comprehensive diagnostic logging throughout connect_and_discover(), validate_folder_path(), and _list_files_recursive() to diagnose zero-file results",
         "DIAG: Logs exact encoded paths, API endpoints, file counts, subfolder names, and validation results at every step of the SharePoint library navigation chain",
         "FIX: Defensive URL-decode check in connect_and_discover() — if library_path arrives percent-encoded (e.g., T%26E instead of T&E), decode it before validation",
+        "FIX: SharePoint URL detection guard added to ALL 3 folder scan endpoints (sync, async, preview) — previously only the async endpoint had the guard, causing SharePoint URLs to trigger 'Folder not found' errors on the other endpoints",
+        "FIX: Deploy scan_history.py with get_statement_review_stats method — resolves repeated 500 errors on Statement History review stats endpoint (5 occurrences in recent logs)",
         "ENH: Route handler now logs parsed site_url and library_path before connector call for end-to-end traceability"
       ]
     },
