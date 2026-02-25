@@ -167,7 +167,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 6.1.7
+- **Current version**: 6.1.10
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -1398,7 +1398,7 @@ The `decodedUrl` parameter **auto-decodes** percent-encoded values before using 
 **Lesson**: For headless browser Windows SSO authentication, ALL THREE conditions must be met: (1) Use a full browser binary (Edge/Chrome new headless mode), NOT chrome-headless-shell. (2) Use `launchPersistentContext()` with a `user_data_dir`, NOT `launch()` + `new_context()` — the latter creates incognito-like contexts where ambient auth is disabled. (3) Include `--enable-features=EnableAmbientAuthenticationInIncognito` for safety. Also include identity provider domains (`*.microsoftonline.com`, `*.microsoftonline.us`, `*.windows.net`, `*.adfs.*`) in `--auth-server-allowlist` — the Kerberos challenge happens on the IdP, not the target site.
 
 ### 151. Version Management Update
-- **Current version**: 6.1.9
+- **Current version**: 6.1.10
 
 ### 152. Diagnostic-First Approach for Remote Environment Debugging (v6.1.7)
 **Problem**: HeadlessSPConnector v6.1.6 authenticated successfully (SSO works) but returned zero documents from the `T&E` library path. Without logs from the Windows machine, the exact failure point was unknown.
@@ -1420,6 +1420,14 @@ The `decodedUrl` parameter **auto-decodes** percent-encoded values before using 
 **Fix**: Created `nltk_data/` directory in project root with all 8 required NLTK data packages as ZIP files organized by category (`tokenizers/`, `taggers/`, `corpora/`). Total ~57MB ZIPs. `app.py` already sets `NLTK_DATA` env var to this directory on startup (lines 59-62). Updated 6 files: `apply_v6.1.9.py` (downloads ZIPs from GitHub and extracts), `requirements.txt` (documents offline data approach), `install_nlp.py` (checks bundled dir first), `repair_aegis.py` (extracts bundled ZIPs before downloading), `Install_AEGIS_OneClick.bat` (checks project-root `nltk_data/` before `models/nltk_data`), `packaging/prepare_offline_data.py` (notes bundled data).
 **8 packages**: punkt, punkt_tab (tokenizers); averaged_perceptron_tagger, averaged_perceptron_tagger_eng (taggers); stopwords, wordnet, omw-1.4, cmudict (corpora).
 **Lesson**: NLTK data packages are NOT Python wheels — they're ZIP files containing language models/corpora. They can't be installed via pip. For air-gap deployments, bundle the ZIPs in the repo and extract on the target machine. The apply script downloads ZIPs from GitHub raw content and extracts to `nltk_data/{category}/{package_name}/`. All 6 NLTK-touching files (app.py, install_nlp.py, repair_aegis.py, OneClick installer, prepare_offline_data.py, apply scripts) must agree on the directory structure: `nltk_data/{category}/{package}/`.
+
+### 155. SharePoint Connect & Scan Progress Indicator (v6.1.10)
+**Problem**: SharePoint Connect & Scan button showed static "Connecting..." text with a spinning icon during the 15-45 second SSO authentication and file discovery process. No progress bar, no phase updates, no elapsed time — the tool appeared frozen.
+**Root Cause**: The backend `/api/review/sharepoint-connect-and-scan` is a single blocking HTTP request that handles authentication (SSO redirect chain), subweb detection, and file listing all at once. The frontend `fetch()` call blocks until the entire process completes, with no intermediate progress events.
+**Fix**: Added time-based phase animation in the frontend that cycles through 7 expected phases during the blocking request: (1) Initializing connection (0s), (2) Authenticating via Windows SSO (3s), (3) SSO redirect chain in progress (8s), (4) Verifying authentication (15s), (5) Detecting library structure (20s), (6) Listing documents (25s), (7) Processing results (35s). Each phase updates: a status label with Lucide icon, a gold progress bar (5% → 90%), the button text with a short label, and a live elapsed time counter. An informational subtitle sets expectations ("15-45 seconds"). All timers are cleaned up in success, error, and finally paths.
+**Key pattern**: When a backend request is blocking and can't emit intermediate progress, use client-side time-based phase simulation. The phases should match the known server-side steps with realistic timing. Always include: (1) elapsed time counter (proves the tool isn't frozen), (2) phase description (tells user what's happening), (3) progress bar (visual motion catches the eye), (4) expectation-setting text (prevents premature abandonment).
+**Files**: `static/js/app.js` (Connect & Scan button handler)
+**Lesson**: Any operation that takes >5 seconds should have visible progress indication. For blocking requests where server-sent events aren't practical, client-side phase animation with realistic timing is effective. The key elements are: elapsed time (proves activity), phase text (explains what's happening), progress bar (visual motion), and expectation text (tells user how long to wait). Always clean up timers in try/catch/finally to prevent memory leaks.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

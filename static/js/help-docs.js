@@ -8084,6 +8084,17 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.1.10 <span class="changelog-date">February 25, 2026</span></h3>
+        <p><strong>SharePoint Connect &amp; Scan &mdash; Progress Indicator</strong></p>
+        <ul>
+            <li><strong>ENH: Animated progress indicator</strong> &mdash; SharePoint Connect &amp; Scan now shows a gold-themed progress animation during the 15&ndash;45 second SSO authentication and file discovery phase. Eliminates the appearance of a frozen tool during the blocking backend request</li>
+            <li><strong>ENH: Seven-phase progress</strong> &mdash; Cycles through connection stages: Initializing &rarr; Authenticating via Windows SSO &rarr; SSO redirect chain &rarr; Verifying authentication &rarr; Detecting library structure &rarr; Listing documents &rarr; Processing results</li>
+            <li><strong>ENH: Live elapsed timer</strong> &mdash; Shows seconds since connection started, updating every second. Progress bar advances smoothly through phases</li>
+            <li><strong>ENH: Button status cycling</strong> &mdash; The Connect &amp; Scan button text itself cycles through short status labels (Connecting &rarr; Authenticating &rarr; SSO in progress &rarr; Verifying &rarr; Detecting &rarr; Listing files &rarr; Processing) so even the button indicates active progress</li>
+            <li><strong>ENH: Expectation setting</strong> &mdash; Informational subtitle tells user &ldquo;This may take 15&ndash;45 seconds while Windows SSO completes&rdquo; to set expectations upfront</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v6.1.9 <span class="changelog-date">February 25, 2026</span></h3>
         <p><strong>SharePoint Subsite (Sub-Web) Detection &mdash; API Routing Fix</strong></p>
         <ul>

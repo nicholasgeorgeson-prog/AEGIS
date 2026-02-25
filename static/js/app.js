@@ -11802,6 +11802,95 @@ STEPS TO REPRODUCE
                 btnSpConnectScan.innerHTML = '<i data-lucide="loader" class="spin"></i> Connecting...';
                 lucide?.createIcons?.();
 
+                // v6.1.10: Animated progress indicator during connection
+                // Backend is a single blocking request (~15-45s for SSO auth + discovery).
+                // Show cycling phase messages so user knows the tool isn't frozen.
+                const _spPhases = [
+                    { label: 'Initializing connection...', icon: 'wifi', delay: 0 },
+                    { label: 'Authenticating via Windows SSO...', icon: 'shield-check', delay: 3000 },
+                    { label: 'SSO redirect chain in progress...', icon: 'arrow-right-circle', delay: 8000 },
+                    { label: 'Verifying authentication...', icon: 'check-circle', delay: 15000 },
+                    { label: 'Detecting library structure...', icon: 'folder-search', delay: 20000 },
+                    { label: 'Listing documents...', icon: 'file-search', delay: 25000 },
+                    { label: 'Almost there — processing results...', icon: 'loader', delay: 35000 },
+                ];
+                let _spPhaseIdx = 0;
+                let _spPhaseTimer = null;
+                let _spElapsed = 0;
+                let _spElapsedTimer = null;
+                const _spStartTime = Date.now();
+
+                // Show the progress indicator in the connection status area
+                if (spConnectionStatus) {
+                    spConnectionStatus.classList.remove('hidden');
+                    spConnectionStatus.style.background = 'rgba(214,168,74,0.08)';
+                    spConnectionStatus.style.border = '1px solid rgba(214,168,74,0.25)';
+                    spConnectionStatus.style.color = 'var(--text-primary, #e6edf3)';
+                    spConnectionStatus.innerHTML = `
+                        <div class="sp-connect-progress" style="display:flex;flex-direction:column;gap:6px;">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <i data-lucide="wifi" style="width:16px;height:16px;color:#D6A84A;" class="sp-phase-icon"></i>
+                                <span class="sp-phase-label" style="font-size:12px;font-weight:500;">Initializing connection...</span>
+                                <span class="sp-elapsed" style="font-size:11px;opacity:0.5;margin-left:auto;">0s</span>
+                            </div>
+                            <div style="height:3px;background:rgba(214,168,74,0.15);border-radius:2px;overflow:hidden;">
+                                <div class="sp-progress-bar" style="height:100%;background:linear-gradient(90deg,#D6A84A,#B8743A);border-radius:2px;width:5%;transition:width 0.6s ease;"></div>
+                            </div>
+                            <div style="font-size:10px;opacity:0.4;font-style:italic;">This may take 15–45 seconds while Windows SSO completes</div>
+                        </div>`;
+                    lucide?.createIcons?.();
+
+                    // Phase cycling function
+                    const _updateSpPhase = () => {
+                        _spPhaseIdx++;
+                        if (_spPhaseIdx >= _spPhases.length) return; // Stay on last phase
+                        const phase = _spPhases[_spPhaseIdx];
+                        const iconEl = spConnectionStatus.querySelector('.sp-phase-icon');
+                        const labelEl = spConnectionStatus.querySelector('.sp-phase-label');
+                        const barEl = spConnectionStatus.querySelector('.sp-progress-bar');
+                        if (labelEl) labelEl.textContent = phase.label;
+                        if (iconEl) {
+                            iconEl.setAttribute('data-lucide', phase.icon);
+                            if (phase.icon === 'loader') iconEl.classList.add('spin');
+                            else iconEl.classList.remove('spin');
+                            lucide?.createIcons?.();
+                        }
+                        // Progress bar: advance proportionally through phases
+                        if (barEl) {
+                            const pct = Math.min(90, Math.round((_spPhaseIdx / _spPhases.length) * 90) + 5);
+                            barEl.style.width = pct + '%';
+                        }
+                        // Also update the button text to show short phase status
+                        const shortLabels = ['Connecting...', 'Authenticating...', 'SSO in progress...', 'Verifying...', 'Detecting...', 'Listing files...', 'Processing...'];
+                        if (btnSpConnectScan && shortLabels[_spPhaseIdx]) {
+                            btnSpConnectScan.innerHTML = '<i data-lucide="loader" class="spin"></i> ' + shortLabels[_spPhaseIdx];
+                            lucide?.createIcons?.();
+                        }
+                    };
+
+                    // Schedule phase transitions based on delay timings
+                    const _spTimers = [];
+                    _spPhases.forEach((phase, idx) => {
+                        if (idx === 0) return; // Already showing first phase
+                        _spTimers.push(setTimeout(() => _updateSpPhase(), phase.delay));
+                    });
+
+                    // Elapsed time counter (updates every second)
+                    _spElapsedTimer = setInterval(() => {
+                        _spElapsed = Math.round((Date.now() - _spStartTime) / 1000);
+                        const elapsedEl = spConnectionStatus.querySelector('.sp-elapsed');
+                        if (elapsedEl) elapsedEl.textContent = _spElapsed + 's';
+                    }, 1000);
+
+                    // Cleanup function — called in both success and error paths
+                    var _cleanupSpProgress = () => {
+                        _spTimers.forEach(t => clearTimeout(t));
+                        if (_spElapsedTimer) clearInterval(_spElapsedTimer);
+                    };
+                } else {
+                    var _cleanupSpProgress = () => {};
+                }
+
                 try {
                     const csrf = await _freshCSRF();
                     const resp = await fetch('/api/review/sharepoint-connect-and-scan', {
@@ -11818,6 +11907,9 @@ STEPS TO REPRODUCE
                         })
                     });
                     const json = await resp.json();
+
+                    // v6.1.10: Stop the progress animation — we have a response
+                    _cleanupSpProgress();
 
                     if (spConnectionStatus) spConnectionStatus.classList.remove('hidden');
 
@@ -11972,6 +12064,7 @@ STEPS TO REPRODUCE
                         }
                     }
                 } catch (err) {
+                    _cleanupSpProgress(); // v6.1.10: Stop progress animation on error
                     console.error('[TWR SP] Connect & Scan error:', err);
                     window.showToast?.('SharePoint connection failed: ' + err.message, 'error');
                     if (spConnectionStatus) {
@@ -11982,6 +12075,7 @@ STEPS TO REPRODUCE
                         spConnectionStatus.innerHTML = `<strong>✗ Error</strong> — ${escapeHtml(err.message)}`;
                     }
                 } finally {
+                    _cleanupSpProgress(); // v6.1.10: Safety net — ensure progress animation is stopped
                     // v6.0.8: Re-enable ALL buttons after Connect & Scan completes (success or failure)
                     // This prevents UI freeze where buttons remain disabled after a connection error
                     btnSpConnectScan.disabled = false;
