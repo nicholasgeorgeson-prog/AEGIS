@@ -1514,6 +1514,8 @@ def sharepoint_connect_and_scan():
     if not library_path:
         library_path = parsed.get('library_path', '')
 
+    logger.info(f'SharePoint connect-and-scan: site_url="{actual_site_url}", library_path="{library_path}"')
+
     # Combined connect + discover
     connector = SPConnector(actual_site_url)
     result = connector.connect_and_discover(
@@ -1535,7 +1537,7 @@ def sharepoint_connect_and_scan():
             _headless_available = HEADLESS_SP_AVAILABLE
             if HEADLESS_SP_AVAILABLE:
                 _headless_tried = True
-                logger.info("SharePoint: REST API auth failed — trying headless browser (Windows SSO)...")
+                logger.info(f"SharePoint: REST API auth failed — trying headless browser (Windows SSO)... library_path=\"{library_path}\"")
                 headless_connector = HeadlessSPConnector(actual_site_url)
                 headless_result = headless_connector.connect_and_discover(
                     library_path=library_path,

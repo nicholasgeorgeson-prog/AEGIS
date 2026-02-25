@@ -2438,6 +2438,8 @@ class HeadlessSPConnector:
         else:
             full_url = endpoint
 
+        logger.debug(f'[HeadlessSP] _api_get: {full_url[:300]}')
+
         try:
             # Use page.evaluate to call fetch() in the browser context
             result = self._page.evaluate('''async (url) => {
@@ -2508,10 +2510,18 @@ class HeadlessSPConnector:
     def validate_folder_path(self, folder_path: str) -> bool:
         """Check if a folder path exists on SharePoint."""
         encoded = SharePointConnector._encode_sp_path(folder_path)
-        data = self._api_get(
+        endpoint = (
             f"/_api/web/GetFolderByServerRelativePath(decodedUrl='{encoded}')"
             f"?$select=Name,ServerRelativeUrl,ItemCount"
         )
+        logger.info(f'[HeadlessSP] validate_folder_path: "{folder_path}" → encoded: "{encoded}"')
+        data = self._api_get(endpoint)
+        if data:
+            name = data.get('d', {}).get('Name', '?')
+            item_count = data.get('d', {}).get('ItemCount', '?')
+            logger.info(f'[HeadlessSP] validate_folder_path: ✓ FOUND — Name="{name}", ItemCount={item_count}')
+        else:
+            logger.info(f'[HeadlessSP] validate_folder_path: ✗ NOT FOUND')
         return data is not None
 
     def auto_detect_library_path(self) -> Optional[str]:
@@ -2566,16 +2576,29 @@ class HeadlessSPConnector:
             return
 
         encoded_path = SharePointConnector._encode_sp_path(folder_path)
+        logger.info(f'[HeadlessSP] list_files depth={depth}: "{folder_path}" → encoded: "{encoded_path}"')
 
         # Get files in this folder
-        data = self._api_get(
+        files_endpoint = (
             f"/_api/web/GetFolderByServerRelativePath(decodedUrl='{encoded_path}')/Files"
             f"?$select=Name,ServerRelativeUrl,Length,TimeLastModified"
             f"&$top={max_files - len(files)}"
         )
+        logger.info(f'[HeadlessSP] Fetching files: {files_endpoint[:200]}')
+        data = self._api_get(files_endpoint)
 
         if data:
             results = data.get('d', {}).get('results', [])
+            all_file_names = [item.get('Name', '?') for item in results]
+            supported_count = sum(
+                1 for item in results
+                if os.path.splitext(item.get('Name', ''))[1].lower() in self.SUPPORTED_EXTENSIONS
+            )
+            logger.info(
+                f'[HeadlessSP] Files API returned {len(results)} items, '
+                f'{supported_count} supported. All files: {all_file_names[:20]}'
+            )
+
             for item in results:
                 if len(files) >= max_files:
                     break
@@ -2597,15 +2620,20 @@ class HeadlessSPConnector:
                     'folder': os.path.dirname(server_rel_url),
                     'relative_path': server_rel_url,
                 })
+        else:
+            logger.warning(f'[HeadlessSP] Files API returned None for "{folder_path}"')
 
         # Recurse into subfolders
         if recursive and len(files) < max_files:
-            folder_data = self._api_get(
+            folders_endpoint = (
                 f"/_api/web/GetFolderByServerRelativePath(decodedUrl='{encoded_path}')/Folders"
                 f"?$select=Name,ServerRelativeUrl,ItemCount"
             )
+            folder_data = self._api_get(folders_endpoint)
             if folder_data:
                 folders = folder_data.get('d', {}).get('results', [])
+                folder_names = [f.get('Name', '?') for f in folders]
+                logger.info(f'[HeadlessSP] Subfolders at depth={depth}: {folder_names}')
                 for subfolder in folders:
                     if len(files) >= max_files:
                         break
@@ -2784,30 +2812,47 @@ class HeadlessSPConnector:
         title = probe.get('title', '')
 
         # Step 2: Resolve library path
+        # Defensive: ensure library_path is URL-decoded (parse_sharepoint_url should handle this,
+        # but if the path arrives percent-encoded, decode it here)
+        if library_path and '%' in library_path:
+            from urllib.parse import unquote
+            decoded = unquote(library_path)
+            if decoded != library_path:
+                logger.info(f'[HeadlessSP] URL-decoded library_path: "{library_path}" → "{decoded}"')
+                library_path = decoded
+        logger.info(f'[HeadlessSP] connect_and_discover: library_path="{library_path}", recursive={recursive}')
         if library_path:
+            logger.info(f'[HeadlessSP] Validating provided library path: "{library_path}"')
             if not self.validate_folder_path(library_path):
                 logger.info(f'[HeadlessSP] Path "{library_path}" not found, trying truncation...')
                 parts = library_path.rstrip('/').split('/')
+                logger.info(f'[HeadlessSP] Path parts for truncation: {parts}')
                 found = False
                 for i in range(len(parts), 2, -1):
                     candidate = '/'.join(parts[:i])
+                    logger.info(f'[HeadlessSP] Trying truncated path ({i} parts): "{candidate}"')
                     if self.validate_folder_path(candidate):
+                        logger.info(f'[HeadlessSP] ✓ Truncated path validated: "{candidate}"')
                         library_path = candidate
                         found = True
-                        logger.info(f'[HeadlessSP] Validated truncated path: {library_path}')
                         break
                 if not found:
-                    logger.info('[HeadlessSP] URL path not valid, falling back to auto-detect')
+                    logger.warning('[HeadlessSP] ✗ ALL truncated paths failed — falling back to auto-detect')
                     library_path = ''
+            else:
+                logger.info(f'[HeadlessSP] ✓ Library path validated directly: "{library_path}"')
 
         if not library_path:
+            logger.info('[HeadlessSP] No library path — attempting auto-detect...')
             try:
                 detected = self.auto_detect_library_path()
                 if detected:
                     library_path = detected
                     logger.info(f'[HeadlessSP] Auto-detected library: {library_path}')
+                else:
+                    logger.warning('[HeadlessSP] Auto-detect returned None')
             except Exception as e:
-                logger.debug(f'[HeadlessSP] Library auto-detect failed: {e}')
+                logger.warning(f'[HeadlessSP] Library auto-detect failed: {e}')
 
         if not library_path:
             return {
@@ -2822,8 +2867,15 @@ class HeadlessSPConnector:
             }
 
         # Step 3: Discover files
+        logger.info(f'[HeadlessSP] Step 3: Listing files in "{library_path}" (recursive={recursive})')
         try:
             files = self.list_files(library_path, recursive=recursive, max_files=max_files)
+            logger.info(f'[HeadlessSP] list_files returned {len(files)} file(s)')
+            if files:
+                for f in files[:5]:
+                    logger.info(f'[HeadlessSP]   → {f.get("name")} ({f.get("size", 0):,} bytes)')
+                if len(files) > 5:
+                    logger.info(f'[HeadlessSP]   ... and {len(files) - 5} more')
         except Exception as e:
             logger.error(f'[HeadlessSP] Discovery error: {e}')
             return {

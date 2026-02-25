@@ -167,7 +167,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 6.1.1
+- **Current version**: 6.1.7
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -1398,7 +1398,14 @@ The `decodedUrl` parameter **auto-decodes** percent-encoded values before using 
 **Lesson**: For headless browser Windows SSO authentication, ALL THREE conditions must be met: (1) Use a full browser binary (Edge/Chrome new headless mode), NOT chrome-headless-shell. (2) Use `launchPersistentContext()` with a `user_data_dir`, NOT `launch()` + `new_context()` — the latter creates incognito-like contexts where ambient auth is disabled. (3) Include `--enable-features=EnableAmbientAuthenticationInIncognito` for safety. Also include identity provider domains (`*.microsoftonline.com`, `*.microsoftonline.us`, `*.windows.net`, `*.adfs.*`) in `--auth-server-allowlist` — the Kerberos challenge happens on the IdP, not the target site.
 
 ### 151. Version Management Update
-- **Current version**: 6.1.6
+- **Current version**: 6.1.7
+
+### 152. Diagnostic-First Approach for Remote Environment Debugging (v6.1.7)
+**Problem**: HeadlessSPConnector v6.1.6 authenticated successfully (SSO works) but returned zero documents from the `T&E` library path. Without logs from the Windows machine, the exact failure point was unknown.
+**Root Cause**: Unknown — investigation confirmed that URL parsing (`parse_sharepoint_url` correctly extracts `/sites/AS-ENG/PAL/yyRelease/T&E`), path encoding (`_encode_sp_path` correctly produces `T%26E`), and ResourcePath API (`decodedUrl` auto-decodes `%26`→`&`) are all theoretically correct. The failure could be: (1) `validate_folder_path()` fails → truncation finds parent → parent is empty, (2) validation succeeds but `list_files()` returns nothing, (3) an API error in `_api_get()` that's swallowed, or (4) the library_path arriving URL-encoded (`%26` instead of `&`) causing double-encoding.
+**Fix**: Added comprehensive diagnostic logging at every step of the discovery chain: `validate_folder_path()` logs input/encoded path and result (Name, ItemCount), `_list_files_recursive()` logs file counts/names/subfolders at each depth, `connect_and_discover()` logs the full validation→truncation→auto-detect chain, `_api_get()` logs the full URL. Added defensive URL-decode check — if `library_path` contains `%`, auto-decode it before use. Added route-level logging of parsed `site_url` and `library_path`.
+**Key insight**: Rather than guessing at fixes (anti-pattern from Lesson 138), the diagnostic approach generates definitive evidence on next deployment. The `logs/sharepoint.log` file will show exactly which API call fails and why.
+**Lesson**: When debugging issues on a remote machine you can't access directly, add comprehensive logging at every decision point in the chain, deploy the diagnostic build, and have the user share the logs. This is faster than iterating through guesses. Always log: (1) inputs to each function, (2) encoded/transformed values, (3) API responses (success/fail + key fields), (4) which branch of conditional logic was taken.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

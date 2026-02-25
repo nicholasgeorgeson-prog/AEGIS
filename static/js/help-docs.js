@@ -2,7 +2,7 @@
  * AEGIS Help Documentation System
  * ==========================================
  * Comprehensive documentation for all features.
- * Version: 6.1.6
+ * Version: 6.1.7
  *
  * Complete overhaul with:
  * - Beautiful visual design with icons and illustrations
@@ -10,6 +10,7 @@
  * - Technical deep-dive section for advanced users
  * - Smooth navigation and professional typography
  *
+ * v6.1.7 - HeadlessSP diagnostic logging: comprehensive path validation/discovery tracing + defensive URL decode
  * v6.1.6 - HeadlessSP SSO fix: launchPersistentContext + msedge channel + EnableAmbientAuthenticationInIncognito
  * v6.1.5 - Playwright Chromium browser binary install fix + auth allowlist deduplication
  * v6.1.4 - Headless SP: Federated SSO fix (3-phase auth, ADFS allowlist, sharepoint.log diagnostics)
@@ -8083,6 +8084,15 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.1.7 <span class="changelog-date">February 25, 2026</span></h3>
+        <p><strong>HeadlessSP Document Discovery Diagnostics</strong></p>
+        <ul>
+            <li><strong>DIAG: Comprehensive path tracing</strong> &mdash; Added detailed logging throughout the HeadlessSP document discovery chain: <code>connect_and_discover()</code>, <code>validate_folder_path()</code>, and <code>_list_files_recursive()</code> now log exact paths, encoded URLs, API responses, file counts, subfolder names, and validation results at every step. Check <code>logs/sharepoint.log</code> for full diagnostics</li>
+            <li><strong>FIX: Defensive URL-decode</strong> &mdash; If <code>library_path</code> arrives still percent-encoded (e.g., <code>T%26E</code> instead of <code>T&amp;E</code>), <code>connect_and_discover()</code> now automatically decodes it before folder validation. Prevents silent failures when special characters in folder names are double-encoded</li>
+            <li><strong>ENH: Route-level logging</strong> &mdash; The <code>sharepoint-connect-and-scan</code> endpoint now logs the parsed <code>site_url</code> and <code>library_path</code> before calling the connector, providing end-to-end traceability from HTTP request to SharePoint API call</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v6.1.6 <span class="changelog-date">February 25, 2026</span></h3>
         <p><strong>HeadlessSP SSO Authentication Fix &mdash; 3 Root Causes</strong></p>
         <ul>
