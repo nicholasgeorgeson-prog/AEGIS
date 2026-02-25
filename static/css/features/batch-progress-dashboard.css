@@ -765,6 +765,11 @@ body:not(.dark-mode) .batch-mini-ring-bg,
     margin-top: 1px;
 }
 
+/* Hidden state for file selector (Lesson #51: component-specific .hidden rules required) */
+#sp-file-selector.hidden {
+    display: none !important;
+}
+
 .sp-selector-footer {
     padding: 10px 14px;
     border-top: 1px solid var(--border-color, rgba(255,255,255,0.08));

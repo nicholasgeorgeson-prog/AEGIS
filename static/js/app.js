@@ -11814,6 +11814,7 @@ STEPS TO REPRODUCE
 
             // Show the selector
             selectorEl.classList.remove('hidden');
+            selectorEl.style.display = '';  // Ensure visible even if CSS .hidden didn't clear
 
             // Reset select-all state
             if (selectAllCb) selectAllCb.checked = true;
@@ -11821,8 +11822,21 @@ STEPS TO REPRODUCE
             // Initialize icons
             lucide?.createIcons?.();
 
-            // Update the count
-            _updateSpSelectionCount();
+            // Update the count — use setTimeout to ensure DOM has fully rendered
+            // (some browsers don't update :checked pseudo-selector synchronously after innerHTML)
+            setTimeout(() => {
+                _updateSpSelectionCount();
+                // Belt-and-suspenders: if files were rendered with checked, force-enable button
+                if (btnScanSelected && files.length > 0) {
+                    const checkedCount = fileListEl.querySelectorAll('.sp-file-check:checked').length;
+                    console.log(`[TWR SP] File selector: ${files.length} files, ${checkedCount} checked`);
+                    if (checkedCount > 0) {
+                        btnScanSelected.disabled = false;
+                        const span = btnScanSelected.querySelector('span');
+                        if (span) span.textContent = `Scan Selected (${checkedCount})`;
+                    }
+                }
+            }, 50);
 
             // Wire up Select All checkbox
             if (selectAllCb) {
@@ -11839,13 +11853,15 @@ STEPS TO REPRODUCE
                 };
             }
 
-            // Wire up individual checkboxes (event delegation on file list)
-            fileListEl.onclick = (e) => {
-                if (e.target.classList.contains('sp-file-check') || e.target.closest('.sp-file-check')) {
-                    // Let the checkbox toggle naturally, then update count
-                    setTimeout(() => _updateSpSelectionCount(), 0);
+            // Wire up individual checkboxes (event delegation via change event)
+            // Note: Using 'change' event (not 'click') because file rows are <label> elements
+            // wrapping checkboxes — clicking the label text triggers checkbox change but
+            // e.target on click may be the <span>, not the checkbox itself.
+            fileListEl.addEventListener('change', (e) => {
+                if (e.target.classList.contains('sp-file-check')) {
+                    _updateSpSelectionCount();
                 }
-            };
+            });
 
             // Wire up filter chips
             if (filterChipsEl) {

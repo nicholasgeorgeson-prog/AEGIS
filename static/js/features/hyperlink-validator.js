@@ -390,10 +390,17 @@ window.HyperlinkValidator = (function() {
     function _fetchAuthBadge() {
         const badge = document.getElementById('hv-auth-badge');
         if (!badge) return;
-        const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
-        fetch('/api/hyperlink-validator/diagnose-auth', {
-            method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
-            body: JSON.stringify({}), credentials: 'same-origin'
+        // Get fresh CSRF token before making the POST (Lesson 18)
+        fetch('/api/version', { credentials: 'same-origin' })
+        .then(vResp => {
+            const freshCsrf = vResp.headers.get('X-CSRF-Token');
+            const csrf = freshCsrf || window.State?.csrfToken ||
+                document.querySelector('meta[name="csrf-token"]')?.content || '';
+            if (freshCsrf && window.State) window.State.csrfToken = freshCsrf;
+            return fetch('/api/hyperlink-validator/diagnose-auth', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+                body: JSON.stringify({}), credentials: 'same-origin'
+            });
         })
         .then(r => r.json())
         .then(res => {
@@ -692,9 +699,21 @@ window.HyperlinkValidator = (function() {
             formData.append('check_bookmarks', 'true');
             formData.append('check_cross_refs', 'true');
 
-            // Get CSRF token
-            const csrfToken = window.State?.csrfToken ||
+            // Get CSRF token — refresh from server to avoid stale token after restart (Lesson 18)
+            let csrfToken = window.State?.csrfToken ||
                 document.querySelector('meta[name="csrf-token"]')?.content;
+            try {
+                const tokenResp = await fetch('/api/version', { credentials: 'same-origin' });
+                const freshCsrf = tokenResp.headers.get('X-CSRF-Token');
+                if (freshCsrf) {
+                    csrfToken = freshCsrf;
+                    if (window.State) window.State.csrfToken = freshCsrf;
+                    const meta = document.querySelector('meta[name="csrf-token"]');
+                    if (meta) meta.setAttribute('content', freshCsrf);
+                }
+            } catch (csrfErr) {
+                console.warn('[HyperlinkValidator] Could not refresh CSRF token:', csrfErr);
+            }
 
             const response = await fetch('/api/hyperlink-validator/validate-docx', {
                 method: 'POST',
@@ -781,8 +800,21 @@ window.HyperlinkValidator = (function() {
             formData.append('extract_from_values', 'true');
             formData.append('extract_from_formulas', 'true');
 
-            const csrfToken = window.State?.csrfToken ||
+            // Get CSRF token — refresh from server to avoid stale token after restart (Lesson 18)
+            let csrfToken = window.State?.csrfToken ||
                 document.querySelector('meta[name="csrf-token"]')?.content;
+            try {
+                const tokenResp = await fetch('/api/version', { credentials: 'same-origin' });
+                const freshCsrf = tokenResp.headers.get('X-CSRF-Token');
+                if (freshCsrf) {
+                    csrfToken = freshCsrf;
+                    if (window.State) window.State.csrfToken = freshCsrf;
+                    const meta = document.querySelector('meta[name="csrf-token"]');
+                    if (meta) meta.setAttribute('content', freshCsrf);
+                }
+            } catch (csrfErr) {
+                console.warn('[HyperlinkValidator] Could not refresh CSRF token:', csrfErr);
+            }
 
             const extractResponse = await fetch('/api/hyperlink-validator/extract-excel', {
                 method: 'POST',
@@ -1737,8 +1769,19 @@ window.HyperlinkValidator = (function() {
         if (typeof lucide !== 'undefined') lucide.createIcons();
 
         try {
-            const csrfToken = window.State?.csrfToken ||
+            // Get fresh CSRF token before POST (Lesson 18)
+            let csrfToken = window.State?.csrfToken ||
                 document.querySelector('meta[name="csrf-token"]')?.content;
+            try {
+                const tokenResp = await fetch('/api/version', { credentials: 'same-origin' });
+                const freshCsrf = tokenResp.headers.get('X-CSRF-Token');
+                if (freshCsrf) {
+                    csrfToken = freshCsrf;
+                    if (window.State) window.State.csrfToken = freshCsrf;
+                }
+            } catch (csrfErr) {
+                console.warn('[HV Rescan] Could not refresh CSRF token:', csrfErr);
+            }
 
             const response = await fetch('/api/hyperlink-validator/rescan', {
                 method: 'POST',

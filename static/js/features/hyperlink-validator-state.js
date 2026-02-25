@@ -82,6 +82,30 @@ window.HyperlinkValidatorState = (function() {
         return metaTag ? metaTag.content : null;
     }
 
+    /**
+     * Fetch a fresh CSRF token from the server response header.
+     * Lesson 18: After server restart, meta tag token is stale.
+     * The response header X-CSRF-Token always matches the current session.
+     */
+    async function refreshCSRFToken() {
+        try {
+            const resp = await fetch('/api/version', { credentials: 'same-origin' });
+            const freshCsrf = resp.headers.get('X-CSRF-Token');
+            if (freshCsrf) {
+                // Update global State
+                if (window.State) window.State.csrfToken = freshCsrf;
+                if (window.CSRF_TOKEN !== undefined) window.CSRF_TOKEN = freshCsrf;
+                // Update meta tag
+                const meta = document.querySelector('meta[name="csrf-token"]');
+                if (meta) meta.setAttribute('content', freshCsrf);
+                return freshCsrf;
+            }
+        } catch (e) {
+            console.warn('[TWR HVState] Could not refresh CSRF token:', e);
+        }
+        return null;
+    }
+
     async function apiRequest(endpoint, options = {}) {
         const csrfToken = getCSRFToken();
         const headers = {
@@ -96,6 +120,29 @@ window.HyperlinkValidatorState = (function() {
         });
 
         const data = await response.json();
+
+        // v6.1.11: Auto-retry on CSRF error with fresh token (Lesson 18)
+        if (response.status === 403 && data.error?.code === 'CSRF_ERROR') {
+            console.warn('[TWR HVState] CSRF error, refreshing token and retrying...');
+            const freshToken = await refreshCSRFToken();
+            if (freshToken) {
+                const retryHeaders = {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': freshToken,
+                    ...(options.headers || {})
+                };
+                const retryResponse = await fetch(`/api/hyperlink-validator${endpoint}`, {
+                    ...options,
+                    headers: retryHeaders
+                });
+                const retryData = await retryResponse.json();
+                if (!retryResponse.ok || !retryData.success) {
+                    const error = retryData.error || { message: 'Unknown error' };
+                    throw new Error(error.message || 'Request failed');
+                }
+                return retryData;
+            }
+        }
 
         if (!response.ok || !data.success) {
             const error = data.error || { message: 'Unknown error' };
