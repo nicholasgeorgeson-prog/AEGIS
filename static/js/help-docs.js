@@ -8084,6 +8084,18 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.1.8 <span class="changelog-date">February 25, 2026</span></h3>
+        <p><strong>SharePoint List Items API Fallback &mdash; Zero-File Discovery Fix</strong></p>
+        <ul>
+            <li><strong>FIX: CRITICAL &mdash; Document library returns 0 files</strong> &mdash; SharePoint&rsquo;s <code>/Files</code> REST endpoint only returns files stored as traditional file-system entries. When content is stored as list items (SharePoint&rsquo;s modern document management mode) or exists only in nested hidden subfolders, <code>/Files</code> returns an empty array even though <code>ItemCount</code> shows 69+ items. Added a 3-strategy List Items API fallback cascade that automatically triggers when both <code>/Files</code> and <code>/Folders</code> return empty at the library root level</li>
+            <li><strong>NEW: Strategy 1 &mdash; GetList Items API</strong> &mdash; <code>GetList(path)/Items?$expand=File&amp;$filter=FSObjType eq 0</code> queries the document library as a SharePoint list, returning all file items regardless of how they&rsquo;re stored internally. Works when the target path IS the document library root</li>
+            <li><strong>NEW: Strategy 2 &mdash; Walk-up parent discovery</strong> &mdash; When the target path is a subfolder within a library, walks up the path tree to find the library root (using <code>validate_folder_path</code> at each level), then queries all Items via <code>GetList</code> and filters by <code>FileDirRef</code> to match only files in the target subfolder. Handles deeply nested paths like <code>/sites/X/Docs/SubA/SubB</code></li>
+            <li><strong>NEW: Strategy 3 &mdash; RenderListDataAsStream</strong> &mdash; Last-resort fallback using the same POST API that SharePoint&rsquo;s web UI uses internally. Gets an <code>X-RequestDigest</code> token via <code>/_api/contextinfo</code>, then POSTs to <code>GetList/RenderListDataAsStream</code> with <code>RecursiveAll</code> scope. Handles edge cases where the Items API is restricted</li>
+            <li><strong>FIX: Both connectors updated</strong> &mdash; The List Items API fallback is implemented in both the HeadlessSP connector (Playwright browser) and the REST connector (requests-based) for full feature parity</li>
+            <li><strong>ENH: Detailed fallback logging</strong> &mdash; Every step of the fallback chain is logged to <code>sharepoint.log</code>: which strategy is attempted, how many items were found, parsing results, and skip reasons. Enables rapid diagnosis if the fallback path is needed</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v6.1.7 <span class="changelog-date">February 25, 2026</span></h3>
         <p><strong>HeadlessSP Document Discovery Diagnostics</strong></p>
         <ul>

@@ -1687,6 +1687,124 @@ class SharePointConnector:
         self._list_files_recursive(folder_path, files, recursive, max_files, depth=0)
         return files[:max_files]
 
+    def _list_items_fallback_rest(
+        self,
+        folder_path: str,
+        files: List[Dict],
+        max_files: int,
+    ):
+        """
+        v6.1.8: Fallback file discovery using the List Items API (REST connector version).
+
+        Same logic as HeadlessSPConnector._list_items_fallback but using requests-based
+        _api_get which returns requests.Response objects.
+        """
+        logger.info(f'[SharePoint] *** List Items API fallback for "{folder_path}" ***')
+
+        # Strategy 1: Try GetList(folder_path)/Items
+        encoded = self._encode_sp_path(folder_path)
+        try:
+            resp = self._api_get(
+                f"/_api/web/GetList('{encoded}')/Items"
+                f"?$select=FileLeafRef,FileRef,File_x0020_Size,Modified,FSObjType"
+                f"&$expand=File"
+                f"&$filter=FSObjType eq 0"
+                f"&$top={max_files}"
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                results = data.get('d', {}).get('results', [])
+                logger.info(f'[SharePoint] GetList Items returned {len(results)} items')
+                self._parse_list_items_rest(results, files, max_files, folder_path)
+                if files:
+                    logger.info(f'[SharePoint] List Items fallback found {len(files)} supported files')
+                    return
+        except Exception as e:
+            logger.debug(f'[SharePoint] GetList Items failed: {e}')
+
+        # Strategy 2: Walk up the path to find the library root
+        parts = folder_path.rstrip('/').split('/')
+        logger.info(f'[SharePoint] GetList failed for full path, walking up: {parts}')
+
+        for i in range(len(parts) - 1, 3, -1):
+            candidate = '/'.join(parts[:i])
+            candidate_encoded = self._encode_sp_path(candidate)
+            logger.info(f'[SharePoint] Trying parent as library root: "{candidate}"')
+
+            try:
+                resp = self._api_get(
+                    f"/_api/web/GetList('{candidate_encoded}')?$select=Title,Id,ItemCount"
+                )
+                if resp.status_code != 200:
+                    continue
+
+                list_data = resp.json()
+                list_title = list_data.get('d', {}).get('Title', '?')
+                logger.info(f'[SharePoint] Found library root: "{candidate}" (Title="{list_title}")')
+
+                resp = self._api_get(
+                    f"/_api/web/GetList('{candidate_encoded}')/Items"
+                    f"?$select=FileLeafRef,FileRef,File_x0020_Size,Modified,FSObjType,FileDirRef"
+                    f"&$expand=File"
+                    f"&$filter=FSObjType eq 0"
+                    f"&$top={max_files}"
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    results = data.get('d', {}).get('results', [])
+                    logger.info(f'[SharePoint] Library root Items returned {len(results)} total items')
+
+                    target_lower = folder_path.rstrip('/').lower()
+                    filtered = [
+                        item for item in results
+                        if (item.get('FileDirRef') or '').lower().startswith(target_lower)
+                        or os.path.dirname(item.get('FileRef', '')).lower().startswith(target_lower)
+                    ]
+                    logger.info(f'[SharePoint] After filtering to "{folder_path}": {len(filtered)} items')
+
+                    self._parse_list_items_rest(filtered, files, max_files, folder_path)
+                    if files:
+                        logger.info(f'[SharePoint] List Items fallback (via parent) found {len(files)} supported files')
+                        return
+            except Exception as e:
+                logger.debug(f'[SharePoint] Parent probe "{candidate}" failed: {e}')
+
+    def _parse_list_items_rest(
+        self,
+        items: List[Dict],
+        files: List[Dict],
+        max_files: int,
+        folder_path: str,
+    ):
+        """Parse list items into file dicts (REST connector version)."""
+        for item in items:
+            if len(files) >= max_files:
+                break
+
+            file_data = item.get('File', {}) or {}
+            name = file_data.get('Name') or item.get('FileLeafRef', '')
+            if not name:
+                continue
+
+            ext = os.path.splitext(name)[1].lower()
+            if ext not in self.SUPPORTED_EXTENSIONS:
+                continue
+
+            server_rel_url = file_data.get('ServerRelativeUrl') or item.get('FileRef', '')
+            size = file_data.get('Length') or item.get('File_x0020_Size') or 0
+            modified = file_data.get('TimeLastModified') or item.get('Modified', '')
+
+            files.append({
+                'name': name,
+                'filename': name,
+                'server_relative_url': server_rel_url,
+                'size': int(size) if size else 0,
+                'modified': modified,
+                'extension': ext,
+                'folder': os.path.dirname(server_rel_url) if server_rel_url else folder_path,
+                'relative_path': server_rel_url,
+            })
+
     def _list_files_recursive(
         self,
         folder_path: str,
@@ -1703,6 +1821,7 @@ class SharePointConnector:
         # The decodedUrl parameter auto-decodes %26→&, %23→# etc.
         encoded_path = self._encode_sp_path(folder_path)
 
+        files_found = 0
         try:
             # Get files in this folder
             resp = self._api_get(
@@ -1714,6 +1833,7 @@ class SharePointConnector:
             if resp.status_code == 200:
                 data = resp.json()
                 results = data.get('d', {}).get('results', [])
+                files_found = len(results)
 
                 for item in results:
                     if len(files) >= max_files:
@@ -1727,11 +1847,6 @@ class SharePointConnector:
                         continue
 
                     server_rel_url = item.get('ServerRelativeUrl', '')
-
-                    # Compute relative folder path within the library
-                    rel_folder = folder_path
-                    if folder_path.startswith('/'):
-                        rel_folder = folder_path
 
                     files.append({
                         'name': name,
@@ -1756,6 +1871,7 @@ class SharePointConnector:
             return
 
         # Recurse into subfolders
+        folders_found = 0
         if recursive and len(files) < max_files:
             try:
                 resp = self._api_get(
@@ -1766,6 +1882,7 @@ class SharePointConnector:
                 if resp.status_code == 200:
                     data = resp.json()
                     folders = data.get('d', {}).get('results', [])
+                    folders_found = len(folders)
 
                     for subfolder in folders:
                         if len(files) >= max_files:
@@ -1784,6 +1901,14 @@ class SharePointConnector:
 
             except Exception as e:
                 logger.error(f"SharePoint: Error listing subfolders of {folder_path}: {e}")
+
+        # v6.1.8: List Items API fallback — same as HeadlessSP version
+        if depth == 0 and files_found == 0 and folders_found == 0 and len(files) == 0:
+            logger.info(
+                f'[SharePoint] /Files and /Folders both empty at root — '
+                f'trying List Items API fallback for "{folder_path}"'
+            )
+            self._list_items_fallback_rest(folder_path, files, max_files)
 
     def _create_download_session(self):
         """
@@ -2563,6 +2688,257 @@ class HeadlessSPConnector:
         self._list_files_recursive(folder_path, files, recursive, max_files, depth=0)
         return files[:max_files]
 
+    def _list_items_fallback(
+        self,
+        folder_path: str,
+        files: List[Dict],
+        max_files: int,
+    ):
+        """
+        v6.1.8: Fallback file discovery using the List Items API.
+
+        When GetFolderByServerRelativePath(...)/Files returns 0 results but the folder
+        has ItemCount > 0, the content may be stored as list items rather than traditional
+        file-system files. This happens with certain SharePoint site templates, document
+        sets, and list configurations.
+
+        The List Items API (/_api/web/GetList(...)/Items) returns ALL items regardless of
+        storage pattern. We try the folder_path as a list URL first; if that fails (404),
+        we walk up the path to find the library root and filter by FileDirRef.
+        """
+        logger.info(f'[HeadlessSP] *** List Items API fallback for "{folder_path}" ***')
+
+        # Strategy 1: Try GetList(folder_path)/Items — works if folder_path IS the library root
+        encoded = SharePointConnector._encode_sp_path(folder_path)
+        items_endpoint = (
+            f"/_api/web/GetList('{encoded}')/Items"
+            f"?$select=FileLeafRef,FileRef,File_x0020_Size,Modified,FSObjType"
+            f"&$expand=File"
+            f"&$filter=FSObjType eq 0"
+            f"&$top={max_files}"
+        )
+        logger.info(f'[HeadlessSP] Trying GetList Items: {items_endpoint[:250]}')
+        data = self._api_get(items_endpoint)
+
+        if data:
+            results = data.get('d', {}).get('results', [])
+            logger.info(f'[HeadlessSP] GetList Items returned {len(results)} items')
+            self._parse_list_items_into_files(results, files, max_files, folder_path)
+            if files:
+                logger.info(f'[HeadlessSP] List Items fallback found {len(files)} supported files')
+                return
+
+        # Strategy 2: Walk up the path to find the library root
+        # e.g., /sites/AS-ENG/PAL/SITE → try /sites/AS-ENG/PAL, then /sites/AS-ENG
+        parts = folder_path.rstrip('/').split('/')
+        logger.info(f'[HeadlessSP] GetList failed for full path, walking up: {parts}')
+
+        # Need at least /sites/SiteName/LibraryName (4 parts: '', 'sites', 'SiteName', 'LibName')
+        for i in range(len(parts) - 1, 3, -1):
+            candidate = '/'.join(parts[:i])
+            candidate_encoded = SharePointConnector._encode_sp_path(candidate)
+            logger.info(f'[HeadlessSP] Trying parent as library root: "{candidate}"')
+
+            # Check if this is a valid list
+            list_check = self._api_get(
+                f"/_api/web/GetList('{candidate_encoded}')?$select=Title,Id,ItemCount"
+            )
+            if not list_check:
+                continue
+
+            list_title = list_check.get('d', {}).get('Title', '?')
+            list_count = list_check.get('d', {}).get('ItemCount', 0)
+            logger.info(f'[HeadlessSP] Found library root: "{candidate}" (Title="{list_title}", ItemCount={list_count})')
+
+            # Query items, filtering by FileDirRef to scope to our subfolder
+            # FileDirRef is the folder path without the file name
+            items_endpoint = (
+                f"/_api/web/GetList('{candidate_encoded}')/Items"
+                f"?$select=FileLeafRef,FileRef,File_x0020_Size,Modified,FSObjType,FileDirRef"
+                f"&$expand=File"
+                f"&$filter=FSObjType eq 0"
+                f"&$top={max_files}"
+            )
+            logger.info(f'[HeadlessSP] Querying items from library root: {items_endpoint[:250]}')
+            data = self._api_get(items_endpoint)
+
+            if data:
+                results = data.get('d', {}).get('results', [])
+                logger.info(f'[HeadlessSP] Library root Items returned {len(results)} total items')
+
+                # Filter to items within our target folder (and subfolders)
+                target_lower = folder_path.rstrip('/').lower()
+                filtered = [
+                    item for item in results
+                    if (item.get('FileDirRef') or item.get('FileRef', '')).lower().startswith(target_lower)
+                    or (item.get('FileRef', '') and os.path.dirname(item.get('FileRef', '')).lower().startswith(target_lower))
+                ]
+                logger.info(f'[HeadlessSP] After filtering to "{folder_path}": {len(filtered)} items')
+
+                self._parse_list_items_into_files(filtered, files, max_files, folder_path)
+                if files:
+                    logger.info(f'[HeadlessSP] List Items fallback (via parent) found {len(files)} supported files')
+                    return
+
+        # Strategy 3: Try RenderListDataAsStream as last resort (POST request)
+        logger.info(f'[HeadlessSP] Strategies 1-2 failed, trying RenderListDataAsStream...')
+        self._render_list_data_fallback(folder_path, files, max_files)
+
+    def _parse_list_items_into_files(
+        self,
+        items: List[Dict],
+        files: List[Dict],
+        max_files: int,
+        folder_path: str,
+    ):
+        """Parse list items (from Items API) into file dicts matching the standard format."""
+        for item in items:
+            if len(files) >= max_files:
+                break
+
+            # Items API returns file info in nested File object or top-level fields
+            file_data = item.get('File', {}) or {}
+            name = file_data.get('Name') or item.get('FileLeafRef', '')
+            if not name:
+                continue
+
+            ext = os.path.splitext(name)[1].lower()
+            if ext not in self.SUPPORTED_EXTENSIONS:
+                continue
+
+            server_rel_url = file_data.get('ServerRelativeUrl') or item.get('FileRef', '')
+            size = file_data.get('Length') or item.get('File_x0020_Size') or 0
+            modified = file_data.get('TimeLastModified') or item.get('Modified', '')
+
+            files.append({
+                'name': name,
+                'filename': name,
+                'server_relative_url': server_rel_url,
+                'size': int(size) if size else 0,
+                'modified': modified,
+                'extension': ext,
+                'folder': os.path.dirname(server_rel_url) if server_rel_url else folder_path,
+                'relative_path': server_rel_url,
+            })
+
+    def _render_list_data_fallback(
+        self,
+        folder_path: str,
+        files: List[Dict],
+        max_files: int,
+    ):
+        """
+        v6.1.8: Last-resort fallback using RenderListDataAsStream POST API.
+
+        This is the API that the SharePoint web UI itself uses internally.
+        It requires an X-RequestDigest token obtained from /_api/contextinfo.
+        """
+        if not self._page:
+            return
+
+        try:
+            # Get the request digest (CSRF-like token for POST requests)
+            digest_result = self._page.evaluate('''async (siteUrl) => {
+                try {
+                    const resp = await fetch(siteUrl + '/_api/contextinfo', {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json;odata=verbose',
+                            'Content-Type': 'application/json;odata=verbose',
+                        },
+                        credentials: 'include',
+                    });
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        return { success: true, digest: data.d.GetContextWebInformation.FormDigestValue };
+                    }
+                    return { success: false, error: 'HTTP ' + resp.status };
+                } catch (e) {
+                    return { success: false, error: e.message || String(e) };
+                }
+            }''', self.site_url)
+
+            if not digest_result or not digest_result.get('success'):
+                logger.warning(f'[HeadlessSP] Failed to get request digest: {digest_result}')
+                return
+
+            digest = digest_result['digest']
+            encoded = SharePointConnector._encode_sp_path(folder_path)
+            logger.info(f'[HeadlessSP] RenderListDataAsStream with digest, folder="{folder_path}"')
+
+            # Call RenderListDataAsStream with RecursiveAll scope
+            render_result = self._page.evaluate('''async ([siteUrl, listPath, digest, maxFiles]) => {
+                try {
+                    const resp = await fetch(
+                        siteUrl + "/_api/web/GetList('" + listPath + "')/RenderListDataAsStream",
+                        {
+                            method: 'POST',
+                            headers: {
+                                'Accept': 'application/json;odata=verbose',
+                                'Content-Type': 'application/json;odata=verbose',
+                                'X-RequestDigest': digest,
+                            },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                parameters: {
+                                    RenderOptions: 2,
+                                    FolderServerRelativeUrl: listPath,
+                                    ViewXml: "<View Scope='RecursiveAll'><Query><Where><Eq><FieldRef Name='FSObjType'/><Value Type='Integer'>0</Value></Eq></Where></Query><RowLimit Paged='TRUE'>" + maxFiles + "</RowLimit></View>"
+                                }
+                            }),
+                        }
+                    );
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        return { success: true, data: data };
+                    }
+                    return { success: false, error: 'HTTP ' + resp.status };
+                } catch (e) {
+                    return { success: false, error: e.message || String(e) };
+                }
+            }''', [self.site_url, encoded, digest, str(max_files)])
+
+            if render_result and render_result.get('success'):
+                data = render_result.get('data', {})
+                rows = data.get('ListData', {}).get('Row', [])
+                logger.info(f'[HeadlessSP] RenderListDataAsStream returned {len(rows)} rows')
+
+                for row in rows:
+                    if len(files) >= max_files:
+                        break
+
+                    name = row.get('FileLeafRef', '')
+                    if not name:
+                        continue
+
+                    ext = os.path.splitext(name)[1].lower()
+                    if ext not in self.SUPPORTED_EXTENSIONS:
+                        continue
+
+                    file_ref = row.get('FileRef', '')
+                    size = row.get('File_x0020_Size') or row.get('FileSizeDisplay') or 0
+                    modified = row.get('Modified', '')
+
+                    files.append({
+                        'name': name,
+                        'filename': name,
+                        'server_relative_url': file_ref,
+                        'size': int(size) if size else 0,
+                        'modified': modified,
+                        'extension': ext,
+                        'folder': os.path.dirname(file_ref) if file_ref else folder_path,
+                        'relative_path': file_ref,
+                    })
+
+                if files:
+                    logger.info(f'[HeadlessSP] RenderListDataAsStream found {len(files)} supported files')
+            else:
+                err = render_result.get('error', '?') if render_result else 'None'
+                logger.warning(f'[HeadlessSP] RenderListDataAsStream failed: {err}')
+
+        except Exception as e:
+            logger.error(f'[HeadlessSP] RenderListDataAsStream exception: {e}')
+
     def _list_files_recursive(
         self,
         folder_path: str,
@@ -2587,6 +2963,7 @@ class HeadlessSPConnector:
         logger.info(f'[HeadlessSP] Fetching files: {files_endpoint[:200]}')
         data = self._api_get(files_endpoint)
 
+        files_found = 0
         if data:
             results = data.get('d', {}).get('results', [])
             all_file_names = [item.get('Name', '?') for item in results]
@@ -2598,6 +2975,7 @@ class HeadlessSPConnector:
                 f'[HeadlessSP] Files API returned {len(results)} items, '
                 f'{supported_count} supported. All files: {all_file_names[:20]}'
             )
+            files_found = len(results)
 
             for item in results:
                 if len(files) >= max_files:
@@ -2624,6 +3002,7 @@ class HeadlessSPConnector:
             logger.warning(f'[HeadlessSP] Files API returned None for "{folder_path}"')
 
         # Recurse into subfolders
+        folders_found = 0
         if recursive and len(files) < max_files:
             folders_endpoint = (
                 f"/_api/web/GetFolderByServerRelativePath(decodedUrl='{encoded_path}')/Folders"
@@ -2634,6 +3013,7 @@ class HeadlessSPConnector:
                 folders = folder_data.get('d', {}).get('results', [])
                 folder_names = [f.get('Name', '?') for f in folders]
                 logger.info(f'[HeadlessSP] Subfolders at depth={depth}: {folder_names}')
+                folders_found = len(folders)
                 for subfolder in folders:
                     if len(files) >= max_files:
                         break
@@ -2647,6 +3027,16 @@ class HeadlessSPConnector:
                         self._list_files_recursive(
                             subfolder_url, files, recursive, max_files, depth + 1
                         )
+
+        # v6.1.8: List Items API fallback — if /Files and /Folders both returned empty
+        # but the folder has items (ItemCount > 0 from validate_folder_path), the content
+        # is likely stored as list items, not file-system files. Try the Items API.
+        if depth == 0 and files_found == 0 and folders_found == 0 and len(files) == 0:
+            logger.info(
+                f'[HeadlessSP] /Files and /Folders both empty at root — '
+                f'trying List Items API fallback for "{folder_path}"'
+            )
+            self._list_items_fallback(folder_path, files, max_files)
 
     def download_file(self, server_relative_url: str, dest_path: str) -> Dict[str, Any]:
         """

@@ -1,13 +1,25 @@
 {
-  "version": "6.1.7",
+  "version": "6.1.8",
   "release_date": "2026-02-25",
-  "core_version": "6.1.7",
+  "core_version": "6.1.8",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.1.8",
+      "date": "2026-02-25",
+      "changes": [
+        "FIX: CRITICAL — SharePoint document library returns 0 files despite ItemCount > 0. The /Files endpoint only returns files stored as traditional file-system entries; when content is stored as list items or exists only in nested subfolders, /Files returns empty. Added 3-strategy List Items API fallback cascade that triggers when both /Files and /Folders return empty at root level",
+        "NEW: List Items API fallback Strategy 1 — GetList(path)/Items with $expand=File and FSObjType=0 filter. Works when folder_path IS the document library root",
+        "NEW: List Items API fallback Strategy 2 — Walk up the folder path to find the library root, query all Items via GetList, filter by FileDirRef to match the target subfolder. Handles subfolder paths within a document library",
+        "NEW: List Items API fallback Strategy 3 — RenderListDataAsStream POST with RecursiveAll scope and X-RequestDigest token. Uses the same API that SharePoint's web UI uses internally. Last-resort fallback",
+        "FIX: Applied List Items API fallback to BOTH HeadlessSP and REST connectors for feature parity",
+        "ENH: Diagnostic logging at every step of the fallback chain — strategy attempted, items found, parsing results, and skip reasons all logged to sharepoint.log"
+      ]
+    },
     {
       "version": "6.1.7",
       "date": "2026-02-25",
