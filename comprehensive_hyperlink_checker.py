@@ -78,6 +78,17 @@ except ImportError:
     except ImportError:
         pass
 
+# SharePoint-aware URL validation (v6.1.11)
+SP_LINK_VALIDATOR_AVAILABLE = False
+_validate_sp_url = None
+_is_sp_url = None
+try:
+    from sharepoint_link_validator import validate_sharepoint_url as _validate_sp_url
+    from sharepoint_link_validator import is_sharepoint_url as _is_sp_url
+    SP_LINK_VALIDATOR_AVAILABLE = True
+except ImportError:
+    pass
+
 try:
     from base_checker import BaseChecker
 except ImportError:
@@ -1612,18 +1623,80 @@ class ComprehensiveHyperlinkChecker(BaseChecker):
                         flagged_text=target[:40]
                     ))
             
+            # v6.1.11: SharePoint-aware URL validation
+            # Uses the same auth cascade as the Hyperlink Validator:
+            # fresh SSO session + SSL bypass + REST API probe + content-type mismatch detection
+            if SP_LINK_VALIDATOR_AVAILABLE and _is_sp_url and _is_sp_url(target):
+                try:
+                    sp_result = _validate_sp_url(target)
+                    sp_status = sp_result.get('status', 'ERROR')
+                    sp_msg = sp_result.get('message', '')
+                    sp_code = sp_result.get('status_code')
+
+                    if sp_status in ('WORKING', 'SSL_WARNING'):
+                        # SharePoint link is accessible — no issue to report
+                        result.is_valid = True
+                        result.status_code = sp_code or 200
+                        self._validation_results.append(result)
+                        return issues
+                    elif sp_status == 'AUTH_REQUIRED':
+                        # Link exists but needs auth — info-level notice, not a broken link
+                        issues.append(self.create_issue(
+                            severity='Info',
+                            message=f'SharePoint link requires authentication: {sp_msg}',
+                            context=link_info.context,
+                            paragraph_index=link_info.paragraph_index,
+                            suggestion='This link may require VPN or corporate SSO credentials',
+                            rule_id='HL080',
+                            flagged_text=target[:80]
+                        ))
+                        result.status_code = sp_code or 401
+                        self._validation_results.append(result)
+                        return issues
+                    elif sp_status == 'TIMEOUT':
+                        issues.append(self.create_issue(
+                            severity='Low',
+                            message=f'SharePoint link timed out: {sp_msg}',
+                            context=link_info.context,
+                            paragraph_index=link_info.paragraph_index,
+                            suggestion='SharePoint site may be temporarily unavailable or require VPN',
+                            rule_id='HL081',
+                            flagged_text=target[:80]
+                        ))
+                        self._validation_results.append(result)
+                        return issues
+                    elif sp_status == 'BROKEN':
+                        url_display = target if len(target) <= 80 else target[:77] + '...'
+                        issues.append(self.create_issue(
+                            severity='High',
+                            message=f'Broken SharePoint link ({sp_msg}): {url_display}',
+                            context=link_info.context,
+                            paragraph_index=link_info.paragraph_index,
+                            suggestion='Verify the SharePoint URL is correct and the resource exists',
+                            rule_id='HL082',
+                            flagged_text=target[:80]
+                        ))
+                        result.is_valid = False
+                        result.status_code = sp_code
+                        self._validation_results.append(result)
+                        return issues
+                    # If status is ERROR, fall through to generic validation
+                except Exception as e:
+                    # SP validator failed — fall through to generic request_with_retry
+                    pass
+
             # HTTP Request with Retry
             if REQUESTS_AVAILABLE:
                 http_result = request_with_retry(
-                    target, 
+                    target,
                     max_retries=self.max_retries,
                     timeout=self.request_timeout
                 )
                 result.attempts = http_result.get('attempts', 1)
-                
+
                 if http_result.get('success'):
                     result.status_code = http_result.get('status_code')
-                    
+
                     # Check for error status codes
                     if result.status_code >= 400:
                         result.is_valid = False

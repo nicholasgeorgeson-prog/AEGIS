@@ -167,7 +167,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 6.1.10
+- **Current version**: 6.1.11
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -1398,7 +1398,7 @@ The `decodedUrl` parameter **auto-decodes** percent-encoded values before using 
 **Lesson**: For headless browser Windows SSO authentication, ALL THREE conditions must be met: (1) Use a full browser binary (Edge/Chrome new headless mode), NOT chrome-headless-shell. (2) Use `launchPersistentContext()` with a `user_data_dir`, NOT `launch()` + `new_context()` — the latter creates incognito-like contexts where ambient auth is disabled. (3) Include `--enable-features=EnableAmbientAuthenticationInIncognito` for safety. Also include identity provider domains (`*.microsoftonline.com`, `*.microsoftonline.us`, `*.windows.net`, `*.adfs.*`) in `--auth-server-allowlist` — the Kerberos challenge happens on the IdP, not the target site.
 
 ### 151. Version Management Update
-- **Current version**: 6.1.10
+- **Current version**: 6.1.11
 
 ### 152. Diagnostic-First Approach for Remote Environment Debugging (v6.1.7)
 **Problem**: HeadlessSPConnector v6.1.6 authenticated successfully (SSO works) but returned zero documents from the `T&E` library path. Without logs from the Windows machine, the exact failure point was unknown.
@@ -1428,6 +1428,14 @@ The `decodedUrl` parameter **auto-decodes** percent-encoded values before using 
 **Key pattern**: When a backend request is blocking and can't emit intermediate progress, use client-side time-based phase simulation. The phases should match the known server-side steps with realistic timing. Always include: (1) elapsed time counter (proves the tool isn't frozen), (2) phase description (tells user what's happening), (3) progress bar (visual motion catches the eye), (4) expectation-setting text (prevents premature abandonment).
 **Files**: `static/js/app.js` (Connect & Scan button handler)
 **Lesson**: Any operation that takes >5 seconds should have visible progress indication. For blocking requests where server-sent events aren't practical, client-side phase animation with realistic timing is effective. The key elements are: elapsed time (proves activity), phase text (explains what's happening), progress bar (visual motion), and expectation text (tells user how long to wait). Always clean up timers in try/catch/finally to prevent memory leaks.
+
+### 156. SharePoint File Selection + SP Link Validation Parity (v6.1.11)
+**Feature 1: File Selection After Discovery**: Instead of auto-scanning all discovered SharePoint files, Connect & Scan now uses `discover_only: true` to return the file list without starting a scan. A file picker UI (`#sp-file-selector`) renders with checkboxes, extension filter chips, Select All/Deselect All, and a "Scan Selected (N)" button. Selected files are sent to the new `POST /api/review/sharepoint-scan-selected` endpoint which re-creates the connector and starts an async scan with only those files. The existing progress polling dashboard is reused via `btnSpScan.click()` auto-trigger.
+**Feature 2: SP Link Validation Parity**: New `sharepoint_link_validator.py` shared utility provides `validate_sharepoint_url()` and `is_sharepoint_url()` — full auth cascade: HEAD with fresh SSO + SSL bypass → GET fallback → SharePoint REST API probe → Content-Type mismatch detection (document URL returning HTML = login redirect). Thread-safe (fresh session per call). Integrated into: (1) `comprehensive_hyperlink_checker.py` — SP URLs routed through shared validator before generic `request_with_retry()`, with rule IDs HL080/HL081/HL082, (2) `hyperlink_validator/validator.py` — Strategy 3c renamed `sharepoint_full`, uses shared validator first with legacy REST-only fallback.
+**Key files**: `sharepoint_link_validator.py` (NEW), `comprehensive_hyperlink_checker.py` (modified), `hyperlink_validator/validator.py` (modified), `routes/review_routes.py` (modified + new endpoint), `static/js/app.js` (file picker helpers + discover_only), `templates/index.html` (`#sp-file-selector`), `static/css/features/batch-progress-dashboard.css` (file selector styles)
+**API contracts**: `POST /api/review/sharepoint-connect-and-scan` now accepts `discover_only: true` and returns `{files, site_url, library_path, connector_type}` without starting scan. `POST /api/review/sharepoint-scan-selected` accepts `{site_url, library_path, files, connector_type}` and returns `{scan_id, total_files}`.
+**Frontend helpers**: `_renderSpFileSelector(files, discoveryCtx)` builds UI, stores context on `data-discoveryCtx`. `_updateSpSelectionCount()` updates count/button. `_applySpExtensionFilter()` toggles row visibility. `_startSPSelectedScan()` sends selected files to new endpoint.
+**Lesson**: When refactoring a one-click auto-scan into a user-selection flow, the key design is: (1) backend returns discovery without starting scan (`discover_only`), (2) frontend renders selection UI with context stored as dataset, (3) new endpoint accepts the selection and starts the scan, (4) existing progress polling is reused by setting `btnSpScan.dataset.scanId` and triggering the existing click handler.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

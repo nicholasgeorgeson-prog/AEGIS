@@ -11722,6 +11722,330 @@ STEPS TO REPRODUCE
             spSiteUrl.addEventListener('paste', () => setTimeout(_spCleanUrl, 100));
         }
 
+        // ====================================================================
+        // v6.1.11: SharePoint File Selector — helper functions
+        // After discovery with discover_only=true, renders a file picker
+        // letting the user select which files to scan.
+        // ====================================================================
+
+        /**
+         * Render the file selector UI with checkboxes, filter chips, and scan button.
+         * @param {Array} files - Array of file objects from discovery
+         * @param {Object} discoveryCtx - Context for scan-selected endpoint {site_url, library_path, connector_type, files}
+         */
+        function _renderSpFileSelector(files, discoveryCtx) {
+            const selectorEl = document.getElementById('sp-file-selector');
+            const fileListEl = document.getElementById('sp-file-list');
+            const filterChipsEl = document.getElementById('sp-filter-chips');
+            const selectAllCb = document.getElementById('sp-select-all');
+            const btnScanSelected = document.getElementById('btn-sp-scan-selected');
+
+            if (!selectorEl || !fileListEl) return;
+
+            // Store discovery context on the selector element for later use
+            selectorEl.dataset.discoveryCtx = JSON.stringify(discoveryCtx);
+
+            // Build extension map for filter chips
+            const extMap = {};
+            files.forEach(f => {
+                const name = f.filename || f.name || '';
+                const ext = name.includes('.') ? ('.' + name.split('.').pop().toLowerCase()) : 'other';
+                if (!extMap[ext]) extMap[ext] = 0;
+                extMap[ext]++;
+            });
+
+            // Render filter chips
+            if (filterChipsEl) {
+                const chipHtml = Object.entries(extMap)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([ext, count]) => {
+                        const extClass = ext.replace('.', '');
+                        return `<button type="button" class="sp-filter-chip active" data-ext="${escapeHtml(ext)}">
+                            ${escapeHtml(ext)} <span class="sp-chip-count">(${count})</span>
+                        </button>`;
+                    }).join('');
+                filterChipsEl.innerHTML = chipHtml;
+            }
+
+            // Render file rows
+            const _fileIcon = (name) => {
+                const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
+                const iconMap = {
+                    'docx': 'file-text', 'doc': 'file-text',
+                    'pdf': 'file', 'xlsx': 'file-spreadsheet', 'xls': 'file-spreadsheet',
+                    'pptx': 'presentation', 'ppt': 'presentation',
+                    'txt': 'file-text', 'rtf': 'file-text', 'csv': 'file-spreadsheet'
+                };
+                return iconMap[ext] || 'file';
+            };
+
+            const _fileSize = (bytes) => {
+                if (!bytes) return '';
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            };
+
+            const _fileDate = (dateStr) => {
+                if (!dateStr) return '';
+                try {
+                    const d = new Date(dateStr);
+                    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                } catch (e) { return ''; }
+            };
+
+            fileListEl.innerHTML = files.map((f, i) => {
+                const name = f.filename || f.name || `File ${i + 1}`;
+                const ext = name.includes('.') ? ('.' + name.split('.').pop().toLowerCase()) : 'other';
+                const extClass = ext.replace('.', '');
+                const size = _fileSize(f.size);
+                const modified = _fileDate(f.modified || f.last_modified);
+                const path = f.relative_path || f.server_relative_url || '';
+
+                return `<label class="sp-file-row" data-ext="${escapeHtml(ext)}" data-index="${i}" title="${escapeHtml(path)}">
+                    <input type="checkbox" class="sp-file-check" data-index="${i}" checked>
+                    <span class="sp-file-icon ${extClass}"><i data-lucide="${_fileIcon(name)}" style="width:14px;height:14px;"></i></span>
+                    <span class="sp-file-info">
+                        <span class="sp-file-name">${escapeHtml(name)}</span>
+                        <span class="sp-file-meta">${[size, modified].filter(Boolean).join(' · ')}</span>
+                    </span>
+                </label>`;
+            }).join('');
+
+            // Show the selector
+            selectorEl.classList.remove('hidden');
+
+            // Reset select-all state
+            if (selectAllCb) selectAllCb.checked = true;
+
+            // Initialize icons
+            lucide?.createIcons?.();
+
+            // Update the count
+            _updateSpSelectionCount();
+
+            // Wire up Select All checkbox
+            if (selectAllCb) {
+                selectAllCb.onchange = () => {
+                    const allCbs = fileListEl.querySelectorAll('.sp-file-check');
+                    allCbs.forEach(cb => {
+                        // Only toggle checkboxes for visible (non-filtered) rows
+                        const row = cb.closest('.sp-file-row');
+                        if (row && !row.classList.contains('sp-file-hidden')) {
+                            cb.checked = selectAllCb.checked;
+                        }
+                    });
+                    _updateSpSelectionCount();
+                };
+            }
+
+            // Wire up individual checkboxes (event delegation on file list)
+            fileListEl.onclick = (e) => {
+                if (e.target.classList.contains('sp-file-check') || e.target.closest('.sp-file-check')) {
+                    // Let the checkbox toggle naturally, then update count
+                    setTimeout(() => _updateSpSelectionCount(), 0);
+                }
+            };
+
+            // Wire up filter chips
+            if (filterChipsEl) {
+                filterChipsEl.onclick = (e) => {
+                    const chip = e.target.closest('.sp-filter-chip');
+                    if (!chip) return;
+                    chip.classList.toggle('active');
+                    _applySpExtensionFilter();
+                    _updateSpSelectionCount();
+                };
+            }
+
+            // Wire up Scan Selected button
+            if (btnScanSelected) {
+                btnScanSelected.onclick = () => {
+                    _startSPSelectedScan();
+                };
+            }
+        }
+
+        /**
+         * Apply extension filter chips — hide/show file rows based on active chips.
+         */
+        function _applySpExtensionFilter() {
+            const filterChipsEl = document.getElementById('sp-filter-chips');
+            const fileListEl = document.getElementById('sp-file-list');
+            if (!filterChipsEl || !fileListEl) return;
+
+            const activeExts = new Set();
+            filterChipsEl.querySelectorAll('.sp-filter-chip.active').forEach(chip => {
+                activeExts.add(chip.dataset.ext);
+            });
+
+            // If no chips are active, show nothing (or all? — show all for better UX)
+            const showAll = activeExts.size === 0;
+
+            fileListEl.querySelectorAll('.sp-file-row').forEach(row => {
+                const ext = row.dataset.ext;
+                if (showAll || activeExts.has(ext)) {
+                    row.classList.remove('sp-file-hidden');
+                } else {
+                    row.classList.add('sp-file-hidden');
+                    // Uncheck hidden files
+                    const cb = row.querySelector('.sp-file-check');
+                    if (cb) cb.checked = false;
+                }
+            });
+        }
+
+        /**
+         * Update the selection count display and enable/disable the Scan button.
+         */
+        function _updateSpSelectionCount() {
+            const fileListEl = document.getElementById('sp-file-list');
+            const countEl = document.getElementById('sp-selected-count');
+            const btnScanSelected = document.getElementById('btn-sp-scan-selected');
+            if (!fileListEl) return;
+
+            const checkedCbs = fileListEl.querySelectorAll('.sp-file-check:checked');
+            const totalVisible = fileListEl.querySelectorAll('.sp-file-row:not(.sp-file-hidden)').length;
+            const n = checkedCbs.length;
+
+            if (countEl) {
+                countEl.textContent = `${n} of ${totalVisible} files selected`;
+            }
+
+            if (btnScanSelected) {
+                btnScanSelected.disabled = n === 0;
+                const span = btnScanSelected.querySelector('span');
+                if (span) span.textContent = `Scan Selected (${n})`;
+            }
+
+            // Update Select All checkbox state
+            const selectAllCb = document.getElementById('sp-select-all');
+            if (selectAllCb) {
+                const visibleCbs = fileListEl.querySelectorAll('.sp-file-row:not(.sp-file-hidden) .sp-file-check');
+                const visibleChecked = fileListEl.querySelectorAll('.sp-file-row:not(.sp-file-hidden) .sp-file-check:checked');
+                selectAllCb.checked = visibleCbs.length > 0 && visibleCbs.length === visibleChecked.length;
+                selectAllCb.indeterminate = visibleChecked.length > 0 && visibleChecked.length < visibleCbs.length;
+            }
+        }
+
+        /**
+         * Start SP scan with only the selected files.
+         * Sends selected files to the new /api/review/sharepoint-scan-selected endpoint,
+         * then starts progress polling on the existing SP scan dashboard.
+         */
+        async function _startSPSelectedScan() {
+            const selectorEl = document.getElementById('sp-file-selector');
+            const fileListEl = document.getElementById('sp-file-list');
+            const btnScanSelected = document.getElementById('btn-sp-scan-selected');
+            if (!selectorEl || !fileListEl) return;
+
+            // Get discovery context
+            let ctx;
+            try {
+                ctx = JSON.parse(selectorEl.dataset.discoveryCtx || '{}');
+            } catch (e) {
+                window.showToast?.('Internal error: missing discovery context', 'error');
+                return;
+            }
+
+            // Collect selected file indices
+            const checkedCbs = fileListEl.querySelectorAll('.sp-file-check:checked');
+            if (checkedCbs.length === 0) {
+                window.showToast?.('Please select at least one file to scan', 'warning');
+                return;
+            }
+
+            const selectedFiles = [];
+            checkedCbs.forEach(cb => {
+                const idx = parseInt(cb.dataset.index, 10);
+                if (!isNaN(idx) && ctx.files && ctx.files[idx]) {
+                    selectedFiles.push(ctx.files[idx]);
+                }
+            });
+
+            if (selectedFiles.length === 0) {
+                window.showToast?.('No files found for selected items', 'error');
+                return;
+            }
+
+            console.log(`[TWR SP] Starting scan of ${selectedFiles.length} selected files`);
+
+            // Disable buttons during scan start
+            if (btnScanSelected) {
+                btnScanSelected.disabled = true;
+                btnScanSelected.innerHTML = '<i data-lucide="loader" class="spin" style="width:14px;height:14px;margin-right:4px;"></i><span>Starting scan...</span>';
+                lucide?.createIcons?.();
+            }
+            [btnSpConnectScan, btnSpTest, btnSpDiscover, btnSpScan].forEach(b => { if (b) b.disabled = true; });
+
+            try {
+                const csrf = await _freshCSRF();
+                const resp = await fetch('/api/review/sharepoint-scan-selected', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrf
+                    },
+                    body: JSON.stringify({
+                        site_url: ctx.site_url,
+                        library_path: ctx.library_path,
+                        connector_type: ctx.connector_type,
+                        files: selectedFiles
+                    })
+                });
+                const json = await resp.json();
+
+                if (json.success && json.data?.scan_id) {
+                    const scanId = json.data.scan_id;
+                    const totalFiles = json.data.total_files || selectedFiles.length;
+
+                    window.showToast?.(`Scan started — ${totalFiles} files`, 'success');
+
+                    // Hide the file selector
+                    selectorEl.classList.add('hidden');
+
+                    // Store scan info on the Scan All button (existing pattern)
+                    if (btnSpScan) {
+                        btnSpScan.dataset.scanId = scanId;
+                        btnSpScan.dataset.totalFiles = totalFiles;
+                        btnSpScan.dataset.discoveryFiles = JSON.stringify(selectedFiles);
+                        btnSpScan.style.display = '';
+                        btnSpScan.disabled = false;
+                    }
+
+                    // Auto-trigger the scan dashboard display (reuses existing polling handler)
+                    setTimeout(() => {
+                        if (btnSpScan) {
+                            btnSpScan.click(); // Triggers the existing scan polling handler
+                        }
+                    }, 300);
+                } else {
+                    const errMsg = json.data?.message || json.error?.message || 'Failed to start scan';
+                    window.showToast?.(errMsg, 'error');
+                    // Re-enable scan selected button on failure
+                    if (btnScanSelected) {
+                        btnScanSelected.disabled = false;
+                        btnScanSelected.innerHTML = '<i data-lucide="scan" style="width:14px;height:14px;margin-right:4px;"></i><span>Scan Selected (' + selectedFiles.length + ')</span>';
+                        lucide?.createIcons?.();
+                    }
+                }
+            } catch (err) {
+                console.error('[TWR SP] Scan selected error:', err);
+                window.showToast?.('Failed to start scan: ' + err.message, 'error');
+                if (btnScanSelected) {
+                    btnScanSelected.disabled = false;
+                    btnScanSelected.innerHTML = '<i data-lucide="scan" style="width:14px;height:14px;margin-right:4px;"></i><span>Retry Scan</span>';
+                    lucide?.createIcons?.();
+                }
+            } finally {
+                // Re-enable connection buttons
+                if (btnSpConnectScan) btnSpConnectScan.disabled = false;
+                if (btnSpTest) btnSpTest.disabled = false;
+                if (btnSpDiscover) btnSpDiscover.disabled = false;
+                lucide?.createIcons?.();
+            }
+        }
+
         // Test Connection button
         if (btnSpTest) {
             btnSpTest.addEventListener('click', async () => {
@@ -11904,6 +12228,7 @@ STEPS TO REPRODUCE
                             library_path: spLibraryPath?.value?.trim() || '',
                             recursive: spRecursive?.checked ?? true,
                             max_files: 500,
+                            discover_only: true,  // v6.1.11: Return file list for user selection
                         })
                     });
                     const json = await resp.json();
@@ -11935,7 +12260,7 @@ STEPS TO REPRODUCE
 
                         const disc = d.discovery;
                         if (disc && disc.supported_files > 0) {
-                            // Show file preview
+                            // Show file preview stats
                             let html = `<div class="folder-scan-stats">`;
                             html += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${disc.supported_files}</div><div class="folder-scan-stat-label">Documents</div></div>`;
                             html += `<div class="folder-scan-stat"><div class="folder-scan-stat-value">${disc.total_size_human || '—'}</div><div class="folder-scan-stat-label">Total Size</div></div>`;
@@ -11949,26 +12274,19 @@ STEPS TO REPRODUCE
                                 spFilePreview.classList.remove('hidden');
                             }
 
-                            window.showToast?.(`Found ${disc.supported_files} documents — scan started!`, 'success');
+                            // v6.1.11: Show file selector instead of auto-scanning
+                            // Store discovery context for scan-selected endpoint
+                            const _spDiscoveryContext = {
+                                site_url: d.site_url || siteUrl,
+                                library_path: d.library_path || spLibraryPath?.value?.trim() || '',
+                                connector_type: d.connector_type || 'rest',
+                                files: disc.files || []
+                            };
 
-                            // If scan_id exists, the scan is already running — go straight to dashboard
-                            if (d.scan_id) {
-                                // Store scan info
-                                if (btnSpScan) {
-                                    btnSpScan.dataset.scanId = d.scan_id;
-                                    btnSpScan.dataset.totalFiles = disc.supported_files || 0;
-                                    btnSpScan.dataset.discoveryFiles = JSON.stringify(disc.files || []);
-                                }
+                            // Render file picker and let user choose which files to scan
+                            _renderSpFileSelector(disc.files || [], _spDiscoveryContext);
 
-                                // Auto-trigger scan dashboard display
-                                setTimeout(() => {
-                                    if (btnSpScan) {
-                                        btnSpScan.style.display = '';
-                                        btnSpScan.disabled = false;
-                                        btnSpScan.click(); // Triggers the scan polling handler
-                                    }
-                                }, 300);
-                            }
+                            window.showToast?.(`Found ${disc.supported_files} documents — select files to scan`, 'success');
                         } else {
                             // Connected but no files
                             window.showToast?.(d.message || 'No supported documents found', 'info');

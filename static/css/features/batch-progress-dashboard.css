@@ -618,3 +618,207 @@ body:not(.dark-mode) .batch-mini-ring-bg,
 .batch-mini-badge-visible .batch-mini-ring-fill {
     animation: batchMiniPulse 2s ease-in-out infinite;
 }
+
+/* ===== v6.1.11: SharePoint File Selector ===== */
+
+#sp-file-selector {
+    margin-top: 12px;
+    border: 1px solid var(--border-color, rgba(255,255,255,0.1));
+    border-radius: 10px;
+    background: var(--bg-surface, #111827);
+    overflow: hidden;
+}
+
+.sp-selector-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.08));
+    background: var(--bg-elevated, rgba(255,255,255,0.03));
+}
+
+.sp-select-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.sp-select-all-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary, #e6edf3);
+}
+
+.sp-select-all-label input[type="checkbox"] {
+    accent-color: #D6A84A;
+    width: 16px;
+    height: 16px;
+}
+
+.sp-file-count {
+    font-size: 12px;
+    color: var(--text-secondary, #8b949e);
+}
+
+.sp-filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.sp-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid var(--border-color, rgba(255,255,255,0.12));
+    background: var(--bg-surface, rgba(255,255,255,0.04));
+    color: var(--text-secondary, #8b949e);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.sp-filter-chip:hover {
+    border-color: rgba(214, 168, 74, 0.4);
+    color: var(--text-primary, #e6edf3);
+}
+
+.sp-filter-chip.active {
+    background: rgba(214, 168, 74, 0.15);
+    border-color: rgba(214, 168, 74, 0.5);
+    color: #D6A84A;
+}
+
+.sp-filter-chip .sp-chip-count {
+    font-size: 10px;
+    opacity: 0.7;
+}
+
+.sp-file-list {
+    max-height: 320px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.sp-file-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.04));
+    transition: background 0.15s ease;
+    cursor: pointer;
+}
+
+.sp-file-row:hover {
+    background: var(--bg-hover, rgba(214, 168, 74, 0.06));
+}
+
+.sp-file-row.sp-file-hidden {
+    display: none;
+}
+
+.sp-file-row input[type="checkbox"] {
+    accent-color: #D6A84A;
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+}
+
+.sp-file-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    color: var(--text-secondary, #8b949e);
+}
+
+.sp-file-icon.docx { color: #4285f4; }
+.sp-file-icon.pdf { color: #ea4335; }
+.sp-file-icon.xlsx { color: #34a853; }
+.sp-file-icon.pptx { color: #fbbc04; }
+
+.sp-file-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.sp-file-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary, #e6edf3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sp-file-meta {
+    font-size: 11px;
+    color: var(--text-secondary, #8b949e);
+    margin-top: 1px;
+}
+
+.sp-selector-footer {
+    padding: 10px 14px;
+    border-top: 1px solid var(--border-color, rgba(255,255,255,0.08));
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg-elevated, rgba(255,255,255,0.03));
+}
+
+#btn-sp-scan-selected {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 18px;
+    background: linear-gradient(135deg, #D6A84A 0%, #B8743A 100%);
+    color: #1B2838;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#btn-sp-scan-selected:hover:not(:disabled) {
+    filter: brightness(1.1);
+    box-shadow: 0 2px 12px rgba(214, 168, 74, 0.3);
+}
+
+#btn-sp-scan-selected:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Light mode overrides */
+body:not(.dark-mode) #sp-file-selector,
+[data-theme="light"] #sp-file-selector {
+    background: #fff;
+    border-color: #d0d7de;
+}
+
+body:not(.dark-mode) .sp-file-row:hover,
+[data-theme="light"] .sp-file-row:hover {
+    background: rgba(214, 168, 74, 0.08);
+}
+
+body:not(.dark-mode) .sp-file-name,
+[data-theme="light"] .sp-file-name {
+    color: #1f2328;
+}
+
+body:not(.dark-mode) .sp-filter-chip,
+[data-theme="light"] .sp-filter-chip {
+    background: #f6f8fa;
+    border-color: #d0d7de;
+    color: #656d76;
+}

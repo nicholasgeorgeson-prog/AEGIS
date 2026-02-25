@@ -1233,6 +1233,30 @@ if (document.documentElement.classList.contains('dark-mode')) {
                             <div class="folder-scan-preview hidden" id="sp-file-preview">
                                 <!-- SharePoint discovery results shown here -->
                             </div>
+                            <!-- v6.1.11: SharePoint file selector (shown after discovery) -->
+                            <div class="hidden" id="sp-file-selector">
+                                <div class="sp-selector-header">
+                                    <div class="sp-select-actions">
+                                        <label class="sp-select-all-label">
+                                            <input type="checkbox" id="sp-select-all" checked>
+                                            <span>Select All</span>
+                                        </label>
+                                        <span class="sp-file-count" id="sp-selected-count">0 files selected</span>
+                                    </div>
+                                    <div class="sp-filter-chips" id="sp-filter-chips">
+                                        <!-- Extension filter chips inserted dynamically -->
+                                    </div>
+                                </div>
+                                <div class="sp-file-list" id="sp-file-list">
+                                    <!-- File rows inserted dynamically -->
+                                </div>
+                                <div class="sp-selector-footer">
+                                    <button type="button" class="btn btn-primary" id="btn-sp-scan-selected" disabled>
+                                        <i data-lucide="scan" style="width:14px;height:14px;margin-right:4px;"></i>
+                                        <span>Scan Selected (0)</span>
+                                    </button>
+                                </div>
+                            </div>
 
                             <!-- SharePoint Scan Progress Dashboard (reuses bpd-* classes + folder scan dashboard) -->
                             <div class="bpd-dashboard hidden" id="sp-scan-dashboard">

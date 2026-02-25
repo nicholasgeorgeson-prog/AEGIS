@@ -2,7 +2,7 @@
  * AEGIS Help Documentation System
  * ==========================================
  * Comprehensive documentation for all features.
- * Version: 6.1.7
+ * Version: 6.1.11
  *
  * Complete overhaul with:
  * - Beautiful visual design with icons and illustrations
@@ -10,6 +10,7 @@
  * - Technical deep-dive section for advanced users
  * - Smooth navigation and professional typography
  *
+ * v6.1.11 - SharePoint File Selection + SP Link Validation Parity (file picker, shared SP URL validator, discover_only mode)
  * v6.1.7 - HeadlessSP diagnostic logging + URL guard all folder endpoints + scan_history.py deploy (fixes 500 errors)
  * v6.1.6 - HeadlessSP SSO fix: launchPersistentContext + msedge channel + EnableAmbientAuthenticationInIncognito
  * v6.1.5 - Playwright Chromium browser binary install fix + auth allowlist deduplication
@@ -8084,6 +8085,18 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.1.11 <span class="changelog-date">February 25, 2026</span></h3>
+        <p><strong>SharePoint File Selection + SP Link Validation Parity</strong></p>
+        <ul>
+            <li><strong>NEW: File Selection After Discovery</strong> &mdash; SharePoint Connect &amp; Scan now shows a file picker after discovering documents, letting you choose which files to scan instead of auto-scanning everything. Includes Select All/Deselect All toggle, extension filter chips (.docx, .pdf, .xlsx, etc.), file size and modified date display, and a &ldquo;Scan Selected (N)&rdquo; button</li>
+            <li><strong>NEW: SharePoint Link Validation Parity</strong> &mdash; New shared <code>sharepoint_link_validator.py</code> utility ensures all SharePoint links found inside documents are validated using the same auth cascade everywhere: fresh SSO session + SSL bypass + HEAD/GET fallback + SharePoint REST API probe + Content-Type mismatch detection (catches silent login redirects). Used by BOTH the Hyperlink Validator AND Document Review&rsquo;s ComprehensiveHyperlinkChecker</li>
+            <li><strong>NEW: Scan Selected Endpoint</strong> &mdash; New <code>POST /api/review/sharepoint-scan-selected</code> accepts a user-selected file list and starts async scan with only those files. Re-creates the correct SharePoint connector type (REST or headless) using the original auth cascade</li>
+            <li><strong>ENH: Discover-Only Mode</strong> &mdash; Connect &amp; Scan now sends <code>discover_only: true</code>, returning the complete file list without auto-starting a scan. This enables the new file selection workflow while keeping the progress dashboard and polling infrastructure unchanged</li>
+            <li><strong>ENH: HV Strategy 3c Upgraded</strong> &mdash; Hyperlink Validator&rsquo;s SharePoint validation strategy renamed from <code>sharepoint_api</code> to <code>sharepoint_full</code> and now uses the shared validator first with legacy REST-only fallback</li>
+            <li><strong>ENH: Document Review SP Link Detection</strong> &mdash; <code>ComprehensiveHyperlinkChecker</code> now detects SharePoint URLs (sharepoint.com, sharepoint.us, ngc.sharepoint.us) and routes them through the shared SP validator with dedicated rule IDs: HL080 (AUTH_REQUIRED), HL081 (TIMEOUT), HL082 (BROKEN)</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v6.1.10 <span class="changelog-date">February 25, 2026</span></h3>
         <p><strong>SharePoint Connect &amp; Scan &mdash; Progress Indicator</strong></p>
         <ul>

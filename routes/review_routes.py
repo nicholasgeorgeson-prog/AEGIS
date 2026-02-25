@@ -1515,6 +1515,7 @@ def sharepoint_connect_and_scan():
     recursive = data.get('recursive', True)
     options = data.get('options', {})
     max_files = min(data.get('max_files', 500), MAX_FOLDER_SCAN_FILES)
+    discover_only = data.get('discover_only', False)  # v6.1.11: return files without auto-scanning
 
     if not site_url:
         return jsonify({
@@ -1530,7 +1531,7 @@ def sharepoint_connect_and_scan():
     if not library_path:
         library_path = parsed.get('library_path', '')
 
-    logger.info(f'SharePoint connect-and-scan: site_url="{actual_site_url}", library_path="{library_path}"')
+    logger.info(f'SharePoint connect-and-scan: site_url="{actual_site_url}", library_path="{library_path}", discover_only={discover_only}')
 
     # Combined connect + discover
     connector = SPConnector(actual_site_url)
@@ -1678,6 +1679,31 @@ def sharepoint_connect_and_scan():
     for f in files:
         f['size_human'] = _human_size(f.get('size', 0))
 
+    # v6.1.11: discover_only mode — return files without starting a scan
+    if discover_only:
+        connector.close()
+        return jsonify({
+            'success': True,
+            'data': {
+                'scan_id': None,
+                'discover_only': True,
+                'site_title': result.get('title', ''),
+                'site_url': actual_site_url,
+                'library_path': library_path,
+                'auth_method': result.get('auth_method', 'none'),
+                'ssl_fallback': result.get('ssl_fallback', False),
+                'connector_type': result.get('connector_type', 'rest'),
+                'discovery': {
+                    'total_discovered': len(files),
+                    'supported_files': len(files),
+                    'total_size': total_size,
+                    'total_size_human': _human_size(total_size),
+                    'files': files,  # Return ALL files (not capped at 100)
+                    'file_type_breakdown': type_breakdown,
+                }
+            }
+        })
+
     # Generate scan_id and start the scan
     scan_id = uuid.uuid4().hex[:12]
 
@@ -1737,6 +1763,158 @@ def sharepoint_connect_and_scan():
                 'total_size': total_size,
                 'total_size_human': _human_size(total_size),
                 'files': files[:100],
+                'file_type_breakdown': type_breakdown,
+            }
+        }
+    })
+
+
+@review_bp.route('/api/review/sharepoint-scan-selected', methods=['POST'])
+@require_csrf
+@handle_api_errors
+def sharepoint_scan_selected():
+    """
+    v6.1.11: Start a SharePoint scan with user-selected files.
+
+    Called after discover_only mode — user has seen the file list and
+    selected which files to scan. Re-creates the connector and starts
+    an async scan with only the selected files.
+    """
+    SPConnector, sp_parse_url = _get_sharepoint_connector()
+    if SPConnector is None:
+        return jsonify({
+            'success': False,
+            'error': {'message': 'SharePoint connector not available', 'code': 'SP_UNAVAILABLE'}
+        }), 500
+
+    data = request.get_json() or {}
+    site_url = data.get('site_url', '').strip()
+    library_path = data.get('library_path', '').strip()
+    selected_files = data.get('files', [])
+    options = data.get('options', {})
+    connector_type = data.get('connector_type', 'rest')
+
+    if not site_url:
+        return jsonify({
+            'success': False,
+            'error': {'message': 'SharePoint site URL is required', 'code': 'MISSING_URL'}
+        }), 400
+
+    if not selected_files:
+        return jsonify({
+            'success': False,
+            'error': {'message': 'No files selected for scanning', 'code': 'NO_FILES'}
+        }), 400
+
+    # Re-create the connector (same type as discovery used)
+    connector = None
+    try:
+        if connector_type == 'headless':
+            try:
+                from sharepoint_connector import HeadlessSPConnector, HEADLESS_SP_AVAILABLE
+                if HEADLESS_SP_AVAILABLE:
+                    connector = HeadlessSPConnector(site_url)
+                    # Verify connection
+                    test = connector.test_connection()
+                    if not test.get('success'):
+                        connector.close()
+                        connector = None
+            except ImportError:
+                pass
+
+        if connector is None:
+            connector = SPConnector(site_url)
+            test = connector.test_connection()
+            if not test.get('success'):
+                # Try headless fallback
+                try:
+                    from sharepoint_connector import HeadlessSPConnector, HEADLESS_SP_AVAILABLE
+                    if HEADLESS_SP_AVAILABLE:
+                        connector.close()
+                        connector = HeadlessSPConnector(site_url)
+                        test = connector.test_connection()
+                        if not test.get('success'):
+                            connector.close()
+                            return jsonify({
+                                'success': False,
+                                'error': {'message': f'SharePoint re-authentication failed: {test.get("message", "")}', 'code': 'SP_AUTH_FAILED'}
+                            }), 400
+                except ImportError:
+                    connector.close()
+                    return jsonify({
+                        'success': False,
+                        'error': {'message': f'SharePoint authentication failed: {test.get("message", "")}', 'code': 'SP_AUTH_FAILED'}
+                    }), 400
+    except Exception as e:
+        if connector:
+            connector.close()
+        return jsonify({
+            'success': False,
+            'error': {'message': f'Failed to connect to SharePoint: {str(e)}', 'code': 'SP_CONNECT_FAILED'}
+        }), 500
+
+    # Calculate stats for selected files
+    total_size = sum(f.get('size', 0) for f in selected_files)
+    type_breakdown = {}
+    for f in selected_files:
+        ext = f.get('extension', f.get('name', '').rsplit('.', 1)[-1] if '.' in f.get('name', '') else 'unknown')
+        type_breakdown[ext] = type_breakdown.get(ext, 0) + 1
+
+    # Generate scan_id and start the scan
+    scan_id = uuid.uuid4().hex[:12]
+
+    with _folder_scan_state_lock:
+        _cleanup_old_scans()
+        _folder_scan_state[scan_id] = {
+            'phase': 'reviewing',
+            'total_files': len(selected_files),
+            'processed': 0,
+            'errors': 0,
+            'current_file': None,
+            'current_chunk': 0,
+            'total_chunks': (len(selected_files) + FOLDER_SCAN_CHUNK_SIZE - 1) // FOLDER_SCAN_CHUNK_SIZE,
+            'documents': [],
+            'summary': {
+                'total_documents': len(selected_files),
+                'processed': 0,
+                'errors': 0,
+                'total_issues': 0,
+                'total_words': 0,
+                'issues_by_severity': {'Critical': 0, 'High': 0, 'Medium': 0, 'Low': 0, 'Info': 0},
+                'issues_by_category': {},
+                'grade_distribution': {},
+            },
+            'roles_found': {},
+            'started_at': time.time(),
+            'completed_at': None,
+            'elapsed_seconds': 0,
+            'estimated_remaining': None,
+            'folder_path': f'SharePoint: {library_path} ({len(selected_files)} selected)',
+            'source': 'sharepoint',
+        }
+
+    # Spawn background thread
+    flask_app = current_app._get_current_object()
+    thread = threading.Thread(
+        target=_process_sharepoint_scan_async,
+        args=(scan_id, connector, selected_files, options, flask_app),
+        daemon=True,
+        name=f'sp-scan-selected-{scan_id}',
+    )
+    thread.start()
+
+    logger.info(f"SharePoint scan-selected {scan_id}: {len(selected_files)} of files from {library_path}")
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'scan_id': scan_id,
+            'total_files': len(selected_files),
+            'library_path': library_path,
+            'discovery': {
+                'total_discovered': len(selected_files),
+                'supported_files': len(selected_files),
+                'total_size': total_size,
                 'file_type_breakdown': type_breakdown,
             }
         }

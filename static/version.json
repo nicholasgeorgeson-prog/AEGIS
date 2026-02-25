@@ -1,13 +1,25 @@
 {
-  "version": "6.1.10",
+  "version": "6.1.11",
   "release_date": "2026-02-25",
-  "core_version": "6.1.10",
+  "core_version": "6.1.11",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.1.11",
+      "date": "2026-02-25",
+      "changes": [
+        "NEW: SharePoint File Selection — after Connect & Scan discovers files, a file picker UI lets you choose which documents to scan instead of auto-scanning everything. Includes Select All/Deselect All, extension filter chips (.docx, .pdf, .xlsx), file size and date display, and 'Scan Selected (N)' button",
+        "NEW: SharePoint Link Validation Parity — shared sharepoint_link_validator.py utility ensures all SharePoint links found inside documents are validated with the same auth cascade: fresh SSO session + SSL bypass + HEAD/GET fallback + REST API probe + Content-Type mismatch detection. Used by BOTH Hyperlink Validator and Document Review's ComprehensiveHyperlinkChecker",
+        "NEW: POST /api/review/sharepoint-scan-selected endpoint — accepts user-selected file list and starts async scan with only those files. Re-creates SharePoint connector (REST or headless) using the same auth cascade",
+        "ENH: Connect & Scan now uses discover_only mode — returns complete file list without auto-starting scan, enabling file selection workflow",
+        "ENH: HV Strategy 3c upgraded from sharepoint_api to sharepoint_full — uses shared validator first with legacy REST-only fallback",
+        "ENH: ComprehensiveHyperlinkChecker now detects SharePoint URLs and routes them through the shared SP validator with rule IDs HL080 (AUTH_REQUIRED), HL081 (TIMEOUT), HL082 (BROKEN)"
+      ]
+    },
     {
       "version": "6.1.10",
       "date": "2026-02-25",

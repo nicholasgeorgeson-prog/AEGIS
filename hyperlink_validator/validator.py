@@ -223,6 +223,17 @@ try:
 except ImportError:
     pass
 
+# v6.1.11: Shared SharePoint link validator (same cascade as Document Review checker)
+SP_LINK_VALIDATOR_AVAILABLE = False
+_validate_sp_url = None
+_is_sp_url = None
+try:
+    from sharepoint_link_validator import validate_sharepoint_url as _validate_sp_url
+    from sharepoint_link_validator import is_sharepoint_url as _is_sp_url
+    SP_LINK_VALIDATOR_AVAILABLE = True
+except ImportError:
+    pass
+
 # Try to import JobManager
 JobManager = None
 try:
@@ -2316,14 +2327,18 @@ class StandaloneHyperlinkValidator:
                 if is_internal and WINDOWS_AUTH_AVAILABLE and HttpNegotiateAuth:
                     strategies.append(('get_fresh_auth', {'verify': retest_session.verify, 'auth': 'fresh_sso'}))
 
-            # Strategy 3c: For SharePoint URLs, try REST API file existence check
+            # Strategy 3c: For SharePoint URLs, try shared SP validator (v6.1.11)
+            # Uses the same cascade as Document Review: fresh SSO + SSL bypass + REST API + content-type check
             if original.status in ('BLOCKED', 'AUTH_REQUIRED', 'BROKEN', 'SSLERROR', 'TIMEOUT'):
-                parsed_sp = urlparse(url)
-                if SHAREPOINT_CONNECTOR_AVAILABLE and _parse_sharepoint_url and (
-                    'sharepoint' in parsed_sp.netloc.lower() or
-                    'ngc.sharepoint' in parsed_sp.netloc.lower()
-                ):
-                    strategies.append(('sharepoint_api', {'url': url}))
+                is_sp = False
+                if SP_LINK_VALIDATOR_AVAILABLE and _is_sp_url:
+                    is_sp = _is_sp_url(url)
+                else:
+                    parsed_sp = urlparse(url)
+                    is_sp = ('sharepoint' in parsed_sp.netloc.lower() or
+                             'ngc.sharepoint' in parsed_sp.netloc.lower())
+                if is_sp:
+                    strategies.append(('sharepoint_full', {'url': url}))
 
             # Strategy 4: For timeouts, try with much longer timeout
             if original.status == 'TIMEOUT':
@@ -2331,32 +2346,58 @@ class StandaloneHyperlinkValidator:
 
             for strategy_name, strategy_opts in strategies:
                 try:
-                    # v5.9.35: SharePoint REST API strategy
-                    if strategy_name == 'sharepoint_api':
-                        try:
-                            sp_parsed = _parse_sharepoint_url(url)
-                            sp_site = sp_parsed.get('site_url', '')
-                            if sp_site:
-                                connector = _SharePointConnector(sp_site)
-                                probe = connector.test_connection()
-                                if probe.get('success'):
-                                    result.status = 'WORKING'
-                                    site_title = probe.get('title', 'SharePoint')
-                                    result.message = f'SharePoint site accessible — "{site_title}" (REST API verified)'
-                                    if connector._ssl_fallback_used:
-                                        result.status = 'SSL_WARNING'
+                    # v6.1.11: Shared SharePoint validator — full auth cascade
+                    if strategy_name == 'sharepoint_full':
+                        if SP_LINK_VALIDATOR_AVAILABLE and _validate_sp_url:
+                            try:
+                                sp_result = _validate_sp_url(url)
+                                sp_status = sp_result.get('status', 'ERROR')
+                                if sp_status in ('WORKING', 'SSL_WARNING'):
+                                    result.status = sp_status
+                                    result.message = sp_result.get('message', 'SharePoint link accessible')
+                                    result.status_code = sp_result.get('status_code', 200)
+                                    if sp_status == 'SSL_WARNING':
                                         result.ssl_valid = False
-                                        result.message += ' [SSL bypass]'
-                                    result.status_code = probe.get('status_code', 200)
                                     return result
-                                elif probe.get('status_code') == 401:
+                                elif sp_status == 'AUTH_REQUIRED':
                                     result.status = 'AUTH_REQUIRED'
-                                    result.message = 'SharePoint site exists — authentication required'
-                                    result.status_code = 401
+                                    result.message = sp_result.get('message', 'SharePoint authentication required')
+                                    result.status_code = sp_result.get('status_code', 401)
                                     return result
-                        except Exception as sp_err:
-                            logger.debug(f"SharePoint API strategy failed for {url}: {sp_err}")
-                            continue
+                                elif sp_status == 'BROKEN' and sp_result.get('status_code') == 404:
+                                    result.status = 'BROKEN'
+                                    result.message = sp_result.get('message', 'SharePoint resource not found')
+                                    result.status_code = 404
+                                    return result
+                                # Other statuses — fall through to other strategies
+                            except Exception as sp_err:
+                                logger.debug(f"Shared SP validator failed for {url}: {sp_err}")
+                        # Fallback: legacy REST-API-only probe
+                        elif SHAREPOINT_CONNECTOR_AVAILABLE and _parse_sharepoint_url:
+                            try:
+                                sp_parsed = _parse_sharepoint_url(url)
+                                sp_site = sp_parsed.get('site_url', '')
+                                if sp_site:
+                                    connector = _SharePointConnector(sp_site)
+                                    probe = connector.test_connection()
+                                    if probe.get('success'):
+                                        result.status = 'WORKING'
+                                        site_title = probe.get('title', 'SharePoint')
+                                        result.message = f'SharePoint site accessible — "{site_title}" (REST API verified)'
+                                        if connector._ssl_fallback_used:
+                                            result.status = 'SSL_WARNING'
+                                            result.ssl_valid = False
+                                            result.message += ' [SSL bypass]'
+                                        result.status_code = probe.get('status_code', 200)
+                                        return result
+                                    elif probe.get('status_code') == 401:
+                                        result.status = 'AUTH_REQUIRED'
+                                        result.message = 'SharePoint site exists — authentication required'
+                                        result.status_code = 401
+                                        return result
+                            except Exception as sp_err:
+                                logger.debug(f"SharePoint API strategy failed for {url}: {sp_err}")
+                        continue
 
                     s_verify = strategy_opts.get('verify', True)
                     s_auth = strategy_opts.get('auth', None)
