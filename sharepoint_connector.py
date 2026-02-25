@@ -2060,15 +2060,21 @@ class HeadlessSPConnector:
         self._playwright = _sp_sync_playwright().start()
 
         # Build launch args — same pattern as HeadlessValidator
-        # v6.1.4: Include identity provider domains (Azure AD, ADFS) in allowlist
-        # The federated SSO chain redirects to these servers which issue the
-        # Negotiate challenge — they MUST be in the allowlist or SSO silently fails
-        _auth_domains = list(self._corp_domains) + [
+        # v6.1.4: IdP domains are now included in CORP_AUTH_DOMAINS (headless_validator.py)
+        # and in the fallback list above, so no need to add them again here.
+        # Just deduplicate to avoid doubled entries in the allowlist string.
+        _idp_extras = [
             '*.microsoftonline.com', '*.microsoftonline.us',
             '*.login.microsoftonline.com', '*.login.microsoftonline.us',
             '*.windows.net', '*.login.windows.net',
-            '*.adfs.*',  # Catch ADFS servers on any domain
+            '*.adfs.*',
         ]
+        _seen = set()
+        _auth_domains = []
+        for d in list(self._corp_domains) + _idp_extras:
+            if d not in _seen:
+                _seen.add(d)
+                _auth_domains.append(d)
         allowlist = ','.join(_auth_domains)
         logger.info(f'[HeadlessSP] Auth allowlist: {allowlist}')
 

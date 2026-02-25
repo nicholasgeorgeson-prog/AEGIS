@@ -1,13 +1,22 @@
 {
-  "version": "6.1.4",
+  "version": "6.1.5",
   "release_date": "2026-02-25",
-  "core_version": "6.1.4",
+  "core_version": "6.1.5",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.1.5",
+      "date": "2026-02-25",
+      "changes": [
+        "FIX: CRITICAL — Playwright browser binary not installed. The playwright Python package was present but 'playwright install chromium' was never run, so HeadlessSPConnector.launch() failed with 'Executable doesn't exist'. Apply script now runs 'python -m playwright install chromium' automatically",
+        "FIX: Deduplicated auth-server-allowlist entries in HeadlessSPConnector. Identity provider domains were added to both CORP_AUTH_DOMAINS (v6.1.4) and _ensure_browser() extras, causing each domain to appear twice in the Chromium launch args",
+        "ENH: Apply script v6.1.5 focuses on Playwright browser installation with clear success/failure diagnostics and manual fallback instructions"
+      ]
+    },
     {
       "version": "6.1.4",
       "date": "2026-02-25",

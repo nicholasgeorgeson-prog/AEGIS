@@ -2,7 +2,7 @@
  * AEGIS Help Documentation System
  * ==========================================
  * Comprehensive documentation for all features.
- * Version: 6.1.4
+ * Version: 6.1.5
  *
  * Complete overhaul with:
  * - Beautiful visual design with icons and illustrations
@@ -10,6 +10,7 @@
  * - Technical deep-dive section for advanced users
  * - Smooth navigation and professional typography
  *
+ * v6.1.5 - Playwright Chromium browser binary install fix + auth allowlist deduplication
  * v6.1.4 - Headless SP: Federated SSO fix (3-phase auth, ADFS allowlist, sharepoint.log diagnostics)
  * v6.1.3 - Headless Browser SharePoint Connector (Playwright + Windows SSO bypass for GCC High AADSTS65002)
  * v6.1.2 - SharePoint Device Code Flow UI + URL Misroute Fix (visible OAuth prompt, folder_scan_start URL guard)

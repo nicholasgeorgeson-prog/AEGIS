@@ -1371,8 +1371,19 @@ The `decodedUrl` parameter **auto-decodes** percent-encoded values before using 
 **Files**: `sharepoint_connector.py` (3 edits), `routes/review_routes.py` (error msg), `hyperlink_validator/headless_validator.py` (auth domains), `version.json`, `static/version.json`, `static/js/help-docs.js`, `apply_v6.1.4.py`
 **Lesson**: When implementing headless browser SSO authentication: (1) Navigate to the site HOMEPAGE, not an API endpoint — API endpoints trigger immediate redirects that look like "login pages" mid-chain. (2) The `--auth-server-allowlist` must include ALL domains in the SSO chain: the target site domains AND the identity provider domains (Azure AD, ADFS, etc.). (3) After navigation, WAIT for the SSO chain to complete before checking the URL — use `page.wait_for_url()` to wait for the browser to return to the target domain. (4) Verify auth separately via `page.evaluate(fetch())` — don't trust the URL alone. (5) Always add file-based logging for headless browser operations — stdout is invisible in production log exports.
 
-### 149. Version Management Update
-- **Current version**: 6.1.4
+### 149. Playwright Browser Binary Must Be Installed Separately from Package (v6.1.5)
+**Problem**: HeadlessSPConnector failed with `BrowserType.launch: Executable doesn't exist at C:\Users\M26402\AppData\Local\ms-playwright\chromium_headless_shell-1208\chrome-headless-shell-win64\chrome-headless-shell.exe`. Playwright Python package was installed but the actual Chromium browser binary was never downloaded.
+**Root Cause**: `pip install playwright` installs the Python API package only. The actual browser binaries (Chromium, Firefox, WebKit) are separate ~100MB downloads that must be installed via `python -m playwright install chromium`. The v6.1.4 apply script had this command in Step 2, but it apparently failed on the Windows machine (possibly due to network issues, permissions, or the command not completing in the timeout window).
+**Fix**: Created `apply_v6.1.5.py` that focuses specifically on ensuring the Playwright browser binary is installed:
+1. Runs `python -m playwright install chromium` with extended timeout (600s)
+2. Verifies the binary exists by checking the expected path via `python -c "from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium; print(b.executable_path)"`
+3. If automated install fails, provides clear manual instructions with the exact Python path
+4. Also fixed duplicate auth-server-allowlist entries (IdP domains appeared twice — once from CORP_AUTH_DOMAINS import, once from extras list)
+**Also fixed**: Duplicate auth allowlist entries in `_ensure_browser()`. The v6.1.4 update added identity provider domains to both `CORP_AUTH_DOMAINS` in headless_validator.py and the `_idp_extras` list in sharepoint_connector.py. Since HeadlessSPConnector imports `CORP_AUTH_DOMAINS`, every IdP domain appeared twice in the `--auth-server-allowlist` argument. Added set-based deduplication.
+**Lesson**: `pip install playwright` and `playwright install chromium` are TWO SEPARATE steps. The first installs the Python API, the second downloads the ~100MB browser binary. Without the binary, `BrowserType.launch()` fails immediately. Apply scripts must: (1) verify the package is installed, (2) run `playwright install chromium`, (3) VERIFY the binary exists at the expected path, (4) provide clear manual fallback instructions. The browser binary path is platform-specific and version-specific — don't hardcode it; use `browser.executable_path` from the Playwright API to check.
+
+### 150. Version Management Update
+- **Current version**: 6.1.5
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
