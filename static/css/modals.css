@@ -24,7 +24,7 @@
 #modal-settings .modal-body::-webkit-scrollbar-track { background: transparent; margin: 8px 0; }
 #modal-settings .modal-body::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
 #modal-settings .modal-body::-webkit-scrollbar-thumb:hover { background: var(--accent-hover, #e0b84a); }
-.modal.modal-xl > div:first-child, .modal.modal-xl > .modal-content { max-width: 1100px; min-width: 800px; }
+.modal.modal-xl > div:first-child, .modal.modal-xl > .modal-content { max-width: 1100px; min-width: 0; }
 
 /* v3.0.111: Fullscreen modal for Statement Forge */
 .modal.modal-fullscreen { background: var(--bg-primary); padding: 0; }
@@ -1043,3 +1043,60 @@
 .twr-cm-body::-webkit-scrollbar-thumb { background: var(--border-default, #2d2d4a); border-radius: 3px; }
 .twr-cm-body::-webkit-scrollbar-thumb:hover { background: var(--text-muted, #666); }
 
+/* =============================================================================
+   v6.2.0: RESPONSIVE BREAKPOINTS
+   ============================================================================= */
+
+/* Laptop (1366px) — reduce modal widths, tighten padding */
+@media (max-width: 1366px) {
+    .modal.modal-xl > div:first-child,
+    .modal.modal-xl > .modal-content { max-width: 95vw; }
+    #modal-settings > .modal-content { max-width: 95vw; }
+    .modal-header { padding: var(--space-3) var(--space-4); }
+    .modal-body { padding: var(--space-4); }
+    .modal-footer { padding: var(--space-3) var(--space-4); }
+}
+
+/* Small laptop (1280px) — collapse grids to fit */
+@media (max-width: 1280px) {
+    .export-format-group { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+}
+
+/* Tablet (1024px) — full-width modals */
+@media (max-width: 1024px) {
+    .modal.modal-xl > div:first-child,
+    .modal.modal-xl > .modal-content,
+    .modal.modal-lg > div:first-child,
+    .modal.modal-lg > .modal-content {
+        max-width: 98vw;
+        width: 98vw;
+    }
+    #modal-settings > .modal-content { max-width: 98vw; width: 98vw; }
+    .twr-content-modal { max-width: 95vw !important; width: 95vw !important; }
+}
+
+/* Small tablet / large phone (768px) — stack layouts, remove padding */
+@media (max-width: 768px) {
+    .modal > div:first-child:not(.modal-overlay),
+    .modal > .modal-content {
+        width: 100vw;
+        max-width: 100vw;
+        max-height: 100vh;
+        border-radius: 0;
+    }
+    .modal.modal-xl > div:first-child,
+    .modal.modal-xl > .modal-content,
+    .modal.modal-lg > div:first-child,
+    .modal.modal-lg > .modal-content {
+        width: 100vw;
+        max-width: 100vw;
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+    }
+    .modal-header { padding: 8px 12px; }
+    .modal-body { padding: 12px; }
+    .modal-footer { padding: 8px 12px; }
+    .export-format-group { grid-template-columns: repeat(2, 1fr); }
+    .twr-content-modal { max-width: 100vw !important; border-radius: 0 !important; }
+}

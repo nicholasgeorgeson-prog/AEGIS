@@ -1012,3 +1012,33 @@
     background: #0d1117;
     color: #c9d1d9;
 }
+
+/* =============================================================================
+   v6.2.0: RESPONSIVE BREAKPOINTS
+   ============================================================================= */
+
+/* Laptop (1366px) — tighten settings layout */
+@media (max-width: 1366px) {
+    .settings-checker-grid { gap: 8px; }
+    .learning-modules-grid { gap: 10px; }
+}
+
+/* Tablet (1024px) — stack settings grids */
+@media (max-width: 1024px) {
+    .settings-checker-grid { grid-template-columns: 1fr; }
+    .settings-diag-stats { grid-template-columns: 1fr 1fr; }
+    .learning-modules-grid { grid-template-columns: 1fr; }
+    .settings-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* Small tablet (768px) — single column everything */
+@media (max-width: 768px) {
+    .settings-diag-stats { grid-template-columns: 1fr; }
+    .settings-info-grid { grid-template-columns: 1fr; }
+    .learning-module-card { padding: 12px; }
+    .lm-actions { flex-wrap: wrap; gap: 4px; }
+}

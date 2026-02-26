@@ -883,6 +883,19 @@ body:not(.landing-active) .lp-bg-canvas {
 
 /* ===== RESPONSIVE ===== */
 
+/* v6.2.0: Laptops */
+@media (max-width: 1366px) {
+    .lp-tiles {
+        gap: 14px;
+    }
+    .lp-metrics {
+        gap: 10px;
+    }
+    .lp-content {
+        padding: 28px 24px 40px;
+    }
+}
+
 /* Large tablets / narrow laptops */
 @media (max-width: 1200px) {
     .lp-metrics {
