@@ -1031,18 +1031,21 @@ body.dark-mode .ma-table .ma-hint,
     }
 }
 
-@media (max-width: 1200px) {
+/* v6.2.1: Standard breakpoints for consistent responsive behavior */
+@media (max-width: 1280px) {
     #modal-metrics-analytics > .ma-modal-content {
         width: 98vw;
         max-width: none;
     }
-
     .ma-grid-3col {
         grid-template-columns: 1fr 1fr;
     }
+    .ma-hero-stat {
+        padding: 0.75rem 0.875rem;
+    }
 }
 
-@media (max-width: 1000px) {
+@media (max-width: 1024px) {
     #modal-metrics-analytics > .ma-modal-content {
         width: 98vw;
         height: 96vh;

@@ -896,8 +896,8 @@ body:not(.landing-active) .lp-bg-canvas {
     }
 }
 
-/* Large tablets / narrow laptops */
-@media (max-width: 1200px) {
+/* v6.2.1: Standard breakpoints */
+@media (max-width: 1280px) {
     .lp-metrics {
         grid-template-columns: repeat(3, 1fr);
     }
@@ -909,13 +909,22 @@ body:not(.landing-active) .lp-bg-canvas {
     }
 }
 
-/* Tablets / small screens */
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
     .lp-tiles {
         grid-template-columns: repeat(2, 1fr);
     }
     .lp-metrics {
         grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* Small tablets */
+@media (max-width: 768px) {
+    .lp-tiles {
+        grid-template-columns: 1fr;
+    }
+    .lp-metrics {
+        grid-template-columns: repeat(2, 1fr);
     }
     .lp-hero h2 {
         font-size: 18px;

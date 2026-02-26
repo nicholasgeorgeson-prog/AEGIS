@@ -1023,6 +1023,13 @@
     .learning-modules-grid { gap: 10px; }
 }
 
+/* v6.2.1: Small laptop (1280px) — reduce padding */
+@media (max-width: 1280px) {
+    .settings-checker-grid { gap: 6px; }
+    .learning-modules-grid { gap: 8px; grid-template-columns: 1fr; }
+    .learning-module-card { padding: 14px; }
+}
+
 /* Tablet (1024px) — stack settings grids */
 @media (max-width: 1024px) {
     .settings-checker-grid { grid-template-columns: 1fr; }

@@ -1929,6 +1929,44 @@ body:not(.dark-mode) .sfh-diff-indicator.sfh-diff-mod {
    RESPONSIVE
    ========================================================================= */
 
+/* v6.2.0: Laptop */
+@media (max-width: 1366px) {
+    .sfh-hero {
+        gap: 10px;
+    }
+    .sfh-hero-stat {
+        padding: 12px;
+    }
+}
+
+/* v6.2.0: Small laptop */
+@media (max-width: 1280px) {
+    .sfh-hero {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    .sfh-viewer-detail-panel {
+        width: 260px;
+    }
+}
+
+/* v6.2.0: Tablet */
+@media (max-width: 1024px) {
+    .sfh-hero {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .sfh-viewer-split {
+        flex-direction: column;
+    }
+    .sfh-viewer-detail-panel {
+        width: 100%;
+        max-height: 280px;
+        border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    }
+    .sfh-compare-panels {
+        flex-direction: column;
+    }
+}
+
 @media (max-width: 900px) {
     .sfh-hero {
         grid-template-columns: repeat(2, 1fr);
