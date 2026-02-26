@@ -23,8 +23,10 @@ Changes in v6.2.1:
   - FIX: Modal max-width changed to min(95vw, 1100px)
   - FIX: html_preview default value corrected from 0 to '' in review API
 
-Usage:
+Usage (Windows):
   python apply_v6.2.1.py
+  -or-
+  python\\python.exe apply_v6.2.1.py
 
   Run from the AEGIS install directory (where app.py lives).
 """
@@ -269,15 +271,22 @@ def download_file(url, dest_path, _unused=None):
             print(f"  [FAIL] {e}")
             return False
 
-    # All SSL strategies failed — try curl as last resort
+    # All SSL strategies failed — try curl as last resort (available on Windows 10+ and macOS)
     try:
         import subprocess
+        curl_cmd = "curl.exe" if sys.platform == 'win32' else "curl"
+        # Ensure parent directory exists for curl
+        parent = os.path.dirname(dest_path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
         result = subprocess.run(
-            ["curl", "-sL", "-o", dest_path, "--create-dirs", url],
-            capture_output=True, text=True, timeout=30
+            [curl_cmd, "-sL", "-o", dest_path, url],
+            capture_output=True, text=True, timeout=60
         )
         if result.returncode == 0 and os.path.exists(dest_path) and os.path.getsize(dest_path) > 0:
             return True
+    except FileNotFoundError:
+        pass  # curl not available
     except Exception:
         pass
 
@@ -308,7 +317,10 @@ def verify_aegis_dir():
     if not os.path.exists("app.py"):
         print("\n[ERROR] app.py not found in current directory.")
         print("Please run this script from the AEGIS install directory.")
-        print(f"  cd /path/to/AEGIS && python apply_v{VERSION}.py")
+        if sys.platform == 'win32':
+            print(f'  cd "C:\\path\\to\\AEGIS" && python apply_v{VERSION}.py')
+        else:
+            print(f"  cd /path/to/AEGIS && python3 apply_v{VERSION}.py")
         return False
     if not os.path.isdir("static"):
         print("\n[ERROR] static/ directory not found.")
@@ -411,7 +423,63 @@ def main():
     ensure_init_files()
     print("  [OK] Package structure verified")
 
-    # Step 5: Summary
+    # Step 5: Install new dependencies (Windows only)
+    if sys.platform == 'win32':
+        print("\n[Step 5] Checking new dependencies...")
+        # Find the right Python executable
+        python_exe = sys.executable
+        embedded = os.path.join("python", "python.exe")
+        if os.path.exists(embedded):
+            python_exe = os.path.abspath(embedded)
+
+        new_deps = [
+            ("msal", "msal>=1.20.0"),
+            ("truststore", "truststore>=0.9.0"),
+        ]
+        import subprocess
+        for module_name, pip_spec in new_deps:
+            try:
+                __import__(module_name)
+                print(f"  [OK] {module_name} already installed")
+            except ImportError:
+                print(f"  [INSTALL] {module_name}...", end=" ", flush=True)
+                # Try offline first (from wheels/), then online
+                wheels_dirs = []
+                if os.path.isdir("wheels"):
+                    wheels_dirs.append("wheels")
+                if os.path.isdir(os.path.join("packaging", "wheels")):
+                    wheels_dirs.append(os.path.join("packaging", "wheels"))
+
+                installed = False
+                if wheels_dirs:
+                    cmd = [python_exe, "-m", "pip", "install", "--no-index"]
+                    for wd in wheels_dirs:
+                        cmd.extend(["--find-links", wd])
+                    cmd.extend(["--no-warn-script-location", pip_spec])
+                    try:
+                        r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                        if r.returncode == 0:
+                            installed = True
+                    except Exception:
+                        pass
+
+                if not installed:
+                    # Try online
+                    try:
+                        r = subprocess.run(
+                            [python_exe, "-m", "pip", "install", "--no-warn-script-location", pip_spec],
+                            capture_output=True, text=True, timeout=120
+                        )
+                        if r.returncode == 0:
+                            installed = True
+                    except Exception:
+                        pass
+
+                print("[OK]" if installed else "[SKIP] install manually later")
+    else:
+        print("\n[Step 5] Skipping dependency install (not Windows)")
+
+    # Step 6: Summary
     print(f"""
 +============================================================+
 |                    Update Summary                            |
@@ -430,13 +498,23 @@ def main():
     else:
         print("[SUCCESS] All files updated successfully!")
 
+    if sys.platform == 'win32':
+        restart_cmd = "python app.py"
+        # Check for embedded Python
+        if os.path.exists(os.path.join("python", "python.exe")):
+            restart_cmd = "python\\python.exe app.py"
+        refresh_key = "Ctrl+Shift+R"
+    else:
+        restart_cmd = "python3 app.py --debug"
+        refresh_key = "Cmd+Shift+R"
+
     print(f"""
 Next steps:
   1. Restart AEGIS server:
-     - Double-click restart_aegis.sh (Mac)
-     - Or: python3 app.py --debug
+     - Double-click Start_AEGIS.bat (Windows)
+     - Or in terminal: {restart_cmd}
 
-  2. Hard-refresh browser: Cmd+Shift+R (Mac) or Ctrl+Shift+R (Windows)
+  2. Hard-refresh browser: {refresh_key}
 
   3. Verify version shows {VERSION} in the bottom-right footer
 
