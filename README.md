@@ -1,468 +1,292 @@
-# AEGIS v4.9.9
+# AEGIS v6.2.9
 
 **Aerospace Engineering Governance & Inspection System**
 
-Enterprise-grade document analysis and compliance verification platform for aerospace, defense, and government technical documentation.
+Enterprise-grade document analysis, compliance verification, and proposal comparison platform for aerospace, defense, and government technical documentation. Built for air-gapped classified networks with zero external dependencies at runtime.
 
 ---
 
-## What's New in v4.9.9
+## Key Capabilities
 
-### Statement Source Viewer with Highlight-to-Select
-- **Inline Statement Creation**: Click text in document to create statements without leaving viewer
-- **Highlight-to-Select Editing**: Select text ranges and save as new statements inline
-- **Document Context Integration**: Preserves character offsets and document history
-- **Keyboard Navigation**: J/K or arrow keys to navigate statements
-
-### Error Handling & Stability Improvements
-- **Fixed SOW Generation 500 Error**: Missing timezone import in datetime operations now resolved
-- **Structured Error Messages**: API error responses properly formatted with extraction at all call sites
-- **Meaningful Toast Notifications**: Error toasts show real messages instead of "[object Object]"
-- **Cross-Platform Compatibility**: Windows-specific file operations (chmod) now platform-aware
-
-### Document Compare Smart Auto-Picker
-- **Auto-Selection**: Opens with oldest doc on left, newest on right automatically
-- **Immediate Comparison**: Runs comparison without requiring manual selection
-- **Consistent Entry Points**: Works from sidebar, landing tile, and URL hash
-
-### Settings & Persistence Enhancements
-- **Profile Persistence**: Document profiles survive server restarts
-- **User Preference Caching**: localStorage backup with server-side sync
-- **Dirty State Tracking**: Visual feedback on unsaved changes
-
-### Production & Windows Support
-- **Session Logging**: Correlation IDs for API response timing analysis
-- **Windows Platform Detection**: Using os.name == 'nt' for platform-specific code paths
-- **Pathlib Cross-Platform**: All file operations use pathlib.Path for consistency
-- **Particle Effect Optimization**: Improved transparency for dark background visibility
-
-### Previous Releases
-
-## v4.7.0: Database Access Layer Refactoring
-- **99 sqlite3.connect() calls** replaced with unified `db_connection()` context manager pattern
-- **10 critical bug fixes**: Statement counts, document compare methods, heatmap flickering, event listeners
-- **Reliability improvements**: ~60% of DB calls now have proper exception handling, ~65% fixed connection leaks
-
-## v4.0.3: Adjudication Tab Complete Overhaul
-
-### Adjudication System Rewrite
-- **OVERHAUL**: Complete rewrite of the Adjudication tab with dashboard, animated stat cards, SVG progress ring
-- **Auto-Classify**: AI-assisted role classification with pattern matching, preview modal, and confidence scoring
-- **Kanban Board**: 4-column drag-and-drop board (Pending | Confirmed | Deliverables | Rejected)
-- **Function Tags**: Assign hierarchical function categories directly on role cards with searchable dropdown
-- **Keyboard Navigation**: Full keyboard control — arrow keys, C/D/R to classify, Ctrl+Z undo, Ctrl+Y redo
-- **Batch Operations**: Select multiple roles, bulk confirm/reject/deliverable
-
-### Interactive HTML Export/Import
-- **Export** adjudication as a standalone interactive HTML kanban board — works offline in any browser
-- **Team Review**: Send HTML file to team members (no AEGIS needed); they drag-drop, assign tags, add notes
-- **Import Back**: Team generates a JSON decisions file, imported back into AEGIS with one click
-- Export dropdown with CSV Spreadsheet, Interactive HTML Board, and Import Decisions options
-
-### Roles Sharing System
-- **Shared Folder**: Export enhanced master dictionary (now with function tags) to a shared network path
-- **Email Package**: Download a `.aegis-roles` package and open mailto: with import instructions
-- **Import Package**: Import `.aegis-roles` via Settings → Sharing or drop in `updates/` folder for auto-import
-- **FileRouter**: `.aegis-roles` files in `updates/` folder auto-detected and imported
-
-### New API Endpoints
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/roles/adjudication/export-html` | GET | Interactive HTML board download |
-| `/api/roles/adjudication/import` | POST | Import decisions from JSON |
-| `/api/roles/share/package` | POST | Create .aegis-roles package |
-| `/api/roles/share/import-package` | POST | Import .aegis-roles package |
+| Module | Description |
+|--------|-------------|
+| **Document Review** | 105+ quality checkers with severity scoring, Fix Assistant, and export suite |
+| **Proposal Compare** | Multi-vendor financial analysis with multi-term comparison, red flags, and vendor scoring |
+| **Hyperlink Validator** | 6,000+ URL batch validation with headless browser deep validate and Windows SSO |
+| **Statement Forge** | Requirements extraction with history tracking, compare viewer, and bulk editing |
+| **Roles Studio** | AI role extraction (99%+ recall), adjudication kanban, RACI matrix, D3.js graphs |
+| **SharePoint Integration** | Connect & Scan with file selection, headless browser SSO, and subsite detection |
+| **Metrics & Analytics** | 6-tab command center with cross-module dashboards and proposal metrics |
+| **Pattern Learning** | 5-module local learning system that improves from user corrections |
 
 ---
 
-## v4.0.1: Role Extraction Accuracy Enhancement
+## What's New in v6.x
 
-### Role Extraction v3.3.3 - 99%+ Recall
-- **99%+ recall** across defense, aerospace, government, and academic documents
-- Added ~70 new roles (OSHA, academic, defense, aerospace domains)
-- 228+ known roles, 192+ false positive exclusions
+### SharePoint Connect & Scan (v6.0 - v6.2)
+- **One-click flow**: Paste SharePoint URL, auto-discover files, select which to scan
+- **Headless browser SSO**: Playwright-powered Windows authentication for SharePoint Online GCC High
+- **File selection**: Checkbox picker with extension filters after discovery
+- **Subsite detection**: Automatically routes API calls to correct sub-web
+- **Async progress dashboard**: Cinematic real-time progress with per-file phase tracking
+- **SP link validation**: Full auth cascade for validating SharePoint URLs in documents
 
----
+### Async Batch Scan with Cinematic Dashboard (v6.2)
+- **Background processing**: Non-blocking batch scan with real-time polling
+- **Per-file progress**: Phase indicators (Extracting, Checking, NLP, Complete) via `progress_callback`
+- **ECD estimation**: Exponential Moving Average completion time prediction
+- **Minimize-to-badge**: SVG progress ring badge when modal is minimized
+- **Crash prevention**: Protected state updates, per-file gc.collect(), watchdog timer
+- **Cancel support**: Stop scans mid-flight with graceful cleanup
 
-## v4.0.0: AEGIS Rebrand Release
+### Unified Auth Service (v6.2)
+- **Singleton pattern**: Shared authentication across all SharePoint and corporate modules
+- **Session management**: 30-minute TTL with auto-refresh and thread-safe fresh sessions
+- **Boot diagnostics**: Auth probe at startup with results in `/api/capabilities`
+- **Multi-strategy cascade**: Negotiate SSO, preemptive SSPI, MSAL OAuth, headless browser
 
-### Complete Rebrand
-- Renamed from TechWriterReview to **AEGIS** (Aerospace Engineering Governance & Inspection System)
-- New AEGIS shield logo with gold/bronze gradient color scheme
-- 163+ files updated across codebase with new branding
+### Proposal Compare v2.0 (v5.9 - v6.0)
+- **8-tab analysis**: Executive summary, comparison matrix, categories, red flags, heatmap, vendor scores, details, raw tables
+- **Multi-term comparison**: Auto-detects contract terms (3-year, 5-year), groups and compares separately
+- **Red flag detection**: Rate anomalies, missing data, cost outliers, FAR 15.404 compliance
+- **Vendor scoring**: Letter grades A-F with weighted components (Price, Completeness, Risk, Data Quality)
+- **Project management**: Named projects with proposal grouping and comparison history
+- **Review phase**: Split-pane document viewer with click-to-populate and live editing
+- **Pattern learning**: Learns from user corrections to improve extraction accuracy
+- **Structure analyzer**: Privacy-safe diagnostic tool for parser tuning
+- **Interactive HTML export**: Self-contained report with inline SVG charts and dark/light mode
 
-### UI/UX Improvements
-- **Enhanced Document Text Readability**: Larger fonts (15px), improved line-height (1.75), better letter spacing
-- **Reorganized Navigation**: Validate and Links tabs now adjacent for workflow efficiency
-- **Gold Accent Theme**: Updated active tab styling and highlights throughout
+### Hyperlink Validator Enhancements (v5.9 - v6.1)
+- **Headless browser deep validate**: Playwright Chromium for bot-protected .mil/.gov sites
+- **Multi-strategy SSL**: OS truststore integration, corporate CA bypass, fresh SSO sessions
+- **Per-domain rate limiting**: Thread-safe semaphores prevent 429 errors
+- **Multi-color Excel export**: Status-coded rows (green/yellow/orange/red) with summary sheet
+- **Content-type mismatch detection**: Catches silent login redirects on document URLs
+- **Windows SSO passthrough**: `--auth-server-allowlist` for corporate NTLM/Negotiate
 
-### Checker Accuracy Improvements (Near-Perfect Accuracy)
-- **Grammar Checker v2.6.0**: Fixed critical "Capitalize I" false positives
-- **Punctuation Checker v2.7.0**: Filters TOC entries to reduce false positives
-- **Prose Linter v1.1.0**: 40+ technical term nominalization exceptions
-- **Enhanced Passive Checker**: 60+ additional adjectival participles
-- **Fragment Checker**: 100+ imperative verb indicators for technical docs
+### Pattern Learning System (v5.9)
+- **5 modules**: Document Review, Statement Forge, Roles, Hyperlink Validator, Proposal Compare
+- **Local-only**: All patterns stored on disk, never uploaded
+- **Safety thresholds**: Requires 2+ observations before activating learned patterns
+- **Settings UI**: View, export, clear patterns per module with global toggle
 
-### Data Management (Factory Reset)
-- New Settings > Data Management tab
-- Clear Scan History, Role Dictionary, Learning Data individually
-- Full Factory Reset option to restore defaults
+### Guided Tour & Demo System (v5.6 - v5.9)
+- **79 overview scenes** across 11 sections with spotlight and narration
+- **93 sub-demos** with 471 deep-dive scenes covering every feature
+- **Voice narration**: Pre-generated MP3 clips (edge-tts JennyNeural) with Web Speech API fallback
+- **Technology showcase**: Full-screen Canvas cinematic video (6 acts, 18 scenes)
 
----
-
-## v3.4.0: Maximum Coverage Suite
-
-This release adds **23 new offline-only checkers** for comprehensive style, clarity, procedural writing, and compliance validation:
-
-| Category | Checkers | Highlights |
-|----------|----------|------------|
-| Style Consistency | 6 | Heading case, contractions, Oxford comma, ARI, Spache, Dale-Chall |
-| Clarity | 5 | Future tense, Latin abbrev, directional/time-sensitive language |
-| Enhanced Acronyms | 2 | First-use enforcement, multiple definition detection |
-| Procedural Writing | 3 | Imperative mood, second person, link text quality |
-| Document Quality | 4 | List sequence, product names, cross-references, code formatting |
-| Compliance | 3 | MIL-STD-40051, S1000D, AS9100 |
-
-**Total Checkers: 84** (61 existing + 23 new)
-
-### New Checker Modules (v3.4.0)
-- **Style Consistency** - Heading case, contractions, Oxford comma, readability (ARI/Spache/Dale-Chall)
-- **Clarity Checkers** - Future tense, Latin abbreviations, directional/time-sensitive language
-- **Acronym Enhanced** - First-use enforcement, multiple definition detection
-- **Procedural Writing** - Imperative mood, second person preference, link text quality
-- **Document Quality** - Numbered list sequence, product names, cross-references, code formatting
-- **Compliance** - MIL-STD-40051-2, S1000D/IETM, AS9100D documentation requirements
-
-### New Data Files (v3.4.0)
-- Dale-Chall 3000-word easy word list
-- Spache easy words for readability
-- 250+ product name capitalizations
-- MIL-STD-40051, S1000D, AS9100 compliance patterns
-
-**All features are 100% offline-capable for air-gapped deployment.**
+### Export Suite (v5.9)
+- **5 formats**: DOCX (with comments), PDF Report (reportlab), XLSX, CSV, JSON
+- **Pre-export filtering**: Severity and category chip-based multi-select
+- **Fix Assistant**: Owner mode (track changes) and Reviewer mode (recommendation comments)
 
 ---
 
-## v3.3.x: Maximum Accuracy NLP Enhancement Suite
+## Previous Major Releases
 
-Role extraction achieves **99%+ recall** across all document types:
+### v5.x Highlights
+- **Statement History**: Overview dashboard, document viewer, unified compare viewer with diff detection
+- **Folder Scan**: Server-side recursive scanning with async polling and progress dashboard
+- **Responsive Design**: 4 standard CSS breakpoints (1366px, 1280px, 1024px, 768px)
+- **Metrics & Analytics**: 6-tab command center with quality trends, heatmaps, and proposal metrics
+- **Persistent Docling worker**: 3-6x batch scan performance improvement
+- **OneClick installer**: Windows air-gapped deployment with embedded Python and 195 wheels
 
-| Feature | Previous | Current | Enhancement |
-|---------|----------|---------|-------------|
-| Role Extraction | 56.7% | **99%+** | Domain validation + 228+ roles + Defense/Aerospace terms |
-| Acronym Detection | 75% | 95%+ | Domain dictionaries + Context analysis |
-| Passive Voice | 70% | 88%+ | Dependency parsing (not regex) |
-| Spelling | 85% | 98%+ | 10,000+ term technical dictionary |
-| Requirements | 80% | 95%+ | Atomicity + Testability + Escape clauses |
-| Terminology | 70% | 92%+ | Variant detection + British/American |
+### v4.x Highlights
+- **AEGIS rebrand** from TechWriterReview at v4.0.0
+- **Adjudication overhaul**: Kanban board, function tags, interactive HTML export
+- **Role Inheritance Map**: 4-view interactive HTML with inline editing
+- **Landing page**: Full-page dashboard with particle animation and metric tiles
+- **105 quality checkers** (up from 84 in v3.x)
 
-**Role Extraction Validation (v3.3.3):**
-- FAA, OSHA, Stanford: **103%** recall
-- Defense/Government (MIL-STD, NIST): **99.5%** recall
-- Aerospace (NASA, FAA, KSC): **99.0%** recall
-
-### v3.3.0 Modules
-- **Technical Dictionary** - 10,000+ aerospace/defense terms with corrections
-- **Adaptive Learning** - System learns from your decisions over time
-- **Enhanced NLP Pipeline** - Transformer models with EntityRuler patterns
-- **Advanced Passive Voice** - Dependency parsing with 300+ whitelist terms
-- **Fragment Detection** - Syntactic parsing for sentence completeness
-- **Requirements Analyzer** - Atomicity, testability, escape clauses
-- **Terminology Checker** - Spelling variants, British/American consistency
-- **Cross-Reference Validator** - Section/table/figure reference validation
+---
 
 ## Quick Start
 
-### Basic Setup (With Internet)
+### OneClick Installer (Windows, Recommended)
 
-```batch
-1. Unzip this package
-2. Double-click: setup.bat
-3. Double-click: start_twr.bat  (or Run_TWR.bat)
-4. Open browser to: http://localhost:5050
+```
+1. Download Install_AEGIS_OneClick.bat from GitHub Releases
+2. Double-click to run — installs Python, dependencies, and models automatically
+3. Double-click Start_AEGIS.bat
+4. Browser opens to http://localhost:5050
 ```
 
-That's it! `setup.bat` installs all dependencies automatically.
+Works on air-gapped networks. All dependencies bundled as wheel files.
 
-### Optional: Enhanced Features
+### Manual Setup (macOS/Linux)
 
-**NLP Enhancement** (recommended for better role detection):
-```batch
-setup_enhancements.bat
-```
-Installs spaCy, scikit-learn for ~90% role detection accuracy.
+```bash
+# Clone the repository
+git clone https://github.com/nicholasgeorgeson-prog/AEGIS.git
+cd AEGIS
 
-**Docling AI** (for superior document parsing):
-```batch
-setup_docling.bat
-```
-Installs Docling (~2.7GB) with:
-- AI table structure recognition (95% vs 70% accuracy)
-- Layout understanding and reading order preservation
-- Section/heading detection without style dependencies
-- 100% offline operation after setup
+# Install dependencies
+pip install -r requirements.txt
 
-### Air-Gapped Deployment (No Internet)
+# Install spaCy model
+pip install wheels/en_core_web_sm-3.8.0-py3-none-any.whl
 
-For machines without internet access:
+# Start the server
+python3 app.py --debug
 
-```batch
-# On a machine WITH internet:
-1. Run: powershell -ExecutionPolicy Bypass -File bundle_for_airgap.ps1
-2. Wait for downloads (~3GB with Docling, ~500MB without)
-3. Copy the bundle folder to target machine
-
-# On the AIR-GAPPED machine:
-1. Run: INSTALL_AIRGAP.bat
-2. Follow prompts
+# Open browser to http://localhost:5050
 ```
 
-## Features
+### Air-Gapped Deployment
 
-### Document Analysis
-- **84 Quality Checks**: Grammar, spelling, acronyms, passive voice, requirements language, compliance
-- **Readability Metrics**: Flesch, Flesch-Kincaid, Fog Index
-- **Issue Triage**: Systematic review with Keep/Suppress/Fixed workflow
-- **Issue Families**: Batch-process similar issues together
+For classified networks without internet access:
 
-### Roles & Responsibilities Studio
-- **Role Extraction**: AI-powered identification (99%+ recall in v3.3.3)
-- **Adaptive Learning**: System learns from your adjudication decisions
-- **RACI Matrix**: Auto-generate from extracted data
-- **Relationship Graph**: D3.js visualization of role connections
-- **Cross-Reference**: Role × Document heatmap
-- **Role Dictionary**: Centralized role database with function tags
-- **Interactive HTML Export**: Standalone kanban board for offline team review
-- **Role Sharing**: Share dictionaries via shared folders or `.aegis-roles` email packages
+1. On a connected machine: Download the OneClick installer + wheels from GitHub Releases
+2. Transfer to air-gapped machine via approved media
+3. Run `Install_AEGIS_OneClick.bat` — installs from local wheel files only
+4. All AI models (spaCy, Docling) run locally with zero network calls
 
-### Statement Forge
-- **Statement Extraction**: Pull actionable requirements and procedures
-- **Export Formats**: CSV, Excel, JSON for import into other tools
-- **Compliance Checking**: Verify requirement statement structure
+---
 
-### Enterprise Features
-- **100% Offline**: Operates on air-gapped networks
-- **Local Processing**: No data leaves your machine
-- **Built-in Updates**: Apply patches without reinstalling
-- **Scan History**: Track document reviews over time
-
-### Visual Experience (v3.1.5+)
-- **Cinematic Progress**: Rive-inspired molten progress animations
-- **Molten Progress Bars**: Scalable (4px-28px) with orange/amber glow
-- **Batch Processing Modal**: Full-screen cinematic loader for long operations
-- **Theme-Aware**: Matches dark/light mode preferences
-
-## File Structure
+## Architecture
 
 ```
 AEGIS/
-├── app.py                    # Main Flask application (5,000+ LOC)
-├── core.py                   # Document extraction engine
-├── role_extractor_v3.py      # AI role extraction (99%+ recall)
-├── adjudication_export.py    # Interactive HTML board generator
-├── docling_extractor.py      # Docling AI integration
-├── *_checker.py              # Quality checker modules (30+)
-├── statement_forge/          # Statement extraction module
-│   ├── routes.py             # API endpoints
-│   ├── extractor.py          # Extraction logic
-│   └── export.py             # Export formats
-├── static/                   # Frontend assets
-│   ├── js/                   # JavaScript modules
-│   │   ├── app.js            # Main application
-│   │   ├── features/         # Feature modules (roles, triage)
-│   │   ├── ui/               # UI components
-│   │   └── vendor/           # D3.js, Chart.js, Lucide
-│   └── css/                  # Stylesheets
-├── templates/                # HTML templates
-├── updates/                  # Drop update files here
-├── backups/                  # Auto-created before updates
-├── logs/                     # Application logs
-├── setup.bat                 # Basic setup script
-├── setup_docling.bat         # Docling installation
-├── setup_enhancements.bat    # NLP enhancement installation
-├── bundle_for_airgap.ps1     # Air-gap deployment packaging
-├── version.json              # Version info (single source of truth)
-└── TWR_LESSONS_LEARNED.md    # Development patterns & fixes
+├── app.py                          # Flask entry point, middleware, server startup
+├── core.py                         # AEGISEngine — 105+ checkers, extraction pipeline
+├── auth_service.py                 # Unified auth singleton (SSO, MSAL, headless)
+├── review_report.py                # PDF report generator (reportlab)
+├── export_module.py                # Excel/CSV/PDF/JSON exporters
+├── markup_engine.py                # DOCX comment insertion (lxml)
+├── update_manager.py               # Update system with rollback support
+│
+├── routes/                         # Flask blueprints
+│   ├── review_routes.py            # Document review, batch scan, folder scan, SharePoint
+│   ├── config_routes.py            # Version, capabilities, health, learning endpoints
+│   ├── data_routes.py              # Roles reports, data endpoints
+│   └── roles_routes.py             # Roles API
+│
+├── proposal_compare/               # Proposal comparison module
+│   ├── parser.py                   # Financial data extraction (DOCX/PDF/XLSX)
+│   ├── analyzer.py                 # Red flags, heatmap, vendor scoring
+│   ├── routes.py                   # 17 API endpoints
+│   ├── projects.py                 # SQLite project management
+│   ├── structure_analyzer.py       # Privacy-safe parser diagnostics
+│   └── pattern_learner.py          # Local learning from user corrections
+│
+├── hyperlink_validator/            # URL validation module
+│   ├── validator.py                # Multi-strategy validation engine
+│   ├── headless_validator.py       # Playwright headless browser validation
+│   ├── routes.py                   # Validation API endpoints
+│   └── hv_learner.py              # Domain learning system
+│
+├── statement_forge/                # Statement extraction module
+│   ├── extractor.py                # Requirements/work instruction extraction
+│   ├── routes.py                   # Statement API endpoints
+│   └── statement_learner.py        # Directive/role learning
+│
+├── static/
+│   ├── js/
+│   │   ├── app.js                  # Main application (~14,000 lines)
+│   │   ├── features/               # Feature modules (IIFEs)
+│   │   │   ├── proposal-compare.js # Proposal Compare UI (~2,700 lines)
+│   │   │   ├── metrics-analytics.js# M&A Command Center (~1,762 lines)
+│   │   │   ├── guide-system.js     # Guided tour + demo system
+│   │   │   ├── landing-page.js     # Dashboard with particle animation
+│   │   │   ├── hyperlink-validator.js # HV frontend
+│   │   │   ├── batch-results.js    # Post-scan filter & results
+│   │   │   ├── pdf-viewer.js       # PDF.js HiDPI viewer with zoom
+│   │   │   └── technology-showcase.js # Canvas cinematic video
+│   │   └── vendor/                 # D3.js, Chart.js, PDF.js, Lucide
+│   └── css/features/              # Feature-specific stylesheets
+│
+├── templates/index.html            # Single-page application HTML
+├── version.json                    # Version info + changelog
+├── scan_history.db                 # SQLite database
+├── wheels/                         # 195 offline wheel files
+└── Install_AEGIS_OneClick.bat      # Windows installer
 ```
+
+## Technology Stack
+
+- **Backend**: Python 3.10, Flask, SQLite, spaCy, Docling, reportlab, openpyxl
+- **Frontend**: Vanilla JavaScript (no framework), CSS3, HTML5 Canvas
+- **Visualization**: D3.js (graphs), Chart.js (charts), PDF.js (document viewing)
+- **Authentication**: requests-negotiate-sspi, MSAL, Playwright headless SSO
+- **NLP**: spaCy (en_core_web_sm), sentence-transformers, NLTK
+- **Deployment**: Waitress (production), Flask dev server (debug), embedded Python (OneClick)
 
 ## Requirements
 
-- Python 3.10+ (3.12 recommended)
-- Windows 10/11 (for batch scripts)
-- ~200 MB disk space (base installation)
-- ~500 MB additional (with NLP enhancements)
-- ~2.7 GB additional (with Docling AI)
+- **Python**: 3.10+ (embedded Python included in OneClick installer)
+- **OS**: Windows 10/11 (primary), macOS/Linux (development)
+- **Disk**: ~500 MB base, ~2.7 GB with Docling AI models
+- **Browser**: Chrome/Edge (recommended), Firefox, Safari
+- **Network**: Zero network access required at runtime (100% offline capable)
 
-## Air-Gap Security
+## Security & Compliance
 
-AEGIS is designed for sensitive environments:
-
-- **No network calls** during document processing
-- **Docling offline mode**: Environment variables block all network access
-- **Local AI models**: All AI runs on your machine
-- **No telemetry**: Analytics and tracking disabled
+- **100% offline processing** — no data leaves the machine
+- **Air-gapped certified** — deployed on NGC classified networks
+- **No telemetry** — zero analytics, tracking, or phone-home
+- **Local AI models** — spaCy, Docling, NLTK all run locally
+- **Windows SSO** — uses existing domain credentials, no password storage
+- **CSRF protection** — all API mutations require CSRF tokens
 
 ## API Reference
 
-AEGIS exposes a REST API on `http://localhost:5050/api/`:
+AEGIS exposes a comprehensive REST API on `http://localhost:5050/api/`:
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/upload` | POST | Upload document for analysis |
-| `/api/review` | POST | Run analysis with checkers |
-| `/api/roles/extract` | GET | Extract roles from document |
-| `/api/roles/raci` | GET | Get RACI matrix data |
-| `/api/export/word` | POST | Export with tracked changes |
-| `/api/export/csv` | POST | Export as CSV |
-| `/api/roles/adjudication/export-html` | GET | Interactive HTML board export |
-| `/api/roles/adjudication/import` | POST | Import adjudication decisions |
-| `/api/roles/share/package` | POST | Create .aegis-roles package |
-| `/api/roles/share/import-package` | POST | Import .aegis-roles package |
-| `/api/updates/check` | GET | Check for pending updates |
-| `/api/updates/apply` | POST | Apply pending updates |
-| `/api/docling/status` | GET | Check Docling AI status |
+| Category | Key Endpoints |
+|----------|--------------|
+| **Document Review** | POST `/api/review`, POST `/api/review/batch-start`, GET `/api/review/batch-progress/<id>` |
+| **Folder Scan** | POST `/api/review/folder-scan-start`, GET `/api/review/folder-scan-progress/<id>` |
+| **SharePoint** | POST `/api/review/sharepoint-connect-and-scan`, POST `/api/review/sharepoint-scan-selected` |
+| **Proposal Compare** | POST `/api/proposal-compare/upload`, POST `/api/proposal-compare/compare` |
+| **Hyperlink Validator** | POST `/api/hyperlink-validator/validate`, POST `/api/hyperlink-validator/rescan` |
+| **Roles** | GET `/api/roles/dictionary`, POST `/api/roles/adjudication/batch` |
+| **Metrics** | GET `/api/metrics/dashboard`, GET `/api/proposal-compare/metrics` |
+| **System** | GET `/api/version`, GET `/api/capabilities`, GET `/api/health` |
 
-See Help → Technical → API Reference for full documentation.
+See in-app Help for full API documentation.
 
 ## Troubleshooting
 
-### Port Already in Use (Port 5050)
-If AEGIS fails to start with "Address already in use" error:
+### Port Already in Use (5050)
 
-**Windows:**
-```batch
-# Find process using port 5050
-netstat -ano | findstr :5050
+**Windows:** `netstat -ano | findstr :5050` then `taskkill /PID <PID> /F`
 
-# Kill the process (replace PID with the number shown)
-taskkill /PID <PID> /F
+**macOS:** `lsof -ti :5050 | xargs kill -9`
 
-# Then restart AEGIS
-start_aegis.bat
-```
+### Repair Tool (Windows)
+Run `Repair_AEGIS.bat` for automated diagnostics — tests all imports, fixes missing dependencies, validates configuration.
 
-**macOS/Linux:**
-```bash
-# Find and kill process using port 5050
-lsof -ti :5050 | xargs kill -9
+### SharePoint Connection Issues
+1. Check VPN connection (required for corporate SharePoint)
+2. Verify Windows SSO is working (try opening the SharePoint URL in Chrome)
+3. Check `logs/sharepoint.log` for detailed auth diagnostics
+4. The auth badge in HV modal header shows current SSO status
 
-# Then restart
-python3 app.py --debug
-```
+### Update Issues
+1. Settings > Updates > Check for Updates
+2. If Apply fails, use the standalone `apply_v6.2.9.py` script
+3. For rollback: Settings > Updates > Rollback to Previous Version
 
-### SOW Generation Errors
-If Statement of Work generation returns 500 error:
-
-1. Verify Python 3.9+ is installed: `python --version`
-2. Check that timezone module is available: `python -c "from datetime import timezone; print(timezone.utc)"`
-3. Restart AEGIS server to reload modules
-4. Clear browser cache and try again
-
-### Document Compare Not Loading
-If Document Compare shows empty state:
-
-1. Ensure documents have been scanned (check Scan History)
-2. Try the auto-picker: Open Compare, it should auto-select oldest and newest docs
-3. If still empty, clear localStorage: `localStorage.clear()` in browser console
-4. Reload the page
-
-### Windows .doc Files Not Supported
-AEGIS requires .docx format (save from Word as .docx). For .doc files:
-
-1. Open in Microsoft Word
-2. File → Save As → Choose .docx format
-3. Upload the .docx to AEGIS
-
-### Statement Viewer Text Not Visible
-If statement text appears invisible in the document viewer:
-
-1. Check **View** → **Dark Mode** toggle status
-2. In dark mode, text should be white with good contrast
-3. If still not visible, clear browser cache and reload
-
-### API Error Responses Showing [object Object]
-If error toasts show "[object Object]" instead of error messages:
-
-1. This is fixed in v4.9.9+
-2. If on older version, update AEGIS using Check for Updates
-3. Errors should now show meaningful messages like "SOW generation failed: missing template"
-
-### Windows Platform-Specific Issues
-AEGIS v4.9.9+ includes full Windows support:
-
-- **File Permissions**: chmod operations automatically skipped on Windows
-- **Path Handling**: Uses pathlib.Path for cross-platform compatibility
-- **Environment Variables**: Properly detects Windows vs Unix using os.name
-- **Batch Files**: use `call` to properly handle nested batch execution
-
-If experiencing Windows-specific issues:
-
-1. Run Command Prompt as Administrator
-2. Verify Python path: `python -c "import sys; print(sys.executable)"`
-3. Check dependencies: `pip list | findstr flask sqlalchemy mammoth`
-4. Run diagnostic: Open Help → Diagnostics tab for system information
-
-## Installation Issues on Windows
-
-### Python Not Found
-If you see "python is not recognized":
-
-1. Reinstall Python with **Add Python to PATH** checked
-2. Restart Command Prompt after reinstalling
-3. Verify: Open new Command Prompt, type `python --version`
-
-### Playwright Installation Fails
-For headless browser validation (Deep Validate feature):
-
-```batch
-# Install Playwright
-pip install playwright
-
-# Install Chromium
-playwright install chromium
-```
-
-On air-gapped systems, skip this step (basic validation still works).
-
-### Permission Denied on .bat Files
-If batch files won't run:
-
-1. Right-click start_aegis.bat
-2. Select "Run as administrator"
-3. For future runs, check "Run this program in administrator mode" in properties
+---
 
 ## Version History
 
-See `version.json` for complete changelog.
+Current: **v6.2.9** (2026-02-26) | See `version.json` for complete changelog.
 
-### v3.0.91d (2026-01-27)
-- FIXED: Role extraction false positive filtering (94.7% precision)
-- FIXED: Update manager path detection
-- NEW: updates/ and backups/ folders added to repository
-- DOC: Comprehensive help documentation overhaul
+| Version | Date | Highlights |
+|---------|------|-----------|
+| 6.2.9 | 2026-02-26 | SharePoint scan async fix, cinematic dashboard |
+| 6.2.0 | 2026-02-26 | Unified auth service, async batch scan, responsive CSS, batch results IIFE |
+| 6.1.x | 2026-02-25 | Headless browser SSO, subsite detection, file selection, SP link validation |
+| 6.0.x | 2026-02-24 | Fix Assistant modes, US dictionary, multi-term comparison |
+| 5.9.x | 2026-02-20 | Proposal Compare v2, pattern learning, guided tours, export suite |
+| 5.5-5.8 | 2026-02-18 | Folder scan, statement history, persistent Docling, responsive design |
+| 5.0-5.4 | 2026-02-15 | OneClick installer, HV enhancements, SSL strategies, air-gap deployment |
+| 4.0-4.9 | 2026-02-10 | AEGIS rebrand, adjudication overhaul, landing page, 105 checkers |
+| 3.x | 2026-01-27 | NLP suite, 99%+ role extraction, compliance checkers |
 
-### v3.0.91c (2026-01-27)
-- VERIFIED: Cross-document role extraction testing
-- NEW: Agile/Scrum roles, Executive roles, IT roles
+---
 
-### v3.0.91b (2026-01-27)
-- IMPROVED: Role extraction precision from 52% to 100%
-- NEW: Expanded FALSE_POSITIVES list
-
-### v3.0.91 (2026-01-27)
-- NEW: Docling AI integration for superior document extraction
-- NEW: Air-gapped deployment with bundle_for_airgap.ps1
-- NEW: Memory optimization (image processing disabled)
-- NEW: /api/docling/status endpoint
-- IMPROVED: Role extraction with table confidence boosting
-
-### v3.0.90 (2026-01-27)
-- MERGED: All fixes from v3.0.76-v3.0.89 consolidated
-- INCLUDES: Graph visualization improvements
-- INCLUDES: Export dropdown with All/Current/JSON options
-
-## Support
-
-- **In-App Help**: Press F1 or click Help → Documentation
-- **Development Notes**: See `TWR_LESSONS_LEARNED.md` for patterns and fixes
-- **Updates**: Check Settings → Updates for available patches
+**Created by Nicholas Georgeson** | Runs on localhost:5050 | 100% offline capable
