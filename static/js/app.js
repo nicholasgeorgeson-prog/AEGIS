@@ -12592,9 +12592,21 @@ STEPS TO REPRODUCE
                 const spDocList = document.getElementById('sp-doc-list');
                 const spIssueCount = document.getElementById('sp-issues-found');
 
+                // Hide the SP input section so the dashboard is front and center
+                const spInputSection = document.getElementById('sharepoint-scan-section');
+                if (spInputSection) spInputSection.style.display = 'none';
+
+                // Also hide the folder scan section and file list above it
+                const folderSection = document.querySelector('.folder-scan-section');
+                if (folderSection) folderSection.style.display = 'none';
+                const batchFileList = document.getElementById('batch-file-list');
+                if (batchFileList) batchFileList.style.display = 'none';
+
                 if (dashEl) {
                     dashEl.classList.remove('hidden');
                     dashEl.classList.add('scanning');
+                    // Scroll the dashboard into view
+                    setTimeout(() => dashEl.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
                 }
                 if (spDocsTotal) spDocsTotal.textContent = totalFiles;
                 if (spDocsComplete) spDocsComplete.textContent = '0';
@@ -12770,6 +12782,15 @@ STEPS TO REPRODUCE
                             btnSpDiscover.disabled = false;
                             btnSpTest.disabled = false;
                             btnSpScan.innerHTML = '<i data-lucide="scan-line"></i> Scan All';
+
+                            // Restore hidden sections so user can start a new scan
+                            const spInputSection2 = document.getElementById('sharepoint-scan-section');
+                            if (spInputSection2) spInputSection2.style.display = '';
+                            const folderSection2 = document.querySelector('.folder-scan-section');
+                            if (folderSection2) folderSection2.style.display = '';
+                            const batchFileList2 = document.getElementById('batch-file-list');
+                            if (batchFileList2) batchFileList2.style.display = '';
+
                             if (window.lucide) window.lucide.createIcons();
                         }
                     } catch (pollErr) {
