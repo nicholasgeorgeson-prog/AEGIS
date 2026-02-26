@@ -9575,17 +9575,19 @@ function getDiagnosticsEmail() {
 }
 
 // Collect diagnostic data for email
+// v6.2.7: Enhanced to capture console logs, dashboard errors, SP scan state, DOM state
 async function collectDiagnosticData() {
     const data = {
         timestamp: new Date().toISOString(),
         userAgent: navigator.userAgent,
         url: window.location.href,
+        aegisVersion: window.__AEGIS_SP_CINEMATIC || 'unknown',
         viewport: {
             width: window.innerWidth,
             height: window.innerHeight
         }
     };
-    
+
     // Try to get backend diagnostics
     try {
         const response = await fetch('/api/diagnostics/summary');
@@ -9596,31 +9598,192 @@ async function collectDiagnosticData() {
     } catch (e) {
         data.backend = { error: 'Could not fetch backend diagnostics' };
     }
-    
+
     // Add frontend state
     if (typeof State !== 'undefined') {
         data.frontend = {
             filename: State.filename || null,
             issueCount: State.issues?.length || 0,
-            hasDocument: !!State.filename
+            hasDocument: !!State.filename,
+            capabilities: State.capabilities || null
         };
     }
-    
+
     // Add any console errors if FrontendDiagnostics exists
     if (typeof FrontendDiagnostics !== 'undefined') {
         data.frontendErrors = FrontendDiagnostics.errors || [];
         data.frontendWarnings = FrontendDiagnostics.warnings || [];
     }
-    
+
+    // v6.2.7: Capture ALL console logs from ConsoleCapture module
+    // This includes console.log, console.warn, console.error, console.info, console.debug
+    // entries — critical for debugging issues like the SP cinematic dashboard visibility
+    if (typeof ConsoleCapture !== 'undefined') {
+        try {
+            var allLogs = ConsoleCapture.getLogs();
+            data.consoleLogs = {
+                total: allLogs.length,
+                stats: ConsoleCapture.getStats(),
+                // Include last 200 entries (most recent, most relevant)
+                entries: allLogs.slice(-200),
+                // Also filter just errors and warnings separately for quick scanning
+                errors: allLogs.filter(function(l) { return l.level === 'ERROR' || l.level === 'UNCAUGHT_ERROR'; }).slice(-50),
+                warnings: allLogs.filter(function(l) { return l.level === 'WARN'; }).slice(-30),
+                // SP-specific logs for dashboard debugging
+                spLogs: allLogs.filter(function(l) {
+                    return l.message && (
+                        l.message.indexOf('AEGIS SP') !== -1 ||
+                        l.message.indexOf('SP CINEMATIC') !== -1 ||
+                        l.message.indexOf('_showSpCinematic') !== -1 ||
+                        l.message.indexOf('batch-progress') !== -1 ||
+                        l.message.indexOf('sharepoint') !== -1
+                    );
+                })
+            };
+        } catch (e) {
+            data.consoleLogs = { error: 'Failed to collect: ' + e.message };
+        }
+    }
+
+    // v6.2.7: Capture dashboard error diagnostics (set by outer catch in _showSpCinematicDashboard)
+    if (window._aegisLastDashboardError) {
+        data.dashboardError = window._aegisLastDashboardError;
+    }
+
+    // v6.2.7: Capture SP scan state — critical for debugging dashboard visibility
+    try {
+        var spState = {};
+        spState._spScanUsingBatchDash = !!window._spScanUsingBatchDash;
+
+        // Button states
+        var btnNames = ['btnSpScan', 'btnSpDiscover', 'btnSpTest', 'btnSpConnectScan'];
+        var btnIds = ['btn-sp-scan-all', 'btn-sp-discover', 'btn-sp-test', 'btn-sp-connect-scan'];
+        spState.buttons = {};
+        btnIds.forEach(function(id, i) {
+            var btn = document.getElementById(id);
+            if (btn) {
+                spState.buttons[btnNames[i]] = {
+                    exists: true,
+                    disabled: btn.disabled,
+                    display: getComputedStyle(btn).display,
+                    text: btn.textContent.trim().substring(0, 50)
+                };
+            }
+        });
+
+        // SP file selector state
+        var spFs = document.getElementById('sp-file-selector');
+        if (spFs) {
+            spState.fileSelector = {
+                display: getComputedStyle(spFs).display,
+                childCount: spFs.children.length
+            };
+        }
+
+        // Batch upload modal state
+        var batchModal = document.getElementById('batch-upload-modal');
+        if (batchModal) {
+            spState.batchModal = {
+                hasActiveClass: batchModal.classList.contains('active'),
+                display: getComputedStyle(batchModal).display,
+                visibility: getComputedStyle(batchModal).visibility
+            };
+        }
+
+        data.spScanState = spState;
+    } catch (e) {
+        data.spScanState = { error: 'Failed to collect: ' + e.message };
+    }
+
+    // v6.2.7: DOM state for dashboard elements — critical for visibility debugging
+    try {
+        var domState = {};
+
+        // #batch-progress element
+        var bp = document.getElementById('batch-progress');
+        if (bp) {
+            var bpStyle = getComputedStyle(bp);
+            domState.batchProgress = {
+                exists: true,
+                className: bp.className,
+                display: bpStyle.display,
+                visibility: bpStyle.visibility,
+                opacity: bpStyle.opacity,
+                height: bpStyle.height,
+                minHeight: bpStyle.minHeight,
+                zIndex: bpStyle.zIndex,
+                position: bpStyle.position,
+                offsetHeight: bp.offsetHeight,
+                offsetWidth: bp.offsetWidth,
+                parentTag: bp.parentElement ? bp.parentElement.tagName + '#' + (bp.parentElement.id || '') : 'none',
+                parentDisplay: bp.parentElement ? getComputedStyle(bp.parentElement).display : 'N/A',
+                inlineStyle: bp.style.cssText || '(none)',
+                childCount: bp.children.length,
+                innerHTML_preview: bp.innerHTML.substring(0, 200)
+            };
+        } else {
+            domState.batchProgress = { exists: false };
+        }
+
+        // Check if critical CSS loaded
+        domState.cssLoaded = {};
+        var styleSheets = document.styleSheets;
+        for (var si = 0; si < styleSheets.length; si++) {
+            try {
+                var href = styleSheets[si].href || '';
+                if (href.indexOf('batch-progress') !== -1) {
+                    domState.cssLoaded.batchProgressDashboard = { loaded: true, href: href, rules: styleSheets[si].cssRules?.length || 0 };
+                }
+                if (href.indexOf('landing-dashboard') !== -1) {
+                    domState.cssLoaded.landingDashboard = { loaded: true, href: href, rules: styleSheets[si].cssRules?.length || 0 };
+                }
+            } catch (cssErr) {
+                // Cross-origin stylesheets throw on cssRules access
+            }
+        }
+        if (!domState.cssLoaded.batchProgressDashboard) {
+            domState.cssLoaded.batchProgressDashboard = { loaded: false };
+        }
+
+        // Hidden sections
+        var sections = [
+            { id: 'sharepoint-scan-section', name: 'spSection' },
+            { id: 'batch-file-list', name: 'batchFileList' },
+            { id: 'batch-dropzone', name: 'dropzone' }
+        ];
+        domState.sectionVisibility = {};
+        sections.forEach(function(s) {
+            var el = document.getElementById(s.id);
+            if (el) {
+                domState.sectionVisibility[s.name] = {
+                    display: getComputedStyle(el).display,
+                    visibility: getComputedStyle(el).visibility
+                };
+            }
+        });
+
+        // Active modals
+        domState.activeModals = [];
+        document.querySelectorAll('.modal.active, .modal[style*="display: flex"], .modal[style*="display:flex"]').forEach(function(m) {
+            domState.activeModals.push(m.id || m.className.substring(0, 40));
+        });
+
+        data.domState = domState;
+    } catch (e) {
+        data.domState = { error: 'Failed to collect: ' + e.message };
+    }
+
     return data;
 }
 
 // Format diagnostic data for email body
+// v6.2.7: Enhanced with console logs, dashboard errors, SP state, DOM state
 function formatDiagnosticsForEmail(data) {
     let body = `AEGIS Diagnostic Report
 ================================
 
 Generated: ${data.timestamp}
+AEGIS Version: ${data.aegisVersion || 'unknown'}
 
 SYSTEM INFORMATION
 ------------------
@@ -9651,6 +9814,80 @@ Issues Found: ${data.frontend.issueCount}
 `;
     }
 
+    // v6.2.7: Dashboard Error (captured by outer try/catch in _showSpCinematicDashboard)
+    if (data.dashboardError) {
+        body += `*** DASHBOARD ERROR ***
+----------------------
+Message: ${data.dashboardError.message || 'Unknown'}
+Phase: ${data.dashboardError.phase || data.dashboardError.source || 'unknown'}
+Time: ${data.dashboardError.time || 'N/A'}
+Version: ${data.dashboardError.version || 'N/A'}
+Stack: ${(data.dashboardError.stack || '').substring(0, 500)}
+
+`;
+    }
+
+    // v6.2.7: SP Scan State
+    if (data.spScanState) {
+        body += `SP SCAN STATE
+-------------
+Batch Dashboard Active: ${data.spScanState._spScanUsingBatchDash}
+`;
+        if (data.spScanState.buttons) {
+            Object.keys(data.spScanState.buttons).forEach(function(name) {
+                var btn = data.spScanState.buttons[name];
+                body += `  ${name}: disabled=${btn.disabled}, display=${btn.display}\n`;
+            });
+        }
+        if (data.spScanState.batchModal) {
+            body += `  Modal: active=${data.spScanState.batchModal.hasActiveClass}, display=${data.spScanState.batchModal.display}\n`;
+        }
+        body += '\n';
+    }
+
+    // v6.2.7: DOM State for Dashboard
+    if (data.domState) {
+        if (data.domState.batchProgress) {
+            var bp = data.domState.batchProgress;
+            body += `DASHBOARD DOM STATE
+-------------------
+`;
+            if (!bp.exists) {
+                body += `  #batch-progress: NOT FOUND IN DOM\n`;
+            } else {
+                body += `  #batch-progress exists: YES
+  Classes: ${bp.className}
+  Computed display: ${bp.display}
+  Computed visibility: ${bp.visibility}
+  Computed opacity: ${bp.opacity}
+  Height: ${bp.height}, Min-height: ${bp.minHeight}
+  offsetHeight: ${bp.offsetHeight}, offsetWidth: ${bp.offsetWidth}
+  z-index: ${bp.zIndex}, position: ${bp.position}
+  Parent: ${bp.parentTag}, Parent display: ${bp.parentDisplay}
+  Inline style: ${bp.inlineStyle}
+  Child count: ${bp.childCount}
+  Content preview: ${(bp.innerHTML_preview || '').substring(0, 100)}
+`;
+            }
+        }
+
+        if (data.domState.cssLoaded) {
+            body += `  CSS batch-progress-dashboard: ${data.domState.cssLoaded.batchProgressDashboard?.loaded ? 'LOADED (' + (data.domState.cssLoaded.batchProgressDashboard.rules || 0) + ' rules)' : 'NOT LOADED'}\n`;
+        }
+
+        if (data.domState.sectionVisibility) {
+            Object.keys(data.domState.sectionVisibility).forEach(function(name) {
+                var sec = data.domState.sectionVisibility[name];
+                body += `  ${name}: display=${sec.display}, visibility=${sec.visibility}\n`;
+            });
+        }
+
+        if (data.domState.activeModals && data.domState.activeModals.length > 0) {
+            body += `  Active modals: ${data.domState.activeModals.join(', ')}\n`;
+        }
+        body += '\n';
+    }
+
     if (data.frontendErrors && data.frontendErrors.length > 0) {
         body += `FRONTEND ERRORS (${data.frontendErrors.length})
 ----------------
@@ -9671,16 +9908,49 @@ Issues Found: ${data.frontend.issueCount}
         body += '\n';
     }
 
-    body += `
-================================
+    // v6.2.7: Console Log Summary (errors + SP-specific logs)
+    if (data.consoleLogs) {
+        body += `CONSOLE LOG SUMMARY
+-------------------
+Total entries captured: ${data.consoleLogs.total || 0}
+`;
+        if (data.consoleLogs.stats && data.consoleLogs.stats.byLevel) {
+            Object.keys(data.consoleLogs.stats.byLevel).forEach(function(level) {
+                body += `  ${level}: ${data.consoleLogs.stats.byLevel[level]}\n`;
+            });
+        }
+
+        // Show SP-specific logs inline (most useful for dashboard debugging)
+        if (data.consoleLogs.spLogs && data.consoleLogs.spLogs.length > 0) {
+            body += `\nSP/DASHBOARD CONSOLE LOGS (${data.consoleLogs.spLogs.length}):\n`;
+            data.consoleLogs.spLogs.slice(-30).forEach(function(log) {
+                body += `  [${log.timestamp}] ${log.level}: ${(log.message || '').substring(0, 200)}\n`;
+            });
+        }
+
+        // Show recent errors
+        if (data.consoleLogs.errors && data.consoleLogs.errors.length > 0) {
+            body += `\nCONSOLE ERRORS (last ${data.consoleLogs.errors.length}):\n`;
+            data.consoleLogs.errors.slice(-15).forEach(function(log) {
+                body += `  [${log.timestamp}] ${(log.message || '').substring(0, 300)}\n`;
+                if (log.stack) body += `    Stack: ${log.stack.substring(0, 200)}\n`;
+            });
+        }
+        body += '\n';
+    }
+
+    body += `================================
+NOTE: Full console logs (${data.consoleLogs?.total || 0} entries) are attached
+as console_logs.json for complete debugging context.
+
 Please describe the issue you encountered:
 
 [Describe the problem here]
 
 Steps to reproduce:
-1. 
-2. 
-3. 
+1.
+2.
+3.
 
 Expected behavior:
 
@@ -9693,6 +9963,7 @@ Actual behavior:
 
 // Email diagnostics via .eml file download
 // v5.9.20: Rewritten to use server-generated .eml file with logs ATTACHED.
+// v6.2.7: Enhanced to include frontend console logs, dashboard errors, SP state, DOM state
 // The .eml format (RFC 2822) opens in Outlook/Apple Mail as a pre-composed
 // draft with diagnostic JSON + aegis.log already attached. No more manual
 // "drag the file from Downloads" workflow.
@@ -9702,10 +9973,26 @@ window.emailDiagnosticsViaOutlook = async function() {
     toast('info', 'Preparing diagnostic email with log attachments...');
 
     if (typeof showLoading === 'function') {
-        showLoading('Generating email with attached logs...');
+        showLoading('Collecting frontend diagnostics and generating email...');
     }
 
     try {
+        // v6.2.7: Collect comprehensive frontend diagnostic data BEFORE sending
+        // This captures console logs, dashboard errors, SP scan state, DOM state
+        let frontendDiagnostics = null;
+        try {
+            frontendDiagnostics = await collectDiagnosticData();
+            console.log('[TWR] Collected frontend diagnostics:', {
+                consoleLogs: frontendDiagnostics.consoleLogs?.total || 0,
+                dashboardError: !!frontendDiagnostics.dashboardError,
+                spState: !!frontendDiagnostics.spScanState,
+                domState: !!frontendDiagnostics.domState
+            });
+        } catch (collectErr) {
+            console.warn('[TWR] Failed to collect frontend diagnostics:', collectErr);
+            frontendDiagnostics = { error: collectErr.message, timestamp: new Date().toISOString() };
+        }
+
         // Get fresh CSRF token
         let csrfToken = (typeof State !== 'undefined' && State.csrfToken) ||
                         document.querySelector('meta[name="csrf-token"]')?.content || '';
@@ -9716,6 +10003,7 @@ window.emailDiagnosticsViaOutlook = async function() {
         } catch (_) {}
 
         // Request .eml file from server (includes diagnostic JSON + log files as attachments)
+        // v6.2.7: Now sends frontend_diagnostics in body for attachment as console_logs.json
         const response = await fetch('/api/diagnostics/email', {
             method: 'POST',
             credentials: 'same-origin',
@@ -9723,7 +10011,10 @@ window.emailDiagnosticsViaOutlook = async function() {
                 'Content-Type': 'application/json',
                 'X-CSRF-Token': csrfToken
             },
-            body: JSON.stringify({ to_email: toEmail })
+            body: JSON.stringify({
+                to_email: toEmail,
+                frontend_diagnostics: frontendDiagnostics
+            })
         });
 
         if (!response.ok) {

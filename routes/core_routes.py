@@ -387,6 +387,8 @@ def diagnostics_email():
     try:
         data = request.get_json(silent=True) or {}
         to_email = data.get('to_email', '')
+        # v6.2.7: Frontend sends console logs, dashboard errors, SP state, DOM state
+        frontend_diagnostics = data.get('frontend_diagnostics', None)
 
         # --- Collect diagnostic data (same as diagnostics_export) ---
         export_data = {
@@ -534,6 +536,110 @@ def diagnostics_email():
             if error_count > 15:
                 body_lines.append(f"  ... and {error_count - 15} more (see attached log)")
         body_lines.append('')
+
+        # v6.2.8: Frontend diagnostic sections from ConsoleCapture + dashboard state
+        if frontend_diagnostics and isinstance(frontend_diagnostics, dict):
+            # Dashboard error (critical for debugging invisible dashboard issues)
+            dash_err = frontend_diagnostics.get('dashboardError')
+            if dash_err:
+                body_lines.append('*** DASHBOARD ERROR ***')
+                body_lines.append('=' * 50)
+                if isinstance(dash_err, dict):
+                    body_lines.append(f"  Error: {dash_err.get('error', 'unknown')}")
+                    body_lines.append(f"  Phase: {dash_err.get('phase', 'unknown')}")
+                    body_lines.append(f"  Time: {dash_err.get('timestamp', 'unknown')}")
+                    if dash_err.get('stack'):
+                        body_lines.append(f"  Stack: {str(dash_err['stack'])[:500]}")
+                else:
+                    body_lines.append(f"  {str(dash_err)[:500]}")
+                body_lines.append('')
+
+            # SP Scan state
+            sp_state = frontend_diagnostics.get('spScanState')
+            if sp_state and isinstance(sp_state, dict):
+                body_lines.append('SP SCAN STATE')
+                body_lines.append('-' * 30)
+                buttons = sp_state.get('buttons', {})
+                if buttons:
+                    for btn_name, btn_info in buttons.items():
+                        if isinstance(btn_info, dict):
+                            body_lines.append(f"  {btn_name}: disabled={btn_info.get('disabled')}, text={btn_info.get('text', '?')[:50]}")
+                        else:
+                            body_lines.append(f"  {btn_name}: {btn_info}")
+                fs = sp_state.get('fileSelector', {})
+                if fs:
+                    body_lines.append(f"  File selector visible: {fs.get('visible')}, count: {fs.get('selectedCount')}")
+                bm = sp_state.get('batchModal', {})
+                if bm:
+                    body_lines.append(f"  Batch modal display: {bm.get('display')}, class: {bm.get('classList', '')[:80]}")
+                body_lines.append('')
+
+            # DOM state for dashboard elements
+            dom_state = frontend_diagnostics.get('domState')
+            if dom_state and isinstance(dom_state, dict):
+                body_lines.append('DASHBOARD DOM STATE')
+                body_lines.append('-' * 30)
+                bp = dom_state.get('batchProgress', {})
+                if bp:
+                    body_lines.append(f"  #batch-progress exists: {bp.get('exists')}")
+                    if bp.get('computedStyles'):
+                        cs = bp['computedStyles']
+                        body_lines.append(f"  display: {cs.get('display')}")
+                        body_lines.append(f"  visibility: {cs.get('visibility')}")
+                        body_lines.append(f"  opacity: {cs.get('opacity')}")
+                        body_lines.append(f"  height: {cs.get('height')}")
+                        body_lines.append(f"  z-index: {cs.get('zIndex')}")
+                        body_lines.append(f"  position: {cs.get('position')}")
+                        body_lines.append(f"  overflow: {cs.get('overflow')}")
+                css = dom_state.get('cssLoaded', {})
+                if css:
+                    body_lines.append(f"  batch-progress-dashboard.css loaded: {css.get('batchProgressDashboard')}")
+                vis = dom_state.get('sectionVisibility', {})
+                if vis:
+                    body_lines.append(f"  Visible sections: {', '.join(k for k, v in vis.items() if v) or 'none'}")
+                modals = dom_state.get('activeModals', [])
+                if modals:
+                    body_lines.append(f"  Active modals: {', '.join(str(m) for m in modals[:5])}")
+                body_lines.append('')
+
+            # Console log summary
+            console_logs = frontend_diagnostics.get('consoleLogs')
+            if console_logs and isinstance(console_logs, dict):
+                body_lines.append('CONSOLE LOG SUMMARY')
+                body_lines.append('-' * 30)
+                body_lines.append(f"  Total captured: {console_logs.get('total', 0)}")
+                stats = console_logs.get('stats', {})
+                if stats.get('byLevel'):
+                    levels = stats['byLevel']
+                    body_lines.append(f"  By level: {', '.join(f'{k}={v}' for k, v in levels.items())}")
+
+                # SP-specific logs (most important for debugging SP dashboard issues)
+                sp_logs = console_logs.get('spLogs', [])
+                if sp_logs:
+                    body_lines.append(f"  SP-related logs ({len(sp_logs)}):")
+                    for sp_log in sp_logs[-20:]:  # Last 20 SP logs
+                        ts = sp_log.get('timestamp', '?')
+                        if 'T' in ts:
+                            ts = ts.split('T')[1][:8]  # Just time portion
+                        body_lines.append(f"    [{ts}] {sp_log.get('level', '?')}: {str(sp_log.get('message', ''))[:120]}")
+                    if len(sp_logs) > 20:
+                        body_lines.append(f"    ... and {len(sp_logs) - 20} more SP logs in console_logs.json")
+
+                # Console errors
+                errors = console_logs.get('errors', [])
+                if errors:
+                    body_lines.append(f"  Console errors ({len(errors)}):")
+                    for err in errors[-10:]:  # Last 10 errors
+                        ts = err.get('timestamp', '?')
+                        if 'T' in ts:
+                            ts = ts.split('T')[1][:8]
+                        body_lines.append(f"    [{ts}] {str(err.get('message', ''))[:150]}")
+                    if len(errors) > 10:
+                        body_lines.append(f"    ... and {len(errors) - 10} more errors in console_logs.json")
+                body_lines.append('')
+                body_lines.append('  >> Full console logs attached as console_logs.json')
+                body_lines.append('')
+
         body_lines.append('Full diagnostic data and log entries are attached to this email.')
 
         body_text = '\n'.join(body_lines)
@@ -601,6 +707,31 @@ def diagnostics_email():
                     pass
         except Exception:
             pass
+
+        # Attachment 4: Frontend console logs + dashboard diagnostics (v6.2.8)
+        if frontend_diagnostics and isinstance(frontend_diagnostics, dict):
+            try:
+                fe_json = json_mod.dumps(frontend_diagnostics, indent=2, default=str)
+                fe_bytes = fe_json.encode('utf-8')
+                # Cap at 3MB to prevent huge email
+                if len(fe_bytes) > 3 * 1024 * 1024:
+                    # Trim console log entries to fit
+                    trimmed = dict(frontend_diagnostics)
+                    if 'consoleLogs' in trimmed and isinstance(trimmed['consoleLogs'], dict):
+                        entries = trimmed['consoleLogs'].get('entries', [])
+                        if len(entries) > 50:
+                            trimmed['consoleLogs']['entries'] = entries[-50:]
+                            trimmed['consoleLogs']['_trimmed'] = True
+                            trimmed['consoleLogs']['_original_count'] = len(entries)
+                    fe_json = json_mod.dumps(trimmed, indent=2, default=str)
+                    fe_bytes = fe_json.encode('utf-8')
+                fe_attachment = MIMEBase('application', 'json')
+                fe_attachment.set_payload(fe_bytes)
+                encoders.encode_base64(fe_attachment)
+                fe_attachment.add_header('Content-Disposition', 'attachment', filename='console_logs.json')
+                msg.attach(fe_attachment)
+            except Exception as fe_err:
+                logger.warning(f'Could not attach console_logs.json: {fe_err}')
 
         # Save .eml to temp file and open in default mail client
         import subprocess

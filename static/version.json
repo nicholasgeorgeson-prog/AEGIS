@@ -1,13 +1,27 @@
 {
-  "version": "6.2.7",
+  "version": "6.2.8",
   "release_date": "2026-02-26",
-  "core_version": "6.2.7",
+  "core_version": "6.2.8",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.2.8",
+      "date": "2026-02-26",
+      "changes": [
+        "ENHANCE: Diagnostic email now includes full console log capture (ConsoleCapture module) — up to 200 recent entries, 50 errors, 30 warnings, and all SP-related logs",
+        "ENHANCE: Diagnostic email body text now includes Dashboard Error section with error message, phase, timestamp, and stack trace",
+        "ENHANCE: Diagnostic email body text now includes SP Scan State section with button states, file selector, and batch modal visibility",
+        "ENHANCE: Diagnostic email body text now includes Dashboard DOM State with computed styles (display, visibility, opacity, z-index, position, overflow, height)",
+        "ENHANCE: Diagnostic email body text now includes Console Log Summary with SP-specific logs inline and error entries",
+        "ENHANCE: New console_logs.json attachment in diagnostic email contains full frontend diagnostics — console logs, dashboard errors, SP scan state, DOM state, AEGIS version",
+        "ENHANCE: Frontend collectDiagnosticData() now captures CSS loading state, section visibility, active modals, and window.__AEGIS_SP_CINEMATIC version marker",
+        "ENHANCE: emailDiagnosticsViaOutlook() now sends collected frontend data to backend for inclusion in .eml file"
+      ]
+    },
     {
       "version": "6.2.7",
       "date": "2026-02-26",
