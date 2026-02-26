@@ -11778,13 +11778,17 @@ STEPS TO REPRODUCE
          * @param {Object} discoveryCtx - Context for scan-selected endpoint {site_url, library_path, connector_type, files}
          */
         function _renderSpFileSelector(files, discoveryCtx) {
+            console.log('[AEGIS SP] _renderSpFileSelector called with', files.length, 'files');
             const selectorEl = document.getElementById('sp-file-selector');
             const fileListEl = document.getElementById('sp-file-list');
             const filterChipsEl = document.getElementById('sp-filter-chips');
             const selectAllCb = document.getElementById('sp-select-all');
             const btnScanSelected = document.getElementById('btn-sp-scan-selected');
 
-            if (!selectorEl || !fileListEl) return;
+            if (!selectorEl || !fileListEl) {
+                console.error('[AEGIS SP] ❌ File selector elements missing! selectorEl=', !!selectorEl, 'fileListEl=', !!fileListEl);
+                return;
+            }
 
             // Store discovery context on the selector element for later use
             selectorEl.dataset.discoveryCtx = JSON.stringify(discoveryCtx);
@@ -11994,10 +11998,14 @@ STEPS TO REPRODUCE
          * then starts progress polling on the existing SP scan dashboard.
          */
         async function _startSPSelectedScan() {
+            console.log('%c[AEGIS SP] ▶ _startSPSelectedScan() called', 'color:#D6A84A;font-weight:bold;font-size:13px;');
             const selectorEl = document.getElementById('sp-file-selector');
             const fileListEl = document.getElementById('sp-file-list');
             const btnScanSelected = document.getElementById('btn-sp-scan-selected');
-            if (!selectorEl || !fileListEl) return;
+            if (!selectorEl || !fileListEl) {
+                console.error('[AEGIS SP] ❌ Missing elements: selectorEl=', !!selectorEl, 'fileListEl=', !!fileListEl);
+                return;
+            }
 
             // Get discovery context
             let ctx;
@@ -12059,6 +12067,8 @@ STEPS TO REPRODUCE
                     const scanId = json.data.scan_id;
                     const totalFiles = json.data.total_files || selectedFiles.length;
 
+                    console.log('%c[AEGIS SP] ✓ Scan started! scanId=' + scanId + ' totalFiles=' + totalFiles, 'color:#22c55e;font-weight:bold;');
+
                     window.showToast?.(`Scan started — ${totalFiles} files`, 'success');
 
                     // Hide the file selector
@@ -12071,12 +12081,19 @@ STEPS TO REPRODUCE
                         btnSpScan.dataset.discoveryFiles = JSON.stringify(selectedFiles);
                         btnSpScan.style.display = '';
                         btnSpScan.disabled = false;
+                        console.log('[AEGIS SP] btnSpScan updated — dataset.scanId=' + btnSpScan.dataset.scanId + ' display=' + btnSpScan.style.display + ' disabled=' + btnSpScan.disabled);
+                    } else {
+                        console.error('[AEGIS SP] ❌ btnSpScan is null! Cannot trigger cinematic dashboard.');
                     }
 
                     // Auto-trigger the scan dashboard display (reuses existing polling handler)
+                    console.log('[AEGIS SP] Scheduling btnSpScan.click() in 300ms...');
                     setTimeout(() => {
                         if (btnSpScan) {
+                            console.log('[AEGIS SP] ▶ Triggering btnSpScan.click() NOW');
                             btnSpScan.click(); // Triggers the existing scan polling handler
+                        } else {
+                            console.error('[AEGIS SP] ❌ btnSpScan gone before click timeout!');
                         }
                     }, 300);
                 } else {
@@ -12319,6 +12336,8 @@ STEPS TO REPRODUCE
                         }
 
                         const disc = d.discovery;
+                        console.log('%c[AEGIS SP] Connect & Scan response received', 'color:#22c55e;font-weight:bold;font-size:13px;');
+                        console.log('[AEGIS SP] discovery:', disc ? ('supported_files=' + disc.supported_files + ' files_count=' + (disc.files||[]).length) : 'null');
                         if (disc && disc.supported_files > 0) {
                             // Show file preview stats
                             let html = `<div class="folder-scan-stats">`;
@@ -12344,7 +12363,9 @@ STEPS TO REPRODUCE
                             };
 
                             // Render file picker and let user choose which files to scan
+                            console.log('[AEGIS SP] Rendering file selector with', (disc.files||[]).length, 'files...');
                             _renderSpFileSelector(disc.files || [], _spDiscoveryContext);
+                            console.log('[AEGIS SP] ✓ File selector rendered. User should see file checkboxes and "Scan Selected" button.');
 
                             window.showToast?.(`Found ${disc.supported_files} documents — select files to scan`, 'success');
                         } else {
@@ -12565,10 +12586,19 @@ STEPS TO REPRODUCE
         // v6.2.4: Rewired to use #batch-progress (proven cinematic dashboard) instead of #sp-scan-dashboard
         if (btnSpScan) {
             btnSpScan.addEventListener('click', async () => {
+                // v6.2.4-diag: Version marker — check from F12 console: window.__AEGIS_SP_CINEMATIC
+                window.__AEGIS_SP_CINEMATIC = '6.2.4-diag';
+
                 const scanId = btnSpScan.dataset.scanId;
                 const totalFiles = parseInt(btnSpScan.dataset.totalFiles || '0', 10);
 
+                console.log('%c[AEGIS SP CINEMATIC] ═══════════════════════════════════════', 'color:#D6A84A;font-weight:bold;font-size:14px;');
+                console.log('%c[AEGIS SP CINEMATIC] HANDLER FIRED! scanId=' + scanId + ' totalFiles=' + totalFiles, 'color:#D6A84A;font-weight:bold;font-size:14px;');
+                console.log('[AEGIS SP CINEMATIC] btnSpScan dataset:', JSON.stringify(btnSpScan.dataset));
+                console.log('%c[AEGIS SP CINEMATIC] ═══════════════════════════════════════', 'color:#D6A84A;font-weight:bold;font-size:14px;');
+
                 if (!scanId) {
+                    console.warn('[AEGIS SP CINEMATIC] ⚠ No scanId on btnSpScan.dataset — returning early');
                     window.showToast?.('Please click Preview first to discover files', 'warning');
                     return;
                 }
@@ -12650,9 +12680,14 @@ STEPS TO REPRODUCE
                 if (docList) docList.innerHTML = '';
 
                 // Show the cinematic dashboard
+                console.log('[AEGIS SP CINEMATIC] About to show dashboard. progressEl found:', !!progressEl);
                 if (progressEl) {
+                    console.log('[AEGIS SP CINEMATIC] BEFORE: classes=' + progressEl.className + ', display=' + getComputedStyle(progressEl).display + ', offsetHeight=' + progressEl.offsetHeight);
                     progressEl.classList.remove('hidden', 'bpd-complete');
                     progressEl.classList.add('scanning');
+                    console.log('[AEGIS SP CINEMATIC] AFTER:  classes=' + progressEl.className + ', display=' + getComputedStyle(progressEl).display + ', offsetHeight=' + progressEl.offsetHeight);
+                } else {
+                    console.error('[AEGIS SP CINEMATIC] ❌ #batch-progress element NOT FOUND in DOM!');
                 }
 
                 // Show minimize button, hide cancel (no cancel endpoint for SP scans)
@@ -12773,7 +12808,10 @@ STEPS TO REPRODUCE
 
                 // Scroll dashboard into view after DOM settles
                 setTimeout(() => {
-                    if (progressEl) progressEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    if (progressEl) {
+                        console.log('[AEGIS SP CINEMATIC] Scrolling dashboard into view. offsetHeight=' + progressEl.offsetHeight + ' scrollHeight=' + progressEl.scrollHeight);
+                        progressEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
                 }, 300);
 
                 // ── Document row update helper ──
