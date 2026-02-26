@@ -4060,12 +4060,15 @@ const AEGISGuide = {
             const s = this.sections[id];
             if (s && s.tourSteps && s.tourSteps.length > 0) {
                 // Add section intro scene
+                // v6.2.4: Add _isIntro flag to skip TTS narration (matches startFullDemo pattern)
+                // Without this, Web Speech API reads "Now let's explore: Dashboard" in robot voice
                 allScenes.push({
                     target: null,
                     narration: `Now let's explore: ${s.title}`,
                     duration: 2500,
                     sectionLabel: s.title,
-                    navigate: id
+                    navigate: id,
+                    _isIntro: true
                 });
                 // Convert each tourStep into a demo scene
                 s.tourSteps.forEach((step, idx) => {
