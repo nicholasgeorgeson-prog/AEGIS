@@ -11742,7 +11742,7 @@ STEPS TO REPRODUCE
 
         // v6.2.6: Top-level version marker — set on page load, not inside click handler
         // Check from F12 console: window.__AEGIS_SP_CINEMATIC
-        window.__AEGIS_SP_CINEMATIC = 'v6.2.6';
+        window.__AEGIS_SP_CINEMATIC = 'v6.2.7';
         console.log('%c[AEGIS SP] v6.2.6 SP scan module loaded', 'color:#D6A84A;font-weight:bold;');
 
         const btnSpTest = document.getElementById('btn-sp-test');
@@ -11792,6 +11792,12 @@ STEPS TO REPRODUCE
                 console.warn('[AEGIS SP CINEMATIC] No scanId — aborting dashboard');
                 return;
             }
+
+            // v6.2.7: Outer try/catch protects ENTIRE function body
+            // Previously, 280 lines of setup code (DOM lookups, section hiding, dashboard show,
+            // timer setup, doc row building) were OUTSIDE any try/catch — any error silently
+            // killed the function, leaving dashboard invisible and buttons permanently disabled
+            try {
 
             // Disable SP buttons during scan
             if (btnSpScan) { btnSpScan.disabled = true; btnSpScan.innerHTML = '<i data-lucide="loader" class="spin"></i> Scanning...'; }
@@ -11869,13 +11875,37 @@ STEPS TO REPRODUCE
             // Show the cinematic dashboard
             console.log('[AEGIS SP CINEMATIC] About to show dashboard. progressEl found:', !!progressEl);
             if (progressEl) {
-                console.log('[AEGIS SP CINEMATIC] BEFORE: classes=' + progressEl.className + ', display=' + getComputedStyle(progressEl).display);
+                console.log('[AEGIS SP CINEMATIC] BEFORE: classes=' + progressEl.className + ', computedDisplay=' + getComputedStyle(progressEl).display + ', offsetHeight=' + progressEl.offsetHeight);
                 progressEl.classList.remove('hidden', 'bpd-complete');
                 progressEl.classList.add('scanning');
-                progressEl.style.display = '';  // v6.2.6: Force display in case CSS hides it
-                console.log('[AEGIS SP CINEMATIC] AFTER:  classes=' + progressEl.className + ', display=' + getComputedStyle(progressEl).display);
+                // v6.2.7: AGGRESSIVE inline styles — guarantees visibility even if CSS fails to load,
+                // has wrong MIME type, or .hidden class isn't properly removed
+                progressEl.style.display = 'block';
+                progressEl.style.visibility = 'visible';
+                progressEl.style.opacity = '1';
+                progressEl.style.minHeight = '200px';
+                progressEl.style.position = 'relative';
+                progressEl.style.zIndex = '10';
+                // Expand modal container for dashboard width
+                var modalContainer = progressEl.closest('.modal-container');
+                if (modalContainer) {
+                    modalContainer.style.maxWidth = '900px';
+                    modalContainer.style.overflow = 'visible';
+                }
+                console.log('[AEGIS SP CINEMATIC] AFTER:  classes=' + progressEl.className + ', computedDisplay=' + getComputedStyle(progressEl).display + ', offsetHeight=' + progressEl.offsetHeight + ', parentTag=' + (progressEl.parentElement ? progressEl.parentElement.tagName + '#' + (progressEl.parentElement.id || '') : 'none'));
             } else {
-                console.error('[AEGIS SP CINEMATIC] ❌ #batch-progress element NOT FOUND in DOM!');
+                console.error('[AEGIS SP CINEMATIC] ❌ #batch-progress NOT FOUND — creating fallback');
+                // v6.2.7: Create fallback dashboard element if original is missing from DOM
+                var modalBody = document.querySelector('#batch-upload-modal .modal-body');
+                if (modalBody) {
+                    var fallbackDash = document.createElement('div');
+                    fallbackDash.id = 'batch-progress';
+                    fallbackDash.className = 'bpd-dashboard scanning';
+                    fallbackDash.style.cssText = 'display:block;min-height:200px;padding:24px;background:var(--bg-surface,#1B2838);border:2px solid #D6A84A;border-radius:12px;margin:12px 0;';
+                    fallbackDash.innerHTML = '<div style="text-align:center;color:#D6A84A;"><h3 style="margin:0 0 8px;">SharePoint Scan in Progress</h3><p style="color:#ccc;">Scan ID: ' + scanId + ' | Files: ' + totalFiles + '</p><div id="batch-progress-fill" style="height:6px;background:#333;border-radius:3px;margin:16px 0;overflow:hidden;"><div style="height:100%;width:0%;background:#D6A84A;border-radius:3px;transition:width 0.5s;"></div></div></div>';
+                    modalBody.appendChild(fallbackDash);
+                    console.log('[AEGIS SP CINEMATIC] Fallback dashboard created and appended to modal-body');
+                }
             }
 
             // Show minimize button, hide cancel
@@ -12238,6 +12268,54 @@ STEPS TO REPRODUCE
                 window._spScanUsingBatchDash = false;
                 if (window.lucide) window.lucide.createIcons();
             }
+
+            } catch (outerError) {
+                // v6.2.7: Catches ANY error from setup phase (lines before inner try/catch)
+                // Previously these errors crashed silently — dashboard never appeared, buttons stayed disabled
+                console.error('%c[AEGIS SP CINEMATIC] ❌ CRITICAL ERROR in dashboard:', 'color:#c41e3a;font-weight:bold;font-size:14px;', outerError);
+                console.error('[AEGIS SP CINEMATIC] Stack:', outerError.stack);
+                window._aegisLastDashboardError = {
+                    message: outerError.message,
+                    stack: outerError.stack,
+                    time: new Date().toISOString(),
+                    phase: 'setup_or_runtime',
+                    version: '6.2.7'
+                };
+
+                // Show visible error IN the dashboard area so user can see what happened
+                var errProgressEl = document.getElementById('batch-progress');
+                if (errProgressEl) {
+                    errProgressEl.classList.remove('hidden');
+                    errProgressEl.style.display = 'block';
+                    errProgressEl.style.minHeight = '120px';
+                    errProgressEl.innerHTML = '<div style="padding:24px;text-align:center;"><h3 style="color:#c41e3a;margin:0 0 8px;">⚠ Dashboard Error</h3><p style="color:#ccc;margin:0 0 4px;">' + (outerError.message || 'Unknown error') + '</p><p style="color:#888;font-size:12px;margin:0;">Error stored in window._aegisLastDashboardError — check F12 console for full stack trace</p></div>';
+                }
+
+                // Re-enable ALL buttons so user can retry without hard refresh
+                try {
+                    if (typeof btnSpScan !== 'undefined' && btnSpScan) { btnSpScan.disabled = false; btnSpScan.innerHTML = '<i data-lucide="scan-line"></i> Scan All'; }
+                    if (typeof btnSpDiscover !== 'undefined' && btnSpDiscover) btnSpDiscover.disabled = false;
+                    if (typeof btnSpTest !== 'undefined' && btnSpTest) btnSpTest.disabled = false;
+                } catch(e) { /* button vars may not be in scope — safe to ignore */ }
+
+                // Restore hidden sections so user isn't stuck on empty screen
+                try {
+                    var errSpSec = document.getElementById('sharepoint-scan-section');
+                    if (errSpSec) errSpSec.style.display = '';
+                    var errFolSec = document.querySelector('.folder-scan-section');
+                    if (errFolSec) errFolSec.style.display = '';
+                    var errBfl = document.getElementById('batch-file-list');
+                    if (errBfl) errBfl.style.display = '';
+                    var errDz = document.getElementById('batch-dropzone');
+                    if (errDz) errDz.style.display = '';
+                    var errSfs = document.getElementById('sp-file-selector');
+                    if (errSfs) errSfs.style.display = '';
+                } catch(e) { /* section recovery — safe to ignore */ }
+
+                window._spScanUsingBatchDash = false;
+                window.showToast?.('Dashboard error: ' + (outerError.message || 'Unknown error') + '. Check F12 console.', 'error');
+                if (window.lucide) window.lucide.createIcons();
+            }
         }
 
         /**
@@ -12554,10 +12632,26 @@ STEPS TO REPRODUCE
                         console.error('[AEGIS SP] ❌ btnSpScan is null! Cannot trigger cinematic dashboard.');
                     }
 
-                    // v6.2.6: Call cinematic dashboard DIRECTLY instead of btnSpScan.click()
-                    // The .click() approach failed because disabled/hidden buttons don't reliably fire click events
-                    console.log('%c[AEGIS SP] ▶ Launching cinematic dashboard directly (v6.2.6)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
-                    _showSpCinematicDashboard(scanId, totalFiles, selectedFiles);
+                    // v6.2.7: AWAIT the dashboard call + catch errors with visible recovery
+                    // v6.2.6 did NOT await — errors became invisible unhandled promise rejections,
+                    // and the finally block ran immediately (killing button state mid-setup)
+                    console.log('%c[AEGIS SP] ▶ Launching cinematic dashboard (v6.2.7 — awaited)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
+                    try {
+                        await _showSpCinematicDashboard(scanId, totalFiles, selectedFiles);
+                    } catch (dashErr) {
+                        console.error('[AEGIS SP] ❌ Dashboard launch failed:', dashErr);
+                        window._aegisLastDashboardError = { message: dashErr.message, stack: dashErr.stack, time: new Date().toISOString(), source: 'caller_catch' };
+                        window.showToast?.('SP scan dashboard error: ' + (dashErr.message || 'Unknown'), 'error');
+                        // Recovery: re-enable all buttons so user can retry
+                        if (btnSpScan) { btnSpScan.disabled = false; btnSpScan.innerHTML = '<i data-lucide="scan-line"></i> Scan All'; }
+                        if (btnSpDiscover) btnSpDiscover.disabled = false;
+                        if (btnSpTest) btnSpTest.disabled = false;
+                        if (btnSpConnectScan) btnSpConnectScan.disabled = false;
+                        var recoverSpSec = document.getElementById('sharepoint-scan-section');
+                        if (recoverSpSec) recoverSpSec.style.display = '';
+                        window._spScanUsingBatchDash = false;
+                        lucide?.createIcons?.();
+                    }
                 } else {
                     const errMsg = json.data?.message || json.error?.message || 'Failed to start scan';
                     window.showToast?.(errMsg, 'error');

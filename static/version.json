@@ -1,13 +1,27 @@
 {
-  "version": "6.2.6",
+  "version": "6.2.7",
   "release_date": "2026-02-26",
-  "core_version": "6.2.6",
+  "core_version": "6.2.7",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.2.7",
+      "date": "2026-02-26",
+      "changes": [
+        "FIX: SP cinematic dashboard — wrapped ENTIRE function body in outer try/catch (280 lines of setup code were previously UNPROTECTED — any error silently killed the function)",
+        "FIX: _startSPSelectedScan() now AWAITS _showSpCinematicDashboard() — errors were previously invisible unhandled promise rejections, and finally block ran immediately killing button state",
+        "FIX: Aggressive inline styles force dashboard visibility (display:block, visibility:visible, opacity:1, minHeight:200px, zIndex:10) — works even if CSS fails to load or has wrong MIME type",
+        "FIX: Modal container auto-expands to 900px and overflow:visible when dashboard activates — ensures dashboard fits within scrollable area",
+        "FIX: Fallback dashboard element created dynamically if #batch-progress not found in DOM — prevents silent failure on missing HTML elements",
+        "FIX: Outer catch block re-enables ALL buttons and restores ALL hidden sections — users no longer need hard refresh after errors",
+        "FIX: Error details captured in window._aegisLastDashboardError with message, stack, timestamp, phase — enables post-mortem diagnostics from F12 console",
+        "FIX: Visible error panel shown in dashboard area on failure with diagnostic instructions — errors are no longer invisible"
+      ]
+    },
     {
       "version": "6.2.6",
       "date": "2026-02-26",
