@@ -131,7 +131,7 @@ def main():
     # Verify version marker in app.js
     try:
         with open("static/js/app.js", "r", encoding="utf-8", errors="ignore") as f:
-            content = f.read(200000)  # Check first 200KB
+            content = f.read()  # Read FULL file — SP code is at ~line 11745 (~700KB in)
         if "__AEGIS_SP_CINEMATIC" in content:
             print(f"  [OK]   app.js contains SP cinematic marker")
         else:
