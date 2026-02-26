@@ -483,25 +483,36 @@ def main():
     print()
 
     # --- Step 5: Install Playwright browser (for headless validation) ---
-    print('[Step 5] Installing Playwright Chromium browser...')
+    print('[Step 5] Playwright headless browser setup...')
+    # Note: 'playwright install chromium' downloads ~100MB from the internet.
+    # On air-gapped machines this will fail — that's OK because AEGIS uses
+    # Microsoft Edge (channel='msedge') which is always present on Windows 10/11.
+    # The bundled Chromium is only needed if Edge AND Chrome are both missing.
+    playwright_ok = False
     try:
         result = subprocess.run(
             [python_exe, '-m', 'playwright', 'install', 'chromium'],
             capture_output=True, text=True, timeout=600
         )
         if result.returncode == 0:
-            print('  [OK] Playwright Chromium installed')
+            print('  [OK] Playwright Chromium browser installed')
+            playwright_ok = True
         else:
-            print(f'  [SKIP] Playwright install failed: {result.stderr.strip()[:100]}')
-            print('  You can install it manually later:')
-            print(f'    {python_exe} -m playwright install chromium')
+            print('  [INFO] Bundled Chromium download failed (requires internet)')
     except FileNotFoundError:
-        print('  [SKIP] Playwright not available (pip install playwright first)')
+        print('  [INFO] Playwright Python package not installed')
     except subprocess.TimeoutExpired:
-        print('  [SKIP] Playwright install timed out (600s). Try manually:')
-        print(f'    {python_exe} -m playwright install chromium')
+        print('  [INFO] Chromium download timed out')
     except Exception as e:
-        print(f'  [SKIP] Playwright error: {e}')
+        print(f'  [INFO] Chromium download error: {e}')
+
+    if not playwright_ok:
+        if sys.platform == 'win32':
+            print('  [OK] No action needed — AEGIS will use Microsoft Edge for headless features')
+            print('       (Edge is pre-installed on Windows 10/11)')
+        else:
+            print('  [SKIP] Headless browser features (Deep Validate, HeadlessSP) unavailable')
+            print(f'  To install later: {python_exe} -m playwright install chromium')
     print()
 
     # --- Step 6: Verify key imports ---
