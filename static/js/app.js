@@ -11740,6 +11740,11 @@ STEPS TO REPRODUCE
             return window.CSRF_TOKEN || document.querySelector('meta[name="csrf-token"]')?.content || '';
         }
 
+        // v6.2.6: Top-level version marker — set on page load, not inside click handler
+        // Check from F12 console: window.__AEGIS_SP_CINEMATIC
+        window.__AEGIS_SP_CINEMATIC = 'v6.2.6';
+        console.log('%c[AEGIS SP] v6.2.6 SP scan module loaded', 'color:#D6A84A;font-weight:bold;');
+
         const btnSpTest = document.getElementById('btn-sp-test');
         const btnSpDiscover = document.getElementById('btn-sp-discover');
         const btnSpScan = document.getElementById('btn-sp-scan');
@@ -11771,6 +11776,469 @@ STEPS TO REPRODUCE
         // After discovery with discover_only=true, renders a file picker
         // letting the user select which files to scan.
         // ====================================================================
+
+        // ====================================================================
+        // v6.2.6: Standalone cinematic dashboard function
+        // Called DIRECTLY from _startSPSelectedScan (no btnSpScan.click() indirection)
+        // This is the same proven logic that was in the btnSpScan click handler,
+        // extracted so it can be called directly without relying on .click()
+        // ====================================================================
+        async function _showSpCinematicDashboard(scanId, totalFiles, discoveryFiles) {
+            console.log('%c[AEGIS SP CINEMATIC] ═══════════════════════════════════════', 'color:#D6A84A;font-weight:bold;font-size:14px;');
+            console.log('%c[AEGIS SP CINEMATIC] DIRECT LAUNCH! scanId=' + scanId + ' totalFiles=' + totalFiles + ' files=' + (discoveryFiles||[]).length, 'color:#D6A84A;font-weight:bold;font-size:14px;');
+            console.log('%c[AEGIS SP CINEMATIC] ═══════════════════════════════════════', 'color:#D6A84A;font-weight:bold;font-size:14px;');
+
+            if (!scanId) {
+                console.warn('[AEGIS SP CINEMATIC] No scanId — aborting dashboard');
+                return;
+            }
+
+            // Disable SP buttons during scan
+            if (btnSpScan) { btnSpScan.disabled = true; btnSpScan.innerHTML = '<i data-lucide="loader" class="spin"></i> Scanning...'; }
+            if (btnSpDiscover) btnSpDiscover.disabled = true;
+            if (btnSpTest) btnSpTest.disabled = true;
+            if (spFilePreview) spFilePreview.classList.add('hidden');
+
+            // Flag so minimize/restore knows this is SP scan using batch dashboard
+            window._spScanUsingBatchDash = true;
+
+            // Get ALL cinematic dashboard elements (same IDs as batch scan)
+            const progressEl = document.getElementById('batch-progress');
+            const progressFill = document.getElementById('batch-progress-fill');
+            const progressText = document.getElementById('batch-progress-text');
+            const percentAnimated = document.getElementById('batch-percent-animated');
+            const docsComplete = document.getElementById('batch-docs-complete');
+            const docsTotal = document.getElementById('batch-docs-total');
+            const queueStatus = document.getElementById('batch-queue-status');
+            const docList = document.getElementById('batch-doc-list');
+            const elapsedTimeEl = document.getElementById('batch-elapsed-time');
+            const remainingTimeEl = document.getElementById('batch-remaining-time');
+            const speedEl = document.getElementById('batch-speed');
+            const soundToggle = document.getElementById('cinematic-sound-toggle');
+            const issuesCountEl = document.getElementById('batch-issues-count');
+            const rolesCountEl = document.getElementById('batch-roles-count');
+            const cancelBtn = document.getElementById('btn-cancel-batch');
+            const activityList = document.getElementById('batch-activity-list');
+            const activityCount = document.getElementById('batch-activity-count');
+            const chunkInfoEl = document.getElementById('batch-chunk-info');
+            const ecdLine = document.getElementById('batch-ecd-line');
+            const ecdText = document.getElementById('batch-ecd-text');
+            const sevStats = document.getElementById('batch-severity-stats');
+            const spGlowEl = document.getElementById('batch-progress-glow');
+
+            // Hide ALL sibling sections so dashboard is front and center
+            const spInputSection = document.getElementById('sharepoint-scan-section');
+            if (spInputSection) spInputSection.style.display = 'none';
+            const folderSection = document.querySelector('.folder-scan-section');
+            if (folderSection) folderSection.style.display = 'none';
+            const batchFileList = document.getElementById('batch-file-list');
+            if (batchFileList) batchFileList.style.display = 'none';
+            const dropzoneEl = document.getElementById('batch-dropzone');
+            if (dropzoneEl) dropzoneEl.style.display = 'none';
+            const oldSpDash = document.getElementById('sp-scan-dashboard');
+            if (oldSpDash) { oldSpDash.classList.add('hidden'); oldSpDash.classList.remove('scanning'); }
+            const spFileSel = document.getElementById('sp-file-selector');
+            if (spFileSel) spFileSel.style.display = 'none';
+
+            // Set SharePoint-specific title & icon
+            const headerIcon = progressEl ? progressEl.querySelector('.bpd-header-icon i') : null;
+            const subtitleEl = progressEl ? progressEl.querySelector('.bpd-subtitle') : null;
+            if (headerIcon) headerIcon.setAttribute('data-lucide', 'cloud');
+            if (progressText) progressText.textContent = 'SharePoint Scan';
+            if (subtitleEl) subtitleEl.textContent = 'Downloading and analyzing documents from SharePoint';
+
+            // Reset dashboard to initial state
+            if (docsComplete) docsComplete.textContent = '0';
+            if (docsTotal) docsTotal.textContent = totalFiles;
+            if (percentAnimated) percentAnimated.textContent = '0%';
+            if (issuesCountEl) issuesCountEl.textContent = '0';
+            if (rolesCountEl) rolesCountEl.textContent = '0';
+            if (progressFill) { progressFill.style.width = '0%'; progressFill.style.background = ''; progressFill.style.boxShadow = ''; }
+            if (spGlowEl) spGlowEl.style.width = '0%';
+            if (elapsedTimeEl) elapsedTimeEl.textContent = '00:00';
+            if (remainingTimeEl) remainingTimeEl.textContent = '--:--';
+            if (speedEl) speedEl.textContent = '--';
+            if (chunkInfoEl) chunkInfoEl.textContent = '--';
+            if (queueStatus) queueStatus.textContent = 'Starting SharePoint scan...';
+            if (ecdLine) ecdLine.style.display = 'none';
+            if (activityList) activityList.innerHTML = '';
+            if (activityCount) activityCount.textContent = '0 events';
+            if (sevStats) sevStats.style.display = 'none';
+            if (docList) docList.innerHTML = '';
+
+            // Show the cinematic dashboard
+            console.log('[AEGIS SP CINEMATIC] About to show dashboard. progressEl found:', !!progressEl);
+            if (progressEl) {
+                console.log('[AEGIS SP CINEMATIC] BEFORE: classes=' + progressEl.className + ', display=' + getComputedStyle(progressEl).display);
+                progressEl.classList.remove('hidden', 'bpd-complete');
+                progressEl.classList.add('scanning');
+                progressEl.style.display = '';  // v6.2.6: Force display in case CSS hides it
+                console.log('[AEGIS SP CINEMATIC] AFTER:  classes=' + progressEl.className + ', display=' + getComputedStyle(progressEl).display);
+            } else {
+                console.error('[AEGIS SP CINEMATIC] ❌ #batch-progress element NOT FOUND in DOM!');
+            }
+
+            // Show minimize button, hide cancel
+            const minBtn = document.getElementById('btn-minimize-batch-modal');
+            if (minBtn) minBtn.style.display = '';
+            if (cancelBtn) cancelBtn.style.display = 'none';
+
+            if (window.lucide) window.lucide.createIcons();
+
+            // Sound toggle
+            let soundEnabled = localStorage.getItem('batchSoundEnabled') !== 'false';
+            if (soundToggle) {
+                const icon = soundToggle.querySelector('i');
+                soundToggle.classList.toggle('muted', !soundEnabled);
+                if (icon) icon.setAttribute('data-lucide', soundEnabled ? 'volume-2' : 'volume-x');
+                soundToggle.onclick = () => {
+                    soundEnabled = !soundEnabled;
+                    localStorage.setItem('batchSoundEnabled', soundEnabled);
+                    soundToggle.classList.toggle('muted', !soundEnabled);
+                    const ico = soundToggle.querySelector('i');
+                    if (ico) {
+                        ico.setAttribute('data-lucide', soundEnabled ? 'volume-2' : 'volume-x');
+                        if (window.lucide) window.lucide.createIcons();
+                    }
+                };
+                if (window.lucide) window.lucide.createIcons();
+            }
+
+            // Client-side elapsed timer
+            const startTime = Date.now();
+            let elapsedInterval = setInterval(() => {
+                if (elapsedTimeEl) elapsedTimeEl.textContent = _formatTimeMs(Date.now() - startTime);
+            }, 1000);
+
+            // Animated percentage counter
+            let currentPercent = 0;
+            let targetPercent = 0;
+            let percentAnimation = null;
+            const animatePercent = (target) => {
+                targetPercent = target;
+                if (percentAnimation) return;
+                const animate = () => {
+                    if (currentPercent < targetPercent) {
+                        currentPercent = Math.min(currentPercent + 1, targetPercent);
+                        if (percentAnimated) {
+                            percentAnimated.textContent = currentPercent + '%';
+                            percentAnimated.classList.add('counting');
+                            setTimeout(() => percentAnimated.classList.remove('counting'), 100);
+                        }
+                        percentAnimation = requestAnimationFrame(animate);
+                    } else {
+                        percentAnimation = null;
+                    }
+                };
+                percentAnimation = requestAnimationFrame(animate);
+            };
+
+            // Completion sound
+            const playCompletionSound = () => {
+                if (!soundEnabled) return;
+                try {
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioCtx.createOscillator();
+                    const gainNode = audioCtx.createGain();
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioCtx.destination);
+                    oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+                    oscillator.frequency.setValueAtTime(1108.73, audioCtx.currentTime + 0.1);
+                    oscillator.frequency.setValueAtTime(1318.51, audioCtx.currentTime + 0.2);
+                    gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+                    oscillator.start(audioCtx.currentTime);
+                    oscillator.stop(audioCtx.currentTime + 0.4);
+                } catch (e) { /* silent */ }
+            };
+
+            // Progress bar updater
+            const updateProgress = (percent, text) => {
+                if (progressFill) progressFill.style.width = percent + '%';
+                if (spGlowEl) spGlowEl.style.width = percent + '%';
+                if (text && progressText) progressText.textContent = text;
+                animatePercent(Math.round(percent));
+                if (percent >= 100) {
+                    if (remainingTimeEl) remainingTimeEl.textContent = '00:00';
+                    if (progressEl) progressEl.classList.add('bpd-complete');
+                }
+            };
+
+            // Build filename→index lookup
+            const fileList = discoveryFiles || [];
+            const filenameToIndex = {};
+            const docStartTimes = {};
+
+            // Build initial document rows in the cinematic queue
+            if (docList && fileList.length > 0) {
+                docList.innerHTML = fileList.map((f, i) => {
+                    const fname = f.filename || f.name;
+                    filenameToIndex[fname] = i;
+                    return `
+                        <div class="bpd-doc-row queued" id="batch-doc-${i}">
+                            <div class="bpd-doc-icon"><div class="bpd-pending-dot"></div></div>
+                            <div class="bpd-doc-content">
+                                <div class="bpd-doc-name">${escapeHtml(fname)}</div>
+                                <div class="bpd-doc-detail" id="batch-doc-meta-${i}">Queued — ${escapeHtml(f.relative_path || f.server_relative_url || '')}</div>
+                            </div>
+                            <div class="bpd-doc-bar" id="batch-doc-progress-${i}">
+                                <div class="bpd-doc-bar-fill" id="batch-doc-fill-${i}" style="width:0%"></div>
+                            </div>
+                            <div class="bpd-doc-duration" id="batch-doc-duration-${i}"></div>
+                        </div>`;
+                }).join('');
+            }
+            if (window.lucide) window.lucide.createIcons();
+
+            // Scroll dashboard into view
+            setTimeout(() => {
+                if (progressEl) {
+                    console.log('[AEGIS SP CINEMATIC] Scrolling into view');
+                    progressEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 300);
+
+            // Document row update helper
+            const updateDocRow = (index, status, meta, issues, progress) => {
+                const row = document.getElementById('batch-doc-' + index);
+                const metaEl = document.getElementById('batch-doc-meta-' + index);
+                const fillEl = document.getElementById('batch-doc-fill-' + index);
+                const durationEl = document.getElementById('batch-doc-duration-' + index);
+                if (row) {
+                    row.className = 'bpd-doc-row ' + status;
+                    const iconDiv = row.querySelector('.bpd-doc-icon');
+                    if (iconDiv) {
+                        if (status === 'processing') {
+                            if (!docStartTimes[index]) docStartTimes[index] = Date.now();
+                            iconDiv.innerHTML = '<div class="bpd-spinner"></div>';
+                            row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        } else if (status === 'complete') {
+                            iconDiv.innerHTML = '<div class="bpd-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg></div>';
+                            if (durationEl && docStartTimes[index]) {
+                                durationEl.textContent = ((Date.now() - docStartTimes[index]) / 1000).toFixed(1) + 's';
+                            }
+                        } else if (status === 'error') {
+                            iconDiv.innerHTML = '<div class="bpd-error-icon"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></div>';
+                        }
+                    }
+                }
+                if (metaEl) {
+                    metaEl.textContent = (status === 'complete' && issues !== null && issues !== undefined)
+                        ? (meta || ('Complete — ' + issues + ' issues found'))
+                        : meta;
+                }
+                if (fillEl) fillEl.style.width = (progress || 0) + '%';
+            };
+
+            // Running totals + Activity log
+            let runningIssues = 0;
+            let runningRoles = 0;
+            let activityEntries = [];
+            const addActivity = (event, message) => {
+                const ts = new Date().toTimeString().split(' ')[0];
+                activityEntries.push({ ts, event, message });
+                if (activityEntries.length > 50) activityEntries = activityEntries.slice(-50);
+                if (activityList) {
+                    activityList.innerHTML = activityEntries.map(e =>
+                        '<div class="bpd-activity-entry" data-event="' + e.event + '">'
+                        + '<span class="bpd-activity-time">' + e.ts + '</span>'
+                        + '<span class="bpd-activity-event">' + e.event + '</span>'
+                        + '<span class="bpd-activity-msg">' + e.message + '</span>'
+                        + '</div>'
+                    ).join('');
+                    activityList.scrollTop = activityList.scrollHeight;
+                }
+                if (activityCount) activityCount.textContent = activityEntries.length + ' events';
+            };
+
+            addActivity('scan_start', 'SharePoint scan started — ' + totalFiles + ' documents');
+
+            // Async polling loop
+            let since = 0;
+            let pollFailures = 0;
+            let pollDelay = 2000;
+            const MAX_POLL_FAILURES = 10;
+            const processedDocs = new Set();
+
+            try {
+                const pollLoop = async () => {
+                    while (true) {
+                        try {
+                            const resp = await fetch('/api/review/folder-scan-progress/' + scanId + '?since=' + since);
+                            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                            const json = await resp.json();
+                            if (!json.success) throw new Error(json.error ? (json.error.message || 'Progress fetch failed') : 'Progress fetch failed');
+
+                            pollFailures = 0;
+                            pollDelay = 2000;
+
+                            const d = json.data;
+                            const totalDone = d.processed + d.errors;
+                            const pct = totalFiles > 0 ? Math.round((totalDone / totalFiles) * 100) : 0;
+
+                            updateProgress(pct, 'SharePoint Scan — ' + totalDone + ' of ' + totalFiles);
+                            if (docsComplete) docsComplete.textContent = totalDone;
+
+                            if (d.current_chunk && d.total_chunks) {
+                                if (queueStatus) queueStatus.textContent = 'Chunk ' + d.current_chunk + '/' + d.total_chunks + ' • ' + d.processed + ' complete, ' + d.errors + ' errors';
+                                if (chunkInfoEl) chunkInfoEl.textContent = d.current_chunk + '/' + d.total_chunks;
+                            }
+
+                            if (d.estimated_remaining && d.estimated_remaining > 0) {
+                                if (remainingTimeEl) remainingTimeEl.textContent = _formatTimeMs(d.estimated_remaining * 1000);
+                                if (ecdLine && ecdText) {
+                                    var ecdDate = new Date(Date.now() + d.estimated_remaining * 1000);
+                                    ecdText.textContent = '~' + _formatTimeMs(d.estimated_remaining * 1000) + ' remaining • Est. completion: ' + ecdDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                    ecdLine.style.display = '';
+                                }
+                            }
+
+                            if (d.elapsed_seconds > 0 && d.processed > 0 && speedEl) {
+                                speedEl.textContent = (d.processed / (d.elapsed_seconds / 60)).toFixed(1) + ' docs/min';
+                            }
+
+                            if (d.summary && d.summary.issues_by_severity && sevStats) {
+                                sevStats.style.display = '';
+                                var sev = d.summary.issues_by_severity;
+                                ['Critical','High','Medium','Low','Info'].forEach((key, i) => {
+                                    var el = document.getElementById('batch-sev-' + key.toLowerCase());
+                                    if (el) el.textContent = key[0] + ': ' + (sev[key] || 0);
+                                });
+                            }
+
+                            if (d.current_file && d.phase === 'reviewing') {
+                                d.current_file.split(', ').forEach(name => {
+                                    var trimmed = name.trim();
+                                    var idx = filenameToIndex[trimmed];
+                                    if (idx !== undefined && !processedDocs.has(trimmed)) {
+                                        var row = document.getElementById('batch-doc-' + idx);
+                                        if (row && !row.classList.contains('complete') && !row.classList.contains('error')) {
+                                            updateDocRow(idx, 'processing', 'Downloading & analyzing...', null, 50);
+                                        }
+                                    }
+                                });
+                            }
+
+                            if (d.documents && d.documents.length > 0) {
+                                d.documents.forEach(doc => {
+                                    if (processedDocs.has(doc.filename)) return;
+                                    processedDocs.add(doc.filename);
+                                    var idx = filenameToIndex[doc.filename];
+                                    if (idx === undefined) return;
+
+                                    if (doc.status === 'error') {
+                                        updateDocRow(idx, 'error', 'Error: ' + (doc.error || 'Unknown'), null, 100);
+                                        addActivity('file_error', doc.filename + ' — ' + (doc.error || 'Unknown'));
+                                    } else {
+                                        var metaLine = (doc.word_count||0).toLocaleString() + ' words • ' + (doc.issue_count||0) + ' issues • ' + (doc.role_count||0) + ' roles • Score: ' + (doc.score||0) + '%';
+                                        updateDocRow(idx, 'complete', metaLine, doc.issue_count||0, 100);
+                                        runningIssues += (doc.issue_count||0);
+                                        runningRoles += (doc.role_count||0);
+                                        if (issuesCountEl) issuesCountEl.textContent = runningIssues.toLocaleString();
+                                        if (rolesCountEl) rolesCountEl.textContent = runningRoles.toLocaleString();
+                                        addActivity('file_complete', doc.filename + ' — ' + (doc.issue_count||0) + ' issues, score ' + (doc.score||0) + '%');
+                                    }
+                                });
+                                since = d.total_documents_ready;
+                            }
+
+                            if (d.phase === 'complete' || d.phase === 'error') return d;
+
+                        } catch (pollError) {
+                            pollFailures++;
+                            console.warn('[TWR SP] Poll failure ' + pollFailures + '/' + MAX_POLL_FAILURES + ':', pollError);
+                            if (pollFailures >= MAX_POLL_FAILURES) throw new Error('Lost connection after ' + MAX_POLL_FAILURES + ' failures');
+                            pollDelay = Math.min(pollDelay * 2, 10000);
+                            if (queueStatus) queueStatus.textContent = 'Reconnecting... (attempt ' + pollFailures + ')';
+                        }
+
+                        await new Promise(r => setTimeout(r, pollDelay));
+                    }
+                };
+
+                var finalState = await pollLoop();
+
+                // Scan complete
+                clearInterval(elapsedInterval);
+                elapsedInterval = null;
+
+                if (finalState.phase === 'error') {
+                    updateProgress(Math.round(((finalState.processed + finalState.errors) / totalFiles) * 100), 'SharePoint Scan — Error');
+                    if (queueStatus) queueStatus.textContent = 'Error: ' + (finalState.error_message || 'Unknown error');
+                    if (progressEl) progressEl.classList.remove('scanning');
+                    addActivity('scan_error', finalState.error_message || 'Unknown error');
+                    window.showToast?.('SharePoint scan failed: ' + (finalState.error_message || 'Unknown error'), 'error');
+                } else {
+                    updateProgress(100, 'SharePoint Scan — Complete!');
+                    if (queueStatus) queueStatus.textContent = (finalState.summary ? finalState.summary.processed : finalState.processed) + ' documents processed';
+                    if (progressEl) progressEl.classList.remove('scanning');
+                    playCompletionSound();
+                    addActivity('scan_complete', 'Finished — ' + finalState.processed + ' documents, ' + runningIssues + ' issues');
+
+                    var totalIssues = (finalState.summary ? finalState.summary.total_issues : null) || runningIssues;
+                    window.showToast?.('SharePoint scan complete: ' + (finalState.processed + finalState.errors) + ' documents, ' + totalIssues + ' issues in ' + _formatTimeMs(Date.now() - startTime), 'success');
+
+                    var summary = finalState.summary || {};
+                    var grades = summary.grade_distribution || {};
+                    var summaryHtml = '<div class="folder-scan-stats" style="margin-top:12px;">';
+                    summaryHtml += '<div class="folder-scan-stat"><div class="folder-scan-stat-value">' + totalFiles + '</div><div class="folder-scan-stat-label">Discovered</div></div>';
+                    summaryHtml += '<div class="folder-scan-stat"><div class="folder-scan-stat-value">' + (summary.processed || finalState.processed || 0) + '</div><div class="folder-scan-stat-label">Scanned</div></div>';
+                    summaryHtml += '<div class="folder-scan-stat"><div class="folder-scan-stat-value">' + (summary.errors || finalState.errors || 0) + '</div><div class="folder-scan-stat-label">Errors</div></div>';
+                    summaryHtml += '<div class="folder-scan-stat"><div class="folder-scan-stat-value">' + totalIssues + '</div><div class="folder-scan-stat-label">Issues</div></div>';
+                    summaryHtml += '<div class="folder-scan-stat"><div class="folder-scan-stat-value">' + _formatTimeMs(Date.now() - startTime) + '</div><div class="folder-scan-stat-label">Time</div></div>';
+                    summaryHtml += '</div>';
+                    if (Object.keys(grades).length > 0) {
+                        summaryHtml += '<div style="margin-top:8px;"><strong style="font-size:12px;color:var(--text-muted);">Grade Distribution:</strong> ';
+                        Object.entries(grades).sort().forEach(([k,v]) => { summaryHtml += '<span style="margin-right:12px;font-size:13px;">' + k + ': <strong>' + v + '</strong></span>'; });
+                        summaryHtml += '</div>';
+                    }
+                    if (spFilePreview) { spFilePreview.innerHTML = summaryHtml; spFilePreview.classList.remove('hidden'); }
+                }
+
+            } catch (error) {
+                console.error('[TWR SP] SharePoint scan error:', error);
+                if (elapsedInterval) { clearInterval(elapsedInterval); elapsedInterval = null; }
+                if (progressEl) progressEl.classList.remove('scanning');
+                if (progressText) progressText.textContent = 'SharePoint Scan — Error';
+                if (queueStatus) queueStatus.textContent = 'Processing failed';
+                if (progressFill) {
+                    progressFill.style.background = 'linear-gradient(90deg, #c41e3a, #a01830, #c41e3a)';
+                    progressFill.style.boxShadow = '0 0 20px rgba(196, 30, 58, 0.6), 0 0 40px rgba(196, 30, 58, 0.4)';
+                }
+                addActivity('scan_error', error.message || 'Unknown error');
+                window.showToast?.('SharePoint scan failed: ' + (error.message || 'Unknown error'), 'error');
+            } finally {
+                if (elapsedInterval) clearInterval(elapsedInterval);
+
+                // Re-enable SP buttons
+                if (btnSpScan) { btnSpScan.disabled = false; btnSpScan.innerHTML = '<i data-lucide="scan-line"></i> Scan All'; }
+                if (btnSpDiscover) btnSpDiscover.disabled = false;
+                if (btnSpTest) btnSpTest.disabled = false;
+
+                // Restore hidden sections
+                var spInputSection2 = document.getElementById('sharepoint-scan-section');
+                if (spInputSection2) spInputSection2.style.display = '';
+                var folderSection2 = document.querySelector('.folder-scan-section');
+                if (folderSection2) folderSection2.style.display = '';
+                var batchFileList2 = document.getElementById('batch-file-list');
+                if (batchFileList2) batchFileList2.style.display = '';
+                var dropzone2 = document.getElementById('batch-dropzone');
+                if (dropzone2) dropzone2.style.display = '';
+                var spFileSel2 = document.getElementById('sp-file-selector');
+                if (spFileSel2) spFileSel2.style.display = '';
+
+                // Reset dashboard title for future batch use
+                var headerIcon2 = progressEl ? progressEl.querySelector('.bpd-header-icon i') : null;
+                var subtitle2 = progressEl ? progressEl.querySelector('.bpd-subtitle') : null;
+                if (headerIcon2) headerIcon2.setAttribute('data-lucide', 'layers');
+                if (progressText) progressText.textContent = 'Batch Analysis';
+                if (subtitle2) subtitle2.textContent = 'Processing documents through AEGIS quality engine';
+                if (progressFill) { progressFill.style.background = ''; progressFill.style.boxShadow = ''; }
+
+                window._spScanUsingBatchDash = false;
+                if (window.lucide) window.lucide.createIcons();
+            }
+        }
 
         /**
          * Render the file selector UI with checkboxes, filter chips, and scan button.
@@ -12086,16 +12554,10 @@ STEPS TO REPRODUCE
                         console.error('[AEGIS SP] ❌ btnSpScan is null! Cannot trigger cinematic dashboard.');
                     }
 
-                    // Auto-trigger the scan dashboard display (reuses existing polling handler)
-                    console.log('[AEGIS SP] Scheduling btnSpScan.click() in 300ms...');
-                    setTimeout(() => {
-                        if (btnSpScan) {
-                            console.log('[AEGIS SP] ▶ Triggering btnSpScan.click() NOW');
-                            btnSpScan.click(); // Triggers the existing scan polling handler
-                        } else {
-                            console.error('[AEGIS SP] ❌ btnSpScan gone before click timeout!');
-                        }
-                    }, 300);
+                    // v6.2.6: Call cinematic dashboard DIRECTLY instead of btnSpScan.click()
+                    // The .click() approach failed because disabled/hidden buttons don't reliably fire click events
+                    console.log('%c[AEGIS SP] ▶ Launching cinematic dashboard directly (v6.2.6)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
+                    _showSpCinematicDashboard(scanId, totalFiles, selectedFiles);
                 } else {
                     const errMsg = json.data?.message || json.error?.message || 'Failed to start scan';
                     window.showToast?.(errMsg, 'error');
@@ -12582,537 +13044,28 @@ STEPS TO REPRODUCE
             });
         }
 
-        // Scan All button — starts polling with CINEMATIC batch-progress dashboard
-        // v6.2.4: Rewired to use #batch-progress (proven cinematic dashboard) instead of #sp-scan-dashboard
+        // Scan All button — delegates to standalone cinematic dashboard function
+        // v6.2.6: Simplified to call _showSpCinematicDashboard() directly (no duplicate code)
         if (btnSpScan) {
             btnSpScan.addEventListener('click', async () => {
-                // v6.2.4-diag: Version marker — check from F12 console: window.__AEGIS_SP_CINEMATIC
-                window.__AEGIS_SP_CINEMATIC = '6.2.4-diag';
-
                 const scanId = btnSpScan.dataset.scanId;
                 const totalFiles = parseInt(btnSpScan.dataset.totalFiles || '0', 10);
 
-                console.log('%c[AEGIS SP CINEMATIC] ═══════════════════════════════════════', 'color:#D6A84A;font-weight:bold;font-size:14px;');
-                console.log('%c[AEGIS SP CINEMATIC] HANDLER FIRED! scanId=' + scanId + ' totalFiles=' + totalFiles, 'color:#D6A84A;font-weight:bold;font-size:14px;');
-                console.log('[AEGIS SP CINEMATIC] btnSpScan dataset:', JSON.stringify(btnSpScan.dataset));
-                console.log('%c[AEGIS SP CINEMATIC] ═══════════════════════════════════════', 'color:#D6A84A;font-weight:bold;font-size:14px;');
+                console.log('[AEGIS SP] Scan All button clicked. scanId=' + scanId + ' totalFiles=' + totalFiles);
 
                 if (!scanId) {
-                    console.warn('[AEGIS SP CINEMATIC] ⚠ No scanId on btnSpScan.dataset — returning early');
                     window.showToast?.('Please click Preview first to discover files', 'warning');
                     return;
                 }
 
-                // Disable SP buttons during scan
-                btnSpScan.disabled = true;
-                if (btnSpDiscover) btnSpDiscover.disabled = true;
-                if (btnSpTest) btnSpTest.disabled = true;
-                btnSpScan.innerHTML = '<i data-lucide="loader" class="spin"></i> Scanning...';
-                if (spFilePreview) spFilePreview.classList.add('hidden');
-
-                // v6.2.4: Flag so minimize/restore knows this is SP scan using batch dashboard
-                window._spScanUsingBatchDash = true;
-
-                // ── Get ALL cinematic dashboard elements (same IDs as batch scan) ──
-                const progressEl = document.getElementById('batch-progress');
-                const progressFill = document.getElementById('batch-progress-fill');
-                const progressText = document.getElementById('batch-progress-text');
-                const percentAnimated = document.getElementById('batch-percent-animated');
-                const docsComplete = document.getElementById('batch-docs-complete');
-                const docsTotal = document.getElementById('batch-docs-total');
-                const queueStatus = document.getElementById('batch-queue-status');
-                const docList = document.getElementById('batch-doc-list');
-                const elapsedTimeEl = document.getElementById('batch-elapsed-time');
-                const remainingTimeEl = document.getElementById('batch-remaining-time');
-                const speedEl = document.getElementById('batch-speed');
-                const soundToggle = document.getElementById('cinematic-sound-toggle');
-                const issuesCountEl = document.getElementById('batch-issues-count');
-                const rolesCountEl = document.getElementById('batch-roles-count');
-                const cancelBtn = document.getElementById('btn-cancel-batch');
-                const activityList = document.getElementById('batch-activity-list');
-                const activityCount = document.getElementById('batch-activity-count');
-                const chunkInfoEl = document.getElementById('batch-chunk-info');
-                const ecdLine = document.getElementById('batch-ecd-line');
-                const ecdText = document.getElementById('batch-ecd-text');
-                const sevStats = document.getElementById('batch-severity-stats');
-                const spGlowEl = document.getElementById('batch-progress-glow');
-
-                // ── Hide ALL sibling sections so dashboard is front and center ──
-                const spInputSection = document.getElementById('sharepoint-scan-section');
-                if (spInputSection) spInputSection.style.display = 'none';
-                const folderSection = document.querySelector('.folder-scan-section');
-                if (folderSection) folderSection.style.display = 'none';
-                const batchFileList = document.getElementById('batch-file-list');
-                if (batchFileList) batchFileList.style.display = 'none';
-                const dropzoneEl = document.getElementById('batch-dropzone');
-                if (dropzoneEl) dropzoneEl.style.display = 'none';
-                // Hide old simple SP dashboard (not used, safety cleanup)
-                const oldSpDash = document.getElementById('sp-scan-dashboard');
-                if (oldSpDash) { oldSpDash.classList.add('hidden'); oldSpDash.classList.remove('scanning'); }
-                // Hide file selector
-                const spFileSel = document.getElementById('sp-file-selector');
-                if (spFileSel) spFileSel.style.display = 'none';
-
-                // ── Set SharePoint-specific title & icon on the cinematic dashboard ──
-                const headerIcon = progressEl ? progressEl.querySelector('.bpd-header-icon i') : null;
-                const subtitleEl = progressEl ? progressEl.querySelector('.bpd-subtitle') : null;
-                if (headerIcon) headerIcon.setAttribute('data-lucide', 'cloud');
-                if (progressText) progressText.textContent = 'SharePoint Scan';
-                if (subtitleEl) subtitleEl.textContent = 'Downloading and analyzing documents from SharePoint';
-
-                // ── Reset dashboard to initial state ──
-                if (docsComplete) docsComplete.textContent = '0';
-                if (docsTotal) docsTotal.textContent = totalFiles;
-                if (percentAnimated) percentAnimated.textContent = '0%';
-                if (issuesCountEl) issuesCountEl.textContent = '0';
-                if (rolesCountEl) rolesCountEl.textContent = '0';
-                if (progressFill) { progressFill.style.width = '0%'; progressFill.style.background = ''; progressFill.style.boxShadow = ''; }
-                if (spGlowEl) spGlowEl.style.width = '0%';
-                if (elapsedTimeEl) elapsedTimeEl.textContent = '00:00';
-                if (remainingTimeEl) remainingTimeEl.textContent = '--:--';
-                if (speedEl) speedEl.textContent = '--';
-                if (chunkInfoEl) chunkInfoEl.textContent = '--';
-                if (queueStatus) queueStatus.textContent = 'Starting SharePoint scan...';
-                if (ecdLine) ecdLine.style.display = 'none';
-                if (activityList) activityList.innerHTML = '';
-                if (activityCount) activityCount.textContent = '0 events';
-                if (sevStats) sevStats.style.display = 'none';
-                if (docList) docList.innerHTML = '';
-
-                // Show the cinematic dashboard
-                console.log('[AEGIS SP CINEMATIC] About to show dashboard. progressEl found:', !!progressEl);
-                if (progressEl) {
-                    console.log('[AEGIS SP CINEMATIC] BEFORE: classes=' + progressEl.className + ', display=' + getComputedStyle(progressEl).display + ', offsetHeight=' + progressEl.offsetHeight);
-                    progressEl.classList.remove('hidden', 'bpd-complete');
-                    progressEl.classList.add('scanning');
-                    console.log('[AEGIS SP CINEMATIC] AFTER:  classes=' + progressEl.className + ', display=' + getComputedStyle(progressEl).display + ', offsetHeight=' + progressEl.offsetHeight);
-                } else {
-                    console.error('[AEGIS SP CINEMATIC] ❌ #batch-progress element NOT FOUND in DOM!');
-                }
-
-                // Show minimize button, hide cancel (no cancel endpoint for SP scans)
-                const minBtn = document.getElementById('btn-minimize-batch-modal');
-                if (minBtn) minBtn.style.display = '';
-                if (cancelBtn) cancelBtn.style.display = 'none';
-
-                if (window.lucide) window.lucide.createIcons();
-
-                // ── Sound toggle (reuses batch sound preference) ──
-                let soundEnabled = localStorage.getItem('batchSoundEnabled') !== 'false';
-                if (soundToggle) {
-                    const icon = soundToggle.querySelector('i');
-                    soundToggle.classList.toggle('muted', !soundEnabled);
-                    if (icon) icon.setAttribute('data-lucide', soundEnabled ? 'volume-2' : 'volume-x');
-                    soundToggle.onclick = () => {
-                        soundEnabled = !soundEnabled;
-                        localStorage.setItem('batchSoundEnabled', soundEnabled);
-                        soundToggle.classList.toggle('muted', !soundEnabled);
-                        const ico = soundToggle.querySelector('i');
-                        if (ico) {
-                            ico.setAttribute('data-lucide', soundEnabled ? 'volume-2' : 'volume-x');
-                            if (window.lucide) window.lucide.createIcons();
-                        }
-                    };
-                    if (window.lucide) window.lucide.createIcons();
-                }
-
-                // ── Client-side elapsed timer ──
-                const startTime = Date.now();
-                let elapsedInterval = setInterval(() => {
-                    if (elapsedTimeEl) elapsedTimeEl.textContent = _formatTimeMs(Date.now() - startTime);
-                }, 1000);
-
-                // ── Animated percentage counter ──
-                let currentPercent = 0;
-                let targetPercent = 0;
-                let percentAnimation = null;
-                const animatePercent = (target) => {
-                    targetPercent = target;
-                    if (percentAnimation) return;
-                    const animate = () => {
-                        if (currentPercent < targetPercent) {
-                            currentPercent = Math.min(currentPercent + 1, targetPercent);
-                            if (percentAnimated) {
-                                percentAnimated.textContent = currentPercent + '%';
-                                percentAnimated.classList.add('counting');
-                                setTimeout(() => percentAnimated.classList.remove('counting'), 100);
-                            }
-                            percentAnimation = requestAnimationFrame(animate);
-                        } else {
-                            percentAnimation = null;
-                        }
-                    };
-                    percentAnimation = requestAnimationFrame(animate);
-                };
-
-                // ── Completion sound ──
-                const playCompletionSound = () => {
-                    if (!soundEnabled) return;
-                    try {
-                        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                        const oscillator = audioCtx.createOscillator();
-                        const gainNode = audioCtx.createGain();
-                        oscillator.connect(gainNode);
-                        gainNode.connect(audioCtx.destination);
-                        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
-                        oscillator.frequency.setValueAtTime(1108.73, audioCtx.currentTime + 0.1);
-                        oscillator.frequency.setValueAtTime(1318.51, audioCtx.currentTime + 0.2);
-                        gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
-                        oscillator.start(audioCtx.currentTime);
-                        oscillator.stop(audioCtx.currentTime + 0.4);
-                    } catch (e) { /* silent */ }
-                };
-
-                // ── Progress bar updater ──
-                const updateProgress = (percent, text) => {
-                    if (progressFill) progressFill.style.width = percent + '%';
-                    if (spGlowEl) spGlowEl.style.width = percent + '%';
-                    if (text && progressText) progressText.textContent = text;
-                    animatePercent(Math.round(percent));
-                    if (percent >= 100) {
-                        if (remainingTimeEl) remainingTimeEl.textContent = '00:00';
-                        if (progressEl) progressEl.classList.add('bpd-complete');
-                    }
-                };
-
-                // ── Build filename→index lookup from stored discovery files ──
+                // Parse discovery files from dataset
                 let discoveryFiles = [];
                 try {
                     discoveryFiles = JSON.parse(btnSpScan.dataset.discoveryFiles || '[]');
                 } catch (e) { /* ignore */ }
 
-                const filenameToIndex = {};
-                const docStartTimes = {};
-
-                // Build initial document rows in the cinematic queue
-                if (docList && discoveryFiles.length > 0) {
-                    docList.innerHTML = discoveryFiles.map((f, i) => {
-                        const fname = f.filename || f.name;
-                        filenameToIndex[fname] = i;
-                        return `
-                            <div class="bpd-doc-row queued" id="batch-doc-${i}">
-                                <div class="bpd-doc-icon"><div class="bpd-pending-dot"></div></div>
-                                <div class="bpd-doc-content">
-                                    <div class="bpd-doc-name">${escapeHtml(fname)}</div>
-                                    <div class="bpd-doc-detail" id="batch-doc-meta-${i}">Queued — ${escapeHtml(f.relative_path || f.server_relative_url || '')}</div>
-                                </div>
-                                <div class="bpd-doc-bar" id="batch-doc-progress-${i}">
-                                    <div class="bpd-doc-bar-fill" id="batch-doc-fill-${i}" style="width:0%"></div>
-                                </div>
-                                <div class="bpd-doc-duration" id="batch-doc-duration-${i}"></div>
-                            </div>`;
-                    }).join('');
-                }
-                if (window.lucide) window.lucide.createIcons();
-
-                // Scroll dashboard into view after DOM settles
-                setTimeout(() => {
-                    if (progressEl) {
-                        console.log('[AEGIS SP CINEMATIC] Scrolling dashboard into view. offsetHeight=' + progressEl.offsetHeight + ' scrollHeight=' + progressEl.scrollHeight);
-                        progressEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
-                }, 300);
-
-                // ── Document row update helper ──
-                const updateDocRow = (index, status, meta, issues, progress) => {
-                    const row = document.getElementById('batch-doc-' + index);
-                    const metaEl = document.getElementById('batch-doc-meta-' + index);
-                    const fillEl = document.getElementById('batch-doc-fill-' + index);
-                    const durationEl = document.getElementById('batch-doc-duration-' + index);
-                    if (row) {
-                        row.className = 'bpd-doc-row ' + status;
-                        const iconDiv = row.querySelector('.bpd-doc-icon');
-                        if (iconDiv) {
-                            if (status === 'processing') {
-                                if (!docStartTimes[index]) docStartTimes[index] = Date.now();
-                                iconDiv.innerHTML = '<div class="bpd-spinner"></div>';
-                                row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                            } else if (status === 'complete') {
-                                iconDiv.innerHTML = '<div class="bpd-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg></div>';
-                                if (durationEl && docStartTimes[index]) {
-                                    durationEl.textContent = ((Date.now() - docStartTimes[index]) / 1000).toFixed(1) + 's';
-                                }
-                            } else if (status === 'error') {
-                                iconDiv.innerHTML = '<div class="bpd-error-icon"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></div>';
-                            }
-                        }
-                    }
-                    if (metaEl) {
-                        metaEl.textContent = (status === 'complete' && issues !== null && issues !== undefined)
-                            ? (meta || ('Complete — ' + issues + ' issues found'))
-                            : meta;
-                    }
-                    if (fillEl) fillEl.style.width = (progress || 0) + '%';
-                };
-
-                // ── Running totals + Activity log (synthesized client-side) ──
-                let runningIssues = 0;
-                let runningRoles = 0;
-                let activityEntries = [];
-                const addActivity = (event, message) => {
-                    const ts = new Date().toTimeString().split(' ')[0];
-                    activityEntries.push({ ts: ts, event: event, message: message });
-                    if (activityEntries.length > 50) activityEntries = activityEntries.slice(-50);
-                    if (activityList) {
-                        activityList.innerHTML = activityEntries.map(function(e) {
-                            return '<div class="bpd-activity-entry" data-event="' + e.event + '">'
-                                + '<span class="bpd-activity-time">' + e.ts + '</span>'
-                                + '<span class="bpd-activity-event">' + e.event + '</span>'
-                                + '<span class="bpd-activity-msg">' + e.message + '</span>'
-                                + '</div>';
-                        }).join('');
-                        activityList.scrollTop = activityList.scrollHeight;
-                    }
-                    if (activityCount) activityCount.textContent = activityEntries.length + ' events';
-                };
-
-                addActivity('scan_start', 'SharePoint scan started — ' + totalFiles + ' documents');
-
-                // ── Async polling loop (matches proven batch scan pattern) ──
-                let since = 0;
-                let pollFailures = 0;
-                let pollDelay = 2000;
-                const MAX_POLL_FAILURES = 10;
-                const processedDocs = new Set();
-
-                try {
-                    const pollLoop = async () => {
-                        while (true) {
-                            try {
-                                const resp = await fetch('/api/review/folder-scan-progress/' + scanId + '?since=' + since);
-                                if (!resp.ok) throw new Error('HTTP ' + resp.status);
-                                const json = await resp.json();
-                                if (!json.success) throw new Error(json.error ? (json.error.message || 'Progress fetch failed') : 'Progress fetch failed');
-
-                                pollFailures = 0;
-                                pollDelay = 2000;
-
-                                const d = json.data;
-                                const totalDone = d.processed + d.errors;
-                                const pct = totalFiles > 0 ? Math.round((totalDone / totalFiles) * 100) : 0;
-
-                                // Update main progress
-                                updateProgress(pct, 'SharePoint Scan — ' + totalDone + ' of ' + totalFiles);
-                                if (docsComplete) docsComplete.textContent = totalDone;
-
-                                // Queue status with chunk info
-                                if (d.current_chunk && d.total_chunks) {
-                                    if (queueStatus) queueStatus.textContent = 'Chunk ' + d.current_chunk + '/' + d.total_chunks + ' • ' + d.processed + ' complete, ' + d.errors + ' errors';
-                                    if (chunkInfoEl) chunkInfoEl.textContent = d.current_chunk + '/' + d.total_chunks;
-                                }
-
-                                // Remaining time + ECD
-                                if (d.estimated_remaining && d.estimated_remaining > 0) {
-                                    if (remainingTimeEl) remainingTimeEl.textContent = _formatTimeMs(d.estimated_remaining * 1000);
-                                    if (ecdLine && ecdText) {
-                                        var ecdDate = new Date(Date.now() + d.estimated_remaining * 1000);
-                                        var ecdTimeStr = ecdDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                                        ecdText.textContent = '~' + _formatTimeMs(d.estimated_remaining * 1000) + ' remaining • Est. completion: ' + ecdTimeStr;
-                                        ecdLine.style.display = '';
-                                    }
-                                }
-
-                                // Speed calculation
-                                if (d.elapsed_seconds > 0 && d.processed > 0 && speedEl) {
-                                    speedEl.textContent = (d.processed / (d.elapsed_seconds / 60)).toFixed(1) + ' docs/min';
-                                }
-
-                                // Severity stats (if available)
-                                if (d.summary && d.summary.issues_by_severity && sevStats) {
-                                    sevStats.style.display = '';
-                                    var sev = d.summary.issues_by_severity;
-                                    var sevIds = ['batch-sev-critical', 'batch-sev-high', 'batch-sev-medium', 'batch-sev-low', 'batch-sev-info'];
-                                    var sevKeys = ['Critical', 'High', 'Medium', 'Low', 'Info'];
-                                    var sevLabels = ['C', 'H', 'M', 'L', 'I'];
-                                    sevIds.forEach(function(id, i) {
-                                        var el = document.getElementById(id);
-                                        if (el) el.textContent = sevLabels[i] + ': ' + (sev[sevKeys[i]] || 0);
-                                    });
-                                }
-
-                                // Activity log from server (if available)
-                                if (d.activity_log && d.activity_log.length > 0 && activityList) {
-                                    if (d.activity_log.length !== activityEntries.length) {
-                                        activityEntries = [];
-                                        d.activity_log.slice(-50).forEach(function(entry) {
-                                            var ts2 = entry.timestamp ? entry.timestamp.split(' ').pop().split('.')[0] : '';
-                                            activityEntries.push({ ts: ts2, event: entry.event || '', message: entry.message || '' });
-                                        });
-                                        if (activityList) {
-                                            activityList.innerHTML = activityEntries.map(function(e) {
-                                                return '<div class="bpd-activity-entry" data-event="' + e.event + '">'
-                                                    + '<span class="bpd-activity-time">' + e.ts + '</span>'
-                                                    + '<span class="bpd-activity-event">' + e.event + '</span>'
-                                                    + '<span class="bpd-activity-msg">' + e.message + '</span>'
-                                                    + '</div>';
-                                            }).join('');
-                                            activityList.scrollTop = activityList.scrollHeight;
-                                        }
-                                        if (activityCount) activityCount.textContent = activityEntries.length + ' events';
-                                    }
-                                }
-
-                                // Mark currently processing files (folder-scan uses current_file string)
-                                if (d.current_file && d.phase === 'reviewing') {
-                                    var names = d.current_file.split(', ');
-                                    names.forEach(function(name) {
-                                        var trimmed = name.trim();
-                                        var idx = filenameToIndex[trimmed];
-                                        if (idx !== undefined && !processedDocs.has(trimmed)) {
-                                            var row = document.getElementById('batch-doc-' + idx);
-                                            if (row && !row.classList.contains('complete') && !row.classList.contains('error')) {
-                                                updateDocRow(idx, 'processing', 'Downloading & analyzing...', null, 50);
-                                            }
-                                        }
-                                    });
-                                }
-
-                                // Process newly completed documents
-                                if (d.documents && d.documents.length > 0) {
-                                    d.documents.forEach(function(doc) {
-                                        if (processedDocs.has(doc.filename)) return;
-                                        processedDocs.add(doc.filename);
-                                        var idx = filenameToIndex[doc.filename];
-                                        if (idx === undefined) return;
-
-                                        if (doc.status === 'error') {
-                                            updateDocRow(idx, 'error', 'Error: ' + (doc.error || 'Unknown'), null, 100);
-                                            addActivity('file_error', doc.filename + ' — ' + (doc.error || 'Unknown'));
-                                        } else {
-                                            var words = (doc.word_count || 0).toLocaleString();
-                                            var issues = doc.issue_count || 0;
-                                            var roles = doc.role_count || 0;
-                                            var score = doc.score || 0;
-                                            var metaLine = words + ' words • ' + issues + ' issues • ' + roles + ' roles • Score: ' + score + '%';
-                                            updateDocRow(idx, 'complete', metaLine, issues, 100);
-
-                                            runningIssues += issues;
-                                            runningRoles += roles;
-                                            if (issuesCountEl) issuesCountEl.textContent = runningIssues.toLocaleString();
-                                            if (rolesCountEl) rolesCountEl.textContent = runningRoles.toLocaleString();
-                                            addActivity('file_complete', doc.filename + ' — ' + issues + ' issues, score ' + score + '%');
-                                        }
-                                    });
-                                    since = d.total_documents_ready;
-                                }
-
-                                // Check terminal states
-                                if (d.phase === 'complete' || d.phase === 'error') {
-                                    return d;
-                                }
-
-                            } catch (pollError) {
-                                pollFailures++;
-                                console.warn('[TWR SP] Poll failure ' + pollFailures + '/' + MAX_POLL_FAILURES + ':', pollError);
-                                if (pollFailures >= MAX_POLL_FAILURES) {
-                                    throw new Error('Lost connection to SharePoint scan after ' + MAX_POLL_FAILURES + ' failures');
-                                }
-                                pollDelay = Math.min(pollDelay * 2, 10000);
-                                if (queueStatus) queueStatus.textContent = 'Reconnecting... (attempt ' + pollFailures + ')';
-                            }
-
-                            await new Promise(function(r) { setTimeout(r, pollDelay); });
-                        }
-                    };
-
-                    var finalState = await pollLoop();
-
-                    // ── Scan complete ──
-                    clearInterval(elapsedInterval);
-                    elapsedInterval = null;
-
-                    if (finalState.phase === 'error') {
-                        updateProgress(
-                            Math.round(((finalState.processed + finalState.errors) / totalFiles) * 100),
-                            'SharePoint Scan — Error'
-                        );
-                        if (queueStatus) queueStatus.textContent = 'Error: ' + (finalState.error_message || 'Unknown error');
-                        if (progressEl) progressEl.classList.remove('scanning');
-                        addActivity('scan_error', finalState.error_message || 'Unknown error');
-                        window.showToast?.('SharePoint scan failed: ' + (finalState.error_message || 'Unknown error'), 'error');
-                    } else {
-                        updateProgress(100, 'SharePoint Scan — Complete!');
-                        if (queueStatus) queueStatus.textContent = (finalState.summary ? finalState.summary.processed : finalState.processed) + ' documents processed';
-                        if (progressEl) progressEl.classList.remove('scanning');
-                        playCompletionSound();
-                        addActivity('scan_complete', 'Finished — ' + finalState.processed + ' documents, ' + runningIssues + ' issues');
-
-                        var done = finalState.processed + finalState.errors;
-                        var totalIssues = (finalState.summary ? finalState.summary.total_issues : null) || runningIssues;
-                        var msg = 'SharePoint scan complete: ' + done + ' documents, ' + totalIssues + ' issues in ' + _formatTimeMs(Date.now() - startTime);
-                        window.showToast?.(msg, 'success');
-
-                        // Show summary in the SP file preview area
-                        var summary = finalState.summary || {};
-                        var grades = summary.grade_distribution || {};
-                        var summaryHtml = '<div class="folder-scan-stats" style="margin-top:12px;">';
-                        summaryHtml += '<div class="folder-scan-stat"><div class="folder-scan-stat-value">' + totalFiles + '</div><div class="folder-scan-stat-label">Discovered</div></div>';
-                        summaryHtml += '<div class="folder-scan-stat"><div class="folder-scan-stat-value">' + (summary.processed || finalState.processed || 0) + '</div><div class="folder-scan-stat-label">Scanned</div></div>';
-                        summaryHtml += '<div class="folder-scan-stat"><div class="folder-scan-stat-value">' + (summary.errors || finalState.errors || 0) + '</div><div class="folder-scan-stat-label">Errors</div></div>';
-                        summaryHtml += '<div class="folder-scan-stat"><div class="folder-scan-stat-value">' + totalIssues + '</div><div class="folder-scan-stat-label">Issues</div></div>';
-                        summaryHtml += '<div class="folder-scan-stat"><div class="folder-scan-stat-value">' + _formatTimeMs(Date.now() - startTime) + '</div><div class="folder-scan-stat-label">Time</div></div>';
-                        summaryHtml += '</div>';
-                        if (Object.keys(grades).length > 0) {
-                            summaryHtml += '<div style="margin-top:8px;"><strong style="font-size:12px;color:var(--text-muted);">Grade Distribution:</strong> ';
-                            Object.entries(grades).sort().forEach(function(pair) {
-                                summaryHtml += '<span style="margin-right:12px;font-size:13px;">' + pair[0] + ': <strong>' + pair[1] + '</strong></span>';
-                            });
-                            summaryHtml += '</div>';
-                        }
-                        if (spFilePreview) {
-                            spFilePreview.innerHTML = summaryHtml;
-                            spFilePreview.classList.remove('hidden');
-                        }
-                    }
-
-                } catch (error) {
-                    console.error('[TWR SP] SharePoint scan error:', error);
-                    if (elapsedInterval) { clearInterval(elapsedInterval); elapsedInterval = null; }
-                    if (progressEl) progressEl.classList.remove('scanning');
-                    if (progressText) progressText.textContent = 'SharePoint Scan — Error';
-                    if (queueStatus) queueStatus.textContent = 'Processing failed';
-                    if (progressFill) {
-                        progressFill.style.background = 'linear-gradient(90deg, #c41e3a, #a01830, #c41e3a)';
-                        progressFill.style.boxShadow = '0 0 20px rgba(196, 30, 58, 0.6), 0 0 40px rgba(196, 30, 58, 0.4)';
-                    }
-                    addActivity('scan_error', error.message || 'Unknown error');
-                    window.showToast?.('SharePoint scan failed: ' + (error.message || 'Unknown error'), 'error');
-                } finally {
-                    // ── Cleanup and restore ──
-                    if (elapsedInterval) clearInterval(elapsedInterval);
-
-                    // Re-enable SP buttons
-                    btnSpScan.disabled = false;
-                    if (btnSpDiscover) btnSpDiscover.disabled = false;
-                    if (btnSpTest) btnSpTest.disabled = false;
-                    btnSpScan.innerHTML = '<i data-lucide="scan-line"></i> Scan All';
-
-                    // Restore hidden sections for future use
-                    var spInputSection2 = document.getElementById('sharepoint-scan-section');
-                    if (spInputSection2) spInputSection2.style.display = '';
-                    var folderSection2 = document.querySelector('.folder-scan-section');
-                    if (folderSection2) folderSection2.style.display = '';
-                    var batchFileList2 = document.getElementById('batch-file-list');
-                    if (batchFileList2) batchFileList2.style.display = '';
-                    var dropzone2 = document.getElementById('batch-dropzone');
-                    if (dropzone2) dropzone2.style.display = '';
-                    var spFileSel2 = document.getElementById('sp-file-selector');
-                    if (spFileSel2) spFileSel2.style.display = '';
-
-                    // Reset dashboard title/icon/subtitle for future batch use
-                    var headerIcon2 = progressEl ? progressEl.querySelector('.bpd-header-icon i') : null;
-                    var subtitle2 = progressEl ? progressEl.querySelector('.bpd-subtitle') : null;
-                    if (headerIcon2) headerIcon2.setAttribute('data-lucide', 'layers');
-                    if (progressText) progressText.textContent = 'Batch Analysis';
-                    if (subtitle2) subtitle2.textContent = 'Processing documents through AEGIS quality engine';
-                    if (progressFill) { progressFill.style.background = ''; progressFill.style.boxShadow = ''; }
-
-                    // Clear SP flag
-                    window._spScanUsingBatchDash = false;
-
-                    if (window.lucide) window.lucide.createIcons();
-                }
+                // v6.2.6: Call standalone dashboard function directly
+                await _showSpCinematicDashboard(scanId, totalFiles, discoveryFiles);
             });
         }
 

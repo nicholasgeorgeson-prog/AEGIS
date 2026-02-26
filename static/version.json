@@ -1,13 +1,23 @@
 {
-  "version": "6.2.5",
+  "version": "6.2.6",
   "release_date": "2026-02-26",
-  "core_version": "6.2.5",
+  "core_version": "6.2.6",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.2.6",
+      "date": "2026-02-26",
+      "changes": [
+        "FIX: SP scan cinematic dashboard now launches DIRECTLY from _startSPSelectedScan() — eliminates unreliable btnSpScan.click() indirection that caused dashboard to never appear",
+        "FIX: Extracted all cinematic dashboard logic into standalone _showSpCinematicDashboard() function callable from any code path",
+        "FIX: Version marker window.__AEGIS_SP_CINEMATIC now set at TOP LEVEL on page load (was inside click handler, only set on click)",
+        "FIX: Old btnSpScan click handler simplified to delegate to standalone function — zero duplicate code"
+      ]
+    },
     {
       "version": "6.2.5",
       "date": "2026-02-26",
