@@ -2,8 +2,10 @@
 """
 AEGIS v6.2.4 — Quick Patch: SP Scan Progress Dashboard Visibility Fix
 
-Downloads: static/js/app.js
-- Hides SP input sections when scan starts so progress dashboard is visible
+Downloads: templates/index.html, static/js/app.js
+- Moves SP scan dashboard outside sharepoint-scan-section in HTML
+  (was nested inside — hiding parent hid the dashboard too)
+- Hides SP input sections when scan starts so dashboard is front and center
 - Scrolls dashboard into view automatically
 - Restores input sections when scan completes
 """
@@ -18,7 +20,8 @@ from datetime import datetime
 GITHUB_RAW = 'https://raw.githubusercontent.com/nicholasgeorgeson-prog/AEGIS/main'
 
 FILES = {
-    'static/js/app.js': 'SP scan progress dashboard visibility fix',
+    'templates/index.html': 'Move SP dashboard outside sharepoint-scan-section',
+    'static/js/app.js': 'Hide SP inputs + scroll dashboard into view on scan start',
 }
 
 def make_ssl_context():
@@ -88,8 +91,8 @@ def main():
     print('=' * 60)
     print(f'  Done! {success}/{len(FILES)} files updated.')
     print()
-    print('  Next step: Refresh the browser (Ctrl+Shift+R)')
-    print('  No server restart needed — JS changes are picked up on refresh.')
+    print('  Next step: Restart the server and refresh the browser (Ctrl+Shift+R)')
+    print('  Server restart IS needed — HTML template changes require restart.')
     print('=' * 60)
 
 if __name__ == '__main__':
