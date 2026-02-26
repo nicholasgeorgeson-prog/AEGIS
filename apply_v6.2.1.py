@@ -217,41 +217,72 @@ REQUIRED_DIRS = [
 ]
 
 
-def get_ssl_context():
-    """Create SSL context with fallback for certificate issues."""
-    try:
-        import certifi
-        return ssl.create_default_context(cafile=certifi.where())
-    except ImportError:
-        pass
-
+def _make_no_verify_ctx():
+    """Create SSL context that skips certificate verification."""
     ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+
+
+def download_file(url, dest_path, _unused=None):
+    """Download a file from URL to dest_path. Tries multiple SSL strategies."""
+    headers = {"User-Agent": "AEGIS-Updater/6.2.1"}
+
+    # Strategy 1: Try with default SSL (system certs)
+    strategies = []
     try:
-        ctx.load_default_certs()
+        strategies.append(("default", ssl.create_default_context()))
     except Exception:
         pass
 
-    # Fallback: disable verification (corporate networks)
-    ctx_no_verify = ssl.create_default_context()
-    ctx_no_verify.check_hostname = False
-    ctx_no_verify.verify_mode = ssl.CERT_NONE
-    return ctx_no_verify
-
-
-def download_file(url, dest_path, ssl_ctx):
-    """Download a file from URL to dest_path."""
+    # Strategy 2: Try with certifi if available
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "AEGIS-Updater/6.2.1"})
-        with urllib.request.urlopen(req, context=ssl_ctx, timeout=30) as resp:
-            content = resp.read()
+        import certifi
+        strategies.append(("certifi", ssl.create_default_context(cafile=certifi.where())))
+    except Exception:
+        pass
 
-        os.makedirs(os.path.dirname(dest_path) or '.', exist_ok=True)
-        with open(dest_path, 'wb') as f:
-            f.write(content)
-        return True
-    except Exception as e:
-        print(f"  [FAIL] {e}")
-        return False
+    # Strategy 3: No verification (always available as fallback)
+    strategies.append(("no-verify", _make_no_verify_ctx()))
+
+    for name, ctx in strategies:
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, context=ctx, timeout=30) as resp:
+                content = resp.read()
+
+            os.makedirs(os.path.dirname(dest_path) or '.', exist_ok=True)
+            with open(dest_path, 'wb') as f:
+                f.write(content)
+            return True
+        except ssl.SSLError:
+            continue  # Try next strategy
+        except ssl.SSLCertVerificationError:
+            continue  # Try next strategy
+        except urllib.error.URLError as e:
+            if "CERTIFICATE_VERIFY_FAILED" in str(e) or "SSL" in str(e).upper():
+                continue  # Try next strategy
+            print(f"  [FAIL] {e}")
+            return False
+        except Exception as e:
+            print(f"  [FAIL] {e}")
+            return False
+
+    # All SSL strategies failed — try curl as last resort
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["curl", "-sL", "-o", dest_path, "--create-dirs", url],
+            capture_output=True, text=True, timeout=30
+        )
+        if result.returncode == 0 and os.path.exists(dest_path) and os.path.getsize(dest_path) > 0:
+            return True
+    except Exception:
+        pass
+
+    print(f"  [FAIL] All download strategies failed (SSL cert issue)")
+    return False
 
 
 def backup_file(filepath):
@@ -345,13 +376,8 @@ def main():
         os.makedirs(dir_path, exist_ok=True)
     print("  [OK] All directories verified")
 
-    # Step 3: Create SSL context
-    print("\n[Step 3] Setting up secure connection...")
-    ssl_ctx = get_ssl_context()
-    print("  [OK] SSL context ready")
-
-    # Step 4: Download files
-    print(f"\n[Step 4] Downloading {len(FILES)} files from GitHub...")
+    # Step 3: Download files
+    print(f"\n[Step 3] Downloading {len(FILES)} files from GitHub...")
     print("  This may take a few minutes...\n")
     success_count = 0
     fail_count = 0
@@ -368,7 +394,7 @@ def main():
         # Backup existing file
         backup = backup_file(local_path)
 
-        if download_file(url, local_path, ssl_ctx):
+        if download_file(url, local_path):
             print("[OK]")
             success_count += 1
             if is_new:
@@ -380,12 +406,12 @@ def main():
                 shutil.copy2(backup, local_path)
                 print(f"  [RESTORED] Original file restored from backup")
 
-    # Step 5: Ensure __init__.py files exist
-    print("\n[Step 5] Checking package init files...")
+    # Step 4: Ensure __init__.py files exist
+    print("\n[Step 4] Checking package init files...")
     ensure_init_files()
     print("  [OK] Package structure verified")
 
-    # Step 6: Summary
+    # Step 5: Summary
     print(f"""
 +============================================================+
 |                    Update Summary                            |
