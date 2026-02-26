@@ -171,6 +171,20 @@ def upload_proposals():
                 # Store the server-side file path so doc viewer can serve it
                 data_dict['_server_file'] = safe_name
 
+                # v6.2.0: Generate html_preview for DOCX files (mammoth HTML)
+                # This enables rich document rendering in the review phase viewer
+                if ext == '.docx' and not data_dict.get('html_preview'):
+                    try:
+                        import mammoth
+                        with open(temp_path, 'rb') as docx_f:
+                            html_result = mammoth.convert_to_html(docx_f)
+                        data_dict['html_preview'] = html_result.value
+                        logger.info(f'Generated html_preview for {f.filename} ({len(html_result.value)} chars)')
+                    except ImportError:
+                        logger.debug('mammoth not available — DOCX html_preview skipped')
+                    except Exception as html_err:
+                        logger.debug(f'html_preview generation failed for {f.filename}: {html_err}')
+
                 # Auto-add to project if specified
                 db_id = None
                 if project_id:
