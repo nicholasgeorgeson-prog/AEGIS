@@ -1,13 +1,23 @@
 {
-  "version": "6.2.4",
+  "version": "6.2.5",
   "release_date": "2026-02-26",
-  "core_version": "6.2.4",
+  "core_version": "6.2.5",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.2.5",
+      "date": "2026-02-26",
+      "changes": [
+        "FIX: Apply script now retries large file downloads (3 attempts, 120s timeout) — fixes app.js failing to download on corporate networks while small files succeed",
+        "FIX: Apply script verifies downloaded file sizes and warns if app.js is suspiciously small (< 100KB)",
+        "ENH: Comprehensive diagnostic logging added throughout SP scan chain — check F12 console for [AEGIS SP] messages to trace exact flow",
+        "ENH: Version marker window.__AEGIS_SP_CINEMATIC verifiable from F12 console to confirm JS file updated"
+      ]
+    },
     {
       "version": "6.2.4",
       "date": "2026-02-26",
