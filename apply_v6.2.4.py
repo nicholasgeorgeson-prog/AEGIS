@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 """
-AEGIS v6.2.4 — Quick Patch: SP Scan Progress Dashboard Visibility Fix
+AEGIS v6.2.4 — SP Scan Progress Dashboard Visibility Fix (v3)
 
-Downloads: templates/index.html, static/js/app.js
-- Moves SP scan dashboard outside sharepoint-scan-section in HTML
-  (was nested inside — hiding parent hid the dashboard too)
-- Hides SP input sections when scan starts so dashboard is front and center
-- Scrolls dashboard into view automatically
-- Restores input sections when scan completes
+Root cause: The batch-dropzone (file upload area, ~180px tall) was never hidden
+when SP scan starts. It pushed the dashboard below the visible area of the modal.
+The user had to scroll down to see the dashboard — it appeared like nothing happened.
+
+Fix:
+- Hides #batch-dropzone when SP scan starts (same as other sibling sections)
+- Moves scrollIntoView to AFTER doc rows are built (more reliable timing)
+- Restores dropzone when scan completes
+- HTML fix from v3 already correct (dashboard outside sharepoint-scan-section)
+
+Downloads: static/js/app.js only (JS changes don't need server restart)
 """
 
 import os
@@ -20,8 +25,7 @@ from datetime import datetime
 GITHUB_RAW = 'https://raw.githubusercontent.com/nicholasgeorgeson-prog/AEGIS/main'
 
 FILES = {
-    'templates/index.html': 'Move SP dashboard outside sharepoint-scan-section',
-    'static/js/app.js': 'Hide SP inputs + scroll dashboard into view on scan start',
+    'static/js/app.js': 'Hide dropzone during SP scan so dashboard is visible above the fold',
 }
 
 def make_ssl_context():
@@ -50,7 +54,8 @@ def download_file(url, dest, ssl_ctx):
 
 def main():
     print('=' * 60)
-    print('  AEGIS v6.2.4 — SP Scan Progress Dashboard Fix')
+    print('  AEGIS v6.2.4 — SP Scan Dashboard Fix (v3)')
+    print('  Hides dropzone so dashboard is visible immediately')
     print('=' * 60)
     print()
 
@@ -62,7 +67,7 @@ def main():
 
     ssl_ctx = make_ssl_context()
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    backup_dir = os.path.join('backups', f'pre_v6.2.4_{timestamp}')
+    backup_dir = os.path.join('backups', f'pre_v6.2.4v3_{timestamp}')
 
     print(f'[Step 1] Backing up files to {backup_dir}/')
     for rel_path in FILES:
@@ -75,7 +80,7 @@ def main():
             print(f'  [SKIP] {rel_path} (not found, will be created)')
     print()
 
-    print('[Step 2] Downloading updated files from GitHub...')
+    print('[Step 2] Downloading updated app.js from GitHub...')
     success = 0
     for rel_path, desc in FILES.items():
         url = f'{GITHUB_RAW}/{rel_path}'
@@ -91,8 +96,8 @@ def main():
     print('=' * 60)
     print(f'  Done! {success}/{len(FILES)} files updated.')
     print()
-    print('  Next step: Restart the server and refresh the browser (Ctrl+Shift+R)')
-    print('  Server restart IS needed — HTML template changes require restart.')
+    print('  Next step: Hard refresh the browser (Ctrl+Shift+R)')
+    print('  NO server restart needed — this is a JS-only change.')
     print('=' * 60)
 
 if __name__ == '__main__':
