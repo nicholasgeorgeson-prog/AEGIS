@@ -167,7 +167,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 6.2.0
+- **Current version**: 6.2.1
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -1398,7 +1398,7 @@ The `decodedUrl` parameter **auto-decodes** percent-encoded values before using 
 **Lesson**: For headless browser Windows SSO authentication, ALL THREE conditions must be met: (1) Use a full browser binary (Edge/Chrome new headless mode), NOT chrome-headless-shell. (2) Use `launchPersistentContext()` with a `user_data_dir`, NOT `launch()` + `new_context()` — the latter creates incognito-like contexts where ambient auth is disabled. (3) Include `--enable-features=EnableAmbientAuthenticationInIncognito` for safety. Also include identity provider domains (`*.microsoftonline.com`, `*.microsoftonline.us`, `*.windows.net`, `*.adfs.*`) in `--auth-server-allowlist` — the Kerberos challenge happens on the IdP, not the target site.
 
 ### 151. Version Management Update
-- **Current version**: 6.2.0
+- **Current version**: 6.2.1
 
 ### 152. Diagnostic-First Approach for Remote Environment Debugging (v6.1.7)
 **Problem**: HeadlessSPConnector v6.1.6 authenticated successfully (SSO works) but returned zero documents from the `T&E` library path. Without logs from the Windows machine, the exact failure point was unknown.
@@ -1508,6 +1508,18 @@ def progress_cb(phase, progress, message):
 3. Forward-slash normalization: `folder_path_str.replace('/', '\\')`
 4. UNC-specific error message when `Path(path).exists()` fails
 **Lesson**: When adding network path support, always add a platform check. UNC paths only work natively on Windows with domain credentials. On Mac/Linux, the equivalent is mounting the share first and using the local mount path. The forward-slash normalization handles copy-paste from URLs or mixed environments.
+
+### 162. D3.js Graph Scaling — Data-Driven Radius and Force Parameters (v6.2.1)
+**Problem**: Relationship Graph (both Edge Bundling and Force-Directed views) was compact and hard to read with large datasets (100+ nodes, 600+ links). The circle radius was hardcoded and force parameters didn't scale.
+**Root Cause**: HEB circle used a fixed radius that didn't account for the number of nodes. Force-Directed view used static `distance`, `charge`, and `collision` parameters regardless of graph size.
+**Fix**: (1) HEB: Dynamic radius calculation using `leafCount * 24 / (2 * Math.PI)` with minimum of 400. Auto-fit zoom via `Math.min(containerWidth / svgWidth, containerHeight / svgHeight)` when SVG exceeds container. (2) Force-Directed: Parameters scale with node count — `scaledDistance = Math.max(80, 100 + nodeCount * 0.8)`, `scaledCharge = Math.min(-50, -30 - nodeCount * 0.5)`, `scaledCollision = Math.max(25, 30 + nodeCount * 0.3)`.
+**Files**: `static/js/features/roles.js`
+**Lesson**: D3.js graph visualizations MUST scale parameters with data size. For radial layouts (HEB), compute radius from node count to ensure readable spacing. For force simulations, scale repulsion and distance parameters — static values only work for one data size. Always test with both small (10 nodes) and large (100+ nodes) datasets.
+
+### 163. html_preview API Default Value — Numeric vs String Type Mismatch (v6.2.1)
+**Problem**: `review_routes.py` response builder used `results.get('html_preview', 0)` — a numeric default for a string field. While JavaScript's falsy check treats both `0` and `''` as falsy so rendering wasn't affected, this was a type inconsistency.
+**Fix**: Changed both instances (line 3207 and 3685) from `results.get('html_preview', 0)` to `results.get('html_preview', '')`.
+**Lesson**: Default values in `dict.get()` should match the expected type of the field. String fields should default to `''`, not `0`. While JavaScript's loose truthiness makes this a non-functional bug, strict type checking (TypeScript, Pydantic models) would catch this.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

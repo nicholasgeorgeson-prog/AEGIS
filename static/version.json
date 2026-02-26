@@ -1,13 +1,26 @@
 {
-  "version": "6.2.0",
-  "release_date": "2026-02-25",
-  "core_version": "6.2.0",
+  "version": "6.2.1",
+  "release_date": "2026-02-26",
+  "core_version": "6.2.1",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.2.1",
+      "date": "2026-02-26",
+      "changes": [
+        "FIX: Relationship Graph Edge Bundling view — circle radius now scales dynamically based on data size using leafCount * 24 / (2π) formula with auto-fit zoom when SVG exceeds container bounds. Previously compact and hard to read with large datasets",
+        "FIX: Relationship Graph Force-Directed view — distance, charge, and collision parameters now scale with node count for better distribution with large datasets",
+        "ENH: Responsive CSS breakpoints added to 7 feature CSS files — metrics-analytics, landing-page, hyperlink-enhanced, settings, export-suite, guide-system, modals now support 1366px/1280px/1024px/768px standard breakpoints",
+        "FIX: Modal max-width changed from fixed 1100px to min(95vw, 1100px) preventing horizontal overflow on smaller screens",
+        "FIX: html_preview default value in review API response changed from 0 (numeric) to '' (empty string) for semantic consistency",
+        "VERIFIED: Document rendering pipeline — HTML highlighting confirmed working in all 4 review locations (Document Review, Statement History, Proposal Compare, Batch Results) for both DOCX (mammoth HTML) and PDF (pymupdf4llm HTML)",
+        "VERIFIED: Fix Assistant export pipeline — 100% accuracy confirmed for both Owner mode (Track Changes + margin comments) and Reviewer mode (comments only, no text changes). Deduplication logic verified correct"
+      ]
+    },
     {
       "version": "6.2.0",
       "date": "2026-02-25",
