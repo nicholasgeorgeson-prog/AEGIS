@@ -51,6 +51,7 @@ except ImportError:
 # Windows SSO authentication support (v6.2.0: via unified auth_service)
 WINDOWS_AUTH_AVAILABLE = False
 HttpNegotiateAuth = None
+_chc_auth_service_loaded = False
 try:
     from auth_service import (
         AEGISAuthService,
@@ -58,7 +59,24 @@ try:
         is_corporate_url as _is_corp_url,
     )
     HttpNegotiateAuth = AEGISAuthService.get_negotiate_auth_class()
+    # v6.2.1-hotfix: Safety net — if auth_service returned None, try direct imports
+    if HttpNegotiateAuth is None and sys.platform == 'win32':
+        try:
+            from requests_negotiate_sspi import HttpNegotiateAuth
+            WINDOWS_AUTH_AVAILABLE = True
+        except ImportError:
+            try:
+                from requests_ntlm import HttpNtlmAuth as HttpNegotiateAuth
+                WINDOWS_AUTH_AVAILABLE = True
+            except ImportError:
+                pass
+    _chc_auth_service_loaded = True
 except ImportError:
+    pass
+except Exception:
+    pass
+
+if not _chc_auth_service_loaded:
     # Fallback to direct imports if auth_service not available
     try:
         from requests_negotiate_sspi import HttpNegotiateAuth

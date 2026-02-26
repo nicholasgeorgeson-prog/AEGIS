@@ -97,6 +97,7 @@ _auth_init_error = None
 _auth_method = 'none'
 TRUSTSTORE_AVAILABLE = False
 
+_hv_auth_service_loaded = False
 try:
     from auth_service import (
         AEGISAuthService as _AuthService,
@@ -109,14 +110,33 @@ try:
         is_corporate_url as _is_corp_url_auth,
     )
     HttpNegotiateAuth = _AuthService.get_negotiate_auth_class()
+    # v6.2.1-hotfix: Safety net — if auth_service returned None for auth class,
+    # fall through to direct imports (same fix as sharepoint_connector.py Lesson 164)
+    if HttpNegotiateAuth is None and sys.platform == 'win32':
+        logger.warning('[AEGIS HV Auth] auth_service returned None for HttpNegotiateAuth — trying direct')
+        try:
+            from requests_negotiate_sspi import HttpNegotiateAuth
+            WINDOWS_AUTH_AVAILABLE = True
+            _auth_method = 'negotiate_sspi (direct fallback)'
+        except ImportError:
+            try:
+                from requests_ntlm import HttpNtlmAuth as HttpNegotiateAuth
+                WINDOWS_AUTH_AVAILABLE = True
+                _auth_method = 'ntlm (direct fallback)'
+            except ImportError:
+                pass
+    _hv_auth_service_loaded = True
     if WINDOWS_AUTH_AVAILABLE:
         logger.info(f'[AEGIS HV Auth] Unified auth service: {_auth_method} '
                      f'(truststore={TRUSTSTORE_AVAILABLE})')
     else:
         logger.info('[AEGIS HV Auth] Unified auth service loaded — no Windows SSO available')
 except ImportError:
-    # Fallback to direct imports if auth_service not available
     logger.info('[AEGIS HV Auth] auth_service not available — using direct imports')
+except Exception as e:
+    logger.warning(f'[AEGIS HV Auth] auth_service error: {e} — using direct imports')
+
+if not _hv_auth_service_loaded:
     try:
         from requests_negotiate_sspi import HttpNegotiateAuth
         WINDOWS_AUTH_AVAILABLE = True

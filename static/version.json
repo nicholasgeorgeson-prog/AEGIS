@@ -1,13 +1,22 @@
 {
-  "version": "6.2.1",
+  "version": "6.2.2",
   "release_date": "2026-02-26",
-  "core_version": "6.2.1",
+  "core_version": "6.2.2",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.2.2",
+      "date": "2026-02-26",
+      "changes": [
+        "HOTFIX: SharePoint batch scan 401 auth regression — auth_service.py unification (v6.2.0) broke auth cascade when get_negotiate_auth_class() returns None without raising ImportError. Added safety-net fallback in all 4 consumer modules: sharepoint_connector.py, hyperlink_validator/validator.py, comprehensive_hyperlink_checker.py, sharepoint_link_validator.py",
+        "FIX: Each SPO module now checks returned auth class for None and attempts direct import fallback before falling through to unauthenticated requests",
+        "FIX: Broadened except clause from ImportError to Exception in auth_service integration blocks to catch non-import failures during service initialization"
+      ]
+    },
     {
       "version": "6.2.1",
       "date": "2026-02-26",

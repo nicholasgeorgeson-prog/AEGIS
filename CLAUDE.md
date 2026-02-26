@@ -1398,7 +1398,7 @@ The `decodedUrl` parameter **auto-decodes** percent-encoded values before using 
 **Lesson**: For headless browser Windows SSO authentication, ALL THREE conditions must be met: (1) Use a full browser binary (Edge/Chrome new headless mode), NOT chrome-headless-shell. (2) Use `launchPersistentContext()` with a `user_data_dir`, NOT `launch()` + `new_context()` — the latter creates incognito-like contexts where ambient auth is disabled. (3) Include `--enable-features=EnableAmbientAuthenticationInIncognito` for safety. Also include identity provider domains (`*.microsoftonline.com`, `*.microsoftonline.us`, `*.windows.net`, `*.adfs.*`) in `--auth-server-allowlist` — the Kerberos challenge happens on the IdP, not the target site.
 
 ### 151. Version Management Update
-- **Current version**: 6.2.1
+- **Current version**: 6.2.2
 
 ### 152. Diagnostic-First Approach for Remote Environment Debugging (v6.1.7)
 **Problem**: HeadlessSPConnector v6.1.6 authenticated successfully (SSO works) but returned zero documents from the `T&E` library path. Without logs from the Windows machine, the exact failure point was unknown.
@@ -1520,6 +1520,46 @@ def progress_cb(phase, progress, message):
 **Problem**: `review_routes.py` response builder used `results.get('html_preview', 0)` — a numeric default for a string field. While JavaScript's falsy check treats both `0` and `''` as falsy so rendering wasn't affected, this was a type inconsistency.
 **Fix**: Changed both instances (line 3207 and 3685) from `results.get('html_preview', 0)` to `results.get('html_preview', '')`.
 **Lesson**: Default values in `dict.get()` should match the expected type of the field. String fields should default to `''`, not `0`. While JavaScript's loose truthiness makes this a non-functional bug, strict type checking (TypeScript, Pydantic models) would catch this.
+
+### 164. auth_service.py Integration Safety Net — get_negotiate_auth_class() Returns None (v6.2.1-hotfix)
+**Problem**: SharePoint batch scan that was working in v6.1.11 broke after v6.2.0/v6.2.1 update with 401 authentication errors on every API call.
+**Root Cause**: The unified `auth_service.py` singleton (v6.2.0, Lesson 157) consolidated 5 separate auth systems. All 4 consumer modules were changed from direct imports (`from requests_negotiate_sspi import HttpNegotiateAuth`) to `HttpNegotiateAuth = AEGISAuthService.get_negotiate_auth_class()`. The problem: `get_negotiate_auth_class()` can return `None` when Windows auth libraries fail internally (e.g., `sspilib` import error, `pywin32` missing, DLL load failure). When this happens, **no `ImportError` is raised** because `auth_service.py` itself imports fine — it's the internal auth class detection that fails silently. The fallback direct-import block (`except ImportError:`) never executes because no ImportError occurred. Result: `HttpNegotiateAuth` stays `None`, no auth is set on any session, and all SharePoint API calls get 401.
+**Fix**: Added safety-net pattern to ALL 4 consumer modules — after getting the auth class from auth_service, immediately check if it's `None` and attempt direct imports as fallback:
+```python
+_xxx_auth_service_loaded = False
+try:
+    from auth_service import AEGISAuthService, WINDOWS_AUTH_AVAILABLE
+    HttpNegotiateAuth = AEGISAuthService.get_negotiate_auth_class()
+
+    # Safety net: auth_service loaded but returned None for auth class
+    import sys
+    if HttpNegotiateAuth is None and sys.platform == 'win32':
+        logger.warning('auth_service returned None — attempting direct import fallback')
+        try:
+            from requests_negotiate_sspi import HttpNegotiateAuth
+            WINDOWS_AUTH_AVAILABLE = True
+        except ImportError:
+            # ... NTLM wrapper fallback ...
+            pass
+
+    _xxx_auth_service_loaded = True
+except ImportError:
+    logger.info('auth_service not available — using direct imports')
+except Exception as e:
+    logger.warning(f'auth_service import error: {e} — using direct imports')
+
+# Fallback when auth_service is completely unavailable or broken
+if not _xxx_auth_service_loaded:
+    try:
+        from requests_negotiate_sspi import HttpNegotiateAuth
+        WINDOWS_AUTH_AVAILABLE = True
+    except ImportError:
+        # ... NTLM wrapper fallback ...
+        pass
+```
+**4 files fixed**: `sharepoint_connector.py` (`_auth_service_loaded`), `hyperlink_validator/validator.py` (`_hv_auth_service_loaded`), `comprehensive_hyperlink_checker.py` (`_chc_auth_service_loaded`), `sharepoint_link_validator.py` (`_splv_auth_service_loaded`).
+**Key design principle**: The auth_service intent is a universal SPO authentication that starts with the tool so all modules share it. But every consumer MUST have a safety net: if the service loads but can't provide an auth class, fall back to direct imports. The `_xxx_auth_service_loaded` flag + `except Exception` (not just `except ImportError`) + `is None` check on the returned class are ALL required for robustness.
+**Lesson**: When creating a centralized service that wraps library imports (like auth_service wrapping requests-negotiate-sspi), consumer modules must NEVER trust that the service's return value is non-None just because the import succeeded. Always: (1) Check the returned object for None, (2) Have a direct-import fallback guarded by a `_loaded` flag, (3) Catch `Exception` not just `ImportError` since the service may raise other errors during initialization. This three-layer defense (None check → loaded flag → broad except) ensures auth works even when the centralized service partially fails.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

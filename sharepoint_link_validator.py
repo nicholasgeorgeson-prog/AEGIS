@@ -36,6 +36,7 @@ except ImportError:
 # v6.2.0: Windows SSO via unified auth_service
 WINDOWS_AUTH_AVAILABLE = False
 HttpNegotiateAuth = None
+_splv_auth_service_loaded = False
 try:
     from auth_service import (
         AEGISAuthService as _AuthService,
@@ -43,10 +44,51 @@ try:
         is_corporate_url as _is_corp_url,
     )
     HttpNegotiateAuth = _AuthService.get_negotiate_auth_class()
+
+    # v6.2.1-hotfix: Safety net — if auth_service loaded but returned None
+    # for HttpNegotiateAuth (e.g., Windows auth libs failed inside auth_service),
+    # attempt direct imports as fallback. Without this, HttpNegotiateAuth stays
+    # None, no auth is set on sessions, and SP URL validation gets 401. (Lesson 164)
+    import sys as _sys
+    if HttpNegotiateAuth is None and _sys.platform == 'win32':
+        logger.warning('[SP LinkValidator] auth_service returned None for HttpNegotiateAuth — '
+                       'attempting direct import fallback')
+        try:
+            from requests_negotiate_sspi import HttpNegotiateAuth
+            WINDOWS_AUTH_AVAILABLE = True
+            logger.info('[SP LinkValidator] Direct fallback: negotiate_sspi')
+        except ImportError:
+            try:
+                from requests_ntlm import HttpNtlmAuth
+                import getpass
+                import os as _os
+                class HttpNegotiateAuth:
+                    """NTLM wrapper using current Windows user."""
+                    def __init__(self):
+                        username = _os.environ.get('USERNAME', getpass.getuser())
+                        domain = _os.environ.get('USERDOMAIN', '')
+                        if domain:
+                            self.auth = HttpNtlmAuth(f'{domain}\\{username}', None)
+                        else:
+                            self.auth = HttpNtlmAuth(username, None)
+                    def __call__(self, r):
+                        return self.auth(r)
+                WINDOWS_AUTH_AVAILABLE = True
+                logger.info('[SP LinkValidator] Direct fallback: ntlm')
+            except ImportError:
+                pass
+
     if WINDOWS_AUTH_AVAILABLE:
-        logger.info('[SP LinkValidator] Unified auth service: Windows SSO available')
+        logger.info(f'[SP LinkValidator] Unified auth service: Windows SSO available '
+                    f'(HttpNegotiateAuth={"available" if HttpNegotiateAuth else "NONE"})')
+    _splv_auth_service_loaded = True
 except ImportError:
-    # Fallback to direct imports if auth_service not available
+    logger.info('[SP LinkValidator] auth_service not available — using direct imports')
+except Exception as e:
+    logger.warning(f'[SP LinkValidator] auth_service import error: {e} — using direct imports')
+
+# Fallback to direct imports when auth_service is unavailable or broken
+if not _splv_auth_service_loaded:
     try:
         from requests_negotiate_sspi import HttpNegotiateAuth
         WINDOWS_AUTH_AVAILABLE = True

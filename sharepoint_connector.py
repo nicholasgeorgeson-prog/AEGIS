@@ -84,6 +84,7 @@ _msal_module = None
 HEADLESS_SP_AVAILABLE = False
 _sp_sync_playwright = None
 
+_auth_service_loaded = False
 try:
     from auth_service import (
         AEGISAuthService as _AuthService,
@@ -112,14 +113,43 @@ try:
             from playwright.sync_api import sync_playwright as _sp_sync_playwright
         except ImportError:
             HEADLESS_SP_AVAILABLE = False
+
+    # v6.2.1-hotfix: Safety check — if auth_service loaded but returned None
+    # for HttpNegotiateAuth (e.g., requests-negotiate-sspi failed inside
+    # auth_service), we must still try direct imports as fallback.
+    # Without this, HttpNegotiateAuth stays None, no auth is set on sessions,
+    # and all SharePoint API calls return 401. (Lesson 164)
+    if HttpNegotiateAuth is None and sys.platform == 'win32':
+        logger.warning('[AEGIS SharePoint] auth_service returned None for HttpNegotiateAuth — '
+                       'attempting direct import fallback')
+        try:
+            from requests_negotiate_sspi import HttpNegotiateAuth
+            WINDOWS_AUTH_AVAILABLE = True
+            _sp_auth_method = 'negotiate_sspi (direct fallback)'
+        except ImportError:
+            try:
+                from requests_ntlm import HttpNtlmAuth as HttpNegotiateAuth
+                WINDOWS_AUTH_AVAILABLE = True
+                _sp_auth_method = 'ntlm (direct fallback)'
+            except ImportError:
+                pass
+        if HttpNegotiateAuth is not None:
+            logger.info(f'[AEGIS SharePoint] Direct fallback succeeded: {_sp_auth_method}')
+
+    _auth_service_loaded = True
     logger.info(f'[AEGIS SharePoint] Unified auth service loaded: '
                 f'SSO={WINDOWS_AUTH_AVAILABLE} ({_sp_auth_method}), '
                 f'SSPI={SSPI_PREEMPTIVE_AVAILABLE}, '
                 f'MSAL={MSAL_AVAILABLE}, '
-                f'Headless={HEADLESS_SP_AVAILABLE}')
+                f'Headless={HEADLESS_SP_AVAILABLE}, '
+                f'HttpNegotiateAuth={"available" if HttpNegotiateAuth else "NONE"}')
 except ImportError:
     logger.info('[AEGIS SharePoint] auth_service not available — using direct imports')
-    # Fallback to direct imports (preserves backward compatibility)
+except Exception as e:
+    logger.warning(f'[AEGIS SharePoint] auth_service import error: {e} — using direct imports')
+
+# Fallback to direct imports when auth_service is unavailable or broken
+if not _auth_service_loaded:
     try:
         if sys.platform == 'win32':
             import sspi
