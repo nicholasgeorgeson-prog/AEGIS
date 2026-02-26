@@ -1,13 +1,24 @@
 {
-  "version": "6.2.3",
+  "version": "6.2.4",
   "release_date": "2026-02-26",
-  "core_version": "6.2.3",
+  "core_version": "6.2.4",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.2.4",
+      "date": "2026-02-26",
+      "changes": [
+        "FIX: SharePoint scan now uses the full cinematic batch-progress dashboard instead of the simple sp-scan-dashboard — shows ECD, activity log, severity stats, per-file progress, animated percentage, sound toggle, and all features matching the batch upload experience",
+        "FIX: SP scan progress polling rewritten from setInterval to async while loop with exponential backoff reconnection (matching proven batch scan pattern)",
+        "FIX: SP scan dashboard is now minimizable to a floating badge showing progress ring and percentage — users can work on other features while scan runs in background",
+        "FIX: minimizeBatchModal() detects SP scan via _spScanUsingBatchDash flag and shows 'SharePoint Scan' label with cloud icon on minimize badge",
+        "FIX: Tour robot voice — added _isIntro flag to startFullTour() transition scenes so TTS skips 'Now let's explore: Dashboard' narration"
+      ]
+    },
     {
       "version": "6.2.3",
       "date": "2026-02-26",

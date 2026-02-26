@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
-AEGIS v6.2.4 — SP Scan Dashboard Fix + Tour Robot Voice Fix
+AEGIS v6.2.4 — SP Scan Cinematic Dashboard + Tour Robot Voice Fix
 
 Fixes:
-1. SP Scan Dashboard: Hides #batch-dropzone when SP scan starts so dashboard
-   is visible above the fold (was pushing dashboard below modal viewport)
+1. SP Scan Dashboard: Complete rewrite — SP scan now uses the full cinematic
+   batch-progress dashboard (ECD, activity log, severity stats, per-file progress,
+   animated percentage, sound toggle, minimize-to-badge). Replaces the old simple
+   sp-scan-dashboard that never displayed properly.
 2. Tour Robot Voice: Adds _isIntro flag to startFullTour() transition scenes
    so TTS doesn't read "Now let's explore: Dashboard" in robot voice
 
@@ -21,8 +23,10 @@ from datetime import datetime
 GITHUB_RAW = 'https://raw.githubusercontent.com/nicholasgeorgeson-prog/AEGIS/main'
 
 FILES = {
-    'static/js/app.js': 'Hide dropzone during SP scan so dashboard is visible above the fold',
+    'static/js/app.js': 'SP scan uses cinematic batch-progress dashboard (ECD, activity log, minimize)',
     'static/js/features/guide-system.js': 'Fix robot voice on tour transition scenes (_isIntro flag)',
+    'version.json': 'Version bump to 6.2.4',
+    'static/version.json': 'Version bump to 6.2.4 (browser copy)',
 }
 
 def make_ssl_context():
@@ -51,7 +55,7 @@ def download_file(url, dest, ssl_ctx):
 
 def main():
     print('=' * 60)
-    print('  AEGIS v6.2.4 — SP Dashboard Fix + Tour Voice Fix')
+    print('  AEGIS v6.2.4 — SP Cinematic Dashboard + Tour Voice Fix')
     print('=' * 60)
     print()
 
@@ -63,7 +67,7 @@ def main():
 
     ssl_ctx = make_ssl_context()
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    backup_dir = os.path.join('backups', f'pre_v6.2.4v4_{timestamp}')
+    backup_dir = os.path.join('backups', f'pre_v6.2.4_{timestamp}')
 
     print(f'[Step 1] Backing up files to {backup_dir}/')
     for rel_path in FILES:
@@ -91,6 +95,12 @@ def main():
 
     print('=' * 60)
     print(f'  Done! {success}/{len(FILES)} files updated.')
+    print()
+    print('  What changed:')
+    print('  • SP scan now shows full cinematic progress dashboard')
+    print('    (ECD, activity log, severity stats, per-file progress)')
+    print('  • SP scan is minimizable to floating badge while working')
+    print('  • Tour "Now let\'s explore" robot voice removed')
     print()
     print('  Next step: Hard refresh the browser (Ctrl+Shift+R)')
     print('  NO server restart needed — these are JS-only changes.')
