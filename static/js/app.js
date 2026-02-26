@@ -12394,11 +12394,28 @@ STEPS TO REPRODUCE
                             pollDelay = 2000;
 
                             const d = json.data;
+
+                            // v6.2.9: Handle 'connecting' phase — backend is creating
+                            // the HeadlessSPConnector and authenticating SSO in the
+                            // background thread. Show progress feedback.
+                            if (d.phase === 'connecting') {
+                                updateProgress(2, 'Connecting to SharePoint...');
+                                if (queueStatus) queueStatus.textContent = d.current_file || 'Authenticating to SharePoint...';
+                                if (subtitleEl) subtitleEl.textContent = 'Establishing secure connection via Windows SSO';
+                                addActivity('auth_progress', d.current_file || 'Connecting to SharePoint...');
+                                // Don't process documents yet — stay in polling loop
+                                await new Promise(r => setTimeout(r, pollDelay));
+                                continue;
+                            }
+
                             const totalDone = d.processed + d.errors;
                             const pct = totalFiles > 0 ? Math.round((totalDone / totalFiles) * 100) : 0;
 
                             updateProgress(pct, 'SharePoint Scan — ' + totalDone + ' of ' + totalFiles);
                             if (docsComplete) docsComplete.textContent = totalDone;
+                            if (subtitleEl && subtitleEl.textContent !== 'Downloading and analyzing documents from SharePoint') {
+                                subtitleEl.textContent = 'Downloading and analyzing documents from SharePoint';
+                            }
 
                             if (d.current_chunk && d.total_chunks) {
                                 if (queueStatus) queueStatus.textContent = 'Chunk ' + d.current_chunk + '/' + d.total_chunks + ' • ' + d.processed + ' complete, ' + d.errors + ' errors';
@@ -12835,7 +12852,7 @@ STEPS TO REPRODUCE
          * then starts progress polling on the existing SP scan dashboard.
          */
         async function _startSPSelectedScan() {
-            console.log('%c[AEGIS SP] ▶ _startSPSelectedScan() called', 'color:#D6A84A;font-weight:bold;font-size:13px;');
+            console.log('%c[AEGIS SP] ▶ _startSPSelectedScan() called (v6.2.9)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
             const selectorEl = document.getElementById('sp-file-selector');
             const fileListEl = document.getElementById('sp-file-list');
             const btnScanSelected = document.getElementById('btn-sp-scan-selected');
@@ -12873,7 +12890,7 @@ STEPS TO REPRODUCE
                 return;
             }
 
-            console.log(`[TWR SP] Starting scan of ${selectedFiles.length} selected files`);
+            console.log(`[AEGIS SP] Starting scan of ${selectedFiles.length} selected files (v6.2.9 — non-blocking)`);
 
             // Disable buttons during scan start
             if (btnScanSelected) {
@@ -12884,29 +12901,55 @@ STEPS TO REPRODUCE
             [btnSpConnectScan, btnSpTest, btnSpDiscover, btnSpScan].forEach(b => { if (b) b.disabled = true; });
 
             try {
+                // v6.2.9: Step 1 — Get fresh CSRF token
+                console.log('[AEGIS SP] Step 1/3: Fetching CSRF token...');
                 const csrf = await _freshCSRF();
-                const resp = await fetch('/api/review/sharepoint-scan-selected', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': csrf
-                    },
-                    body: JSON.stringify({
-                        site_url: ctx.site_url,
-                        library_path: ctx.library_path,
-                        connector_type: ctx.connector_type,
-                        files: selectedFiles
-                    })
-                });
+                console.log('[AEGIS SP] Step 1/3: ✓ CSRF token obtained');
+
+                // v6.2.9: Step 2 — POST to start scan (NOW returns IMMEDIATELY — connector
+                // creation happens in background thread, not in the HTTP handler)
+                console.log('[AEGIS SP] Step 2/3: Sending scan request to backend...');
+
+                // AbortController with 30s timeout — belt-and-suspenders safety net
+                // The backend should return in <1 second now (v6.2.9), but if something
+                // goes wrong we don't want to hang forever like pre-v6.2.9
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => {
+                    console.error('[AEGIS SP] ⚠️ Fetch timeout after 30s — aborting');
+                    controller.abort();
+                }, 30000);
+
+                let resp;
+                try {
+                    resp = await fetch('/api/review/sharepoint-scan-selected', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': csrf
+                        },
+                        body: JSON.stringify({
+                            site_url: ctx.site_url,
+                            library_path: ctx.library_path,
+                            connector_type: ctx.connector_type,
+                            files: selectedFiles
+                        }),
+                        signal: controller.signal
+                    });
+                } finally {
+                    clearTimeout(timeoutId);
+                }
+                console.log('[AEGIS SP] Step 2/3: ✓ Backend responded (status=' + resp.status + ')');
+
                 const json = await resp.json();
+                console.log('[AEGIS SP] Step 2/3: ✓ Response parsed, success=' + json.success + ', scan_id=' + (json.data?.scan_id || 'none'));
 
                 if (json.success && json.data?.scan_id) {
                     const scanId = json.data.scan_id;
                     const totalFiles = json.data.total_files || selectedFiles.length;
 
-                    console.log('%c[AEGIS SP] ✓ Scan started! scanId=' + scanId + ' totalFiles=' + totalFiles, 'color:#22c55e;font-weight:bold;');
+                    console.log('%c[AEGIS SP] Step 3/3: ✓ Scan started! scanId=' + scanId + ' totalFiles=' + totalFiles, 'color:#22c55e;font-weight:bold;');
 
-                    window.showToast?.(`Scan started — ${totalFiles} files`, 'success');
+                    window.showToast?.('Scan started — ' + totalFiles + ' files (authenticating to SharePoint...)', 'success');
 
                     // Hide the file selector
                     selectorEl.classList.add('hidden');
@@ -12918,15 +12961,12 @@ STEPS TO REPRODUCE
                         btnSpScan.dataset.discoveryFiles = JSON.stringify(selectedFiles);
                         btnSpScan.style.display = '';
                         btnSpScan.disabled = false;
-                        console.log('[AEGIS SP] btnSpScan updated — dataset.scanId=' + btnSpScan.dataset.scanId + ' display=' + btnSpScan.style.display + ' disabled=' + btnSpScan.disabled);
-                    } else {
-                        console.error('[AEGIS SP] ❌ btnSpScan is null! Cannot trigger cinematic dashboard.');
                     }
 
-                    // v6.2.7: AWAIT the dashboard call + catch errors with visible recovery
-                    // v6.2.6 did NOT await — errors became invisible unhandled promise rejections,
-                    // and the finally block ran immediately (killing button state mid-setup)
-                    console.log('%c[AEGIS SP] ▶ Launching cinematic dashboard (v6.2.7 — awaited)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
+                    // v6.2.9: Launch cinematic dashboard — backend is now authenticating
+                    // in the background thread. Dashboard will show 'Connecting to SharePoint...'
+                    // phase while backend creates the connector + authenticates SSO.
+                    console.log('%c[AEGIS SP] Step 3/3: ▶ Launching cinematic dashboard (v6.2.9)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
                     try {
                         await _showSpCinematicDashboard(scanId, totalFiles, selectedFiles);
                     } catch (dashErr) {
@@ -12945,6 +12985,7 @@ STEPS TO REPRODUCE
                     }
                 } else {
                     const errMsg = json.data?.message || json.error?.message || 'Failed to start scan';
+                    console.error('[AEGIS SP] ❌ Scan start failed:', errMsg);
                     window.showToast?.(errMsg, 'error');
                     // Re-enable scan selected button on failure
                     if (btnScanSelected) {
@@ -12954,8 +12995,11 @@ STEPS TO REPRODUCE
                     }
                 }
             } catch (err) {
-                console.error('[TWR SP] Scan selected error:', err);
-                window.showToast?.('Failed to start scan: ' + err.message, 'error');
+                console.error('[AEGIS SP] ❌ Scan selected error:', err.name, err.message);
+                var userMsg = err.name === 'AbortError'
+                    ? 'Scan request timed out after 30 seconds — please try again'
+                    : 'Failed to start scan: ' + err.message;
+                window.showToast?.(userMsg, 'error');
                 if (btnScanSelected) {
                     btnScanSelected.disabled = false;
                     btnScanSelected.innerHTML = '<i data-lucide="scan" style="width:14px;height:14px;margin-right:4px;"></i><span>Retry Scan</span>';
@@ -12966,6 +13010,7 @@ STEPS TO REPRODUCE
                 if (btnSpConnectScan) btnSpConnectScan.disabled = false;
                 if (btnSpTest) btnSpTest.disabled = false;
                 if (btnSpDiscover) btnSpDiscover.disabled = false;
+                if (btnSpScan && !btnSpScan.dataset.scanId) btnSpScan.disabled = false;
                 lucide?.createIcons?.();
             }
         }

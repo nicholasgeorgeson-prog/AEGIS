@@ -1593,8 +1593,19 @@ if not _xxx_auth_service_loaded:
 **Compiled from**: All 23+ individual apply scripts from v5.9.48 through v6.2.1, deduplicated to a single comprehensive list.
 **Lesson**: For major version jumps (10+ minor versions), compile all individual apply scripts into one comprehensive script. This prevents the user from having to run 20+ scripts in sequence. Always deduplicate — the same file may appear in multiple individual apply scripts but only needs to be downloaded once in the comprehensive version.
 
+### 168. Synchronous Connector Creation Blocks HTTP Response — Move to Background Thread (v6.2.9)
+**Problem**: SharePoint scan cinematic dashboard NEVER appeared. After clicking "Scan Selected", the UI hung indefinitely with buttons disabled and no dashboard visible. 9+ sessions were spent trying to fix dashboard visibility code (`_showSpCinematicDashboard`) — the actual root cause was upstream.
+**Root Cause**: `sharepoint_scan_selected()` (review_routes.py line 2500) created a HeadlessSPConnector **SYNCHRONOUSLY** in the HTTP request handler (lines 2540-2546) before returning the scan_id. This launched a Playwright browser, performed full SSO authentication (30+ seconds), and on Windows **hung permanently** because the previous Playwright Edge process from the discover_only call hadn't fully exited. The frontend's `await fetch(...)` was a forever-pending Promise. The try/catch/finally block never completed, buttons stayed disabled, and `_showSpCinematicDashboard()` was never called.
+**Evidence chain**: (1) `_startSPSelectedScan()` confirmed called at 23:07:41. (2) "Starting scan of 63 selected files" logged. (3) No "✓ Scan started!" log — fetch never returned. (4) No `sharepoint-scan-selected` entries in routes.log — handler blocked before first logger.info. (5) Debug sync requests at 23:07:45+ proved Flask was alive on other threads. (6) DOM state: `_spScanUsingBatchDash: false`, buttons disabled, `finally` block never ran.
+**Fix**: Three-part:
+1. **Backend**: `sharepoint_scan_selected()` now validates input, creates scan state with `phase='connecting'`, spawns background thread, and returns scan_id **immediately** (<1 second). HeadlessSPConnector creation + SSO auth happens in `_process_sharepoint_scan_async()` background thread with 3-strategy cascade (headless → REST → headless fallback). On auth failure, sets `phase='error'` in scan state.
+2. **Frontend**: `_startSPSelectedScan()` adds AbortController with 30-second timeout on the fetch. Step-by-step diagnostic logging (Step 1/3 CSRF, Step 2/3 fetch, Step 3/3 dashboard). Handles AbortError with user-friendly message. Re-enables `btnSpScan` in finally block when no scan was started.
+3. **Polling**: New `'connecting'` phase handled in dashboard polling loop — shows "Connecting to SharePoint..." with auth-progress activity messages. Progress endpoint computes live elapsed_seconds during connecting phase.
+**Why v6.2.7 didn't work**: v6.2.7 fixed `_showSpCinematicDashboard()` (outer try/catch, awaited async call, aggressive inline styles) — but that function was NEVER CALLED because the fetch to start the scan hung forever. The fix was applied to the wrong code path for 3 sessions.
+**Lesson**: When a frontend fetch call hangs indefinitely, the root cause is almost always in the BACKEND endpoint — not in the code that runs after the fetch resolves. Always check whether the HTTP request is even reaching the route handler (check route logs). When a route handler creates expensive resources (browser processes, long-running connections) synchronously, move that work to a background thread and return immediately. The pattern is: validate → create state → spawn thread → return scan_id. The background thread updates state as it progresses.
+
 ### 151 (Updated). Version Management Update
-- **Current version**: 6.2.3
+- **Current version**: 6.2.9
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

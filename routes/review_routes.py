@@ -1436,7 +1436,8 @@ def folder_scan_progress(scan_id):
         # v5.7.1: Compute elapsed_seconds LIVE from started_at instead of using
         # the stored value (which only updates on file completion). This ensures
         # the timer keeps ticking even when a file is taking a long time.
-        if state['phase'] in ('reviewing',) and state.get('started_at'):
+        # v6.2.9: Also compute live elapsed during 'connecting' phase
+        if state['phase'] in ('reviewing', 'connecting') and state.get('started_at'):
             live_elapsed = round(time.time() - state['started_at'], 1)
         else:
             live_elapsed = state['elapsed_seconds']
@@ -2502,11 +2503,17 @@ def sharepoint_connect_and_scan():
 @handle_api_errors
 def sharepoint_scan_selected():
     """
-    v6.1.11: Start a SharePoint scan with user-selected files.
+    v6.2.9: Start a SharePoint scan with user-selected files.
 
     Called after discover_only mode — user has seen the file list and
-    selected which files to scan. Re-creates the connector and starts
-    an async scan with only the selected files.
+    selected which files to scan.
+
+    CRITICAL FIX (v6.2.9 — Lesson 168): Returns scan_id IMMEDIATELY.
+    Connector creation (HeadlessSPConnector launch + SSO authentication)
+    is moved INTO the background thread. Previous versions created the
+    connector SYNCHRONOUSLY in this handler, which blocked the HTTP
+    response for 30+ seconds (or hung forever on Windows when the
+    second Playwright browser launch collided with the first).
     """
     SPConnector, sp_parse_url = _get_sharepoint_connector()
     if SPConnector is None:
@@ -2534,53 +2541,6 @@ def sharepoint_scan_selected():
             'error': {'message': 'No files selected for scanning', 'code': 'NO_FILES'}
         }), 400
 
-    # Re-create the connector (same type as discovery used)
-    connector = None
-    try:
-        if connector_type == 'headless':
-            try:
-                from sharepoint_connector import HeadlessSPConnector, HEADLESS_SP_AVAILABLE
-                if HEADLESS_SP_AVAILABLE:
-                    connector = HeadlessSPConnector(site_url)
-                    # Verify connection
-                    test = connector.test_connection()
-                    if not test.get('success'):
-                        connector.close()
-                        connector = None
-            except ImportError:
-                pass
-
-        if connector is None:
-            connector = SPConnector(site_url)
-            test = connector.test_connection()
-            if not test.get('success'):
-                # Try headless fallback
-                try:
-                    from sharepoint_connector import HeadlessSPConnector, HEADLESS_SP_AVAILABLE
-                    if HEADLESS_SP_AVAILABLE:
-                        connector.close()
-                        connector = HeadlessSPConnector(site_url)
-                        test = connector.test_connection()
-                        if not test.get('success'):
-                            connector.close()
-                            return jsonify({
-                                'success': False,
-                                'error': {'message': f'SharePoint re-authentication failed: {test.get("message", "")}', 'code': 'SP_AUTH_FAILED'}
-                            }), 400
-                except ImportError:
-                    connector.close()
-                    return jsonify({
-                        'success': False,
-                        'error': {'message': f'SharePoint authentication failed: {test.get("message", "")}', 'code': 'SP_AUTH_FAILED'}
-                    }), 400
-    except Exception as e:
-        if connector:
-            connector.close()
-        return jsonify({
-            'success': False,
-            'error': {'message': f'Failed to connect to SharePoint: {str(e)}', 'code': 'SP_CONNECT_FAILED'}
-        }), 500
-
     # Calculate stats for selected files
     total_size = sum(f.get('size', 0) for f in selected_files)
     type_breakdown = {}
@@ -2588,17 +2548,18 @@ def sharepoint_scan_selected():
         ext = f.get('extension', f.get('name', '').rsplit('.', 1)[-1] if '.' in f.get('name', '') else 'unknown')
         type_breakdown[ext] = type_breakdown.get(ext, 0) + 1
 
-    # Generate scan_id and start the scan
+    # Generate scan_id — return IMMEDIATELY (v6.2.9)
+    # Connector creation happens in background thread
     scan_id = uuid.uuid4().hex[:12]
 
     with _folder_scan_state_lock:
         _cleanup_old_scans()
         _folder_scan_state[scan_id] = {
-            'phase': 'reviewing',
+            'phase': 'connecting',  # v6.2.9: New initial phase — background thread updates to 'reviewing' after auth
             'total_files': len(selected_files),
             'processed': 0,
             'errors': 0,
-            'current_file': None,
+            'current_file': 'Authenticating to SharePoint...',
             'current_chunk': 0,
             'total_chunks': (len(selected_files) + FOLDER_SCAN_CHUNK_SIZE - 1) // FOLDER_SCAN_CHUNK_SIZE,
             'documents': [],
@@ -2621,17 +2582,22 @@ def sharepoint_scan_selected():
             'source': 'sharepoint',
         }
 
-    # Spawn background thread
+    # Spawn background thread — connector creation + auth + scan all happen here
     flask_app = current_app._get_current_object()
     thread = threading.Thread(
         target=_process_sharepoint_scan_async,
-        args=(scan_id, connector, selected_files, options, flask_app),
+        args=(scan_id, None, selected_files, options, flask_app),
+        kwargs={
+            'site_url': site_url,
+            'connector_type': connector_type,
+            'library_path': library_path,
+        },
         daemon=True,
         name=f'sp-scan-selected-{scan_id}',
     )
     thread.start()
 
-    logger.info(f"SharePoint scan-selected {scan_id}: {len(selected_files)} of files from {library_path}")
+    logger.info(f"SharePoint scan-selected {scan_id}: {len(selected_files)} files from {library_path} — background thread started (connector will be created in thread)")
 
     return jsonify({
         'success': True,
@@ -2896,9 +2862,15 @@ def sharepoint_scan_start():
     })
 
 
-def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app):
+def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app,
+                                    site_url=None, connector_type=None, library_path=None):
     """
     Background thread: download files from SharePoint and review with AEGIS engine.
+
+    v6.2.9: If connector is None, creates it HERE (in the background thread) instead
+    of blocking the HTTP handler. This is the critical fix for the SP scan dashboard
+    never appearing — the previous synchronous connector creation in the route handler
+    hung forever on Windows when Playwright's second browser launch collided.
 
     Follows the same pattern as _process_folder_scan_async:
     - Chunk processing (5 files/chunk, 3 workers)
@@ -2910,6 +2882,123 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     PER_FILE_TIMEOUT = 480  # v5.9.37: 8 minutes per file (includes download + review)
+
+    # ── v6.2.9: Create connector in background thread if not provided ──
+    if connector is None and site_url:
+        logger.info(f"SP scan {scan_id}: Creating connector in background thread (site_url={site_url}, type={connector_type})")
+
+        with _folder_scan_state_lock:
+            state = _folder_scan_state.get(scan_id)
+            if state:
+                state['current_file'] = 'Launching browser for SharePoint SSO...'
+
+        SPConnector, _ = _get_sharepoint_connector()
+        connector_created = False
+
+        # Strategy 1: Try the connector type that worked during discovery
+        if connector_type == 'headless':
+            try:
+                from sharepoint_connector import HeadlessSPConnector, HEADLESS_SP_AVAILABLE
+                if HEADLESS_SP_AVAILABLE:
+                    logger.info(f"SP scan {scan_id}: Trying HeadlessSPConnector...")
+                    with _folder_scan_state_lock:
+                        state = _folder_scan_state.get(scan_id)
+                        if state:
+                            state['current_file'] = 'Authenticating via Windows SSO (headless browser)...'
+
+                    connector = HeadlessSPConnector(site_url)
+                    test = connector.test_connection()
+                    if test.get('success'):
+                        connector_created = True
+                        logger.info(f"SP scan {scan_id}: HeadlessSPConnector authenticated successfully")
+                    else:
+                        logger.warning(f"SP scan {scan_id}: HeadlessSPConnector auth failed: {test.get('message', '')}")
+                        connector.close()
+                        connector = None
+            except Exception as e:
+                logger.error(f"SP scan {scan_id}: HeadlessSPConnector error: {e}")
+                if connector:
+                    try:
+                        connector.close()
+                    except Exception:
+                        pass
+                    connector = None
+
+        # Strategy 2: Try REST connector
+        if not connector_created and SPConnector:
+            try:
+                logger.info(f"SP scan {scan_id}: Trying REST connector...")
+                with _folder_scan_state_lock:
+                    state = _folder_scan_state.get(scan_id)
+                    if state:
+                        state['current_file'] = 'Authenticating via REST API...'
+
+                connector = SPConnector(site_url)
+                test = connector.test_connection()
+                if test.get('success'):
+                    connector_created = True
+                    logger.info(f"SP scan {scan_id}: REST connector authenticated successfully")
+                else:
+                    logger.warning(f"SP scan {scan_id}: REST connector failed: {test.get('message', '')}")
+                    connector.close()
+                    connector = None
+            except Exception as e:
+                logger.error(f"SP scan {scan_id}: REST connector error: {e}")
+                if connector:
+                    try:
+                        connector.close()
+                    except Exception:
+                        pass
+                    connector = None
+
+        # Strategy 3: Headless fallback if REST failed and not already tried
+        if not connector_created and connector_type != 'headless':
+            try:
+                from sharepoint_connector import HeadlessSPConnector, HEADLESS_SP_AVAILABLE
+                if HEADLESS_SP_AVAILABLE:
+                    logger.info(f"SP scan {scan_id}: Trying HeadlessSPConnector as fallback...")
+                    with _folder_scan_state_lock:
+                        state = _folder_scan_state.get(scan_id)
+                        if state:
+                            state['current_file'] = 'Trying headless browser fallback...'
+
+                    connector = HeadlessSPConnector(site_url)
+                    test = connector.test_connection()
+                    if test.get('success'):
+                        connector_created = True
+                        logger.info(f"SP scan {scan_id}: Headless fallback authenticated successfully")
+                    else:
+                        connector.close()
+                        connector = None
+            except Exception as e:
+                logger.error(f"SP scan {scan_id}: Headless fallback error: {e}")
+                if connector:
+                    try:
+                        connector.close()
+                    except Exception:
+                        pass
+                    connector = None
+
+        # If ALL strategies failed, mark scan as error and return
+        if not connector_created or connector is None:
+            err_msg = 'Failed to authenticate to SharePoint — all connection strategies exhausted'
+            logger.error(f"SP scan {scan_id}: {err_msg}")
+            with _folder_scan_state_lock:
+                state = _folder_scan_state.get(scan_id)
+                if state:
+                    state['phase'] = 'error'
+                    state['error_message'] = err_msg
+                    state['completed_at'] = time.time()
+                    state['current_file'] = None
+            return  # Exit background thread
+
+        # Connector created successfully — transition to reviewing phase
+        with _folder_scan_state_lock:
+            state = _folder_scan_state.get(scan_id)
+            if state:
+                state['phase'] = 'reviewing'
+                state['current_file'] = 'Starting document scan...'
+        logger.info(f"SP scan {scan_id}: Connector ready, transitioning to reviewing phase")
 
     def _review_sharepoint_file(file_info):
         """Download a single file from SharePoint and review it."""
