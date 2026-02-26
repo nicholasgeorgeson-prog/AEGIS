@@ -272,7 +272,8 @@ class BackupInfo:
     created_at: str
     file_count: int
     size_bytes: int
-    
+    version: str = ''
+
     def to_dict(self) -> Dict:
         return asdict(self)
 
@@ -815,7 +816,15 @@ class UpdateManager:
     # --------------------------------------------------------
     # CREATE BACKUP
     # --------------------------------------------------------
-    
+
+    def _get_current_version_string(self) -> str:
+        """Get the current version as a simple string (e.g., '6.2.2')."""
+        try:
+            ver_info = self.get_current_version()
+            return ver_info.get('version', '0.0.0')
+        except Exception:
+            return '0.0.0'
+
     def create_backup(self, files_to_backup: List[str] = None) -> Optional[str]:
         """
         Create a backup of files that will be updated.
@@ -870,13 +879,19 @@ class UpdateManager:
                 'backed_up_at': datetime.now().isoformat()
             })
         
-        # Save manifest
+        # v6.2.2: Save manifest with version info for safe rollback
+        manifest_data = {
+            'version': self._get_current_version_string(),
+            'created_at': datetime.now().isoformat(),
+            'file_count': len(manifest),
+            'files': manifest
+        }
         manifest_path = backup_path / 'manifest.json'
         with open(manifest_path, 'w', encoding='utf-8') as f:
-            json.dump(manifest, f, indent=2)
-        
+            json.dump(manifest_data, f, indent=2)
+
         logger.info(f"Created backup: {backup_name} ({len(manifest)} files)")
-        
+
         return str(backup_path)
     
     # --------------------------------------------------------
@@ -1190,16 +1205,22 @@ class UpdateManager:
             manifest_path = backup_dir / 'manifest.json'
             file_count = 0
             
+            backup_version = ''
             if manifest_path.exists():
                 with open(manifest_path, encoding='utf-8') as f:
                     manifest = json.load(f)
-                    file_count = len(manifest)
-            
+                    # v6.2.2: Handle both old (list) and new (dict with 'files') formats
+                    if isinstance(manifest, dict):
+                        file_count = manifest.get('file_count', len(manifest.get('files', [])))
+                        backup_version = manifest.get('version', '')
+                    else:
+                        file_count = len(manifest)
+
             # Calculate total size
             total_size = sum(
                 f.stat().st_size for f in backup_dir.rglob('*') if f.is_file()
             )
-            
+
             backups.append(BackupInfo(
                 name=backup_dir.name,
                 path=str(backup_dir),
@@ -1207,7 +1228,8 @@ class UpdateManager:
                     backup_dir.stat().st_mtime
                 ).isoformat(),
                 file_count=file_count,
-                size_bytes=total_size
+                size_bytes=total_size,
+                version=backup_version
             ))
         
         return backups
@@ -1251,11 +1273,20 @@ class UpdateManager:
             )
         
         with open(manifest_path, encoding='utf-8') as f:
-            manifest = json.load(f)
+            manifest_raw = json.load(f)
+
+        # v6.2.2: Handle both old (list) and new (dict with 'files') formats
+        if isinstance(manifest_raw, dict):
+            manifest_files = manifest_raw.get('files', [])
+            backup_version = manifest_raw.get('version', 'unknown')
+            logger.info(f"Rollback using v6.2.2+ manifest (version: {backup_version}, {len(manifest_files)} files)")
+        else:
+            manifest_files = manifest_raw
+            logger.info(f"Rollback using legacy manifest ({len(manifest_files)} files)")
 
         result = UpdateResult(success=True)
-        
-        for entry in manifest:
+
+        for entry in manifest_files:
             try:
                 src = backup_path / entry['relative_path']
                 dest = Path(entry['original_path'])
@@ -1683,13 +1714,27 @@ def register_update_routes(app, manager: UpdateManager = None):
         try:
             data = request.get_json() or {}
             backup_name = data.get('backup_name')
-            
+
+            # Get backup info before rollback for version tracking
+            backups = manager.get_backups()
+            target_backup = None
+            if backup_name:
+                target_backup = next((b for b in backups if b.name == backup_name), None)
+            elif backups:
+                target_backup = backups[0]
+
             result = manager.rollback(backup_name=backup_name)
-            
-            return jsonify({
+
+            resp = {
                 'success': result.success,
                 'data': result.to_dict()
-            })
+            }
+            if target_backup:
+                resp['backup_version'] = target_backup.version
+                resp['backup_name'] = target_backup.name
+                resp['backup_file_count'] = target_backup.file_count
+
+            return jsonify(resp)
         except Exception as e:
             logger.error(f"Rollback failed: {e}")
             return jsonify({'success': False, 'error': str(e)}), 500
@@ -1708,25 +1753,84 @@ def register_update_routes(app, manager: UpdateManager = None):
     def restart_server():
         """
         Restart the server after updates.
-        
-        This endpoint:
-        1. Returns success response to the browser
-        2. Schedules server shutdown with exit code 75
-        3. Run_TWR.bat sees code 75 and restarts the server
+
+        Platform-aware restart — spawns a new server process before exiting:
+        - Windows: uses Start_AEGIS.bat or direct python launch
+        - Mac/Linux: uses restart_aegis.sh or direct python launch
         """
         import threading
-        
-        def delayed_exit():
-            """Exit after a short delay to allow response to be sent."""
+        import subprocess
+
+        def delayed_restart():
+            """Restart after a short delay to allow response to be sent."""
             import time
-            time.sleep(0.5)  # Give time for response to be sent
-            logger.info("Server restarting for updates (exit code 75)")
-            os._exit(75)  # Special exit code signals restart to batch script
-        
+            time.sleep(1.0)
+
+            app_dir = os.path.dirname(os.path.abspath(__file__))
+            app_py = os.path.join(app_dir, 'app.py')
+
+            if sys.platform == 'win32':
+                logger.info("Server restarting (spawning new process — Windows)")
+                start_bat = os.path.join(app_dir, 'Start_AEGIS.bat')
+                python_exe = os.path.join(app_dir, 'python', 'python.exe')
+                if not os.path.exists(python_exe):
+                    python_exe = sys.executable
+
+                try:
+                    if os.path.exists(start_bat):
+                        # Use Start_AEGIS.bat (kills existing, starts fresh, opens browser)
+                        subprocess.Popen(
+                            ['cmd', '/c', start_bat],
+                            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            cwd=app_dir
+                        )
+                    else:
+                        # Fallback: start python directly after a delay
+                        subprocess.Popen(
+                            f'timeout /t 3 >nul && "{python_exe}" "{app_py}"',
+                            shell=True,
+                            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            cwd=app_dir
+                        )
+                except Exception as e:
+                    logger.error(f"Failed to spawn restart process: {e}")
+
+                os._exit(0)
+            else:
+                logger.info("Server restarting (spawning new process — Unix)")
+                restart_sh = os.path.join(app_dir, 'restart_aegis.sh')
+
+                try:
+                    if os.path.exists(restart_sh):
+                        subprocess.Popen(
+                            ['bash', restart_sh],
+                            start_new_session=True,
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL
+                        )
+                    else:
+                        python = sys.executable
+                        subprocess.Popen(
+                            f'sleep 2 && "{python}" "{app_py}"',
+                            shell=True,
+                            start_new_session=True,
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            cwd=app_dir
+                        )
+                except Exception as e:
+                    logger.error(f"Failed to spawn restart process: {e}")
+
+                os._exit(0)
+
         try:
-            # Schedule the exit
-            threading.Thread(target=delayed_exit, daemon=True).start()
-            
+            # Schedule the restart
+            threading.Thread(target=delayed_restart, daemon=True).start()
+
             return jsonify({
                 'success': True,
                 'message': 'Server is restarting. Please wait...'

@@ -336,7 +336,7 @@ function formatBytes(bytes) {
 // Show rollback confirmation
 window.showRollbackConfirm = async function() {
     console.log('[TWR] showRollbackConfirm called');
-    
+
     // First load available backups
     try {
         const result = await api('/updates/backups', 'GET');
@@ -346,33 +346,43 @@ window.showRollbackConfirm = async function() {
             }
             return;
         }
-        
+
         const backups = result.data;
-        const latestBackup = backups[0]; // Assume sorted by date, newest first
-        
-        if (!confirm(`Rollback to backup: ${latestBackup.name}?\n\nThis will restore files from ${latestBackup.created_at || 'the latest backup'}.\n\nThe server will restart after rollback.`)) {
+        const latestBackup = backups[0]; // Sorted by date, newest first
+
+        // v6.2.2: Show version info and file count in confirmation
+        const versionInfo = latestBackup.version
+            ? `\nBackup version: v${latestBackup.version}`
+            : '';
+        const fileInfo = latestBackup.file_count
+            ? `\nFiles to restore: ${latestBackup.file_count}`
+            : '';
+        const warning = '\n\nNote: This only restores files that were backed up before the last update. The server will restart after rollback.';
+
+        if (!confirm(`Rollback to backup: ${latestBackup.name}?${versionInfo}${fileInfo}\n\nCreated: ${latestBackup.created_at || 'unknown'}${warning}`)) {
             return;
         }
-        
+
         // Perform rollback
-        const rollbackResult = await api('/updates/rollback', 'POST', { 
-            backup_name: latestBackup.name 
+        const rollbackResult = await api('/updates/rollback', 'POST', {
+            backup_name: latestBackup.name
         });
-        
+
         if (rollbackResult && rollbackResult.success) {
+            const restoredCount = rollbackResult.data?.applied || 0;
             if (typeof toast === 'function') {
-                toast('success', 'Rollback successful! Restarting server...');
+                toast('success', `Rollback successful! ${restoredCount} file(s) restored. Restarting server...`);
             }
-            
+
             // Trigger restart
             try {
                 await api('/updates/restart', 'POST');
             } catch (e) {
                 // Expected - server is restarting
             }
-            
+
             // Poll for server restart
-            setTimeout(() => pollServerRestart(), 2000);
+            setTimeout(() => pollServerRestart(), 3000);
         } else {
             if (typeof toast === 'function') {
                 toast('error', rollbackResult?.error || 'Rollback failed');

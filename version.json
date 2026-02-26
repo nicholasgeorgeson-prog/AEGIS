@@ -1,13 +1,23 @@
 {
-  "version": "6.2.2",
+  "version": "6.2.3",
   "release_date": "2026-02-26",
-  "core_version": "6.2.2",
+  "core_version": "6.2.3",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.2.3",
+      "date": "2026-02-26",
+      "changes": [
+        "FIX: Update Manager rollback no longer rolls back too far — enhanced manifest format tracks version and file count. Both old (list) and new (dict) manifest formats supported for backward compatibility",
+        "FIX: Server restart after update/rollback now works on Windows — spawns Start_AEGIS.bat via detached subprocess instead of relying on non-existent Run_TWR.bat wrapper. Platform-aware restart for Mac/Linux via restart_aegis.sh",
+        "ENH: Rollback confirmation dialog now shows backup version, file count, creation date, and warning that only backed-up files will be restored",
+        "ENH: Backup manifest now stores version metadata for better rollback diagnostics"
+      ]
+    },
     {
       "version": "6.2.2",
       "date": "2026-02-26",
