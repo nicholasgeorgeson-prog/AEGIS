@@ -1561,6 +1561,41 @@ if not _xxx_auth_service_loaded:
 **Key design principle**: The auth_service intent is a universal SPO authentication that starts with the tool so all modules share it. But every consumer MUST have a safety net: if the service loads but can't provide an auth class, fall back to direct imports. The `_xxx_auth_service_loaded` flag + `except Exception` (not just `except ImportError`) + `is None` check on the returned class are ALL required for robustness.
 **Lesson**: When creating a centralized service that wraps library imports (like auth_service wrapping requests-negotiate-sspi), consumer modules must NEVER trust that the service's return value is non-None just because the import succeeded. Always: (1) Check the returned object for None, (2) Have a direct-import fallback guarded by a `_loaded` flag, (3) Catch `Exception` not just `ImportError` since the service may raise other errors during initialization. This three-layer defense (None check → loaded flag → broad except) ensures auth works even when the centralized service partially fails.
 
+### 165. Update Manager Rollback — Enhanced Manifest Format (v6.2.3)
+**Problem**: Rollback restored ALL files from backup, going all the way back to v5.9.47 instead of just reverting the last update. Users lost multiple versions of work.
+**Root Cause**: Two compounding issues: (1) `create_backup()` used a flat JSON list format (`[{source_name, dest_name, category, size}]`) for the backup manifest. When `rollback()` read the manifest, it restored every file listed — including files from backups created by previous updates. (2) The rollback confirmation dialog showed only the backup folder name with no version info, file count, or creation date — users couldn't tell WHICH backup they were rolling back to or how many files would be affected.
+**Fix**: Three-part:
+1. **Enhanced manifest format**: `create_backup()` now writes a dict with metadata: `{version: "6.2.3", created_at: "2026-02-26T...", file_count: 4, files: [{entries}]}`. The `version` is read from `version.json` at backup time.
+2. **Backward-compatible reading**: `get_backups()` and `rollback()` handle both old (list) and new (dict) manifest formats. Old manifests report version as "unknown" and file count from list length.
+3. **Rich rollback confirmation**: Frontend `showRollbackConfirm()` now shows version, file count, and creation date in the `confirm()` dialog, plus a warning that only backed-up files are restored.
+**Files**: `update_manager.py`, `static/js/update-functions.js`
+**Lesson**: Backup manifests should ALWAYS include metadata (version, timestamp, file count) alongside the file list. Without version tracking, rollback is blind — users can't tell what they're reverting to. The manifest format should be a dict (extensible) not a list (opaque). Always support reading both old and new formats for backward compatibility with existing backups.
+
+### 166. Windows Server Restart — Start_AEGIS.bat via Detached Subprocess (v6.2.3)
+**Problem**: After update/rollback, the "server will restart" message appeared but the server just stopped. Users had to manually re-launch AEGIS.
+**Root Cause**: The restart endpoint at `/api/updates/restart` used `subprocess.Popen(['cmd', '/c', 'start', '', 'Run_TWR.bat'])` — but `Run_TWR.bat` doesn't exist. The correct Windows startup script is `Start_AEGIS.bat` (which polls for server readiness and opens the browser). On Mac/Linux, it tried `restart_aegis.sh` which also wasn't being found because the path resolution was wrong.
+**Fix**: Platform-aware restart:
+- **Windows**: `subprocess.Popen([Start_AEGIS.bat], creationflags=CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS, cwd=base_dir)` → spawns the startup script as a fully detached process, then `os._exit(0)` kills the current server. The detached bat file waits for the old server to die, starts a new one, and opens the browser.
+- **Mac/Linux**: `subprocess.Popen(['bash', restart_aegis.sh], start_new_session=True, cwd=base_dir)` → similar detachment via `start_new_session=True`.
+- Both paths verify the startup script exists before attempting restart and return an error if not found.
+**Files**: `update_manager.py`
+**Lesson**: When implementing server self-restart, the process that calls restart MUST be different from the process being restarted. Use fully detached subprocesses (`DETACHED_PROCESS` on Windows, `start_new_session=True` on Unix). The startup script must poll for server death before starting a new instance. Always verify the startup script exists and return a clear error if it's missing — silent failures leave users with a dead server and no way to recover except manual restart.
+
+### 167. Comprehensive Apply Script Pattern — v5.9.47 to v6.2.3 (140+ Files)
+**Pattern**: `apply_v6.2.3.py` is the most comprehensive apply script to date, covering ALL changes from v5.9.47 to v6.2.3. Key design elements:
+1. **File organization**: 12 category dicts (PYTHON_CORE, PYTHON_NEW, PYTHON_ROUTES, PYTHON_PACKAGES, HTML_FILES, JS_CORE, JS_FEATURES, JS_VENDOR, CSS_FILES, AUDIO_MANIFESTS, CONFIG_FILES, INSTALLER_FILES) with ~140 total files
+2. **SSL fallback**: `download_file()` tries normal SSL, falls back to `ssl.CERT_NONE` for corporate networks
+3. **Directory auto-creation**: Creates `proposal_compare/`, `hyperlink_validator/`, `nlp/`, `routes/`, `document_compare/`, `portfolio/`, `statement_forge/`, `static/js/vendor/pdfjs/` etc. with `__init__.py` files
+4. **Pip packages**: Installs `msal`, `PyJWT`, `truststore`, `playwright`, `pywin32` (Windows only) with offline-first + online fallback
+5. **Playwright browser**: Runs `playwright install chromium` for headless browser features
+6. **Import verification**: Tests key imports (msal, truststore, playwright) after installation
+7. **Windows-friendly**: `input("Press Enter to exit...")` keeps terminal open; detects platform for pywin32
+**Compiled from**: All 23+ individual apply scripts from v5.9.48 through v6.2.1, deduplicated to a single comprehensive list.
+**Lesson**: For major version jumps (10+ minor versions), compile all individual apply scripts into one comprehensive script. This prevents the user from having to run 20+ scripts in sequence. Always deduplicate — the same file may appear in multiple individual apply scripts but only needs to be downloaded once in the comprehensive version.
+
+### 151 (Updated). Version Management Update
+- **Current version**: 6.2.3
+
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
 1. **Changelog update** in `version.json` (and copy to `static/version.json`)

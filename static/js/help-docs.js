@@ -5963,19 +5963,38 @@ HelpDocs.content['settings-updates'] = {
     <li>Your browser refreshes when the server is ready</li>
 </ul>
 
-<h2><i data-lucide="undo-2"></i> Rollback</h2>
-<p>If an update causes issues:</p>
+<h2><i data-lucide="undo-2"></i> Rollback (v6.2.3)</h2>
+<p>If an update causes issues, you can restore the previous version:</p>
 <ol>
-    <li>Go to <strong>Settings</strong> → <strong>Updates</strong> → <strong>Backups</strong></li>
-    <li>Select the backup created before the problematic update</li>
-    <li>Click <strong>"Rollback"</strong> to restore the previous version</li>
+    <li>Go to <strong>Settings</strong> → <strong>Updates</strong></li>
+    <li>Click <strong>"Rollback to Previous Version"</strong></li>
+    <li>Review the confirmation dialog — it shows the backup <strong>version</strong>, <strong>file count</strong>, and <strong>creation date</strong></li>
+    <li>Confirm to restore backed-up files. Only files that were backed up before the last update will be restored</li>
+    <li>The server restarts automatically after rollback (on Windows, launches Start_AEGIS.bat; on Mac/Linux, uses restart_aegis.sh)</li>
+</ol>
+
+<div class="help-callout help-callout-warning">
+    <i data-lucide="alert-triangle"></i>
+    <div>
+        <strong>Rollback Scope</strong>
+        <p>Rollback restores only the files that were backed up before the last update. If a file wasn't changed by the update, it won't be affected by rollback. Database changes (roles, scan history) are never rolled back.</p>
+    </div>
+</div>
+
+<h2><i data-lucide="file-down"></i> Direct Apply Scripts</h2>
+<p>For major version jumps, use a direct apply script (e.g., <code>apply_v6.2.3.py</code>):</p>
+<ol>
+    <li>Download the script from <a href="https://github.com/nicholasgeorgeson-prog/AEGIS" target="_blank">GitHub</a></li>
+    <li>Place it in the AEGIS root directory</li>
+    <li>Run: <code>python apply_v6.2.3.py</code></li>
+    <li>The script downloads all files, creates backups, installs dependencies, and verifies</li>
 </ol>
 
 <div class="help-callout help-callout-info">
     <i data-lucide="info"></i>
     <div>
         <strong>Air-Gapped Friendly</strong>
-        <p>Updates are applied from local files — no internet connection required. See <code>updates/UPDATE_README.md</code> for detailed documentation.</p>
+        <p>The built-in update system applies from local files — no internet connection required. Direct apply scripts need internet access to download from GitHub. See <code>updates/UPDATE_README.md</code> for detailed documentation.</p>
     </div>
 </div>
 `
