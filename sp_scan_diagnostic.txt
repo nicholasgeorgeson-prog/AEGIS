@@ -1,0 +1,92 @@
+======================================================================
+AEGIS SP Scan Diagnostic Report
+Generated: 2026-02-26T15:47:41.446728
+Platform: Windows 11 (AMD64)
+Python: 3.12.0 (tags/v3.12.0:0fb18b0, Oct  2 2023, 13:03:39) [MSC v.1935 64 bit (AMD64)]
+CWD: C:\Users\M26402\OneDrive - NGC\Desktop\Doc Review\AEGIS
+======================================================================
+
+[1] DIRECTORY CHECK
+  app.py: EXISTS (27,323 bytes)
+  static/js/app.js: EXISTS (796,947 bytes)
+  version.json: EXISTS (212,352 bytes)
+  static/version.json: EXISTS (212,352 bytes)
+  templates/index.html: EXISTS (456,295 bytes)
+
+[2] VERSION FILES
+  version.json: version=6.2.5 release_date=2026-02-26
+  static/version.json: version=6.2.5 release_date=2026-02-26
+
+[3] APP.JS ANALYSIS
+  File size: 796,947 bytes
+  Last modified: 2026-02-26T14:48:45.312443
+  Full file MD5: 28ff5edd65367c8e3e886815762faa83
+  First 100KB MD5: a2cd3f5e4c8d7943e81099ab5ce52cc0
+  Diagnostic marker (__AEGIS_SP_CINEMATIC): FOUND
+  Marker context (pos 509725): ...ick', async () => {\n                // v6.2.4-diag: Version marker — check from F12 console: window.__AEGIS_SP_CINEMATIC\n                window.__AEGIS_SP_CINEMATIC = '6.2.4-diag';\n\n                const scanId = btnSpScan.dataset.scanId;\n           ...
+
+  Key SP scan identifiers:
+    "_startSPSelectedScan": 3 occurrence(s) — SP selected scan function
+    "sharepoint-scan-selected": 2 occurrence(s) — SP scan API endpoint
+    "_spScanUsingBatchDash": 3 occurrence(s) — SP-uses-batch-dashboard flag
+    "sp-scan-dashboard": 5 occurrence(s) — Old SP dashboard element ID
+    "batch-progress": 21 occurrence(s) — Cinematic dashboard element ID
+    "AEGIS SP CINEMATIC": 10 occurrence(s) — Cinematic diagnostic log label
+    "AEGIS SP": 24 occurrence(s) — General SP diagnostic log label
+    "_renderSpFileSelector": 3 occurrence(s) — File selector renderer
+    "btnSpScan": 43 occurrence(s) — SP scan button reference
+    "window.__AEGIS_SP_CINEMATIC": 2 occurrence(s) — Version marker assignment
+
+  btnSpScan click handler search:
+    Found handler at char position 509595
+    Handler start: btnSpScan.addEventListener('click', async () => {\n                // v6.2.4-diag: Version marker — check from F12 console: window.__AEGIS_SP_CINEMATIC\n                window.__AEGIS_SP_CINEMATIC = '6.2.4-diag';\n\n                const scanId = btnSpScan.dataset.scanId;\n                const totalFiles = parseInt(btnSpScan.dataset.totalFiles || '0', 10);\n\n                console.log('%c[AEGIS SP CINEMATIC] ═══════════════════════════════════════', 'color:#D6A84A;font-weight:bold;font-size:14px;');
+
+  SP scan → batch-progress wiring:
+    "batch-progress" references: 6
+      pos 511485: ...Ds as batch scan) ──\n                const progressEl = document.getElementById('batch-progress');\n                const progressFill = document.getElementById(...
+      pos 546170: ...set batch progress dashboard\n        const progressEl = document.getElementById('batch-progress');\n        progressEl.classList.add('hidden');\n        progressE...
+      pos 547465: ...entById('sp-scan-dashboard');\n        const batchDash = document.getElementById('batch-progress');\n        const folderScanRunning = fsDash && !fsDash.classList...
+      pos 551904: ...'bpd-complete')) return true;\n        const batchDash = document.getElementById('batch-progress');\n        if (batchDash && !batchDash.classList.contains('hidde...
+      pos 563496: ...// Track for minimize badge\n\n        const progressEl = document.getElementById('batch-progress');\n        const progressFill = document.getElementById('batch-p...
+
+[4] INDEX.HTML ANALYSIS
+  File size: 454,360 chars
+
+  Script tags referencing app.js:
+    <script src="/static/js/app.js">
+
+  SP scan HTML elements:
+    id="btn-sp-scan": FOUND — SP Scan button
+      context: ...   <button type="button" class="btn btn-secondary btn-sm" id="btn-sp-scan"\n                    aria-label="Scan already-discovered files" ...
+    id="sp-scan-dashboard": FOUND — Old SP dashboard
+      context: ...>\n            <div class="bpd-dashboard hidden" id="sp-scan-dashboard">\n              <div class="bpd-header">\n            ...
+    id="batch-progress": FOUND — Cinematic batch dashboard
+      context: ...>\n            <div class="bpd-dashboard hidden" id="batch-progress">\n              <!-- Header -->\n              <div cl...
+    id="sp-file-selector": FOUND — SP file selector
+      context: ...covery) -->\n              <div class="hidden" id="sp-file-selector">\n                <div class="sp-selector-header">\n      ...
+    id="btn-sp-connect-scan": FOUND — Connect & Scan button
+      context: ...    <button type="button" class="btn btn-primary btn-sm" id="btn-sp-connect-scan"\n                    aria-label="Connect to SharePoint a...
+
+[5] GUIDE-SYSTEM.JS CHECK
+  File size: 462,035 bytes
+  Last modified: 2026-02-26T14:48:46.192672
+  _isIntro flag: FOUND
+
+[6] SERVER CHECK
+  Server responding: YES
+  Server version: 6.2.5
+
+[7] SERVER-SERVED APP.JS vs DISK FILE
+  Server app.js size: 791,384 chars
+  Server app.js MD5: 28ff5edd65367c8e3e886815762faa83
+  Server has marker: True
+  Disk vs Server: IDENTICAL ✓
+
+[8] SERVED INDEX.HTML — SCRIPT TAG CHECK
+  Served HTML size: 455,230 chars
+  app.js script src: /static/js/app.js?v=6.2.5
+  Cache-bust version param: ?v=6.2.5
+
+======================================================================
+END OF DIAGNOSTIC REPORT
+======================================================================
