@@ -2,7 +2,7 @@
  * AEGIS Help Documentation System
  * ==========================================
  * Comprehensive documentation for all features.
- * Version: 6.1.11
+ * Version: 6.2.0
  *
  * Complete overhaul with:
  * - Beautiful visual design with icons and illustrations
@@ -10,6 +10,7 @@
  * - Technical deep-dive section for advanced users
  * - Smooth navigation and professional typography
  *
+ * v6.2.0  - Major: Async Batch Scan, Cinematic Dashboard, Batch Results Module, Document Viewer Quality, Responsive Design, Unified Auth Service
  * v6.1.11 - SharePoint File Selection + SP Link Validation Parity (file picker, shared SP URL validator, discover_only mode)
  * v6.1.7 - HeadlessSP diagnostic logging + URL guard all folder endpoints + scan_history.py deploy (fixes 500 errors)
  * v6.1.6 - HeadlessSP SSO fix: launchPersistentContext + msedge channel + EnableAmbientAuthenticationInIncognito
@@ -4994,61 +4995,66 @@ HelpDocs.content['hyperlink-status'] = {
 // ============================================================================
 HelpDocs.content['batch-overview'] = {
     title: 'Batch Processing',
-    subtitle: 'Process multiple documents at once',
+    subtitle: 'Process multiple documents at once with real-time progress',
     html: `
 <div class="help-hero help-hero-compact">
     <div class="help-hero-icon"><i data-lucide="layers" class="hero-icon-main"></i></div>
     <div class="help-hero-content">
-        <p>Batch Processing lets you queue multiple documents for analysis, track progress, and view consolidated results across your entire document library.</p>
+        <p>Batch Processing lets you queue multiple documents for analysis with a cinematic real-time progress dashboard, per-file phase tracking, and consolidated results with powerful filtering.</p>
     </div>
 </div>
 
 <div class="help-callout help-callout-info">
     <i data-lucide="info"></i>
     <div>
-        <strong>Batch Limits (v3.0.116)</strong>
-        <p>Maximum <strong>10 files</strong> per batch, with a combined total size limit of <strong>100MB</strong>. Files are streamed to disk in 8KB chunks to minimize memory usage.</p>
+        <strong>Batch Limits (v6.2.0)</strong>
+        <p>Maximum <strong>50 files</strong> per batch, with a combined total size limit of <strong>500MB</strong>. Documents are processed in parallel chunks of 5 with 3 worker threads and per-file garbage collection.</p>
     </div>
 </div>
 
-<h2><i data-lucide="plus-circle"></i> Adding Documents</h2>
+<h2><i data-lucide="plus-circle"></i> Starting a Batch Scan</h2>
 <ol>
-    <li>Click <strong>Batch</strong> in the toolbar</li>
+    <li>Click <strong>Batch</strong> in the toolbar or landing page tile</li>
     <li>Drag and drop multiple files, or click to browse</li>
-    <li>Select your review preset and options</li>
-    <li>Click <strong>Start Batch</strong></li>
+    <li>Click <strong>Start Batch</strong> &mdash; scan runs asynchronously with real-time polling</li>
 </ol>
 
-<h2><i data-lucide="list"></i> Queue Management</h2>
+<h2><i data-lucide="activity"></i> Cinematic Progress Dashboard (v6.2.0)</h2>
+<p>During scanning, the dashboard shows real-time metrics:</p>
 <ul>
-    <li><strong>Reorder</strong> — Drag documents to change processing order</li>
-    <li><strong>Remove</strong> — Remove documents before processing</li>
-    <li><strong>Pause/Resume</strong> — Pause the queue at any time</li>
-    <li><strong>Cancel</strong> — Stop processing and clear the queue</li>
+    <li><strong>Hero Stats Row</strong> &mdash; Large SVG progress ring, ECD (Estimated Completion Date), docs/min throughput, total issues found</li>
+    <li><strong>Per-Document Queue</strong> &mdash; Each file shows its current phase (Extracting &rarr; Parsing &rarr; Checking &rarr; Postprocessing) with color-coded badges and mini progress bars</li>
+    <li><strong>Severity Chips</strong> &mdash; Live-updating Critical/High/Medium/Low/Info counts displayed as color-coded chips</li>
+    <li><strong>Chunk Tracker</strong> &mdash; Shows which chunk is being processed (e.g., "Chunk 2/5")</li>
+    <li><strong>Activity Log</strong> &mdash; Timestamped scrollable log of chunk and file events</li>
+    <li><strong>Cancel Button</strong> &mdash; Gracefully stops processing between files</li>
 </ul>
 
-<h2><i data-lucide="bar-chart-2"></i> Results View</h2>
-<p>After processing, view:</p>
+<h2><i data-lucide="minimize-2"></i> Minimize to Badge</h2>
+<p>Click the minimize button or close the modal during a scan to collapse the dashboard into a floating badge showing progress percentage, doc count (e.g., "12/50"), and remaining time. Click the badge to restore the full dashboard.</p>
+
+<h2><i data-lucide="folder"></i> Folder Scan &amp; SharePoint</h2>
 <ul>
-    <li>Summary statistics across all documents</li>
-    <li>Per-document issue counts</li>
-    <li>Click any document to see its detailed results</li>
-    <li>Export all results to Excel or CSV</li>
+    <li><strong>Local Folders</strong> &mdash; Enter a server path to recursively discover and scan all supported documents</li>
+    <li><strong>UNC Paths</strong> &mdash; Windows supports \\\\server\\share paths for network drives</li>
+    <li><strong>SharePoint</strong> &mdash; Paste a SharePoint URL to discover and select files with checkboxes before scanning</li>
 </ul>
 
-<h2><i data-lucide="settings"></i> Batch Options</h2>
+<h2><i data-lucide="filter"></i> Post-Scan Results &amp; Filtering</h2>
+<p>After scanning, the Batch Results module provides:</p>
 <ul>
-    <li><strong>Auto-export</strong> — Automatically export each document after processing</li>
-    <li><strong>Skip errors</strong> — Continue processing if a document fails</li>
-    <li><strong>Role extraction</strong> — Enable role extraction for all documents</li>
-    <li><strong>Parallel processing</strong> — Process multiple documents simultaneously</li>
+    <li><strong>Severity filter chips</strong> &mdash; Toggle Critical/High/Medium/Low/Info to focus on specific issue levels</li>
+    <li><strong>Category filter chips</strong> &mdash; Built dynamically from actual results</li>
+    <li><strong>Preset quick-filters</strong> &mdash; Requirements Focus, Technical Writing, Grammar &amp; Style, All Issues</li>
+    <li><strong>Per-document drill-down</strong> &mdash; Click any row for a split-pane view with document viewer (PDF.js/mammoth HTML) and filtered issues list</li>
+    <li><strong>Filtered export</strong> &mdash; Only issues matching active filters are included in exports</li>
 </ul>
 
 <div class="help-callout help-callout-tip">
     <i data-lucide="lightbulb"></i>
     <div>
         <strong>Pro Tip: Cross-Document Analysis</strong>
-        <p>After batch processing, open Roles Studio to see aggregated role data across all processed documents.</p>
+        <p>After batch processing, open Roles Studio to see aggregated role data, or Metrics &amp; Analytics for quality trend analysis across all processed documents.</p>
     </div>
 </div>
 `
@@ -5058,37 +5064,55 @@ HelpDocs.content['batch-overview'] = {
 // BATCH PROCESSING - QUEUE
 // ============================================================================
 HelpDocs.content['batch-queue'] = {
-    title: 'Queue Management',
-    subtitle: 'Managing your batch processing queue',
+    title: 'Cinematic Progress Dashboard',
+    subtitle: 'Real-time monitoring with per-file phase tracking and ECD estimation',
     html: `
-<h2><i data-lucide="list"></i> Queue States</h2>
+<h2><i data-lucide="activity"></i> Dashboard Components (v6.2.0)</h2>
+<p>The cinematic progress dashboard provides real-time visibility into every aspect of the batch scan:</p>
+
+<h3>Hero Stats Row</h3>
+<ul>
+    <li><strong>SVG Progress Ring</strong> — Large animated circular progress indicator with percentage</li>
+    <li><strong>ECD Display</strong> — Estimated Completion Date using Exponential Moving Average (alpha=0.3) of completed document durations. Shows both relative ("~12 min remaining") and absolute ("Est. completion: 3:42 PM")</li>
+    <li><strong>Throughput</strong> — Documents per minute processing rate</li>
+    <li><strong>Issues Found</strong> — Running total of issues discovered across all documents</li>
+</ul>
+
+<h3>Per-Document Queue</h3>
 <table class="help-table">
-    <thead><tr><th>State</th><th>Icon</th><th>Meaning</th></tr></thead>
+    <thead><tr><th>Phase</th><th>Icon</th><th>Meaning</th></tr></thead>
     <tbody>
-        <tr><td>Pending</td><td>○</td><td>Waiting to be processed</td></tr>
-        <tr><td>Processing</td><td>◐</td><td>Currently being analyzed</td></tr>
-        <tr><td>Complete</td><td style="color: #22c55e;">✓</td><td>Successfully processed</td></tr>
-        <tr><td>Error</td><td style="color: #ef4444;">✗</td><td>Processing failed</td></tr>
-        <tr><td>Skipped</td><td>○</td><td>Manually skipped</td></tr>
+        <tr><td>Queued</td><td>○</td><td>Waiting in batch queue</td></tr>
+        <tr><td>Extracting</td><td>◐</td><td>Text extraction via Docling/mammoth</td></tr>
+        <tr><td>Checking</td><td>◐</td><td>Running quality checkers</td></tr>
+        <tr><td>NLP</td><td>◐</td><td>NLP postprocessing (roles, statements)</td></tr>
+        <tr><td>Complete</td><td style="color: #22c55e;">✓</td><td>Scan finished — shows score + severity mini-bar</td></tr>
+        <tr><td>Error</td><td style="color: #ef4444;">✗</td><td>Processing failed — scan continues with next file</td></tr>
     </tbody>
 </table>
 
-<h2><i data-lucide="settings"></i> Queue Controls</h2>
+<h3>Additional Panels</h3>
 <ul>
-    <li><strong>Start/Pause</strong> — Begin or pause processing</li>
-    <li><strong>Clear Completed</strong> — Remove finished items from view</li>
-    <li><strong>Retry Failed</strong> — Reprocess documents that errored</li>
-    <li><strong>Clear All</strong> — Remove all items from queue</li>
+    <li><strong>Aggregate Stats</strong> — Severity counters (Critical/High/Medium/Low/Info), average score, best/worst document</li>
+    <li><strong>Chunk Tracker</strong> — Shows "Chunk 2/5 (files 6-10 of 25)" with worker status</li>
+    <li><strong>Activity Log</strong> — Timestamped scrollable log, auto-scroll to bottom, max 200 entries</li>
 </ul>
 
-<h2><i data-lucide="zap"></i> Performance</h2>
-<p>Processing time depends on:</p>
+<h2><i data-lucide="minimize-2"></i> Minimize to Badge</h2>
+<p>Click minimize or navigate away during a scan — the dashboard collapses into a floating badge with:</p>
 <ul>
-    <li>Document size and complexity</li>
-    <li>Number of enabled checkers</li>
-    <li>Whether role extraction is enabled</li>
-    <li>System resources available</li>
+    <li>SVG progress ring showing current percentage</li>
+    <li>Document count (e.g., "12/50")</li>
+    <li>ECD tooltip on hover</li>
+    <li>Click to restore the full dashboard</li>
+    <li>Auto-restores on completion with animated summary toast</li>
 </ul>
+
+<h2><i data-lucide="wifi-off"></i> Reconnection</h2>
+<p>If polling fails (network hiccup, server restart), the dashboard automatically retries with exponential backoff (1s → 2s → 4s → max 10s). A "Reconnecting..." indicator is shown. On reconnect, full state is fetched from the server.</p>
+
+<h2><i data-lucide="x-circle"></i> Cancel</h2>
+<p>The cancel button is always visible during active scans. Cancellation marks remaining files as skipped and moves to results.</p>
 `
 };
 
@@ -5096,41 +5120,53 @@ HelpDocs.content['batch-queue'] = {
 // BATCH PROCESSING - RESULTS
 // ============================================================================
 HelpDocs.content['batch-results'] = {
-    title: 'Consolidated Results',
-    subtitle: 'Viewing results across multiple documents',
+    title: 'Batch Results & Filtering',
+    subtitle: 'Post-scan analysis with interactive filters and document drill-down',
     html: `
-<h2><i data-lucide="bar-chart-2"></i> Summary Statistics</h2>
-<p>The batch results view shows:</p>
+<h2><i data-lucide="filter"></i> Filter System (v6.2.0)</h2>
+<p>The Batch Results module (<code>batch-results.js</code>) provides a powerful multi-dimensional filter system for analyzing scan results across all documents:</p>
+
+<h3>Filter Chips</h3>
 <ul>
-    <li>Total documents processed</li>
-    <li>Total issues found across all documents</li>
-    <li>Breakdown by severity (Critical/High/Medium/Low)</li>
-    <li>Breakdown by category</li>
-    <li>Processing time statistics</li>
+    <li><strong>Severity Chips</strong> — Toggle Critical, High, Medium, Low, Info (gold when active)</li>
+    <li><strong>Category Chips</strong> — Built dynamically from actual scan results (Grammar, Formatting, Requirements, etc.)</li>
+    <li><strong>File Type Chips</strong> — Filter by document type (.docx, .pdf, .xlsx)</li>
+    <li><strong>Grade Chips</strong> — Filter by quality grade (A through F)</li>
 </ul>
 
-<h2><i data-lucide="table"></i> Per-Document View</h2>
-<p>Click any document to see:</p>
+<h3>Preset Quick Filters</h3>
 <ul>
-    <li>Issue count and quality score</li>
-    <li>Severity distribution</li>
-    <li>Category breakdown</li>
-    <li>Full issue list</li>
+    <li><strong>Requirements Focus</strong> — Shows requirement-related categories only</li>
+    <li><strong>Technical Writing</strong> — Technical writing quality categories</li>
+    <li><strong>Grammar &amp; Style</strong> — Grammar, spelling, and style categories</li>
+    <li><strong>All Issues</strong> — Reset to show everything</li>
 </ul>
 
-<h2><i data-lucide="download"></i> Export Options</h2>
+<h3>Filter Logic</h3>
+<p>Filters combine as: <strong>OR within each dimension</strong> (selecting Critical AND High shows both), <strong>AND across dimensions</strong> (severity AND category must both match). Live count updates: "Showing 142 of 847 issues across 12 documents".</p>
+
+<h2><i data-lucide="layout"></i> Per-Document Drill-Down</h2>
+<p>Click any document row to open a <strong>split-pane view</strong>:</p>
 <ul>
-    <li><strong>Excel Workbook</strong> — One sheet per document plus summary</li>
+    <li><strong>Left pane (60%)</strong> — Document viewer: PDF.js for PDFs, mammoth HTML for DOCX, HTML tables for XLSX</li>
+    <li><strong>Right pane (40%)</strong> — Filtered issues list with the same filter chips</li>
+    <li>Click any issue to highlight its location in the document viewer</li>
+</ul>
+
+<h2><i data-lucide="download"></i> Filtered Export</h2>
+<p>When exporting, only issues matching the active filters are included:</p>
+<ul>
+    <li><strong>Excel Workbook</strong> — One sheet per document plus summary (respects filters)</li>
     <li><strong>CSV Archive</strong> — ZIP file with one CSV per document</li>
-    <li><strong>JSON</strong> — Complete data for API integration</li>
+    <li><strong>JSON</strong> — Complete filtered data for API integration</li>
 </ul>
 
 <h2><i data-lucide="users"></i> Cross-Document Analysis</h2>
 <p>After batch processing:</p>
 <ul>
-    <li>Open <strong>Roles Studio</strong> to see aggregated roles</li>
-    <li>Use the Document Filter to compare specific documents</li>
-    <li>View the Role-Document Matrix for cross-reference</li>
+    <li>Open <strong>Roles Studio</strong> to see aggregated roles across all scanned documents</li>
+    <li>Use <strong>Metrics &amp; Analytics</strong> to view quality trends and severity distribution</li>
+    <li>View the Role-Document Matrix for cross-reference analysis</li>
 </ul>
 `
 };
@@ -5983,8 +6019,22 @@ HelpDocs.content['settings-review'] = {
 // ============================================================================
 HelpDocs.content['settings-network'] = {
     title: 'Network & Authentication',
-    subtitle: 'Configure hyperlink validation, certificates, and proxy settings',
+    subtitle: 'Configure authentication, certificates, proxy settings, and network validation',
     html: `
+<h2><i data-lucide="shield-check"></i> Unified Auth Service (v6.2.0)</h2>
+<p>AEGIS uses a <strong>unified authentication service</strong> that provides a single shared auth session across all network-accessing modules. This eliminates duplicate auth handshakes and ensures consistent credentials.</p>
+<table class="help-table">
+    <thead><tr><th>Auth Method</th><th>Used When</th><th>Status</th></tr></thead>
+    <tbody>
+        <tr><td>SSPI Negotiate</td><td>Windows domain-joined machines</td><td>Auto-detected at startup</td></tr>
+        <tr><td>NTLM Fallback</td><td>When Negotiate is unavailable</td><td>Auto-detected at startup</td></tr>
+        <tr><td>MSAL OAuth 2.0</td><td>SharePoint Online (GCC High)</td><td>Zero-config auto-detection</td></tr>
+        <tr><td>Headless Browser SSO</td><td>When all API auth fails</td><td>Requires Playwright/Edge</td></tr>
+        <tr><td>OS Truststore</td><td>Corporate SSL certificates</td><td>Auto-enabled if truststore installed</td></tr>
+    </tbody>
+</table>
+<p>Auth status is visible via <code>/api/capabilities</code> and logged at startup. Check <strong>Settings &gt; Diagnostics</strong> for current auth state.</p>
+
 <h2><i data-lucide="link"></i> Hyperlink Validation Mode</h2>
 <ul>
     <li><strong>Offline</strong> — Format validation only, no network access. Checks URL syntax without connecting.</li>
@@ -6006,11 +6056,19 @@ HelpDocs.content['settings-network'] = {
     <li><strong>Verify SSL certificates</strong> — Disable only for testing with self-signed certificates</li>
 </ul>
 
+<h2><i data-lucide="network"></i> UNC Paths &amp; Network Shares (v6.2.0)</h2>
+<p>Folder scan now supports UNC paths on Windows:</p>
+<ul>
+    <li><strong>UNC Path Format</strong> — Enter <code>\\\\server\\share\\folder</code> in the folder scan input</li>
+    <li><strong>Windows Only</strong> — UNC paths require Windows domain credentials. On macOS/Linux, mount the network share first and use the local mount path</li>
+    <li><strong>Mapped Drives</strong> — Mapped drive letters (e.g., <code>Z:\\docs</code>) have always worked as local paths</li>
+</ul>
+
 <div class="help-callout help-callout-info">
     <i data-lucide="shield"></i>
     <div>
         <strong>Privacy</strong>
-        <p>All network traffic stays local to your machine. No data is sent to external servers. Hyperlink validation only checks URL reachability.</p>
+        <p>All network traffic stays local to your machine. No data is sent to external servers. Authentication uses your existing Windows credentials or OS certificate store.</p>
     </div>
 </div>
 `
@@ -6286,7 +6344,7 @@ HelpDocs.content['tech-architecture'] = {
 <div class="aao-boxes aao-boxes-3">
 <div class="aao-box"><div class="aao-box-title">routes/ (Blueprints)</div><div class="aao-box-sub">core &middot; review &middot; roles<br>data &middot; config</div></div>
 <div class="aao-box"><div class="aao-box-title">core.py (AEGISEngine)</div><div class="aao-box-sub">Extraction &middot; NLP<br>105+ Checkers</div></div>
-<div class="aao-box"><div class="aao-box-title">Specialized Modules</div><div class="aao-box-sub">Statement Forge &middot; HV<br>Export &middot; Reports</div></div>
+<div class="aao-box"><div class="aao-box-title">Specialized Modules</div><div class="aao-box-sub">Statement Forge &middot; HV<br>Auth Service &middot; Reports</div></div>
 </div>
 <div class="aao-nlp-banner aao-nlp-d">
 <div class="aao-nlp-banner-title">NLP Stack: spaCy &middot; Sentence-Transformers &middot; NLTK &middot; SymSpell &middot; rapidfuzz</div>
@@ -6310,13 +6368,14 @@ HelpDocs.content['tech-architecture'] = {
 AEGIS/                          # Main application folder
 ├── app.py                      # Flask entry point + middleware (6,000+ LOC)
 ├── core.py                     # AEGISEngine: extraction + 105+ checkers (2,400+ LOC)
+├── auth_service.py             # Unified auth service singleton (v6.2.0)
 ├── role_extractor_v3.py        # AI role extraction (94.7% precision, v3.5.0)
 ├── review_report.py            # PDF report generator (reportlab, AEGIS branding)
 ├── scan_history.py             # SQLite database operations + WAL mode
 ├── *_checker.py                # 30+ quality checker modules
 ├── routes/                     # Flask Blueprints
 │   ├── core_routes.py          # Version, index, middleware
-│   ├── review_routes.py        # Document review + folder scan
+│   ├── review_routes.py        # Document review + batch + folder scan
 │   ├── roles_routes.py         # Roles Studio API
 │   ├── data_routes.py          # Reports, analytics, export
 │   └── config_routes.py        # Settings, diagnostics, updates
@@ -6338,7 +6397,7 @@ AEGIS/                          # Main application folder
 ├── static/                     # Frontend assets
 │   ├── js/                     # JavaScript modules
 │   │   ├── app.js              # Main application + state manager
-│   │   ├── features/           # 15+ IIFE feature modules
+│   │   ├── features/           # 16+ IIFE feature modules (incl. batch-results.js)
 │   │   ├── ui/                 # UI components (modals, state, events)
 │   │   └── vendor/             # D3.js, Chart.js, Lucide, PDF.js
 │   ├── css/                    # Modular stylesheets (20+ files)
@@ -8085,6 +8144,22 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.2.0 <span class="changelog-date">February 25, 2026</span></h3>
+        <p><strong>Major Release: Async Batch Scan, Cinematic Dashboard, Unified Auth, Responsive Design</strong></p>
+        <ul>
+            <li><strong>NEW: Async Batch Scanning</strong> &mdash; Batch scans now run asynchronously with <code>POST /api/review/batch-start</code> + <code>GET /api/review/batch-progress/&lt;scan_id&gt;</code> polling pattern. Per-file phase tracking via <code>progress_callback</code> wiring in <code>_review_single_async()</code>. Crash protection with try/except around <code>_update_scan_state_with_result()</code>, per-file <code>gc.collect()</code>, cancel endpoint, and watchdog timer</li>
+            <li><strong>NEW: Cinematic Batch Progress Dashboard</strong> &mdash; Hero stats row with SVG progress ring, ECD estimation (Exponential Moving Average, alpha=0.3), docs/min throughput, per-document queue with phase indicators (Queued &rarr; Extracting &rarr; Checking &rarr; NLP &rarr; Complete/Error), per-doc mini progress bars, severity mini-bars on completion, chunk tracker, and timestamped activity log</li>
+            <li><strong>NEW: Minimize-to-Badge</strong> &mdash; During active scans, minimize the dashboard to a floating badge with SVG progress ring, doc count, and ECD tooltip. Auto-restores on completion with animated summary toast</li>
+            <li><strong>NEW: Batch Results Module</strong> &mdash; <code>batch-results.js</code> IIFE with severity/category/preset/file-type/grade filter chips. OR within dimension, AND across dimensions. Per-document drill-down with split-pane document viewer (PDF.js for PDFs, mammoth HTML for DOCX, tables for XLSX). Filtered export support</li>
+            <li><strong>NEW: Document Viewer Quality</strong> &mdash; Proposal Compare DOCX viewer upgraded from plaintext to mammoth HTML rendering. Document Review split-pane viewer with PDF.js and mammoth. Shared rendering utility across all modules</li>
+            <li><strong>NEW: Responsive Design</strong> &mdash; Systematic breakpoints (1366px, 1280px, 1024px, 768px) added to 13 CSS feature files. All modals, grids, and panels adapt to smaller screens without horizontal scrolling</li>
+            <li><strong>NEW: Unified Auth Service</strong> &mdash; <code>auth_service.py</code> singleton consolidates 5 fragmented auth systems (SharePoint Connector, HV Validator, Headless Validator, Comprehensive HV Checker, SP Link Validator) into a single thread-safe service with session caching (30-min TTL), auto-refresh, and truststore integration</li>
+            <li><strong>ENH: Boot-time Auth Probe</strong> &mdash; <code>app.py</code> calls <code>AEGISAuthService.get_auth_summary()</code> at startup, logging SSO/SSPI/OAuth/Truststore/Headless status. Results available via <code>/api/capabilities</code></li>
+            <li><strong>ENH: UNC Path Support</strong> &mdash; Folder scan now accepts <code>\\\\server\\share</code> paths on Windows with platform detection and helpful error messages for Mac/Linux users</li>
+            <li><strong>ENH: Polling Reconnection</strong> &mdash; Exponential backoff on fetch failures (1s &rarr; 2s &rarr; 4s &rarr; max 10s) with &ldquo;Reconnecting...&rdquo; indicator and full state recovery</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v6.1.11 <span class="changelog-date">February 25, 2026</span></h3>
         <p><strong>SharePoint File Selection + SP Link Validation Parity</strong></p>
         <ul>

@@ -102,6 +102,8 @@
     <link rel="stylesheet" href="/static/css/features/link-history.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/static/css/features/cinematic-progress.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/static/css/features/batch-progress-dashboard.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/static/css/features/batch-results.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="/static/css/features/doc-review-viewer.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/static/css/features/cinematic-loader.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/static/css/features/molten-progress.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/static/css/features/data-explorer.css" media="print" onload="this.media='all'">
@@ -1394,6 +1396,17 @@ if (document.documentElement.classList.contains('dark-mode')) {
                                     <span class="bpd-metric-label">Speed</span>
                                     <span class="bpd-metric-value" id="batch-speed">--</span>
                                 </div>
+                                <div class="bpd-metric">
+                                    <i data-lucide="package" class="bpd-metric-icon"></i>
+                                    <span class="bpd-metric-label">Chunk</span>
+                                    <span class="bpd-metric-value" id="batch-chunk-info">--</span>
+                                </div>
+                            </div>
+
+                            <!-- v6.2.0: ECD (Estimated Completion Date) line -->
+                            <div class="bpd-ecd-line" id="batch-ecd-line" style="display:none;">
+                                <i data-lucide="calendar-clock" style="width:12px;height:12px;vertical-align:-1px;margin-right:4px;"></i>
+                                <span id="batch-ecd-text">Est. completion: --:--</span>
                             </div>
 
                             <!-- Document queue -->
@@ -1405,6 +1418,26 @@ if (document.documentElement.classList.contains('dark-mode')) {
                                 <div class="bpd-queue-list" id="batch-doc-list">
                                     <!-- Document rows inserted dynamically -->
                                 </div>
+                            </div>
+
+                            <!-- v6.2.0: Activity log -->
+                            <div class="bpd-activity" id="batch-activity">
+                                <div class="bpd-activity-header">
+                                    <span><i data-lucide="scroll-text" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;"></i> Activity Log</span>
+                                    <span class="bpd-activity-count" id="batch-activity-count">0 events</span>
+                                </div>
+                                <div class="bpd-activity-list" id="batch-activity-list">
+                                    <!-- Activity entries inserted dynamically -->
+                                </div>
+                            </div>
+
+                            <!-- v6.2.0: Aggregate severity stats (shown during scan) -->
+                            <div class="bpd-severity-stats" id="batch-severity-stats" style="display:none;">
+                                <span class="bpd-sev-chip bpd-sev-critical" id="batch-sev-critical" title="Critical">C: 0</span>
+                                <span class="bpd-sev-chip bpd-sev-high" id="batch-sev-high" title="High">H: 0</span>
+                                <span class="bpd-sev-chip bpd-sev-medium" id="batch-sev-medium" title="Medium">M: 0</span>
+                                <span class="bpd-sev-chip bpd-sev-low" id="batch-sev-low" title="Low">L: 0</span>
+                                <span class="bpd-sev-chip bpd-sev-info" id="batch-sev-info" title="Info">I: 0</span>
                             </div>
 
                             <!-- Sound toggle (hidden until processing) -->
@@ -1731,9 +1764,37 @@ if (document.documentElement.classList.contains('dark-mode')) {
                         <i data-lucide="x"></i> Clear
                     </button>
                     <span class="filter-result-summary" id="filter-result-summary"></span>
+                    <!-- v6.2.0: Document Viewer toggle button -->
+                    <button class="btn btn-ghost btn-sm" id="btn-toggle-doc-viewer" title="View document alongside issues" style="display:none;">
+                        <i data-lucide="panel-left"></i>
+                        <span>View Document</span>
+                    </button>
                 </div>
             </div>
-            
+
+            <!-- v6.2.0: Document Viewer Split Pane (hidden by default) -->
+            <div class="dr-split-pane" id="dr-split-pane" style="display:none;">
+                <div class="dr-doc-panel" id="dr-doc-panel">
+                    <div class="dr-doc-header">
+                        <div class="dr-doc-title">
+                            <i data-lucide="file-text"></i>
+                            <span id="dr-doc-filename">Document</span>
+                        </div>
+                        <div class="dr-doc-controls">
+                            <button class="btn btn-ghost btn-xs" id="dr-doc-close" title="Close document viewer">
+                                <i data-lucide="x"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="dr-doc-content" id="dr-doc-content">
+                        <!-- Document rendered here: mammoth HTML for DOCX, PDF.js for PDF -->
+                    </div>
+                </div>
+                <div class="dr-issues-panel" id="dr-issues-panel">
+                    <!-- Issues list moves here when split pane is active -->
+                </div>
+            </div>
+
             <!-- Issues Table -->
             <div class="table-container" id="issues-container" style="display:none;">
                 <!-- Issue Families Panel (Pareto View) -->
@@ -7109,6 +7170,8 @@ if (document.documentElement.classList.contains('dark-mode')) {
 <!-- Statement Source Viewer (v1.0.0) -->
 <script src="/static/js/features/statement-source-viewer.js" defer></script>
 <!-- Demo Simulator (v1.0.0) - Mock data injection for Live Demo playback -->
+<script src="/static/js/features/batch-results.js" defer></script>
+<script src="/static/js/features/doc-review-viewer.js" defer></script>
 <script src="/static/js/features/demo-simulator.js" defer></script>
 <script defer src="/static/js/features/technology-showcase.js"></script>
 <!-- Guide System (v1.0.0) - Must load BEFORE landing-page.js so AEGISGuide is available -->

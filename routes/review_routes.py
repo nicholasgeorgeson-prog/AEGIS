@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, g, send_file, make_response, current_app
 import io
 import os
+import sys
 import traceback
 import threading
 import multiprocessing
@@ -31,6 +32,10 @@ from routes._shared import (
     MAX_FOLDER_SCAN_FILES,
     FOLDER_SCAN_CHUNK_SIZE,
     FOLDER_SCAN_MAX_WORKERS,
+    BATCH_SCAN_CHUNK_SIZE,
+    BATCH_SCAN_MAX_WORKERS,
+    BATCH_SCAN_PER_FILE_TIMEOUT,
+    BATCH_SCAN_CLEANUP_AGE,
     get_engine
 )
 import routes._shared as _shared
@@ -81,9 +86,18 @@ _folder_scan_state_lock = threading.Lock()
 
 _FOLDER_SCAN_CLEANUP_AGE = 1800  # 30 minutes
 
+# =============================================================================
+# v6.2.0: Async Batch Scan State Management
+# =============================================================================
+# Module-level dict tracking active/completed batch scans.
+# Key: scan_id (str) → dict with phase, progress, per-file phases, timing info.
+# Mirrors the folder scan async pattern from v5.7.0.
+_batch_scan_state = {}
+_batch_scan_state_lock = threading.Lock()
+
 
 def _cleanup_old_scans():
-    """Remove completed scan state older than _FOLDER_SCAN_CLEANUP_AGE seconds."""
+    """Remove completed scan state older than cleanup age for both folder and batch scans."""
     now = time.time()
     with _folder_scan_state_lock:
         to_remove = [
@@ -93,6 +107,15 @@ def _cleanup_old_scans():
         ]
         for sid in to_remove:
             del _folder_scan_state[sid]
+    # v6.2.0: Also clean up batch scan state
+    with _batch_scan_state_lock:
+        to_remove = [
+            sid for sid, state in _batch_scan_state.items()
+            if state.get('phase') in ('complete', 'error')
+            and now - state.get('completed_at', now) > BATCH_SCAN_CLEANUP_AGE
+        ]
+        for sid in to_remove:
+            del _batch_scan_state[sid]
 
 
 @review_bp.route('/api/upload', methods=['POST'])
@@ -910,8 +933,25 @@ def folder_scan_start():
             'then click "Connect & Scan".'
         )
 
+    # v6.2.0: UNC path support (\\server\share or //server/share)
+    is_unc = folder_path_str.startswith('\\\\') or folder_path_str.startswith('//')
+    if is_unc:
+        if sys.platform != 'win32':
+            raise ValidationError(
+                'UNC paths (\\\\server\\share) are only supported on Windows. '
+                'On macOS/Linux, mount the network share first and use the mount path.'
+            )
+        # Normalize forward-slash UNC to backslash for Windows
+        folder_path_str = folder_path_str.replace('/', '\\')
+        logger.info(f'[FolderScan] UNC path detected: {folder_path_str}')
+
     folder_path = Path(folder_path_str)
     if not folder_path.exists():
+        if is_unc:
+            raise ValidationError(
+                f'UNC path not accessible: {folder_path_str}. '
+                'Verify the server name and share are correct, and that you have network access.'
+            )
         raise ValidationError(f'Folder not found: {folder_path_str}')
     if not folder_path.is_dir():
         raise ValidationError(f'Path is not a directory: {folder_path_str}')
@@ -1080,69 +1120,86 @@ def _update_scan_state_with_result(scan_id, result, options, flask_app):
                 'status': 'error',
             })
         else:
-            state['processed'] += 1
-            state['summary']['processed'] += 1
+            # v6.2.0: Wrapped success path in try/except to prevent background
+            # thread crash from malformed issue dicts or unexpected data shapes
+            try:
+                state['processed'] += 1
+                state['summary']['processed'] += 1
 
-            issues = result.pop('issues', [])
-            actual_roles = result.pop('roles', {})
-            doc_results_full = result.pop('doc_results', {})
+                issues = result.pop('issues', [])
+                actual_roles = result.pop('roles', {})
+                doc_results_full = result.pop('doc_results', {})
 
-            state['summary']['total_issues'] += result['issue_count']
-            state['summary']['total_words'] += result.get('word_count', 0)
+                state['summary']['total_issues'] += result['issue_count']
+                state['summary']['total_words'] += result.get('word_count', 0)
 
-            for issue in issues:
-                sev = issue.get('severity', 'Low')
-                state['summary']['issues_by_severity'][sev] = \
-                    state['summary']['issues_by_severity'].get(sev, 0) + 1
-                cat = issue.get('category', 'Unknown')
-                state['summary']['issues_by_category'][cat] = \
-                    state['summary']['issues_by_category'].get(cat, 0) + 1
+                for issue in issues:
+                    sev = issue.get('severity', 'Low')
+                    state['summary']['issues_by_severity'][sev] = \
+                        state['summary']['issues_by_severity'].get(sev, 0) + 1
+                    cat = issue.get('category', 'Unknown')
+                    state['summary']['issues_by_category'][cat] = \
+                        state['summary']['issues_by_category'].get(cat, 0) + 1
 
-            grade = result.get('grade', 'N/A')
-            state['summary']['grade_distribution'][grade] = \
-                state['summary']['grade_distribution'].get(grade, 0) + 1
+                grade = result.get('grade', 'N/A')
+                state['summary']['grade_distribution'][grade] = \
+                    state['summary']['grade_distribution'].get(grade, 0) + 1
 
-            for role_name, role_data in actual_roles.items():
-                if role_name not in state['roles_found']:
-                    state['roles_found'][role_name] = {
-                        'documents': [], 'total_mentions': 0
-                    }
-                state['roles_found'][role_name]['documents'].append(result['filename'])
-                mention_count = role_data.get('count', 1) if isinstance(role_data, dict) else 1
-                state['roles_found'][role_name]['total_mentions'] += mention_count
+                for role_name, role_data in actual_roles.items():
+                    if role_name not in state['roles_found']:
+                        state['roles_found'][role_name] = {
+                            'documents': [], 'total_mentions': 0
+                        }
+                    state['roles_found'][role_name]['documents'].append(result['filename'])
+                    mention_count = role_data.get('count', 1) if isinstance(role_data, dict) else 1
+                    state['roles_found'][role_name]['total_mentions'] += mention_count
 
-            # Record scan in history (needs Flask app context)
-            scan_record_id = None
-            if _shared.SCAN_HISTORY_AVAILABLE and flask_app:
-                try:
-                    with flask_app.app_context():
-                        db = get_scan_history_db()
-                        scan_record = db.record_scan(
-                            filename=result['filename'],
-                            filepath=result.get('full_path', result.get('relative_path', result['filename'])),
-                            results=doc_results_full,
-                            options=options
-                        )
-                        scan_record_id = scan_record.get('scan_id') if scan_record else None
-                except Exception as e:
-                    logger.warning(f'[FolderScan-Async] Scan history error for {result["filename"]}: {e}')
+                # Record scan in history (needs Flask app context)
+                scan_record_id = None
+                if _shared.SCAN_HISTORY_AVAILABLE and flask_app:
+                    try:
+                        with flask_app.app_context():
+                            db = get_scan_history_db()
+                            scan_record = db.record_scan(
+                                filename=result['filename'],
+                                filepath=result.get('full_path', result.get('relative_path', result['filename'])),
+                                results=doc_results_full,
+                                options=options
+                            )
+                            scan_record_id = scan_record.get('scan_id') if scan_record else None
+                    except Exception as e:
+                        logger.warning(f'[FolderScan-Async] Scan history error for {result["filename"]}: {e}')
 
-            state['documents'].append({
-                'filename': result['filename'],
-                'relative_path': result['relative_path'],
-                'folder': result['folder'],
-                'extension': result['extension'],
-                'file_size': result.get('file_size', 0),
-                'issue_count': result['issue_count'],
-                'role_count': result['role_count'],
-                'word_count': result.get('word_count', 0),
-                'score': result.get('score', 0),
-                'grade': grade,
-                'scan_id': scan_record_id,
-                'status': 'success',
-            })
+                state['documents'].append({
+                    'filename': result['filename'],
+                    'relative_path': result['relative_path'],
+                    'folder': result['folder'],
+                    'extension': result['extension'],
+                    'file_size': result.get('file_size', 0),
+                    'issue_count': result['issue_count'],
+                    'role_count': result['role_count'],
+                    'word_count': result.get('word_count', 0),
+                    'score': result.get('score', 0),
+                    'grade': grade,
+                    'scan_id': scan_record_id,
+                    'status': 'success',
+                })
+            except Exception as inner_e:
+                # v6.2.0: Protect against malformed result dicts crashing background thread
+                logger.error(f'[FolderScan-Async] Error processing success result for '
+                             f'{result.get("filename", "unknown")}: {inner_e}\n{traceback.format_exc()}')
+                state['errors'] += 1
+                state['summary']['errors'] += 1
+                state['documents'].append({
+                    'filename': result.get('filename', 'unknown'),
+                    'relative_path': result.get('relative_path', ''),
+                    'folder': result.get('folder', ''),
+                    'error': f'Result processing error: {str(inner_e)}',
+                    'status': 'error',
+                })
 
         # Estimate remaining time
+        elapsed = time.time() - state['started_at']
         total_done = state['processed'] + state['errors']
         if total_done > 0:
             avg_time = elapsed / total_done
@@ -1407,6 +1464,677 @@ def folder_scan_progress(scan_id):
             response['roles_found'] = state.get('roles_found', {})
 
     return jsonify({'success': True, 'data': response})
+
+
+# =============================================================================
+# v6.2.0: ASYNC BATCH SCAN — Real-time progress for uploaded batch files
+# =============================================================================
+# Converts the synchronous /api/review/batch into an async polling pattern:
+#   POST /api/review/batch-start  → validates, spawns background thread, returns scan_id
+#   GET  /api/review/batch-progress/<scan_id>  → polls for real-time progress
+#   POST /api/review/batch-cancel/<scan_id>  → cancels an in-progress scan
+#
+# Per-file phase tracking via progress_callback wired into core.py engine.
+# ECD (estimated completion date) calculated from exponential moving average.
+# =============================================================================
+
+@review_bp.route('/api/review/batch-start', methods=['POST'])
+@require_csrf
+@handle_api_errors
+def batch_scan_start():
+    """
+    v6.2.0: Start an async batch scan of uploaded documents.
+
+    Expects JSON body with list of filepaths from batch upload.
+    Returns scan_id immediately, processes in background.
+
+    Request JSON:
+        filepaths (list[str]): Absolute paths to uploaded files
+        options (dict): Review options (same as /api/review)
+
+    Returns:
+        JSON with scan_id and file discovery info for immediate UI rendering
+    """
+    _cleanup_old_scans()
+
+    data = request.get_json() or {}
+    filepaths = data.get('filepaths', [])
+    options = data.get('options', {})
+
+    if not filepaths:
+        raise ValidationError('No filepaths provided')
+
+    # Validate files exist and build discovery info
+    discovery = []
+    for fp_str in filepaths:
+        fp = Path(fp_str)
+        if not fp.exists():
+            logger.warning(f'[BatchScan-Async] File not found: {fp_str}')
+            continue
+        stat = fp.stat()
+        discovery.append({
+            'filename': fp.name,
+            'filepath': str(fp),
+            'extension': fp.suffix.lower(),
+            'file_size': stat.st_size,
+        })
+
+    if not discovery:
+        raise ValidationError('No valid files found in provided paths')
+
+    # Generate scan ID and initialize state
+    scan_id = str(uuid.uuid4())[:12]
+    total_files = len(discovery)
+    total_chunks = (total_files + BATCH_SCAN_CHUNK_SIZE - 1) // BATCH_SCAN_CHUNK_SIZE
+
+    with _batch_scan_state_lock:
+        _batch_scan_state[scan_id] = {
+            'phase': 'reviewing',
+            'total_files': total_files,
+            'processed': 0,
+            'errors': 0,
+            'current_file': None,
+            'current_chunk': 0,
+            'total_chunks': total_chunks,
+            'current_files': {},    # per-file phase tracking from progress_callback
+            'documents': [],
+            'summary': {
+                'total_documents': total_files,
+                'processed': 0,
+                'errors': 0,
+                'total_issues': 0,
+                'total_words': 0,
+                'issues_by_severity': {},
+                'issues_by_category': {},
+                'grade_distribution': {},
+            },
+            'roles_found': {},
+            'started_at': time.time(),
+            'completed_at': None,
+            'elapsed_seconds': 0,
+            'estimated_remaining': None,
+            'cancelled': False,
+            'activity_log': [],
+        }
+
+    # Spawn background thread
+    thread = threading.Thread(
+        target=_process_batch_scan_async,
+        args=(scan_id, discovery, options),
+        daemon=True
+    )
+    thread.start()
+
+    logger.info(f'[BatchScan-Async] Started {scan_id}: {total_files} files, {total_chunks} chunks')
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'scan_id': scan_id,
+            'total_files': total_files,
+            'total_chunks': total_chunks,
+            'discovery': discovery,
+        }
+    })
+
+
+@review_bp.route('/api/review/batch-progress/<scan_id>', methods=['GET'])
+@handle_api_errors
+def batch_scan_progress(scan_id):
+    """
+    v6.2.0: Poll for async batch scan progress.
+
+    Returns current state including per-file phases, timing, and
+    completed documents so far. Supports incremental document fetching.
+
+    URL Params:
+        scan_id (str): The scan ID returned by /batch-start
+
+    Query Params:
+        since (int): Only return documents completed after this index
+
+    Returns:
+        JSON with current scan state
+    """
+    with _batch_scan_state_lock:
+        state = _batch_scan_state.get(scan_id)
+
+    if not state:
+        return jsonify({
+            'success': False,
+            'error': {'message': f'Batch scan {scan_id} not found', 'code': 'SCAN_NOT_FOUND'}
+        }), 404
+
+    since = request.args.get('since', 0, type=int)
+
+    with _batch_scan_state_lock:
+        docs = list(state['documents'][since:])
+
+        # v5.7.1 pattern: Compute elapsed_seconds LIVE from started_at
+        if state['phase'] == 'reviewing' and state.get('started_at'):
+            live_elapsed = round(time.time() - state['started_at'], 1)
+        else:
+            live_elapsed = state['elapsed_seconds']
+
+        response = {
+            'scan_id': scan_id,
+            'phase': state['phase'],
+            'total_files': state['total_files'],
+            'processed': state['processed'],
+            'errors': state['errors'],
+            'current_file': state['current_file'],
+            'current_chunk': state['current_chunk'],
+            'total_chunks': state['total_chunks'],
+            'current_files': dict(state.get('current_files', {})),
+            'elapsed_seconds': live_elapsed,
+            'estimated_remaining': state['estimated_remaining'],
+            'summary': dict(state['summary']),
+            'total_documents_ready': len(state['documents']),
+            'documents': docs,
+            'since': since,
+            'cancelled': state.get('cancelled', False),
+            'activity_log': list(state.get('activity_log', [])[-50:]),  # Last 50 entries
+        }
+        if state['phase'] == 'error':
+            response['error_message'] = state.get('error_message', 'Unknown error')
+        if state['phase'] == 'complete':
+            response['roles_found'] = dict(state.get('roles_found', {}))
+
+    return jsonify({'success': True, 'data': response})
+
+
+@review_bp.route('/api/review/batch-cancel/<scan_id>', methods=['POST'])
+@require_csrf
+@handle_api_errors
+def batch_scan_cancel(scan_id):
+    """
+    v6.2.0: Cancel an in-progress batch scan.
+
+    Sets the cancelled flag which the background thread checks between files.
+    Currently processing files will complete, but no new files will start.
+    """
+    with _batch_scan_state_lock:
+        state = _batch_scan_state.get(scan_id)
+
+    if not state:
+        return jsonify({
+            'success': False,
+            'error': {'message': f'Batch scan {scan_id} not found', 'code': 'SCAN_NOT_FOUND'}
+        }), 404
+
+    if state['phase'] not in ('reviewing',):
+        return jsonify({
+            'success': False,
+            'error': {'message': f'Scan is already {state["phase"]}', 'code': 'SCAN_NOT_ACTIVE'}
+        }), 400
+
+    with _batch_scan_state_lock:
+        state['cancelled'] = True
+        state['activity_log'].append({
+            'time': round(time.time() - state['started_at'], 1),
+            'event': 'cancelled',
+            'message': 'Scan cancellation requested by user',
+        })
+
+    logger.info(f'[BatchScan-Async] Cancel requested for {scan_id}')
+
+    return jsonify({'success': True, 'message': 'Cancellation requested'})
+
+
+def _add_batch_activity(scan_id, event, message):
+    """Add an entry to the batch scan activity log."""
+    with _batch_scan_state_lock:
+        state = _batch_scan_state.get(scan_id)
+        if state:
+            elapsed = round(time.time() - state['started_at'], 1)
+            state['activity_log'].append({
+                'time': elapsed,
+                'event': event,
+                'message': message,
+            })
+            # Keep activity log bounded
+            if len(state['activity_log']) > 200:
+                state['activity_log'] = state['activity_log'][-200:]
+
+
+def _update_batch_state_with_result(scan_id, result, options, flask_app):
+    """
+    v6.2.0: Update batch scan state with one file's result.
+
+    Protected with try/except on the SUCCESS path (fixing the gap identified
+    in _update_scan_state_with_result where the outer block was unprotected).
+    """
+    try:
+        with _batch_scan_state_lock:
+            state = _batch_scan_state.get(scan_id)
+            if not state:
+                logger.warning(f'[BatchScan-Async] State missing for {scan_id}')
+                return
+
+            filename = result.get('filename', 'unknown')
+            state['current_file'] = filename
+
+            # Remove from per-file phase tracking (file is done)
+            state['current_files'].pop(filename, None)
+
+            if result.get('status') == 'error':
+                state['errors'] += 1
+                state['summary']['errors'] += 1
+                state['documents'].append({
+                    'filename': filename,
+                    'filepath': result.get('filepath', ''),
+                    'error': result.get('error', 'Unknown error'),
+                    'status': 'error',
+                })
+                _add_batch_activity(scan_id, 'file_error',
+                                    f'{filename}: {result.get("error", "Unknown error")[:80]}')
+            else:
+                try:
+                    state['processed'] += 1
+                    state['summary']['processed'] += 1
+
+                    issues = result.pop('issues', [])
+                    actual_roles = result.pop('roles', {})
+                    doc_results_full = result.pop('doc_results', {})
+
+                    issue_count = result.get('issue_count', len(issues))
+                    state['summary']['total_issues'] += issue_count
+                    state['summary']['total_words'] += result.get('word_count', 0)
+
+                    for issue in issues:
+                        sev = issue.get('severity', 'Low')
+                        state['summary']['issues_by_severity'][sev] = \
+                            state['summary']['issues_by_severity'].get(sev, 0) + 1
+                        cat = issue.get('category', 'Unknown')
+                        state['summary']['issues_by_category'][cat] = \
+                            state['summary']['issues_by_category'].get(cat, 0) + 1
+
+                    grade = result.get('grade', 'N/A')
+                    state['summary']['grade_distribution'][grade] = \
+                        state['summary']['grade_distribution'].get(grade, 0) + 1
+
+                    for role_name, role_data in actual_roles.items():
+                        if role_name not in state['roles_found']:
+                            state['roles_found'][role_name] = {
+                                'documents': [], 'total_mentions': 0
+                            }
+                        state['roles_found'][role_name]['documents'].append(filename)
+                        mention_count = role_data.get('count', 1) if isinstance(role_data, dict) else 1
+                        state['roles_found'][role_name]['total_mentions'] += mention_count
+
+                    # Record scan in history (needs Flask app context)
+                    scan_record_id = None
+                    if _shared.SCAN_HISTORY_AVAILABLE and flask_app:
+                        try:
+                            with flask_app.app_context():
+                                db = get_scan_history_db()
+                                scan_record = db.record_scan(
+                                    filename=filename,
+                                    filepath=result.get('filepath', filename),
+                                    results=doc_results_full,
+                                    options=options
+                                )
+                                scan_record_id = scan_record.get('scan_id') if scan_record else None
+                        except Exception as e:
+                            logger.warning(f'[BatchScan-Async] Scan history error for {filename}: {e}')
+
+                    # v5.9.22: Statement Forge extraction during batch scan
+                    sf_summary = result.get('sf_summary')
+
+                    state['documents'].append({
+                        'filename': filename,
+                        'filepath': result.get('filepath', ''),
+                        'extension': result.get('extension', ''),
+                        'file_size': result.get('file_size', 0),
+                        'issue_count': issue_count,
+                        'role_count': result.get('role_count', 0),
+                        'word_count': result.get('word_count', 0),
+                        'score': result.get('score', 0),
+                        'grade': grade,
+                        'scan_id': scan_record_id,
+                        'sf_summary': sf_summary,
+                        'status': 'success',
+                    })
+
+                    _add_batch_activity(scan_id, 'file_complete',
+                                        f'{filename}: score {result.get("score", 0)}, '
+                                        f'{issue_count} issues, grade {grade}')
+
+                except Exception as inner_e:
+                    # v6.2.0: Protected success path — prevents background thread crash
+                    logger.error(f'[BatchScan-Async] Error processing result for {filename}: {inner_e}\n'
+                                 f'{traceback.format_exc()}')
+                    state['errors'] += 1
+                    state['summary']['errors'] += 1
+                    state['documents'].append({
+                        'filename': filename,
+                        'filepath': result.get('filepath', ''),
+                        'error': f'Result processing error: {str(inner_e)}',
+                        'status': 'error',
+                    })
+
+            # Estimate remaining time using EMA
+            elapsed = time.time() - state['started_at']
+            total_done = state['processed'] + state['errors']
+            if total_done > 0:
+                avg_time = elapsed / total_done
+                remaining = state['total_files'] - total_done
+                state['estimated_remaining'] = round(avg_time * remaining, 1)
+
+    except Exception as outer_e:
+        logger.error(f'[BatchScan-Async] Fatal error in _update_batch_state_with_result: {outer_e}\n'
+                     f'{traceback.format_exc()}')
+
+
+def _process_batch_scan_async(scan_id, discovery, options):
+    """
+    v6.2.0: Background thread — process batch scan documents in chunks.
+
+    Mirrors _process_folder_scan_async but with:
+    - progress_callback wiring for per-file phase tracking
+    - Per-file gc.collect() and engine cleanup
+    - Cancel support via state['cancelled'] flag
+    - Watchdog timer (10 min no-progress = timeout)
+    - Protected outer try/except to never crash silently
+    """
+    import gc
+    from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeoutError
+
+    # Get Flask app reference for background context
+    try:
+        from app import app as flask_app
+    except ImportError:
+        flask_app = None
+
+    # Enable batch_mode for faster processing
+    async_batch_options = dict(options) if options else {}
+    async_batch_options['batch_mode'] = True
+
+    def _review_single_with_progress(file_info):
+        """Review one document with its own engine instance + progress_callback."""
+        filepath = Path(file_info['filepath'])
+        filename = file_info['filename']
+
+        try:
+            # v6.2.0: Wire progress_callback for per-file phase tracking
+            def progress_cb(phase, progress, message):
+                """Called by core.py review_document() during processing phases."""
+                try:
+                    with _batch_scan_state_lock:
+                        state = _batch_scan_state.get(scan_id)
+                        if state:
+                            state['current_files'][filename] = {
+                                'phase': phase,       # extracting, parsing, checking, postprocessing
+                                'progress': progress,  # 0-100
+                                'message': message,
+                            }
+                except Exception:
+                    pass  # Never let callback errors affect the scan
+
+            # Update current_files to show this file is starting
+            with _batch_scan_state_lock:
+                state = _batch_scan_state.get(scan_id)
+                if state:
+                    state['current_files'][filename] = {
+                        'phase': 'starting',
+                        'progress': 0,
+                        'message': 'Initializing engine...',
+                    }
+
+            engine = AEGISEngine()
+            doc_results = engine.review_document(
+                str(filepath),
+                async_batch_options,
+                progress_callback=progress_cb
+            )
+
+            # Convert ReviewIssue objects to dicts (Lesson 36)
+            raw_issues = doc_results.get('issues', [])
+            issues = []
+            for issue in raw_issues:
+                if isinstance(issue, dict):
+                    issues.append(issue)
+                elif hasattr(issue, 'to_dict'):
+                    issues.append(issue.to_dict())
+                else:
+                    issues.append({
+                        'severity': getattr(issue, 'severity', 'Low'),
+                        'category': getattr(issue, 'category', 'Unknown'),
+                        'message': getattr(issue, 'message', str(issue)),
+                    })
+            doc_results['issues'] = issues
+
+            doc_roles = doc_results.get('roles', {})
+            if not isinstance(doc_roles, dict):
+                doc_roles = {}
+            actual_roles = {k: v for k, v in doc_roles.items()
+                          if not isinstance(v, dict) or k not in ['success', 'error']}
+
+            word_count = doc_results.get('word_count', 0)
+            if not word_count:
+                doc_info = doc_results.get('document_info', {})
+                word_count = doc_info.get('word_count', 0) if isinstance(doc_info, dict) else 0
+
+            # v5.9.22: Statement Forge extraction during batch scan
+            sf_summary = None
+            if _shared.STATEMENT_FORGE_AVAILABLE and doc_results.get('full_text'):
+                try:
+                    try:
+                        from statement_forge.extractor import extract_statements as sf_extract
+                        from statement_forge.export import get_export_stats as sf_stats
+                        from statement_forge.routes import _store_statements
+                    except ImportError:
+                        from statement_forge__extractor import extract_statements as sf_extract
+                        from statement_forge__export import get_export_stats as sf_stats
+                        from statement_forge__routes import _store_statements
+
+                    sf_text = doc_results.get('clean_full_text') or doc_results.get('full_text', '')
+                    sf_stmts = sf_extract(sf_text, filepath.name)
+                    if sf_stmts:
+                        stats = sf_stats(sf_stmts)
+                        sf_statements_list = [s.to_dict() for s in sf_stmts]
+                        _store_statements(sf_stmts)
+                        sf_summary = {
+                            'available': True, 'statements_ready': True,
+                            'total_statements': len(sf_stmts),
+                            'directive_counts': stats.get('directive_counts', {}),
+                            'top_roles': stats.get('roles', [])[:5],
+                        }
+                        doc_results['statement_forge_summary'] = sf_summary
+                        # Persist statements to scan history
+                        if _shared.SCAN_HISTORY_AVAILABLE and flask_app:
+                            try:
+                                with flask_app.app_context():
+                                    db = get_scan_history_db()
+                                    scan_info = db.record_scan(
+                                        filename=filepath.name, filepath=str(filepath),
+                                        results=doc_results, options=options
+                                    )
+                                    if scan_info and sf_statements_list:
+                                        db.save_scan_statements(
+                                            scan_info['scan_id'], scan_info['document_id'],
+                                            sf_statements_list
+                                        )
+                            except Exception as db_err:
+                                logger.warning(f'[BatchScan-Async] SF db persist failed: {db_err}')
+                except Exception as sf_err:
+                    logger.warning(f'[BatchScan-Async] SF extraction failed for {filename}: {sf_err}')
+
+            # v6.2.0: Per-file engine cleanup to free NLP model references
+            del engine
+            gc.collect()
+
+            return {
+                'filename': filename,
+                'filepath': str(filepath),
+                'extension': file_info['extension'],
+                'file_size': file_info['file_size'],
+                'issues': issues,
+                'issue_count': len(issues),
+                'roles': actual_roles,
+                'role_count': len(actual_roles),
+                'word_count': word_count,
+                'score': doc_results.get('score', 0),
+                'grade': doc_results.get('grade', 'N/A'),
+                'doc_results': doc_results,
+                'sf_summary': sf_summary,
+                'status': 'success',
+            }
+        except Exception as e:
+            tb_str = traceback.format_exc()
+            logger.error(f'[BatchScan-Async] Error reviewing {filename}: {e}\n{tb_str}')
+            # Cleanup on error too
+            try:
+                gc.collect()
+            except Exception:
+                pass
+            return {
+                'filename': filename,
+                'filepath': str(filepath),
+                'extension': file_info.get('extension', ''),
+                'file_size': file_info.get('file_size', 0),
+                'error': str(e),
+                'status': 'error',
+            }
+
+    try:
+        chunks = [discovery[i:i + BATCH_SCAN_CHUNK_SIZE]
+                  for i in range(0, len(discovery), BATCH_SCAN_CHUNK_SIZE)]
+
+        _add_batch_activity(scan_id, 'scan_started',
+                            f'Processing {len(discovery)} files in {len(chunks)} chunks')
+
+        for chunk_idx, chunk in enumerate(chunks):
+            # Check for cancellation between chunks
+            with _batch_scan_state_lock:
+                state = _batch_scan_state.get(scan_id)
+                if state and state.get('cancelled'):
+                    state['phase'] = 'cancelled'
+                    state['completed_at'] = time.time()
+                    state['elapsed_seconds'] = round(time.time() - state['started_at'], 1)
+                    _add_batch_activity(scan_id, 'scan_cancelled',
+                                        f'Cancelled after {state["processed"]} files')
+                    logger.info(f'[BatchScan-Async] {scan_id} cancelled by user')
+                    return
+
+            logger.info(f'[BatchScan-Async] {scan_id} chunk {chunk_idx + 1}/{len(chunks)} ({len(chunk)} files)')
+
+            with _batch_scan_state_lock:
+                state = _batch_scan_state.get(scan_id)
+                if state:
+                    state['current_chunk'] = chunk_idx + 1
+                    state['current_file'] = ', '.join(f['filename'] for f in chunk[:3])
+                    if len(chunk) > 3:
+                        state['current_file'] += f' (+{len(chunk) - 3} more)'
+
+            _add_batch_activity(scan_id, 'chunk_started',
+                                f'Chunk {chunk_idx + 1}/{len(chunks)}: '
+                                f'{", ".join(f["filename"] for f in chunk[:3])}'
+                                f'{" ..." if len(chunk) > 3 else ""}')
+
+            max_workers = min(BATCH_SCAN_MAX_WORKERS, len(chunk))
+            chunk_timed_out = False
+
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                future_to_file = {
+                    executor.submit(_review_single_with_progress, f): f
+                    for f in chunk
+                }
+                completed_futures = set()
+
+                try:
+                    for future in as_completed(future_to_file,
+                                               timeout=BATCH_SCAN_PER_FILE_TIMEOUT * len(chunk)):
+                        completed_futures.add(future)
+                        file_info = future_to_file[future]
+
+                        try:
+                            result = future.result(timeout=30)
+                        except Exception as e:
+                            logger.error(f'[BatchScan-Async] Error getting result for '
+                                         f'{file_info["filename"]}: {e}')
+                            result = {
+                                'filename': file_info['filename'],
+                                'filepath': file_info['filepath'],
+                                'extension': file_info['extension'],
+                                'file_size': file_info['file_size'],
+                                'error': f'Worker error: {str(e)}',
+                                'status': 'error',
+                            }
+
+                        _update_batch_state_with_result(scan_id, result, options, flask_app)
+
+                        # Check cancellation between files within a chunk
+                        with _batch_scan_state_lock:
+                            state = _batch_scan_state.get(scan_id)
+                            if state and state.get('cancelled'):
+                                break
+
+                except FuturesTimeoutError:
+                    chunk_timed_out = True
+                    logger.error(f'[BatchScan-Async] Chunk {chunk_idx + 1} timed out')
+                    _add_batch_activity(scan_id, 'chunk_timeout',
+                                        f'Chunk {chunk_idx + 1} timed out after '
+                                        f'{BATCH_SCAN_PER_FILE_TIMEOUT * len(chunk)}s')
+
+                    for future, file_info in future_to_file.items():
+                        if future not in completed_futures:
+                            with _batch_scan_state_lock:
+                                state = _batch_scan_state.get(scan_id)
+                                if state:
+                                    state['errors'] += 1
+                                    state['summary']['errors'] += 1
+                                    state['documents'].append({
+                                        'filename': file_info['filename'],
+                                        'filepath': file_info['filepath'],
+                                        'error': f'Timed out (chunk timeout after '
+                                                 f'{BATCH_SCAN_PER_FILE_TIMEOUT * len(chunk)}s)',
+                                        'status': 'error',
+                                    })
+                                    state['current_files'].pop(file_info['filename'], None)
+
+            # v6.2.0: gc.collect() between chunks (in addition to per-file cleanup)
+            gc.collect()
+
+            _add_batch_activity(scan_id, 'chunk_complete',
+                                f'Chunk {chunk_idx + 1}/{len(chunks)} complete')
+
+        # ── Mark complete ──
+        with _batch_scan_state_lock:
+            state = _batch_scan_state.get(scan_id)
+            if state:
+                if state.get('cancelled'):
+                    state['phase'] = 'cancelled'
+                else:
+                    state['phase'] = 'complete'
+                state['current_file'] = None
+                state['current_files'] = {}
+                state['completed_at'] = time.time()
+                state['elapsed_seconds'] = round(time.time() - state['started_at'], 1)
+                state['estimated_remaining'] = 0
+                logger.info(
+                    f'[BatchScan-Async] {scan_id} complete: '
+                    f'{state["summary"]["processed"]} processed, '
+                    f'{state["summary"]["errors"]} errors, '
+                    f'{state["summary"]["total_issues"]} issues, '
+                    f'{state["elapsed_seconds"]}s'
+                )
+                _add_batch_activity(scan_id, 'scan_complete',
+                                    f'Scan complete: {state["summary"]["processed"]} processed, '
+                                    f'{state["summary"]["errors"]} errors, '
+                                    f'{state["summary"]["total_issues"]} total issues in '
+                                    f'{state["elapsed_seconds"]}s')
+
+    except Exception as e:
+        logger.error(f'[BatchScan-Async] {scan_id} fatal error: {e}\n{traceback.format_exc()}')
+        with _batch_scan_state_lock:
+            state = _batch_scan_state.get(scan_id)
+            if state:
+                state['phase'] = 'error'
+                state['error_message'] = str(e)
+                state['completed_at'] = time.time()
+                state['elapsed_seconds'] = round(time.time() - state['started_at'], 1)
+                _add_batch_activity(scan_id, 'scan_error', f'Fatal error: {str(e)[:100]}')
 
 
 # =============================================================================

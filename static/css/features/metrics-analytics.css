@@ -1018,6 +1018,19 @@ body.dark-mode .ma-table .ma-hint,
    RESPONSIVE
    ============================================================================= */
 
+/* v6.2.0: Laptops */
+@media (max-width: 1366px) {
+    .ma-hero-stats {
+        gap: 0.75rem;
+    }
+    .ma-hero-stat {
+        padding: 0.875rem 1rem;
+    }
+    .ma-stat-number {
+        font-size: 1.5rem;
+    }
+}
+
 @media (max-width: 1200px) {
     #modal-metrics-analytics > .ma-modal-content {
         width: 98vw;

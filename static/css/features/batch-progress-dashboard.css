@@ -483,6 +483,215 @@
     color: #22c55e;
 }
 
+/* ===== v6.2.0: ECD LINE ===== */
+.bpd-ecd-line {
+    text-align: center;
+    font-size: 12px;
+    color: rgba(214, 168, 74, 0.6);
+    margin: -8px 0 16px;
+    padding: 0 4px;
+}
+
+.bpd-ecd-line i {
+    color: rgba(214, 168, 74, 0.5);
+}
+
+/* ===== v6.2.0: ACTIVITY LOG ===== */
+.bpd-activity {
+    border-top: 1px solid rgba(255,255,255,0.06);
+    padding-top: 12px;
+    margin-top: 12px;
+}
+
+.bpd-activity-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+}
+
+.bpd-activity-count {
+    color: rgba(255,255,255,0.25);
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.bpd-activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 140px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(214, 168, 74, 0.2) transparent;
+    font-size: 11px;
+    font-family: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+}
+
+.bpd-activity-list::-webkit-scrollbar {
+    width: 3px;
+}
+
+.bpd-activity-list::-webkit-scrollbar-thumb {
+    background: rgba(214, 168, 74, 0.2);
+    border-radius: 2px;
+}
+
+.bpd-activity-entry {
+    display: flex;
+    gap: 8px;
+    padding: 2px 4px;
+    line-height: 1.4;
+    border-radius: 3px;
+}
+
+.bpd-activity-entry:hover {
+    background: rgba(255,255,255,0.03);
+}
+
+.bpd-activity-time {
+    color: rgba(255,255,255,0.2);
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.bpd-activity-event {
+    color: rgba(214, 168, 74, 0.6);
+    flex-shrink: 0;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.03em;
+}
+
+.bpd-activity-msg {
+    color: rgba(255,255,255,0.5);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Activity event type colors */
+.bpd-activity-entry[data-event="file_complete"] .bpd-activity-event {
+    color: rgba(34, 197, 94, 0.7);
+}
+
+.bpd-activity-entry[data-event="file_error"] .bpd-activity-event,
+.bpd-activity-entry[data-event="chunk_timeout"] .bpd-activity-event {
+    color: rgba(239, 68, 68, 0.7);
+}
+
+.bpd-activity-entry[data-event="chunk_start"] .bpd-activity-event,
+.bpd-activity-entry[data-event="chunk_complete"] .bpd-activity-event {
+    color: rgba(214, 168, 74, 0.7);
+}
+
+.bpd-activity-entry[data-event="scan_complete"] .bpd-activity-event,
+.bpd-activity-entry[data-event="scan_start"] .bpd-activity-event {
+    color: rgba(96, 165, 250, 0.7);
+}
+
+/* ===== v6.2.0: SEVERITY STAT CHIPS ===== */
+.bpd-severity-stats {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 0 4px;
+    flex-wrap: wrap;
+}
+
+.bpd-sev-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+}
+
+.bpd-sev-critical {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.bpd-sev-high {
+    background: rgba(249, 115, 22, 0.15);
+    color: #f97316;
+    border: 1px solid rgba(249, 115, 22, 0.25);
+}
+
+.bpd-sev-medium {
+    background: rgba(234, 179, 8, 0.15);
+    color: #eab308;
+    border: 1px solid rgba(234, 179, 8, 0.25);
+}
+
+.bpd-sev-low {
+    background: rgba(59, 130, 246, 0.15);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+.bpd-sev-info {
+    background: rgba(148, 163, 184, 0.12);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+/* ===== v6.2.0: PER-FILE PHASE LABEL ===== */
+.bpd-doc-row.processing .bpd-doc-detail {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.bpd-phase-badge {
+    display: inline-block;
+    padding: 0 5px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1.5;
+    background: rgba(214, 168, 74, 0.15);
+    color: rgba(214, 168, 74, 0.9);
+    border: 1px solid rgba(214, 168, 74, 0.2);
+}
+
+.bpd-phase-badge.phase-extracting {
+    background: rgba(96, 165, 250, 0.15);
+    color: rgba(96, 165, 250, 0.9);
+    border-color: rgba(96, 165, 250, 0.2);
+}
+
+.bpd-phase-badge.phase-parsing {
+    background: rgba(168, 85, 247, 0.15);
+    color: rgba(168, 85, 247, 0.9);
+    border-color: rgba(168, 85, 247, 0.2);
+}
+
+.bpd-phase-badge.phase-checking {
+    background: rgba(214, 168, 74, 0.15);
+    color: rgba(214, 168, 74, 0.9);
+    border-color: rgba(214, 168, 74, 0.2);
+}
+
+.bpd-phase-badge.phase-postprocessing {
+    background: rgba(34, 197, 94, 0.15);
+    color: rgba(34, 197, 94, 0.9);
+    border-color: rgba(34, 197, 94, 0.2);
+}
+
 /* ===== ACCESSIBILITY ===== */
 @media (prefers-reduced-motion: reduce) {
     .bpd-dashboard *, .bpd-dashboard *::before, .bpd-dashboard *::after {
@@ -826,4 +1035,73 @@ body:not(.dark-mode) .sp-filter-chip,
     background: #f6f8fa;
     border-color: #d0d7de;
     color: #656d76;
+}
+
+/* =============================================================================
+   v6.2.0: RESPONSIVE BREAKPOINTS
+   ============================================================================= */
+
+/* Laptop (1366px) — reduce padding, tighten stats */
+@media (max-width: 1366px) {
+    .bpd-dashboard { padding: 20px 24px; }
+    .bpd-stat-value { font-size: 24px; }
+    .bpd-stats { gap: 14px; padding: 10px 0; }
+    .bpd-queue-list { max-height: 240px; }
+    .sp-file-list { max-height: 260px; }
+}
+
+/* Small laptop (1280px) — stats wrap, reduce font sizes */
+@media (max-width: 1280px) {
+    .bpd-dashboard { padding: 16px 20px; }
+    .bpd-stats { flex-wrap: wrap; gap: 12px; padding: 10px 8px; }
+    .bpd-stat { min-width: 60px; }
+    .bpd-stat-value { font-size: 22px; }
+    .bpd-title { font-size: 18px; }
+    .bpd-metrics { flex-wrap: wrap; gap: 8px; }
+    .bpd-metric { font-size: 11px; }
+    .bpd-activity-list { max-height: 100px; }
+    .sp-selector-header { padding: 8px 10px; }
+    .sp-select-actions { flex-wrap: wrap; gap: 8px; }
+}
+
+/* Tablet (1024px) — compact layout, stack elements */
+@media (max-width: 1024px) {
+    .bpd-dashboard { padding: 14px 16px; border-radius: 12px; }
+    .bpd-header { margin-bottom: 16px; }
+    .bpd-header-icon { width: 40px; height: 40px; border-radius: 10px; }
+    .bpd-header-icon i { width: 20px; height: 20px; }
+    .bpd-stats { gap: 8px; padding: 8px 0; }
+    .bpd-stat-value { font-size: 20px; }
+    .bpd-stat-label { font-size: 10px; }
+    .bpd-stat-divider { height: 28px; }
+    .bpd-doc-bar { width: 60px; }
+    .bpd-queue-list { max-height: 200px; }
+    .bpd-severity-stats { gap: 4px; }
+    .bpd-sev-chip { padding: 2px 6px; font-size: 9px; }
+    .bpd-activity-list { font-size: 10px; max-height: 80px; }
+    .sp-file-row { padding: 6px 10px; gap: 8px; }
+    .sp-file-name { font-size: 12px; }
+    .sp-file-list { max-height: 220px; }
+}
+
+/* Small tablet (768px) — minimal padding, hide dividers */
+@media (max-width: 768px) {
+    .bpd-dashboard { padding: 12px; border-radius: 8px; }
+    .bpd-stats { justify-content: space-around; }
+    .bpd-stat-divider { display: none; }
+    .bpd-stat-value { font-size: 18px; }
+    .bpd-metrics { flex-direction: column; gap: 4px; }
+    .bpd-metric { justify-content: space-between; }
+    .bpd-doc-bar { width: 50px; }
+    .bpd-doc-duration { min-width: 28px; font-size: 10px; }
+    .bpd-doc-name { font-size: 12px; }
+    .bpd-doc-detail { font-size: 10px; }
+    .bpd-queue-list { max-height: 180px; }
+    .batch-mini-badge { bottom: 12px; right: 12px; padding: 0.5rem 0.75rem; }
+    .batch-mini-ring { width: 30px; height: 30px; }
+    .batch-mini-pct { font-size: 0.875rem; }
+    .sp-select-actions { flex-direction: column; align-items: stretch; }
+    .sp-filter-chips { gap: 4px; }
+    .sp-filter-chip { padding: 2px 8px; font-size: 10px; }
+    .sp-file-row { padding: 6px 8px; }
 }

@@ -538,6 +538,11 @@ function resetStateForNewDocument() {
         graphSvg.innerHTML = '';
     }
 
+    // v6.2.0: Destroy Document Review split-pane viewer
+    if (window.DocReviewViewer) {
+        try { DocReviewViewer.destroy(); } catch(e) { /* ignore */ }
+    }
+
     // Reset document status indicator to "no document" state
     const statusIndicator = document.getElementById('doc-status-indicator');
     const statusText = document.getElementById('doc-status-text');
@@ -1411,6 +1416,22 @@ function processReviewResults(result, duration) {
     // v4.3.0: Initialize smart search autocomplete now that we have issues
     if (window.TWR?.Events?.initSmartSearchForIssues) {
         TWR.Events.initSmartSearchForIssues();
+    }
+
+    // v6.2.0: Feed document data to the split-pane viewer
+    if (window.DocReviewViewer) {
+        try {
+            DocReviewViewer.setData({
+                htmlPreview: result.data.html_preview || '',
+                extractionText: result.data.full_text || State.currentText || '',
+                fileType: State.fileType || '',
+                filename: State.filename || '',
+                filepath: State.filepath || '',
+                issues: State.issues || []
+            });
+        } catch (drvErr) {
+            console.warn('[TWR] DocReviewViewer.setData failed:', drvErr);
+        }
     }
 
     // v2.9.4: Auto-run Statement Forge extraction in background (#4)
@@ -3927,7 +3948,21 @@ function restoreSessionState() {
             // Update document info display
             const titleEl = document.getElementById('doc-title');
             if (titleEl) titleEl.textContent = State.filename || 'Document';
-            
+
+            // v6.2.0: Restore DocReviewViewer data on session restore
+            if (window.DocReviewViewer) {
+                try {
+                    DocReviewViewer.setData({
+                        htmlPreview: State.reviewResults.html_preview || '',
+                        extractionText: State.reviewResults.full_text || '',
+                        fileType: stateData.fileType || '',
+                        filename: State.filename || '',
+                        filepath: State.filepath || '',
+                        issues: State.issues || []
+                    });
+                } catch(e) { /* ignore */ }
+            }
+
             toast('info', 'Previous session restored');
             console.log('[TWR] Session state restored');
             return true;
@@ -8814,9 +8849,18 @@ function initNewFeatureListeners() {
     
     // Selection dropdown
     initSelectionDropdown();
-    
+
     // Load profiles on startup
     loadScanProfiles();
+
+    // v6.2.0: Initialize Document Review split-pane viewer
+    if (window.DocReviewViewer) {
+        try {
+            DocReviewViewer.init();
+        } catch (e) {
+            console.warn('[TWR] DocReviewViewer init failed:', e);
+        }
+    }
 }
 
 // handleTriageKeyboard - Now in TWR.Triage module (features/triage.js)
@@ -12744,6 +12788,10 @@ STEPS TO REPRODUCE
         
         // Back from results
         document.getElementById('btn-back-from-batch')?.addEventListener('click', () => {
+            // v6.2.0: Clean up BatchResults module if it was used
+            if (window.BatchResults) {
+                try { window.BatchResults.destroy(); } catch(e) { /* ignore */ }
+            }
             document.getElementById('batch-results').style.display = 'none';
             document.getElementById('empty-state').style.display = 'flex';
         });
@@ -12904,10 +12952,12 @@ STEPS TO REPRODUCE
     function _updateBatchMiniBadge() {
         const pctEl = document.getElementById('batch-mini-pct');
         const ringFill = document.getElementById('batch-mini-ring-fill');
+        const textEl = document.getElementById('batch-mini-text');
         if (!pctEl || !ringFill) return;
 
         // Try to get percentage from the various dashboard elements
         let pct = 0;
+        let docCountLabel = '';
         // Check batch progress first, then folder scan, then SharePoint
         const batchPct = document.getElementById('batch-percent-animated');
         const fsPct = document.getElementById('fs-percent');
@@ -12915,13 +12965,32 @@ STEPS TO REPRODUCE
 
         if (batchPct && batchPct.textContent) {
             pct = parseInt(batchPct.textContent) || 0;
+            // v6.2.0: Show doc count in badge
+            const done = document.getElementById('batch-docs-complete');
+            const total = document.getElementById('batch-docs-total');
+            if (done && total) docCountLabel = `${done.textContent}/${total.textContent}`;
         } else if (fsPct && fsPct.textContent) {
             pct = parseInt(fsPct.textContent) || 0;
+            const done = document.getElementById('fs-docs-complete');
+            const total = document.getElementById('fs-docs-total');
+            if (done && total) docCountLabel = `${done.textContent}/${total.textContent}`;
         } else if (spPct && spPct.textContent) {
             pct = parseInt(spPct.textContent) || 0;
+            const done = document.getElementById('sp-docs-complete');
+            const total = document.getElementById('sp-docs-total');
+            if (done && total) docCountLabel = `${done.textContent}/${total.textContent}`;
         }
 
         pctEl.textContent = `${pct}%`;
+
+        // v6.2.0: Show doc count + ECD in subtitle
+        if (textEl) {
+            const remaining = document.getElementById('batch-remaining-time');
+            const remText = remaining && remaining.textContent !== '--:--' ? ` • ${remaining.textContent}` : '';
+            if (docCountLabel) {
+                textEl.textContent = `${docCountLabel} docs${remText}`;
+            }
+        }
 
         // Update SVG ring
         const circumference = 2 * Math.PI * 15.9;
@@ -12932,7 +13001,6 @@ STEPS TO REPRODUCE
         if (pct >= 100) {
             ringFill.style.stroke = '#22c55e';
             pctEl.textContent = 'Done';
-            const textEl = document.getElementById('batch-mini-text');
             if (textEl) textEl.textContent = 'Scan Complete';
         }
     }
@@ -13123,9 +13191,18 @@ STEPS TO REPRODUCE
     }
 
     async function startBatchProcessing() {
+        /**
+         * v6.2.0: Async batch scan with real-time polling.
+         *
+         * Flow: Upload all files → POST /batch-start → poll /batch-progress
+         * Server processes files in chunks with ThreadPoolExecutor.
+         * progress_callback in core.py provides per-file phase tracking.
+         */
         if (BatchState.files.length === 0 || BatchState.processing) return;
 
         BatchState.processing = true;
+        BatchState._activeScanId = null; // Track for minimize badge
+
         const progressEl = document.getElementById('batch-progress');
         const progressFill = document.getElementById('batch-progress-fill');
         const progressText = document.getElementById('batch-progress-text');
@@ -13142,21 +13219,21 @@ STEPS TO REPRODUCE
         const soundToggle = document.getElementById('cinematic-sound-toggle');
         const issuesCountEl = document.getElementById('batch-issues-count');
         const rolesCountEl = document.getElementById('batch-roles-count');
+        const cancelBtn = document.getElementById('btn-cancel-batch');
+        const activityList = document.getElementById('batch-activity-list');
+        const activityCount = document.getElementById('batch-activity-count');
+        const chunkInfoEl = document.getElementById('batch-chunk-info');
+        const ecdLine = document.getElementById('batch-ecd-line');
+        const ecdText = document.getElementById('batch-ecd-text');
+        const sevStats = document.getElementById('batch-severity-stats');
 
-        // Running totals for issues and roles
+        // Running totals
         let runningIssues = 0;
         let runningRoles = 0;
+        let lastActivityCount = 0;
 
-        // Time tracking
-        const startTime = Date.now();
-        let elapsedInterval = null;
-        let currentPercent = 0;
-        let targetPercent = 0;
+        // Sound
         let soundEnabled = localStorage.getItem('batchSoundEnabled') !== 'false';
-
-        // v5.0.2: Batch progress dashboard initialized (no external animation dependencies)
-
-        // Update sound toggle button state
         if (soundToggle) {
             const icon = soundToggle.querySelector('i');
             if (!soundEnabled) {
@@ -13175,26 +13252,19 @@ STEPS TO REPRODUCE
             };
         }
 
-        // Format time as MM:SS
-        const formatTime = (ms) => {
-            const totalSeconds = Math.floor(ms / 1000);
-            const minutes = Math.floor(totalSeconds / 60);
-            const seconds = totalSeconds % 60;
-            return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        };
-
-        // Update elapsed time every second
-        elapsedInterval = setInterval(() => {
-            const elapsed = Date.now() - startTime;
-            if (elapsedTimeEl) elapsedTimeEl.textContent = formatTime(elapsed);
+        // Elapsed time tracking (client-side)
+        const startTime = Date.now();
+        let elapsedInterval = setInterval(() => {
+            if (elapsedTimeEl) elapsedTimeEl.textContent = _formatTimeMs(Date.now() - startTime);
         }, 1000);
 
         // Animated percentage counter
+        let currentPercent = 0;
+        let targetPercent = 0;
         let percentAnimation = null;
         const animatePercent = (target) => {
             targetPercent = target;
-            if (percentAnimation) return; // Already animating
-
+            if (percentAnimation) return;
             const animate = () => {
                 if (currentPercent < targetPercent) {
                     currentPercent = Math.min(currentPercent + 1, targetPercent);
@@ -13211,7 +13281,7 @@ STEPS TO REPRODUCE
             percentAnimation = requestAnimationFrame(animate);
         };
 
-        // Play completion sound
+        // Completion sound
         const playCompletionSound = () => {
             if (!soundEnabled) return;
             try {
@@ -13220,60 +13290,48 @@ STEPS TO REPRODUCE
                 const gainNode = audioCtx.createGain();
                 oscillator.connect(gainNode);
                 gainNode.connect(audioCtx.destination);
-                oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
-                oscillator.frequency.setValueAtTime(1108.73, audioCtx.currentTime + 0.1); // C#6
-                oscillator.frequency.setValueAtTime(1318.51, audioCtx.currentTime + 0.2); // E6
+                oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+                oscillator.frequency.setValueAtTime(1108.73, audioCtx.currentTime + 0.1);
+                oscillator.frequency.setValueAtTime(1318.51, audioCtx.currentTime + 0.2);
                 gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
                 gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
                 oscillator.start(audioCtx.currentTime);
                 oscillator.stop(audioCtx.currentTime + 0.4);
-            } catch (e) {
-                console.log('[TWR] Could not play sound:', e);
-            }
+            } catch (e) { /* silent */ }
         };
 
-        // v5.0.2: Update main progress (ScanProgress-style dashboard)
+        // Update main progress bar
         const updateProgress = (percent, text) => {
             if (progressFill) progressFill.style.width = percent + '%';
             const glowEl = document.getElementById('batch-progress-glow');
             if (glowEl) glowEl.style.width = percent + '%';
             if (text && progressText) progressText.textContent = text;
             animatePercent(Math.round(percent));
-
-            // Update estimated time remaining
-            if (percent > 0 && percent < 100) {
-                const elapsed = Date.now() - startTime;
-                const estimatedTotal = (elapsed / percent) * 100;
-                const remaining = estimatedTotal - elapsed;
-                if (remainingTimeEl) remainingTimeEl.textContent = formatTime(remaining);
-
-                // Calculate speed (docs per minute)
-                const docsProcessed = parseInt(docsComplete?.textContent || '0');
-                const elapsedMinutes = elapsed / 60000;
-                if (elapsedMinutes > 0 && speedEl) {
-                    const speed = (docsProcessed / elapsedMinutes).toFixed(1);
-                    speedEl.textContent = speed + ' docs/min';
-                }
-            } else if (percent >= 100) {
+            if (percent >= 100) {
                 if (remainingTimeEl) remainingTimeEl.textContent = '00:00';
-                // Mark dashboard complete
                 const dashEl = document.getElementById('batch-progress');
                 if (dashEl) dashEl.classList.add('bpd-complete');
             }
         };
 
-        // v5.0.2: Document row HTML matching ScanProgress step style
+        // Phase icon mapping for per-file progress
+        const phaseIcons = {
+            'starting': '⟳', 'extracting': '📄', 'parsing': '🔍',
+            'checking': '✓', 'postprocessing': '⚙', 'complete': '✅'
+        };
+
+        // Build filename→index lookup for matching server docs to UI rows
+        const filenameToIndex = {};
         const docStartTimes = {};
-        const createDocRow = (file, index, status = 'queued', batchNum = null) => {
-            const batchLabel = batchNum !== null ? `<span class="bpd-batch-label">Batch ${batchNum + 1}</span>` : '';
-            const iconHTML = status === 'queued'
-                ? '<div class="bpd-pending-dot"></div>'
-                : '<div class="bpd-spinner"></div>';
+
+        // Document row creation (same UI as before)
+        const createDocRow = (file, index, status = 'queued') => {
+            const iconHTML = '<div class="bpd-pending-dot"></div>';
             return `
                 <div class="bpd-doc-row ${status}" id="batch-doc-${index}">
                     <div class="bpd-doc-icon">${iconHTML}</div>
                     <div class="bpd-doc-content">
-                        <div class="bpd-doc-name">${escapeHtml(file.name)} ${batchLabel}</div>
+                        <div class="bpd-doc-name">${escapeHtml(file.name || file.filename || '')}</div>
                         <div class="bpd-doc-detail" id="batch-doc-meta-${index}">Queued for analysis</div>
                     </div>
                     <div class="bpd-doc-bar" id="batch-doc-progress-${index}">
@@ -13284,7 +13342,7 @@ STEPS TO REPRODUCE
             `;
         };
 
-        // v5.0.2: Update doc row to match ScanProgress style
+        // Update a document row
         const updateDocRow = (index, status, meta, issues = null, progress = 0) => {
             const row = document.getElementById(`batch-doc-${index}`);
             const metaEl = document.getElementById(`batch-doc-meta-${index}`);
@@ -13300,7 +13358,6 @@ STEPS TO REPRODUCE
                         iconDiv.innerHTML = '<div class="bpd-spinner"></div>';
                     } else if (status === 'complete') {
                         iconDiv.innerHTML = '<div class="bpd-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg></div>';
-                        // Show duration
                         if (durationEl && docStartTimes[index]) {
                             const dur = ((Date.now() - docStartTimes[index]) / 1000).toFixed(1);
                             durationEl.textContent = dur + 's';
@@ -13311,245 +13368,356 @@ STEPS TO REPRODUCE
                         iconDiv.innerHTML = '<div class="bpd-pending-dot"></div>';
                     }
                 }
-                // Auto-scroll to processing row
                 if (status === 'processing' || status === 'uploading') {
                     row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
             }
             if (metaEl) {
-                if (status === 'complete' && issues !== null) {
-                    // v5.9.35: Show word count, roles, issues, and score in completion line
-                    metaEl.textContent = meta || `Complete — ${issues} issues found`;
-                } else {
-                    metaEl.textContent = meta;
-                }
+                metaEl.textContent = (status === 'complete' && issues !== null)
+                    ? (meta || `Complete — ${issues} issues found`)
+                    : meta;
             }
-            if (fillEl) {
-                fillEl.style.width = progress + '%';
-            }
+            if (fillEl) fillEl.style.width = progress + '%';
         };
 
-        // Split files into batches
-        const batches = chunkFilesIntoBatches(BatchState.files);
-        const totalFiles = BatchState.files.length;
-        const numBatches = batches.length;
-
-        // Build a mapping from global index to batch info
-        const fileIndexMap = [];
-        let globalIndex = 0;
-        batches.forEach((batch, batchIdx) => {
-            batch.forEach((file, localIdx) => {
-                fileIndexMap.push({ batchIdx, localIdx, file });
-                globalIndex++;
-            });
-        });
-
         // Initialize UI
+        const totalFiles = BatchState.files.length;
         progressEl.classList.remove('hidden');
         progressEl.classList.add('scanning');
         startBtn.disabled = true;
         docsTotal.textContent = totalFiles;
         docsComplete.textContent = '0';
 
-        // v5.9.39: Show minimize button when scan starts
+        // Show minimize and cancel buttons
         const minBtn = document.getElementById('btn-minimize-batch-modal');
         if (minBtn) minBtn.style.display = '';
+        if (cancelBtn) { cancelBtn.style.display = ''; cancelBtn.disabled = false; }
 
-        // Create document rows with batch labels if multiple batches
-        globalIndex = 0;
-        docList.innerHTML = batches.map((batch, batchIdx) => {
-            return batch.map((file) => {
-                const html = createDocRow(file, globalIndex, 'queued', numBatches > 1 ? batchIdx : null);
-                globalIndex++;
-                return html;
-            }).join('');
+        // Create initial document rows from client-side file list
+        docList.innerHTML = BatchState.files.map((file, i) => {
+            filenameToIndex[file.name] = i;
+            return createDocRow(file, i, 'queued');
         }).join('');
         if (window.lucide) window.lucide.createIcons();
 
-        // Show batch info if splitting
-        if (numBatches > 1) {
-            updateProgress(0, `Splitting into ${numBatches} batches...`);
-            queueStatus.textContent = `Processing ${numBatches} batches concurrently`;
-        }
+        updateProgress(0, 'Uploading files...');
+        queueStatus.textContent = `Uploading ${totalFiles} files...`;
 
-        // Track overall progress
-        let completedDocs = 0;
-        const allResults = { documents: [], summary: { total_documents: 0, total_issues: 0, issues_by_severity: {} }, roles_found: {} };
+        try {
+            // ── STEP 1: Upload all files in HTTP batches ──
+            const allUploadedPaths = [];
+            const httpBatches = chunkFilesIntoBatches(BatchState.files);
 
-        /**
-         * Process a single batch
-         * @param {File[]} batchFiles - Files in this batch
-         * @param {number} batchIdx - Batch index
-         * @param {number} startGlobalIdx - Starting global index for this batch's files
-         */
-        async function processBatch(batchFiles, batchIdx, startGlobalIdx) {
-            const batchLabel = numBatches > 1 ? ` (Batch ${batchIdx + 1})` : '';
-
-            try {
-                // Mark files as uploading
-                batchFiles.forEach((_, localIdx) => {
-                    updateDocRow(startGlobalIdx + localIdx, 'uploading', `Uploading...${batchLabel}`, null, 20);
+            for (let bi = 0; bi < httpBatches.length; bi++) {
+                const batch = httpBatches[bi];
+                batch.forEach((file) => {
+                    const idx = filenameToIndex[file.name];
+                    if (idx !== undefined) updateDocRow(idx, 'uploading', 'Uploading...', null, 20);
                 });
 
-                // Upload batch
                 const formData = new FormData();
-                batchFiles.forEach(file => {
-                    formData.append('files[]', file);
-                });
+                batch.forEach(file => formData.append('files[]', file));
 
-                const uploadResponse = await fetch('/api/upload/batch', {
+                const uploadResp = await fetch('/api/upload/batch', {
                     method: 'POST',
                     headers: { 'X-CSRF-Token': window.CSRF_TOKEN || '' },
                     body: formData
                 });
-
-                const uploadResult = await uploadResponse.json();
+                const uploadResult = await uploadResp.json();
                 if (!uploadResult.success) {
-                    throw new Error(uploadResult.error?.message || uploadResult.error || 'Upload failed');
+                    throw new Error(uploadResult.error?.message || 'Upload failed');
                 }
 
-                // Mark files as processing
-                batchFiles.forEach((_, localIdx) => {
-                    updateDocRow(startGlobalIdx + localIdx, 'processing', `Analyzing...${batchLabel}`, null, 50);
+                // Collect filepaths for async scan start
+                (uploadResult.data.processed || []).forEach(p => {
+                    allUploadedPaths.push(p.filepath);
+                    // Update filename→index for server filenames (may differ from client)
+                    const fname = p.filepath.split('/').pop().split('\\').pop();
+                    if (filenameToIndex[fname] === undefined) {
+                        filenameToIndex[fname] = filenameToIndex[p.filename] || 0;
+                    }
                 });
 
-                // Review batch
-                const filepaths = uploadResult.data.processed.map(f => f.filepath);
-                const reviewResponse = await fetch('/api/review/batch', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': window.CSRF_TOKEN || ''
-                    },
-                    body: JSON.stringify({ filepaths })
+                // Mark upload errors
+                (uploadResult.data.errors || []).forEach(e => {
+                    const idx = filenameToIndex[e.filename];
+                    if (idx !== undefined) updateDocRow(idx, 'error', `Upload error: ${e.error}`, null, 100);
                 });
 
-                const reviewResult = await reviewResponse.json();
-                if (!reviewResult.success) {
-                    throw new Error(reviewResult.error?.message || reviewResult.error || 'Review failed');
+                const uploadPct = Math.round(((bi + 1) / httpBatches.length) * 15); // Upload = 0-15%
+                updateProgress(uploadPct, `Uploaded batch ${bi + 1}/${httpBatches.length}...`);
+            }
+
+            if (allUploadedPaths.length === 0) {
+                throw new Error('No files uploaded successfully');
+            }
+
+            // Mark all uploaded files as queued-for-review
+            BatchState.files.forEach((file, i) => {
+                const row = document.getElementById(`batch-doc-${i}`);
+                if (row && row.classList.contains('uploading')) {
+                    updateDocRow(i, 'queued', 'Queued for review');
                 }
+            });
 
-                // Update UI for each document in this batch
-                if (reviewResult.data && reviewResult.data.documents) {
-                    reviewResult.data.documents.forEach((doc, localIdx) => {
-                        completedDocs++;
-                        const globalIdx = startGlobalIdx + localIdx;
-                        const pct = Math.round((completedDocs / totalFiles) * 100);
-                        updateProgress(pct, `Processed ${completedDocs} of ${totalFiles}...`);
-                        docsComplete.textContent = completedDocs;
+            // ── STEP 2: Start async batch scan ──
+            updateProgress(15, 'Starting batch review...');
+            queueStatus.textContent = 'Starting document analysis engine...';
 
-                        if (doc.error) {
-                            updateDocRow(globalIdx, 'error', `Error: ${doc.error}`, null, 100);
-                        } else {
-                            // v5.9.35: Rich completion line with word count, issues, roles, and score
-                            const words = (doc.word_count || 0).toLocaleString();
-                            const issues = doc.issue_count || 0;
-                            const roles = doc.role_count || 0;
-                            const score = doc.score || 0;
-                            const metaLine = `${words} words • ${issues} issues • ${roles} roles • Score: ${score}%`;
-                            updateDocRow(globalIdx, 'complete', metaLine, issues, 100);
+            const startResp = await fetch('/api/review/batch-start', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': window.CSRF_TOKEN || ''
+                },
+                body: JSON.stringify({ filepaths: allUploadedPaths })
+            });
+            const startResult = await startResp.json();
+            if (!startResult.success) {
+                throw new Error(startResult.error?.message || 'Failed to start batch scan');
+            }
 
-                            // v5.9.35: Update running totals in stats row
-                            runningIssues += issues;
-                            runningRoles += roles;
-                            if (issuesCountEl) issuesCountEl.textContent = runningIssues.toLocaleString();
-                            if (rolesCountEl) rolesCountEl.textContent = runningRoles.toLocaleString();
+            const scanId = startResult.data.scan_id;
+            BatchState._activeScanId = scanId;
+            console.log('[TWR] Async batch scan started:', scanId,
+                        startResult.data.total_files, 'files,',
+                        startResult.data.total_chunks, 'chunks');
+
+            // Wire cancel button
+            if (cancelBtn) {
+                cancelBtn.onclick = async () => {
+                    cancelBtn.disabled = true;
+                    cancelBtn.textContent = 'Cancelling...';
+                    try {
+                        await fetch(`/api/review/batch-cancel/${scanId}`, {
+                            method: 'POST',
+                            headers: { 'X-CSRF-Token': window.CSRF_TOKEN || '' }
+                        });
+                    } catch (e) {
+                        console.warn('[TWR] Cancel request failed:', e);
+                    }
+                };
+            }
+
+            // ── STEP 3: Poll for progress ──
+            let since = 0;
+            let pollFailures = 0;
+            let pollDelay = 1500;
+            const MAX_POLL_FAILURES = 10;
+            const processedDocs = new Set(); // Track docs we've already updated in UI
+
+            const pollLoop = async () => {
+                while (true) {
+                    try {
+                        const resp = await fetch(`/api/review/batch-progress/${scanId}?since=${since}`);
+                        if (!resp.ok) {
+                            throw new Error(`HTTP ${resp.status}`);
+                        }
+                        const data = await resp.json();
+                        if (!data.success) {
+                            throw new Error(data.error?.message || 'Progress fetch failed');
                         }
 
-                        // Merge into allResults
-                        allResults.documents.push(doc);
-                    });
+                        pollFailures = 0;
+                        pollDelay = 1500; // Reset backoff on success
 
-                    // Merge summary
-                    if (reviewResult.data.summary) {
-                        allResults.summary.total_documents += reviewResult.data.summary.total_documents || 0;
-                        allResults.summary.total_issues += reviewResult.data.summary.total_issues || 0;
-                        for (const [sev, count] of Object.entries(reviewResult.data.summary.issues_by_severity || {})) {
-                            allResults.summary.issues_by_severity[sev] = (allResults.summary.issues_by_severity[sev] || 0) + count;
+                        const d = data.data;
+                        const totalDone = d.processed + d.errors;
+                        const pct = d.total_files > 0
+                            ? Math.round(15 + (totalDone / d.total_files) * 85) // 15-100%
+                            : 15;
+
+                        // Update main progress
+                        updateProgress(pct, `Processed ${totalDone} of ${d.total_files}...`);
+                        docsComplete.textContent = totalDone;
+                        if (d.current_chunk && d.total_chunks) {
+                            queueStatus.textContent = `Chunk ${d.current_chunk}/${d.total_chunks} • ${d.processed} complete, ${d.errors} errors`;
+                            if (chunkInfoEl) chunkInfoEl.textContent = `${d.current_chunk}/${d.total_chunks}`;
                         }
+
+                        // Update estimated remaining time from server EMA
+                        if (d.estimated_remaining && d.estimated_remaining > 0) {
+                            remainingTimeEl.textContent = _formatTimeMs(d.estimated_remaining * 1000);
+                            // Show ECD line with estimated completion time
+                            if (ecdLine && ecdText) {
+                                const ecdDate = new Date(Date.now() + d.estimated_remaining * 1000);
+                                const ecdTimeStr = ecdDate.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+                                ecdText.textContent = `~${_formatTimeMs(d.estimated_remaining * 1000)} remaining • Est. completion: ${ecdTimeStr}`;
+                                ecdLine.style.display = '';
+                            }
+                        }
+
+                        // Calculate speed
+                        if (d.elapsed_seconds > 0 && d.processed > 0 && speedEl) {
+                            const docsPerMin = (d.processed / (d.elapsed_seconds / 60)).toFixed(1);
+                            speedEl.textContent = docsPerMin + ' docs/min';
+                        }
+
+                        // v6.2.0: Update severity stat chips
+                        if (d.summary && d.summary.issues_by_severity && sevStats) {
+                            sevStats.style.display = '';
+                            const sev = d.summary.issues_by_severity;
+                            const sevCritical = document.getElementById('batch-sev-critical');
+                            const sevHigh = document.getElementById('batch-sev-high');
+                            const sevMedium = document.getElementById('batch-sev-medium');
+                            const sevLow = document.getElementById('batch-sev-low');
+                            const sevInfo = document.getElementById('batch-sev-info');
+                            if (sevCritical) sevCritical.textContent = 'C: ' + (sev.Critical || 0);
+                            if (sevHigh) sevHigh.textContent = 'H: ' + (sev.High || 0);
+                            if (sevMedium) sevMedium.textContent = 'M: ' + (sev.Medium || 0);
+                            if (sevLow) sevLow.textContent = 'L: ' + (sev.Low || 0);
+                            if (sevInfo) sevInfo.textContent = 'I: ' + (sev.Info || 0);
+                        }
+
+                        // v6.2.0: Update activity log
+                        if (d.activity_log && d.activity_log.length > 0 && activityList) {
+                            if (d.activity_log.length !== lastActivityCount) {
+                                lastActivityCount = d.activity_log.length;
+                                if (activityCount) activityCount.textContent = d.activity_log.length + ' events';
+                                // Render last 50 entries (newest at bottom)
+                                const entries = d.activity_log.slice(-50);
+                                activityList.innerHTML = entries.map(entry => {
+                                    const ts = entry.timestamp ? entry.timestamp.split(' ').pop().split('.')[0] : '';
+                                    return `<div class="bpd-activity-entry" data-event="${entry.event || ''}">
+                                        <span class="bpd-activity-time">${ts}</span>
+                                        <span class="bpd-activity-event">${entry.event || ''}</span>
+                                        <span class="bpd-activity-msg">${entry.message || ''}</span>
+                                    </div>`;
+                                }).join('');
+                                // Auto-scroll to bottom
+                                activityList.scrollTop = activityList.scrollHeight;
+                            }
+                        }
+
+                        // Update per-file phase indicators from current_files
+                        if (d.current_files) {
+                            Object.entries(d.current_files).forEach(([fname, info]) => {
+                                const idx = filenameToIndex[fname];
+                                if (idx !== undefined && !processedDocs.has(fname)) {
+                                    const phase = info.phase || 'processing';
+                                    const phaseProgress = info.progress || 0;
+                                    // Map phase progress to 30-90% range for the per-doc bar
+                                    const docPct = 30 + Math.round(phaseProgress * 0.6);
+                                    const metaEl = document.getElementById(`batch-doc-meta-${idx}`);
+                                    if (metaEl) {
+                                        metaEl.innerHTML = `<span class="bpd-phase-badge phase-${phase}">${phase}</span> ${escapeHtml(info.message || '')}`;
+                                    }
+                                    // Update row status and progress bar (don't overwrite meta again)
+                                    const row = document.getElementById(`batch-doc-${idx}`);
+                                    const fillEl = document.getElementById(`batch-doc-fill-${idx}`);
+                                    if (row && !row.classList.contains('processing')) {
+                                        row.className = 'bpd-doc-row processing';
+                                        if (!docStartTimes[idx]) docStartTimes[idx] = Date.now();
+                                        const iconDiv = row.querySelector('.bpd-doc-icon');
+                                        if (iconDiv) iconDiv.innerHTML = '<div class="bpd-spinner"></div>';
+                                        row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                                    }
+                                    if (fillEl) fillEl.style.width = docPct + '%';
+                                }
+                            });
+                        }
+
+                        // Process newly completed documents
+                        if (d.documents && d.documents.length > 0) {
+                            d.documents.forEach(doc => {
+                                if (processedDocs.has(doc.filename)) return;
+                                processedDocs.add(doc.filename);
+
+                                const idx = filenameToIndex[doc.filename];
+                                if (idx === undefined) return;
+
+                                if (doc.status === 'error') {
+                                    updateDocRow(idx, 'error', `Error: ${doc.error || 'Unknown'}`, null, 100);
+                                } else {
+                                    const words = (doc.word_count || 0).toLocaleString();
+                                    const issues = doc.issue_count || 0;
+                                    const roles = doc.role_count || 0;
+                                    const score = doc.score || 0;
+                                    const metaLine = `${words} words • ${issues} issues • ${roles} roles • Score: ${score}%`;
+                                    updateDocRow(idx, 'complete', metaLine, issues, 100);
+
+                                    runningIssues += issues;
+                                    runningRoles += roles;
+                                    if (issuesCountEl) issuesCountEl.textContent = runningIssues.toLocaleString();
+                                    if (rolesCountEl) rolesCountEl.textContent = runningRoles.toLocaleString();
+                                }
+                            });
+                            since = d.total_documents_ready; // Incremental: only fetch new docs next time
+                        }
+
+                        // Check terminal states
+                        if (d.phase === 'complete' || d.phase === 'error' || d.phase === 'cancelled') {
+                            // Build final allResults from full data
+                            return d;
+                        }
+
+                    } catch (pollError) {
+                        pollFailures++;
+                        console.warn(`[TWR] Batch poll failure ${pollFailures}/${MAX_POLL_FAILURES}:`, pollError);
+                        if (pollFailures >= MAX_POLL_FAILURES) {
+                            throw new Error(`Lost connection to batch scan after ${MAX_POLL_FAILURES} failures`);
+                        }
+                        // Exponential backoff: 1.5s → 3s → 6s → max 10s
+                        pollDelay = Math.min(pollDelay * 2, 10000);
+                        queueStatus.textContent = `Reconnecting... (attempt ${pollFailures})`;
                     }
 
-                    // Merge roles
-                    if (reviewResult.data.roles_found) {
-                        Object.assign(allResults.roles_found, reviewResult.data.roles_found);
-                    }
+                    await new Promise(r => setTimeout(r, pollDelay));
                 }
+            };
 
-                return { success: true, batchIdx };
+            const finalState = await pollLoop();
 
-            } catch (error) {
-                console.error(`[TWR] Batch ${batchIdx + 1} error:`, error);
-                // Mark remaining files in this batch as errored
-                batchFiles.forEach((_, localIdx) => {
-                    const globalIdx = startGlobalIdx + localIdx;
-                    const row = document.getElementById(`batch-doc-${globalIdx}`);
-                    if (row && !row.classList.contains('complete')) {
-                        completedDocs++;
-                        docsComplete.textContent = completedDocs;
-                        updateDocRow(globalIdx, 'error', `Batch ${batchIdx + 1} failed: ${error.message}`, null, 100);
-                    }
-                });
-                return { success: false, batchIdx, error: error.message };
-            }
-        }
-
-        try {
-            // Process batches concurrently with a limit
-            const batchPromises = [];
-            let startIdx = 0;
-
-            for (let i = 0; i < batches.length; i += BATCH_LIMITS.MAX_CONCURRENT_BATCHES) {
-                const concurrentBatches = batches.slice(i, i + BATCH_LIMITS.MAX_CONCURRENT_BATCHES);
-                const promises = concurrentBatches.map((batch, offset) => {
-                    const batchIdx = i + offset;
-                    const batchStartIdx = batches.slice(0, batchIdx).reduce((sum, b) => sum + b.length, 0);
-                    return processBatch(batch, batchIdx, batchStartIdx);
-                });
-
-                // Wait for this set of concurrent batches to complete
-                const results = await Promise.all(promises);
-                batchPromises.push(...results);
-
-                // Update progress between concurrent sets
-                if (i + BATCH_LIMITS.MAX_CONCURRENT_BATCHES < batches.length) {
-                    queueStatus.textContent = `Processing batches ${i + BATCH_LIMITS.MAX_CONCURRENT_BATCHES + 1}-${Math.min(i + 2 * BATCH_LIMITS.MAX_CONCURRENT_BATCHES, batches.length)} of ${batches.length}...`;
-                }
-            }
-
-            // Check if any batches failed
-            const failedBatches = batchPromises.filter(r => !r.success);
-            if (failedBatches.length > 0 && failedBatches.length === batches.length) {
-                throw new Error('All batches failed');
-            }
-
-            // Stop elapsed time counter
+            // ── STEP 4: Scan complete — build final results ──
             if (elapsedInterval) clearInterval(elapsedInterval);
 
-            updateProgress(100, 'Analysis Complete!');
-            queueStatus.textContent = failedBatches.length > 0
-                ? `Completed with ${failedBatches.length} batch error(s)`
-                : 'All documents processed';
-            progressEl.classList.remove('scanning');
+            if (finalState.phase === 'cancelled') {
+                updateProgress(Math.round(15 + ((finalState.processed + finalState.errors) / finalState.total_files) * 85),
+                               'Scan Cancelled');
+                queueStatus.textContent = `Cancelled — ${finalState.processed} processed, ${finalState.errors} errors`;
+                progressEl.classList.remove('scanning');
+            } else if (finalState.phase === 'error') {
+                throw new Error(finalState.error_message || 'Scan failed');
+            } else {
+                updateProgress(100, 'Analysis Complete!');
+                queueStatus.textContent = `${finalState.summary?.processed || 0} documents processed`;
+                progressEl.classList.remove('scanning');
+                playCompletionSound();
+            }
 
-            // Play completion sound
-            playCompletionSound();
+            if (cancelBtn) cancelBtn.style.display = 'none';
 
             // Brief pause to show completion state
             await new Promise(resolve => setTimeout(resolve, 1500));
 
-            // Store results and display
+            // Build allResults from final state for displayBatchResults compatibility
+            // Fetch full results (since=0) for complete dataset
+            const fullResp = await fetch(`/api/review/batch-progress/${scanId}?since=0`);
+            const fullData = await fullResp.json();
+            const fd = fullData.success ? fullData.data : finalState;
+
+            const allResults = {
+                documents: fd.documents || [],
+                summary: {
+                    total_documents: fd.total_files || 0,
+                    total_issues: fd.summary?.total_issues || 0,
+                    issues_by_severity: fd.summary?.issues_by_severity || {},
+                    issues_by_category: fd.summary?.issues_by_category || {},
+                    grade_distribution: fd.summary?.grade_distribution || {},
+                },
+                roles_found: fd.roles_found || {},
+            };
+
             BatchState.results = allResults;
             displayBatchResults(allResults);
-
             closeBatchModal();
 
-            // v4.4.0: Show batch tagging modal after batch processing
-            // Extract document list from results for tagging
+            // v4.4.0: Show batch tagging modal
             if (window.TWR?.FunctionTags?.showBatchTaggingModal && allResults.documents) {
                 setTimeout(() => {
                     const docs = allResults.documents.map(d => ({
-                        id: d.scan_info?.document_id || null,
-                        document_id: d.scan_info?.document_id || null,
+                        id: d.scan_id || null,
+                        document_id: d.scan_id || null,
                         filename: d.filename
                     }));
                     window.TWR.FunctionTags.showBatchTaggingModal(docs);
@@ -13563,28 +13731,51 @@ STEPS TO REPRODUCE
             const errorMsg = error.message || (typeof error === 'string' ? error : JSON.stringify(error));
             progressText.textContent = 'Error: ' + errorMsg;
             queueStatus.textContent = 'Processing failed';
-            // Add error styling
             progressFill.style.background = 'linear-gradient(90deg, #c41e3a, #a01830, #c41e3a)';
             progressFill.style.boxShadow = '0 0 20px rgba(196, 30, 58, 0.6), 0 0 40px rgba(196, 30, 58, 0.4)';
-            // Mark remaining docs as errored
             BatchState.files.forEach((_, i) => {
                 const row = document.getElementById(`batch-doc-${i}`);
                 if (row && !row.classList.contains('complete')) {
                     updateDocRow(i, 'error', 'Processing failed', null, 0);
                 }
             });
+            if (cancelBtn) cancelBtn.style.display = 'none';
         } finally {
             BatchState.processing = false;
+            BatchState._activeScanId = null;
             startBtn.disabled = false;
             if (elapsedInterval) clearInterval(elapsedInterval);
+            if (cancelBtn) cancelBtn.style.display = 'none';
         }
+    }
+
+    // v6.2.0: Shared time formatter
+    function _formatTimeMs(ms) {
+        const totalSeconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
     
     function displayBatchResults(data) {
         document.getElementById('empty-state').style.display = 'none';
         document.getElementById('batch-results').style.display = 'block';
-        
-        // Summary cards
+
+        // v6.2.0: Use BatchResults module if available (provides filters, drill-down, export)
+        if (window.BatchResults) {
+            try {
+                window.BatchResults.destroy(); // Clean up previous state
+                window.BatchResults.init(data);
+                window.BatchResults.show();
+                console.log('[TWR Batch] BatchResults module rendered with', data.documents?.length, 'documents');
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                return;
+            } catch (e) {
+                console.warn('[TWR Batch] BatchResults module failed, falling back to legacy display:', e);
+            }
+        }
+
+        // Legacy fallback: basic stat cards + table
         const summaryEl = document.getElementById('batch-summary');
         summaryEl.innerHTML = `
             <div class="batch-summary-cards">
@@ -13606,8 +13797,7 @@ STEPS TO REPRODUCE
                 </div>
             </div>
         `;
-        
-        // Document list - v3.0.114: Added View button to load individual documents
+
         const docsEl = document.getElementById('batch-documents');
         docsEl.innerHTML = `
             <h4>Documents Processed</h4>
@@ -13646,7 +13836,6 @@ STEPS TO REPRODUCE
             </table>
         `;
 
-        // Attach click handlers to View buttons
         docsEl.querySelectorAll('.batch-view-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const filepath = btn.dataset.filepath;
@@ -13659,6 +13848,8 @@ STEPS TO REPRODUCE
     }
 
     // v3.0.114: Load individual document from batch results
+    // v6.2.0: Exposed globally for BatchResults IIFE drill-down
+    window.loadBatchDocument = loadBatchDocument;
     async function loadBatchDocument(filepath, filename) {
         try {
             // Show loading state

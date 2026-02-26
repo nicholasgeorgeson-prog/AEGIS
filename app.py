@@ -333,6 +333,30 @@ register_all_blueprints(app)
 logger.info('Route blueprints registered (7 modules)')
 
 # ---------------------------------------------------------------------------
+# v6.2.0: Boot-time auth probe (unified auth service)
+# ---------------------------------------------------------------------------
+AUTH_SERVICE_AVAILABLE = False
+_boot_auth_summary = None
+try:
+    from auth_service import AEGISAuthService
+    AUTH_SERVICE_AVAILABLE = True
+    _boot_auth_summary = AEGISAuthService.get_auth_summary()
+    _method = _boot_auth_summary.get('method', 'none')
+    _sso = _boot_auth_summary.get('windows_sso', False)
+    _sspi = _boot_auth_summary.get('sspi', False)
+    _oauth = _boot_auth_summary.get('oauth', False)
+    _trust = _boot_auth_summary.get('truststore', False)
+    _headless = _boot_auth_summary.get('headless', False)
+    logger.info(f'Auth Service: SSO={_sso} ({_method}), '
+                f'SSPI={_sspi}, OAuth={_oauth}, '
+                f'Truststore={_trust}, Headless={_headless}')
+except ImportError:
+    logger.info('Auth Service not available — modules will use direct imports')
+except Exception as e:
+    logger.warning(f'Auth Service init error: {e}')
+
+
+# ---------------------------------------------------------------------------
 # Request lifecycle hooks
 # ---------------------------------------------------------------------------
 

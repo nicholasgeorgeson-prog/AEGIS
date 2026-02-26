@@ -678,11 +678,23 @@ def capabilities():
         caps['sharepoint'] = True
     except Exception:
         pass
+
+    # v6.2.0: Auth service diagnostics
+    auth_info = None
+    try:
+        from auth_service import AEGISAuthService
+        auth_info = AEGISAuthService.get_auth_summary()
+    except ImportError:
+        pass
+    except Exception:
+        pass
+
     return jsonify({
         'success': True,
         'data': {
             'version': get_version(),
-            'capabilities': caps
+            'capabilities': caps,
+            'auth': auth_info
         }
     })
 

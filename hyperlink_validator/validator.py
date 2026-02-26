@@ -90,63 +90,78 @@ try:
 except ImportError:
     pass
 
-# Windows SSO authentication support
+# v6.2.0: Windows SSO via unified auth_service (single initialization point)
 WINDOWS_AUTH_AVAILABLE = False
 HttpNegotiateAuth = None
-_auth_init_error = None  # Diagnostic: stores why auth failed to initialize
-_auth_method = 'none'    # Diagnostic: 'negotiate_sspi', 'ntlm', or 'none'
-try:
-    from requests_negotiate_sspi import HttpNegotiateAuth
-    WINDOWS_AUTH_AVAILABLE = True
-    _auth_method = 'negotiate_sspi'
-    logger.info('[AEGIS HV Auth] Windows SSO initialized via requests-negotiate-sspi (Negotiate/Kerberos)')
-except ImportError as e:
-    logger.warning(f'[AEGIS HV Auth] requests-negotiate-sspi not available: {e}')
-    try:
-        from requests_ntlm import HttpNtlmAuth
-
-        class HttpNegotiateAuth:
-            """Wrapper for NTLM auth that uses current Windows user."""
-            def __init__(self):
-                import getpass
-                username = os.environ.get('USERNAME', getpass.getuser())
-                domain = os.environ.get('USERDOMAIN', '')
-                if domain:
-                    self.auth = HttpNtlmAuth(f'{domain}\\{username}', None)
-                else:
-                    self.auth = HttpNtlmAuth(username, None)
-
-            def __call__(self, r):
-                return self.auth(r)
-
-        WINDOWS_AUTH_AVAILABLE = True
-        _auth_method = 'ntlm'
-        logger.info('[AEGIS HV Auth] Windows SSO initialized via requests-ntlm (NTLM fallback)')
-    except ImportError as e2:
-        _auth_init_error = f'negotiate-sspi: {e}, ntlm: {e2}'
-        logger.error(f'[AEGIS HV Auth] NO Windows authentication available! '
-                     f'Neither requests-negotiate-sspi nor requests-ntlm could be imported. '
-                     f'All corporate/internal link validation will use anonymous requests. '
-                     f'Install: pip install requests-negotiate-sspi (preferred) or requests-ntlm. '
-                     f'Errors: negotiate-sspi=[{e}], ntlm=[{e2}]')
-except Exception as e:
-    _auth_init_error = f'Unexpected error: {e}'
-    logger.error(f'[AEGIS HV Auth] Unexpected error during auth initialization: {e}', exc_info=True)
-
-# v5.9.44: Try truststore for OS certificate store (eliminates most corporate SSL errors)
-# truststore makes Python's ssl module use the OS cert store (Windows CertStore)
-# instead of certifi's Mozilla CA bundle. This means corporate internal CA certs
-# that Windows trusts are automatically trusted by Python too.
+_auth_init_error = None
+_auth_method = 'none'
 TRUSTSTORE_AVAILABLE = False
+
 try:
-    import truststore
-    truststore.inject_into_ssl()
-    TRUSTSTORE_AVAILABLE = True
-    logger.info('[AEGIS HV] truststore injected — using OS certificate store for SSL validation')
+    from auth_service import (
+        AEGISAuthService as _AuthService,
+        WINDOWS_AUTH_AVAILABLE,
+        TRUSTSTORE_AVAILABLE,
+        NEGOTIATE_SSPI_AVAILABLE as _NEG_SSPI,
+        NTLM_AVAILABLE as _NTLM_AVAIL,
+        _auth_init_method as _auth_method,
+        _auth_init_error,
+        is_corporate_url as _is_corp_url_auth,
+    )
+    HttpNegotiateAuth = _AuthService.get_negotiate_auth_class()
+    if WINDOWS_AUTH_AVAILABLE:
+        logger.info(f'[AEGIS HV Auth] Unified auth service: {_auth_method} '
+                     f'(truststore={TRUSTSTORE_AVAILABLE})')
+    else:
+        logger.info('[AEGIS HV Auth] Unified auth service loaded — no Windows SSO available')
 except ImportError:
-    logger.debug('[AEGIS HV] truststore not available (pip install truststore) — using certifi CA bundle')
-except Exception as e:
-    logger.debug(f'[AEGIS HV] truststore injection failed: {e} — using certifi CA bundle')
+    # Fallback to direct imports if auth_service not available
+    logger.info('[AEGIS HV Auth] auth_service not available — using direct imports')
+    try:
+        from requests_negotiate_sspi import HttpNegotiateAuth
+        WINDOWS_AUTH_AVAILABLE = True
+        _auth_method = 'negotiate_sspi'
+        logger.info('[AEGIS HV Auth] Windows SSO via requests-negotiate-sspi (direct)')
+    except ImportError as e:
+        logger.warning(f'[AEGIS HV Auth] requests-negotiate-sspi not available: {e}')
+        try:
+            from requests_ntlm import HttpNtlmAuth
+
+            class HttpNegotiateAuth:
+                """Wrapper for NTLM auth that uses current Windows user."""
+                def __init__(self):
+                    import getpass
+                    username = os.environ.get('USERNAME', getpass.getuser())
+                    domain = os.environ.get('USERDOMAIN', '')
+                    if domain:
+                        self.auth = HttpNtlmAuth(f'{domain}\\{username}', None)
+                    else:
+                        self.auth = HttpNtlmAuth(username, None)
+
+                def __call__(self, r):
+                    return self.auth(r)
+
+            WINDOWS_AUTH_AVAILABLE = True
+            _auth_method = 'ntlm'
+            logger.info('[AEGIS HV Auth] Windows SSO via requests-ntlm (NTLM fallback, direct)')
+        except ImportError as e2:
+            _auth_init_error = f'negotiate-sspi: {e}, ntlm: {e2}'
+            logger.error(f'[AEGIS HV Auth] NO Windows authentication available! '
+                         f'Errors: negotiate-sspi=[{e}], ntlm=[{e2}]')
+    except Exception as e:
+        _auth_init_error = f'Unexpected error: {e}'
+        logger.error(f'[AEGIS HV Auth] Auth init error: {e}', exc_info=True)
+
+    # Truststore fallback (direct import)
+    try:
+        import truststore
+        truststore.inject_into_ssl()
+        TRUSTSTORE_AVAILABLE = True
+        logger.info('[AEGIS HV] truststore injected (direct) — using OS certificate store')
+    except ImportError:
+        logger.debug('[AEGIS HV] truststore not available — using certifi CA bundle')
+    except Exception as e:
+        logger.debug(f'[AEGIS HV] truststore injection failed: {e}')
 
 # v5.9.44: Per-domain rate limiter to prevent 429/IP blocks during batch validation
 # Limits concurrent requests to the same domain

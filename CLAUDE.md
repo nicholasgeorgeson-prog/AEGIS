@@ -167,7 +167,7 @@
 **Lesson**: When debugging "version not updating," check ALL copies of the version file. The browser JS and Python backend may read from different files. Always verify what the browser actually receives (use browser dev tools or MCP inspection), not just what's on disk.
 
 ## Version Management
-- **Current version**: 6.1.11
+- **Current version**: 6.2.0
 - **Single source of truth**: `version.json` in project root
 - **Access function**: `from config_logging import get_version` — reads fresh from disk every call
 - **Legacy constant**: `VERSION` from `config_logging` is set at import time — use `get_version()` for anything user-facing
@@ -1398,7 +1398,7 @@ The `decodedUrl` parameter **auto-decodes** percent-encoded values before using 
 **Lesson**: For headless browser Windows SSO authentication, ALL THREE conditions must be met: (1) Use a full browser binary (Edge/Chrome new headless mode), NOT chrome-headless-shell. (2) Use `launchPersistentContext()` with a `user_data_dir`, NOT `launch()` + `new_context()` — the latter creates incognito-like contexts where ambient auth is disabled. (3) Include `--enable-features=EnableAmbientAuthenticationInIncognito` for safety. Also include identity provider domains (`*.microsoftonline.com`, `*.microsoftonline.us`, `*.windows.net`, `*.adfs.*`) in `--auth-server-allowlist` — the Kerberos challenge happens on the IdP, not the target site.
 
 ### 151. Version Management Update
-- **Current version**: 6.1.11
+- **Current version**: 6.2.0
 
 ### 152. Diagnostic-First Approach for Remote Environment Debugging (v6.1.7)
 **Problem**: HeadlessSPConnector v6.1.6 authenticated successfully (SSO works) but returned zero documents from the `T&E` library path. Without logs from the Windows machine, the exact failure point was unknown.
@@ -1436,6 +1436,78 @@ The `decodedUrl` parameter **auto-decodes** percent-encoded values before using 
 **API contracts**: `POST /api/review/sharepoint-connect-and-scan` now accepts `discover_only: true` and returns `{files, site_url, library_path, connector_type}` without starting scan. `POST /api/review/sharepoint-scan-selected` accepts `{site_url, library_path, files, connector_type}` and returns `{scan_id, total_files}`.
 **Frontend helpers**: `_renderSpFileSelector(files, discoveryCtx)` builds UI, stores context on `data-discoveryCtx`. `_updateSpSelectionCount()` updates count/button. `_applySpExtensionFilter()` toggles row visibility. `_startSPSelectedScan()` sends selected files to new endpoint.
 **Lesson**: When refactoring a one-click auto-scan into a user-selection flow, the key design is: (1) backend returns discovery without starting scan (`discover_only`), (2) frontend renders selection UI with context stored as dataset, (3) new endpoint accepts the selection and starts the scan, (4) existing progress polling is reused by setting `btnSpScan.dataset.scanId` and triggering the existing click handler.
+
+### 157. Unified Auth Service — Singleton Pattern for Shared SPO Sessions (v6.2.0)
+**Problem**: 5 separate modules each implemented their own auth initialization: SharePoint Connector, HV Validator, Headless Validator, Comprehensive HV Checker, and SP Link Validator. Each created independent sessions, duplicated Windows SSO setup code, and had inconsistent auth cascade behavior.
+**Solution**: Created `auth_service.py` with `AEGISAuthService` singleton class:
+- Thread-safe singleton via `__new__` + `threading.Lock`
+- Session caching with 30-minute TTL and auto-refresh
+- `create_fresh_session()` for thread-safe NTLM (creates new session per call)
+- `probe_auth()` tests current auth state, returns diagnostics
+- `get_auth_summary()` returns structured auth info for `/api/capabilities`
+- `get_negotiate_auth_class()` returns the correct auth class (negotiate-sspi, NTLM wrapper, or None)
+- `generate_preemptive_negotiate_token()` for SharePoint Online preemptive SSPI
+- `get_headless_auth_allowlist()` returns combined corporate + IdP domain list
+- `is_corporate_url()` utility shared across modules
+- `WINDOWS_AUTH_AVAILABLE`, `MSAL_AVAILABLE`, `TRUSTSTORE_AVAILABLE` module-level flags
+**Integration pattern**: All 4 existing modules + SP Link Validator use `try/except ImportError` with backward-compatible fallback:
+```python
+try:
+    from auth_service import AEGISAuthService, WINDOWS_AUTH_AVAILABLE
+    HttpNegotiateAuth = AEGISAuthService.get_negotiate_auth_class()
+except ImportError:
+    # Direct imports as fallback
+    from requests_negotiate_sspi import HttpNegotiateAuth
+```
+**Boot probe**: `app.py` calls `AEGISAuthService.get_auth_summary()` at startup, logs SSO/SSPI/OAuth/Truststore/Headless status. Results available in `/api/capabilities` response.
+**Files**: `auth_service.py` (NEW), `sharepoint_connector.py`, `hyperlink_validator/validator.py`, `comprehensive_hyperlink_checker.py`, `sharepoint_link_validator.py`, `app.py`, `routes/config_routes.py`
+**Lesson**: When multiple modules need the same auth infrastructure, create a singleton service that all modules import. Use `try/except ImportError` for backward compatibility so modules still work if the service isn't available. The singleton should manage session lifecycle (create, cache, refresh, invalidate) and expose utility functions that modules need. Boot-time probing with diagnostic logging makes auth issues visible immediately.
+
+### 158. Async Batch Scan — progress_callback Wiring Pattern (v6.2.0)
+**Problem**: `progress_callback` existed in `core.py review_document()` but was NEVER wired in batch scans. Users had zero visibility into per-file processing phases during batch operations.
+**Solution**: New async batch endpoint pattern:
+1. `POST /api/review/batch-start` — validates files, generates `scan_id`, spawns background thread, returns immediately
+2. `GET /api/review/batch-progress/<scan_id>?since=N` — returns incremental state with live `elapsed_seconds` (computed from `started_at`, never stored statically per Lesson 40)
+3. `_process_batch_async()` — chunks files (CHUNK_SIZE=5), processes with ThreadPoolExecutor(max_workers=3), gc.collect() between EVERY file
+4. `progress_callback` wired in `_review_single_async()`:
+```python
+def progress_cb(phase, progress, message):
+    with _batch_scan_state_lock:
+        state['current_files'][filename] = {
+            'phase': phase, 'progress': progress, 'message': message
+        }
+```
+5. `_update_scan_state_with_result()` protected with try/except (was UNPROTECTED — crash risk)
+6. Cancel endpoint + watchdog timer (600s no-file-completion timeout)
+**Frontend**: Polls every 1.5s, builds cinematic dashboard with SVG progress ring, ECD (Exponential Moving Average, alpha=0.3), per-doc phase indicators, severity mini-bars, activity log. Exponential backoff reconnection on polling failure.
+**Lesson**: When converting a synchronous batch endpoint to async polling, the key components are: (1) background thread with ThreadPoolExecutor, (2) module-level state dict protected by Lock, (3) progress_callback wired into the engine for per-file phase tracking, (4) live elapsed_seconds computed from started_at (never stored), (5) incremental fetching via `?since=N`, (6) crash protection around state updates. The frontend needs: polling loop with reconnection, ECD estimation, minimize-to-badge for long operations.
+
+### 159. Responsive CSS Breakpoint System — 4 Standard Breakpoints (v6.2.0)
+**Problem**: App hardcoded for 1920px+. Only 6 CSS breakpoints across entire codebase. Modals, grids, and panels broke on smaller screens.
+**Solution**: Added 4 standard breakpoints to 13 CSS feature files:
+- `@media (max-width: 1366px)` — Laptop: reduce max-widths, padding
+- `@media (max-width: 1280px)` — Small laptop: collapse grids to single column
+- `@media (max-width: 1024px)` — Tablet: sidebar collapse
+- `@media (max-width: 768px)` — Small tablet: stacked layouts
+**Key changes per file**: `modals.css` — remove `min-width: 800px` from modal-xl, add `max-width: 95vw`. `metrics-analytics.css` — went from ZERO breakpoints to all 4. `layout.css` — sidebar collapse mechanism at 1024px. `landing-page.css` — tile grid 3→2→1 columns.
+**Lesson**: When retrofitting responsive design, start with modals (they break first at smaller sizes), then grids, then sidebars. Use `max-width: 95vw` as a universal safety rule for modal-xl. Test at all 4 breakpoints. Feature CSS files are the right place for breakpoints — don't put them all in a single responsive.css.
+
+### 160. Batch Results IIFE — Multi-Dimensional Filter Architecture (v6.2.0)
+**Feature**: `static/js/features/batch-results.js` — post-scan results module with interactive filtering.
+**Architecture**: IIFE with internal State object tracking `allDocuments`, `filteredDocuments`, `activeFilters`, `selectedDocIndex`, `sort`.
+**Filter system**: OR within dimension (selecting Critical AND High shows both), AND across dimensions (severity AND category must both match). Four filter dimensions: severities, categories, grades, fileTypes. Preset quick-filters ("Requirements Focus", "Technical Writing", "Grammar & Style") pre-select relevant categories.
+**Per-document drill-down**: Click any doc row → split-pane view (document viewer left 60%, issues list right 40%). Document viewer uses shared rendering: PDF.js for PDFs, mammoth HTML for DOCX, HTML tables for XLSX. Issues list with same filter chips, clickable to highlight in document.
+**Export**: When exporting, only issues matching active filters are included.
+**Lesson**: For post-scan result modules, the filter architecture should use: (1) chip-based toggles for each dimension, (2) OR within dimension / AND across dimensions logic, (3) live count updates on every filter change, (4) preset quick-filters for common workflows, (5) filtered export that respects active filters. The IIFE pattern with internal State object keeps the module self-contained.
+
+### 161. UNC Path Support — Platform Detection Pattern (v6.2.0)
+**Feature**: Folder scan now accepts UNC paths (`\\server\share` or `//server/share`) on Windows.
+**Implementation** in `routes/review_routes.py folder_scan_start()`:
+1. Detect UNC path: `folder_path_str.startswith('\\\\') or folder_path_str.startswith('//')`
+2. Platform check: `if sys.platform != 'win32': raise ValidationError(...)` with message directing Mac/Linux users to mount the share
+3. Forward-slash normalization: `folder_path_str.replace('/', '\\')`
+4. UNC-specific error message when `Path(path).exists()` fails
+**Lesson**: When adding network path support, always add a platform check. UNC paths only work natively on Windows with domain credentials. On Mac/Linux, the equivalent is mounting the share first and using the local mount path. The forward-slash normalization handles copy-paste from URLs or mixed environments.
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

@@ -33,31 +33,43 @@ try:
 except ImportError:
     pass
 
+# v6.2.0: Windows SSO via unified auth_service
 WINDOWS_AUTH_AVAILABLE = False
 HttpNegotiateAuth = None
 try:
-    from requests_negotiate_sspi import HttpNegotiateAuth
-    WINDOWS_AUTH_AVAILABLE = True
+    from auth_service import (
+        AEGISAuthService as _AuthService,
+        WINDOWS_AUTH_AVAILABLE,
+        is_corporate_url as _is_corp_url,
+    )
+    HttpNegotiateAuth = _AuthService.get_negotiate_auth_class()
+    if WINDOWS_AUTH_AVAILABLE:
+        logger.info('[SP LinkValidator] Unified auth service: Windows SSO available')
 except ImportError:
+    # Fallback to direct imports if auth_service not available
     try:
-        from requests_ntlm import HttpNtlmAuth
-        import getpass
-        import os as _os
-
-        class HttpNegotiateAuth:
-            """NTLM wrapper using current Windows user."""
-            def __init__(self):
-                username = _os.environ.get('USERNAME', getpass.getuser())
-                domain = _os.environ.get('USERDOMAIN', '')
-                if domain:
-                    self.auth = HttpNtlmAuth(f'{domain}\\{username}', None)
-                else:
-                    self.auth = HttpNtlmAuth(username, None)
-            def __call__(self, r):
-                return self.auth(r)
+        from requests_negotiate_sspi import HttpNegotiateAuth
         WINDOWS_AUTH_AVAILABLE = True
     except ImportError:
-        pass
+        try:
+            from requests_ntlm import HttpNtlmAuth
+            import getpass
+            import os as _os
+
+            class HttpNegotiateAuth:
+                """NTLM wrapper using current Windows user."""
+                def __init__(self):
+                    username = _os.environ.get('USERNAME', getpass.getuser())
+                    domain = _os.environ.get('USERDOMAIN', '')
+                    if domain:
+                        self.auth = HttpNtlmAuth(f'{domain}\\{username}', None)
+                    else:
+                        self.auth = HttpNtlmAuth(username, None)
+                def __call__(self, r):
+                    return self.auth(r)
+            WINDOWS_AUTH_AVAILABLE = True
+        except ImportError:
+            pass
 
 SHAREPOINT_CONNECTOR_AVAILABLE = False
 _SharePointConnector = None

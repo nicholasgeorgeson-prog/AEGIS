@@ -48,35 +48,40 @@ try:
 except ImportError:
     REQUESTS_AVAILABLE = False
 
-# Windows SSO authentication support (v3.0.109)
+# Windows SSO authentication support (v6.2.0: via unified auth_service)
 WINDOWS_AUTH_AVAILABLE = False
 HttpNegotiateAuth = None
 try:
-    # Try requests_negotiate_sspi first (Windows SSPI-based, most reliable)
-    from requests_negotiate_sspi import HttpNegotiateAuth
-    WINDOWS_AUTH_AVAILABLE = True
+    from auth_service import (
+        AEGISAuthService,
+        WINDOWS_AUTH_AVAILABLE,
+        is_corporate_url as _is_corp_url,
+    )
+    HttpNegotiateAuth = AEGISAuthService.get_negotiate_auth_class()
 except ImportError:
+    # Fallback to direct imports if auth_service not available
     try:
-        # Fallback to requests-ntlm
-        from requests_ntlm import HttpNtlmAuth
-        # Create a wrapper that works like HttpNegotiateAuth
-        class HttpNegotiateAuth:
-            """Wrapper for NTLM auth that uses current Windows user."""
-            def __init__(self):
-                import getpass
-                import os
-                # Get current Windows user credentials
-                username = os.environ.get('USERNAME', getpass.getuser())
-                domain = os.environ.get('USERDOMAIN', '')
-                if domain:
-                    self.auth = HttpNtlmAuth(f'{domain}\\{username}', None)
-                else:
-                    self.auth = HttpNtlmAuth(username, None)
-            def __call__(self, r):
-                return self.auth(r)
+        from requests_negotiate_sspi import HttpNegotiateAuth
         WINDOWS_AUTH_AVAILABLE = True
     except ImportError:
-        pass
+        try:
+            from requests_ntlm import HttpNtlmAuth
+            class HttpNegotiateAuth:
+                """Wrapper for NTLM auth that uses current Windows user."""
+                def __init__(self):
+                    import getpass
+                    import os
+                    username = os.environ.get('USERNAME', getpass.getuser())
+                    domain = os.environ.get('USERDOMAIN', '')
+                    if domain:
+                        self.auth = HttpNtlmAuth(f'{domain}\\{username}', None)
+                    else:
+                        self.auth = HttpNtlmAuth(username, None)
+                def __call__(self, r):
+                    return self.auth(r)
+            WINDOWS_AUTH_AVAILABLE = True
+        except ImportError:
+            pass
 
 # SharePoint-aware URL validation (v6.1.11)
 SP_LINK_VALIDATOR_AVAILABLE = False

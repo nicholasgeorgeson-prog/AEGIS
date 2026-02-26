@@ -1429,12 +1429,21 @@ window.ProposalCompare = (function() {
             return;
         }
 
-        // DOCX / text fallback: show extraction text
+        // v6.2.0: DOCX rendering — prefer html_preview (mammoth HTML) over plaintext
+        var htmlPreview = p.html_preview || '';
         var textContent = p.full_text || p.extraction_text || '';
-        if (textContent) {
+
+        if (htmlPreview) {
+            // Render mammoth HTML with sanitization
+            var sanitized = htmlPreview
+                .replace(/<script[\s\S]*?<\/script>/gi, '')
+                .replace(/<style[\s\S]*?<\/style>/gi, '')
+                .replace(/on\w+="[^"]*"/gi, '')
+                .replace(/on\w+='[^']*'/gi, '');
+            container.innerHTML = '<div class="pc-doc-html">' + sanitized + '</div>';
+        } else if (textContent) {
             container.innerHTML = '<pre class="pc-doc-text">' + escHtml(textContent) + '</pre>';
         } else if (State.files[idx] && fileType === 'docx') {
-            // For DOCX, try to show a basic message since we can't render it natively
             container.innerHTML = '<div class="pc-doc-fallback"><i data-lucide="file-text"></i>' +
                 '<p>DOCX preview not available.</p><p class="pc-doc-hint">Extracted data shown in the editor panel.</p></div>';
             if (window.lucide) window.lucide.createIcons();

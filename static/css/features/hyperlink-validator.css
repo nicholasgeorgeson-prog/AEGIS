@@ -2466,6 +2466,60 @@ body:not(.dark-mode) .hv-extract-phase strong,
     color: #D6A84A;
 }
 
+/* ===== v6.2.0: RESPONSIVE BREAKPOINTS ===== */
+
+@media (max-width: 1366px) {
+    .hv-header {
+        padding: 0.75rem 1.25rem;
+    }
+    .hv-summary-stats {
+        gap: 0.75rem;
+    }
+}
+
+@media (max-width: 1280px) {
+    .hv-summary-stats {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    .hv-toolbar {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    .hv-results-table th,
+    .hv-results-table td {
+        padding: 6px 8px;
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 1024px) {
+    .hv-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+    }
+    .hv-mode-selector {
+        width: 100%;
+    }
+    .hv-mode-selector select {
+        flex: 1;
+    }
+    .hv-header-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+    .hv-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .hv-results-table th:nth-child(4),
+    .hv-results-table td:nth-child(4) {
+        display: none;
+    }
+}
+
 /* ===== ACCESSIBILITY ===== */
 @media (prefers-reduced-motion: reduce) {
     [class*="hv-"] {

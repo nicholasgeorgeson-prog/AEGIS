@@ -71,76 +71,93 @@ try:
 except Exception:
     pass  # Don't crash if log setup fails
 
-# Windows SSO auth — same pattern as hyperlink_validator/validator.py
+# v6.2.0: Unified auth service — single initialization for all SPO modules
 WINDOWS_AUTH_AVAILABLE = False
 HttpNegotiateAuth = None
 _sp_auth_init_error = None
 _sp_auth_method = 'none'
-
-# v6.0.5: SSPI preemptive auth — generate Negotiate token without waiting for challenge
 SSPI_PREEMPTIVE_AVAILABLE = False
 _sspi_module = None
 _win32security_module = None
-try:
-    if sys.platform == 'win32':
-        import sspi
-        import win32security
-        import pywintypes
-        _sspi_module = sspi
-        _win32security_module = win32security
-        SSPI_PREEMPTIVE_AVAILABLE = True
-except ImportError:
-    pass
-except Exception:
-    pass
-
-# v6.0.5: MSAL (Microsoft Authentication Library) for OAuth 2.0 / modern auth
-# Required for SharePoint Online (GCC High, commercial) which has disabled legacy auth
 MSAL_AVAILABLE = False
 _msal_module = None
-try:
-    import msal
-    _msal_module = msal
-    MSAL_AVAILABLE = True
-    logger.info('[AEGIS SharePoint] MSAL available — OAuth 2.0 / modern auth supported')
-except ImportError:
-    logger.info('[AEGIS SharePoint] MSAL not installed — OAuth 2.0 auth unavailable. '
-                'Install with: pip install msal')
-
-# v6.1.3: Headless browser connector availability (uses Playwright + Windows SSO)
 HEADLESS_SP_AVAILABLE = False
-try:
-    from playwright.sync_api import sync_playwright as _sp_sync_playwright
-    HEADLESS_SP_AVAILABLE = True
-    logger.info('[AEGIS SharePoint] Playwright available — headless browser SharePoint connector enabled')
-except ImportError:
-    logger.info('[AEGIS SharePoint] Playwright not installed — headless browser connector unavailable')
+_sp_sync_playwright = None
 
 try:
-    if sys.platform == 'win32':
-        from requests_negotiate_sspi import HttpNegotiateAuth
-        WINDOWS_AUTH_AVAILABLE = True
-        _sp_auth_method = 'negotiate_sspi'
-        logger.info('[AEGIS SharePoint] Windows SSO initialized via requests-negotiate-sspi')
-    else:
-        _sp_auth_init_error = f'Platform is {sys.platform}, not win32 — Windows SSO not applicable'
-        logger.info(f'[AEGIS SharePoint] Skipping Windows auth: platform={sys.platform}')
-except ImportError as e:
-    logger.warning(f'[AEGIS SharePoint] requests-negotiate-sspi not available: {e}')
+    from auth_service import (
+        AEGISAuthService as _AuthService,
+        WINDOWS_AUTH_AVAILABLE,
+        SSPI_PREEMPTIVE_AVAILABLE,
+        MSAL_AVAILABLE,
+        HEADLESS_AVAILABLE as HEADLESS_SP_AVAILABLE,
+        NEGOTIATE_SSPI_AVAILABLE as _NEG_SSPI,
+        NTLM_AVAILABLE as _NTLM_AVAIL,
+        _auth_init_method as _sp_auth_method,
+        _auth_init_error as _sp_auth_init_error,
+        _sspi_module,
+        _win32security_module,
+        _msal_module,
+        generate_preemptive_negotiate_token as _generate_preemptive_negotiate_token_unified,
+        is_corporate_url,
+        get_headless_auth_allowlist,
+        CORPORATE_DOMAIN_PATTERNS,
+        IDP_DOMAINS,
+        HEADLESS_AUTH_DOMAINS,
+    )
+    HttpNegotiateAuth = _AuthService.get_negotiate_auth_class()
+    # Playwright import still needed for HeadlessSPConnector
+    if HEADLESS_SP_AVAILABLE:
+        try:
+            from playwright.sync_api import sync_playwright as _sp_sync_playwright
+        except ImportError:
+            HEADLESS_SP_AVAILABLE = False
+    logger.info(f'[AEGIS SharePoint] Unified auth service loaded: '
+                f'SSO={WINDOWS_AUTH_AVAILABLE} ({_sp_auth_method}), '
+                f'SSPI={SSPI_PREEMPTIVE_AVAILABLE}, '
+                f'MSAL={MSAL_AVAILABLE}, '
+                f'Headless={HEADLESS_SP_AVAILABLE}')
+except ImportError:
+    logger.info('[AEGIS SharePoint] auth_service not available — using direct imports')
+    # Fallback to direct imports (preserves backward compatibility)
     try:
         if sys.platform == 'win32':
-            from requests_ntlm import HttpNtlmAuth as HttpNegotiateAuth
+            import sspi
+            import win32security
+            import pywintypes
+            _sspi_module = sspi
+            _win32security_module = win32security
+            SSPI_PREEMPTIVE_AVAILABLE = True
+    except (ImportError, Exception):
+        pass
+    try:
+        import msal
+        _msal_module = msal
+        MSAL_AVAILABLE = True
+    except ImportError:
+        pass
+    try:
+        from playwright.sync_api import sync_playwright as _sp_sync_playwright
+        HEADLESS_SP_AVAILABLE = True
+    except ImportError:
+        pass
+    try:
+        if sys.platform == 'win32':
+            from requests_negotiate_sspi import HttpNegotiateAuth
             WINDOWS_AUTH_AVAILABLE = True
-            _sp_auth_method = 'ntlm'
-            logger.info('[AEGIS SharePoint] Windows SSO initialized via requests-ntlm (NTLM fallback)')
-    except ImportError as e2:
-        _sp_auth_init_error = f'negotiate-sspi: {e}, ntlm: {e2}'
-        logger.error(f'[AEGIS SharePoint] NO Windows authentication available! '
-                     f'SharePoint connections will fail on corporate networks. '
-                     f'Errors: negotiate-sspi=[{e}], ntlm=[{e2}]')
-except Exception as e:
-    _sp_auth_init_error = f'Unexpected: {e}'
-    logger.error(f'[AEGIS SharePoint] Auth init error: {e}', exc_info=True)
+            _sp_auth_method = 'negotiate_sspi'
+        else:
+            _sp_auth_init_error = f'Platform is {sys.platform}, not win32'
+    except ImportError as e:
+        try:
+            if sys.platform == 'win32':
+                from requests_ntlm import HttpNtlmAuth as HttpNegotiateAuth
+                WINDOWS_AUTH_AVAILABLE = True
+                _sp_auth_method = 'ntlm'
+        except ImportError as e2:
+            _sp_auth_init_error = f'negotiate-sspi: {e}, ntlm: {e2}'
+    except Exception as e:
+        _sp_auth_init_error = f'Unexpected: {e}'
 
 
 def _generate_preemptive_negotiate_token(target_host: str) -> Optional[str]:

@@ -407,3 +407,9 @@ FOLDER_SCAN_CHUNK_SIZE = 5  # v5.9.40: Back to 5 — 8 caused chunk timeouts on 
                             # when Docling persistent worker fails (daemon restriction)
 FOLDER_SCAN_MAX_WORKERS = 3  # v5.9.40: Back to 3 — safer on Windows with OneDrive paths
                               # 4 workers + failed persistent worker = too much contention
+
+# v6.2.0: Async batch scan constants
+BATCH_SCAN_CHUNK_SIZE = 5   # Files per chunk in async batch scan
+BATCH_SCAN_MAX_WORKERS = 3  # Concurrent workers per chunk
+BATCH_SCAN_PER_FILE_TIMEOUT = 480  # 8 min per file (matches folder scan)
+BATCH_SCAN_CLEANUP_AGE = 1800  # 30 min after completion, clean up state

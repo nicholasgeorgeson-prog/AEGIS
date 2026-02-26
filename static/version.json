@@ -1,13 +1,41 @@
 {
-  "version": "6.1.11",
+  "version": "6.2.0",
   "release_date": "2026-02-25",
-  "core_version": "6.1.11",
+  "core_version": "6.2.0",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.2.0",
+      "date": "2026-02-25",
+      "changes": [
+        "NEW: Async Batch Scan — batch document scanning now runs asynchronously with real-time progress polling. POST /api/review/batch-start launches a background thread, GET /api/review/batch-progress/<scan_id> returns live status with incremental document results via ?since=N parameter",
+        "NEW: Per-file phase tracking — progress_callback from core.py review_document() now wired into batch scans, showing real-time phase indicators (Extracting → Parsing → Checking → Postprocessing) for each document with color-coded phase badges",
+        "NEW: Activity Log — timestamped scrollable log area in batch dashboard shows chunk start/complete, file start/complete/error events. Auto-scrolls to latest entry, max 200 entries server-side, shows last 50 in UI",
+        "NEW: Chunk Tracker — batch dashboard metrics row shows current chunk number and progress (e.g., 2/5)",
+        "NEW: ECD Display — Estimated Completion Date line shows both remaining time and clock time (e.g., ~12 min remaining • Est. completion: 3:42 PM) using server-side EMA calculation",
+        "NEW: Severity Stat Chips — live-updating Critical/High/Medium/Low/Info severity counts displayed as color-coded chips during scan",
+        "NEW: Batch Cancel — cancel button sends POST /api/review/batch-cancel/<scan_id> to gracefully stop processing between files",
+        "ENH: Crash Prevention — _update_batch_state_with_result() success path wrapped in try/except to prevent malformed issue dicts from crashing the background thread",
+        "ENH: Per-file gc.collect() — engine instance deleted and garbage collected after each file (not just between chunks) for better memory management",
+        "ENH: Minimize Badge Enhanced — floating badge now shows doc count (e.g., 12/50) and remaining time in subtitle",
+        "ENH: Reconnection resilience — polling uses exponential backoff (1.5s → 3s → 6s → max 10s) with max 10 failures before giving up",
+        "ENH: Server-side EMA — batch progress endpoint computes estimated_remaining using exponential moving average (alpha=0.3) of per-file durations",
+        "FIX: Existing _update_scan_state_with_result() for folder scans now has protected success path (inner try/except) preventing background thread crashes",
+        "NEW: Cinematic Batch Progress Dashboard — hero stats row with large progress ring (SVG), ECD display, docs/min throughput, total issues found. Per-document queue with phase indicators, mini progress bars, and per-doc timers. Aggregate severity stats panel",
+        "NEW: Batch Results Module — static/js/features/batch-results.js IIFE with severity/category/preset filter chips, per-document drill-down with split-pane document viewer, filtered export support",
+        "NEW: Document Viewer Quality — Proposal Compare DOCX viewer upgraded from plaintext to mammoth HTML rendering with sanitization. Document Review gets split-pane viewer. Shared renderDocumentInContainer() utility for consistent quality across modules",
+        "NEW: Responsive Design — systematic breakpoints (1366px, 1280px, 1024px, 768px) added to 13 CSS feature files including modals, batch-progress-dashboard, hyperlink-validator, metrics-analytics, roles-studio, layout, landing-page, and settings",
+        "NEW: Unified Auth Service — auth_service.py singleton consolidates 5 fragmented auth systems into one shared service with cached authenticated sessions (30-min TTL), preemptive SSPI Negotiate token generation, MSAL OAuth 2.0, OS certificate store integration (truststore), and boot-time auth probe diagnostics",
+        "ENH: SharePoint Connector, Hyperlink Validator, Comprehensive Hyperlink Checker, and SharePoint Link Validator all now use unified auth_service.py with backward-compatible fallback to direct imports",
+        "ENH: /api/capabilities endpoint extended with auth diagnostic info (windows_sso, method, sspi, oauth, truststore, headless status)",
+        "ENH: Boot-time auth probe — app.py logs auth service availability and method at startup",
+        "ENH: UNC path support — folder scan now accepts \\\\server\\share paths on Windows with platform-specific error messages for Mac/Linux"
+      ]
+    },
     {
       "version": "6.1.11",
       "date": "2026-02-25",

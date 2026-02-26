@@ -13770,6 +13770,133 @@ body.light-mode .role-stmt-reassign-select {
     color: var(--text-secondary, #4b5563);
 }
 
+/* =============================================================================
+   v6.2.0: RESPONSIVE BREAKPOINTS
+   ============================================================================= */
+
+@media (max-width: 1366px) {
+    .roles-overview-stats .stat-card {
+        min-width: 100px;
+    }
+    .raci-table th,
+    .raci-table td {
+        padding: 6px 8px;
+        font-size: 12px;
+    }
+    .adj-stats-row {
+        gap: 8px;
+    }
+    .dict-grid {
+        gap: 10px;
+    }
+}
+
+@media (max-width: 1280px) {
+    .roles-overview-stats {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .roles-overview-stats .stat-card {
+        flex: 1 1 calc(25% - 10px);
+        min-width: 90px;
+    }
+    .role-detail-sidebar {
+        width: 280px;
+        min-width: 280px;
+    }
+    .kanban-columns {
+        gap: 10px;
+    }
+    .kanban-column {
+        min-width: 200px;
+    }
+}
+
+@media (max-width: 1024px) {
+    .roles-section-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .role-tab {
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+    .role-detail-sidebar {
+        position: fixed;
+        right: -300px;
+        top: 0;
+        bottom: 0;
+        width: 300px;
+        min-width: 300px;
+        z-index: 200;
+        transition: right 0.25s ease;
+        box-shadow: none;
+    }
+    .role-detail-sidebar.open {
+        right: 0;
+        box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+    }
+    .kanban-columns {
+        flex-wrap: wrap;
+    }
+    .kanban-column {
+        flex: 1 1 calc(50% - 10px);
+        min-width: 220px;
+    }
+    .roles-overview-stats .stat-card {
+        flex: 1 1 calc(33% - 10px);
+    }
+    .raci-table {
+        font-size: 11px;
+    }
+    .raci-table th,
+    .raci-table td {
+        padding: 4px 6px;
+    }
+    .dict-grid {
+        grid-template-columns: 1fr;
+    }
+    .adj-stats-row {
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 768px) {
+    .roles-section-tabs {
+        padding: 0 8px;
+    }
+    .role-tab {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+    .roles-overview-stats {
+        flex-direction: column;
+    }
+    .roles-overview-stats .stat-card {
+        flex: 1 1 100%;
+    }
+    .kanban-columns {
+        flex-direction: column;
+    }
+    .kanban-column {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+    .raci-table {
+        display: block;
+        overflow-x: auto;
+    }
+    .adj-stats-row {
+        flex-direction: column;
+        gap: 6px;
+    }
+    .adj-bulk-actions {
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+}
+
 /* Accessibility: respect reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
     .role-card,
