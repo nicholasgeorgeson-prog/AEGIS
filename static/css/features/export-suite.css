@@ -340,7 +340,24 @@
 /* ============================================================
    Responsive: stack format cards on narrow modals
    ============================================================ */
-/* v6.2.0: RESPONSIVE BREAKPOINTS */
+/* v6.2.0+: RESPONSIVE BREAKPOINTS */
+
+/* v6.2.1: Laptop */
+@media (max-width: 1366px) {
+    .export-format-group {
+        gap: 10px;
+    }
+    .export-filter-section {
+        padding: 10px;
+    }
+}
+
+/* v6.2.1: Small laptop */
+@media (max-width: 1280px) {
+    .export-format-group {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
 
 @media (max-width: 1024px) {
     .export-format-group {

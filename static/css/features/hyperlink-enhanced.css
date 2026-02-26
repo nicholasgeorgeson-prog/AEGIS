@@ -2180,6 +2180,35 @@
     background: var(--border-color);
 }
 
+/* v6.2.1: Standard responsive breakpoints */
+@media (max-width: 1366px) {
+    .hv-stats-grid {
+        gap: 0.625rem;
+    }
+    .hv-stat-card {
+        padding: 0.75rem;
+    }
+}
+
+@media (max-width: 1280px) {
+    .hv-stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 1024px) {
+    .hv-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .hv-stat-card {
+        border-radius: 8px;
+    }
+    .hv-carousel-card {
+        width: 120px;
+        height: 165px;
+    }
+}
+
 /* Responsive adjustments */
 @media (max-width: 600px) {
     .hv-carousel-card {

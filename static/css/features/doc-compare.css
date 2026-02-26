@@ -804,6 +804,14 @@ body.dark-mode .dc-score-new .dc-score-value {
    RESPONSIVE
    ============================================================================= */
 
+/* v6.2.0: Laptop */
+@media (max-width: 1366px) {
+    .dc-modal-content {
+        width: 98vw;
+        max-width: none;
+    }
+}
+
 @media (max-width: 1200px) {
     .dc-issues-panel {
         width: 220px;

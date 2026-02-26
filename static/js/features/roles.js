@@ -4275,23 +4275,46 @@ TWR.Roles = (function() {
         // Clear SVG
         d3.select(svgElement).selectAll('*').remove();
         const container = svgElement.parentElement;
-        const width = container.clientWidth || 800;
-        const height = container.clientHeight || 500;
-        const radius = Math.min(width, height) / 2 - 100;
+        const containerWidth = container.clientWidth || 800;
+        const containerHeight = container.clientHeight || 500;
+
+        // v6.2.1: Dynamic scaling — circle grows with data size
+        // Calculate ideal radius based on number of leaf nodes
+        // Each node needs ~20-30px of arc space for readable labels
+        const leafCount = root.leaves().length;
+        const minCircumference = leafCount * 24; // 24px per node minimum
+        const dataRadius = Math.max(
+            Math.min(containerWidth, containerHeight) / 2 - 100, // container-based minimum
+            minCircumference / (2 * Math.PI),                     // data-based minimum
+            180                                                    // absolute minimum
+        );
+        // SVG dimensions expand to fit the data-driven radius
+        const svgPadding = 160; // space for labels outside circle
+        const width = Math.max(containerWidth, (dataRadius + svgPadding) * 2);
+        const height = Math.max(containerHeight, (dataRadius + svgPadding) * 2);
+        const radius = dataRadius;
 
         const svg = d3.select(svgElement)
-            .attr('width', width).attr('height', height)
+            .attr('width', containerWidth).attr('height', containerHeight)
             .attr('viewBox', [0, 0, width, height]);
         GraphState.svg = svg;
 
         const g = svg.append('g').attr('transform', `translate(${width/2},${height/2})`);
 
-        // Zoom + pan
-        const zoom = d3.zoom().scaleExtent([0.3, 5]).on('zoom', (event) => {
+        // Zoom + pan — auto-fit the view to show the full circle
+        const zoom = d3.zoom().scaleExtent([0.15, 5]).on('zoom', (event) => {
             g.attr('transform', `translate(${width/2 + event.transform.x},${height/2 + event.transform.y}) scale(${event.transform.k})`);
         });
         svg.call(zoom);
         GraphState.zoom = zoom;
+
+        // v6.2.1: Auto-fit zoom if SVG is larger than container
+        if (width > containerWidth || height > containerHeight) {
+            const fitScale = Math.min(containerWidth / width, containerHeight / height) * 0.92;
+            const tx = (containerWidth - width * fitScale) / 2;
+            const ty = (containerHeight - height * fitScale) / 2;
+            svg.call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(fitScale));
+        }
 
         // Compute circular layout
         d3.cluster().size([360, radius]).separation((a, b) => a.parent === b.parent ? 1 : 2)(root);
@@ -4404,7 +4427,11 @@ TWR.Roles = (function() {
             const px = Math.cos(angle) * leaf.y;
             const py = Math.sin(angle) * leaf.y;
             const mentions = nd.total_mentions || nd.role_count || 1;
-            const nodeR = nd.type === 'document' ? Math.max(5, Math.min(8, 4 + Math.sqrt(mentions) * 0.5)) : Math.max(4, Math.min(10, 3 + Math.sqrt(mentions) * 1.2));
+            // v6.2.1: Scale node radius with data density — larger circle = more room = bigger nodes
+            const densityFactor = Math.max(1, radius / 250); // grows as circle grows
+            const nodeR = nd.type === 'document'
+                ? Math.max(5 * densityFactor, Math.min(12 * densityFactor, (4 + Math.sqrt(mentions) * 0.5) * densityFactor))
+                : Math.max(4 * densityFactor, Math.min(14 * densityFactor, (3 + Math.sqrt(mentions) * 1.2) * densityFactor));
 
             const nodeEl = nodeG.append('g')
                 .attr('class', `heb-node graph-node`)
@@ -4422,13 +4449,15 @@ TWR.Roles = (function() {
             const flip = leaf.x > 90 && leaf.x < 270;
             const labelAngle = flip ? leaf.x - 180 : leaf.x;
             const labelOffset = nodeR + 4;
+            // v6.2.1: More label space when circle is larger
+            const labelMaxLen = Math.max(18, Math.min(35, Math.floor(radius / 20)));
             nodeEl.append('text')
                 .attr('class', 'heb-node-label graph-node-label')
                 .attr('transform', `rotate(${labelAngle})`)
                 .attr('x', flip ? -labelOffset : labelOffset)
                 .attr('dy', '0.35em')
                 .attr('text-anchor', flip ? 'end' : 'start')
-                .text(truncate(nd.label, 18));
+                .text(truncate(nd.label, labelMaxLen));
 
             // Hover
             nodeEl.on('mouseover', function(event) {
@@ -5262,12 +5291,17 @@ TWR.Roles = (function() {
                 .force('y', d3.forceY(d => d.y).strength(0.5))
                 .force('collision', d3.forceCollide().radius(20));
         } else {
+            // v6.2.1: Scale force parameters with data size so graph spreads out with more nodes
+            const nc = nodes.length;
+            const scaledDistance = Math.max(80, 100 + nc * 0.8);     // More nodes → more spacing
+            const scaledCharge = Math.min(-100, -200 - nc * 3);      // More nodes → stronger repulsion
+            const scaledCollision = Math.max(25, 30 + nc * 0.15);    // More nodes → bigger collision radius
             simulation = d3.forceSimulation(nodes)
                 .alphaDecay(0.04).alphaMin(0.01).velocityDecay(0.35)
-                .force('link', d3.forceLink(links).id(d => d.id).distance(100).strength(d => Math.min(d.weight / 10, 1)))
-                .force('charge', d3.forceManyBody().strength(-200))
+                .force('link', d3.forceLink(links).id(d => d.id).distance(scaledDistance).strength(d => Math.min(d.weight / 10, 1)))
+                .force('charge', d3.forceManyBody().strength(scaledCharge))
                 .force('center', d3.forceCenter(width / 2, height / 2))
-                .force('collision', d3.forceCollide().radius(30));
+                .force('collision', d3.forceCollide().radius(scaledCollision));
         }
         GraphState.simulation = simulation;
         
@@ -5328,14 +5362,16 @@ TWR.Roles = (function() {
             const highlightMerge = highlightFilter.append('feMerge'); highlightMerge.append('feMergeNode').attr('in', 'coloredBlur'); highlightMerge.append('feMergeNode').attr('in', 'SourceGraphic');
         }
 
-        // v3.0.77: Node circles with minimum size and proper visibility for weak nodes
+        // v6.2.1: Node circles scale with data size — more nodes = bigger graph = bigger nodes
+        const fdNodeScale = Math.max(1, 1 + (nodeCount - 30) * 0.02); // grows after 30 nodes
         node.append('circle')
             .attr('r', d => {
                 const baseSize = d.type === 'role' ? 12 : 10;
                 const mentions = d.total_mentions || d.role_count || 1;
-                const calculatedSize = baseSize + Math.sqrt(mentions) * 2;
-                // Minimum size of 10px ensures all nodes are clearly visible
-                return Math.max(10, Math.min(calculatedSize, 25));
+                const calculatedSize = (baseSize + Math.sqrt(mentions) * 2) * fdNodeScale;
+                // Scale max radius with data density
+                const maxR = Math.min(40, 25 + nodeCount * 0.1);
+                return Math.max(10, Math.min(calculatedSize, maxR));
             })
             .attr('fill', d => colorScale[d.type] || '#888')
             .attr('fill-opacity', d => d.connectionCount <= 2 ? 0.5 : 1)

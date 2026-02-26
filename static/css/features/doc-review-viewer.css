@@ -1,0 +1,377 @@
+/* ============================================
+   AEGIS Document Review — Split-Pane Viewer
+   v6.2.0
+   ============================================ */
+
+/* ── Split Pane Container ─────────────── */
+.dr-split-pane {
+    display: none;
+    flex-direction: row;
+    gap: 0;
+    height: calc(100vh - 280px);
+    min-height: 400px;
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--bg-surface, #fff);
+    margin-bottom: 16px;
+}
+
+.dr-split-pane.active {
+    display: flex !important;
+}
+
+/* ── Document Panel (Left, 55%) ──────── */
+.dr-doc-panel {
+    width: 55%;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border-color, #e0e0e0);
+    background: var(--bg-surface, #fff);
+    min-width: 300px;
+}
+
+.dr-doc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+    background: var(--bg-deep, #f6f8fa);
+    flex-shrink: 0;
+}
+
+.dr-doc-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary, #1a1a2e);
+    overflow: hidden;
+}
+
+.dr-doc-title i {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: var(--text-secondary, #666);
+}
+
+.dr-doc-title span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dr-doc-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.dr-doc-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+}
+
+/* ── Document HTML Rendering ─────────── */
+.dr-doc-content .dr-html-render {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--text-primary, #333);
+    padding: 16px 20px;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.dr-html-render h1, .dr-html-render h2, .dr-html-render h3,
+.dr-html-render h4, .dr-html-render h5, .dr-html-render h6 {
+    margin: 16px 0 8px;
+    font-weight: 600;
+    color: var(--text-primary, #1a1a2e);
+    line-height: 1.3;
+}
+
+.dr-html-render h1 { font-size: 20px; border-bottom: 1px solid var(--border-color, #e0e0e0); padding-bottom: 6px; }
+.dr-html-render h2 { font-size: 17px; }
+.dr-html-render h3 { font-size: 15px; }
+.dr-html-render h4 { font-size: 14px; }
+
+.dr-html-render p {
+    margin: 8px 0;
+}
+
+.dr-html-render ul, .dr-html-render ol {
+    margin: 8px 0;
+    padding-left: 24px;
+}
+
+.dr-html-render li {
+    margin: 4px 0;
+}
+
+.dr-html-render table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 12px;
+}
+
+.dr-html-render table th,
+.dr-html-render table td {
+    border: 1px solid var(--border-color, #ddd);
+    padding: 6px 10px;
+    text-align: left;
+    vertical-align: top;
+}
+
+.dr-html-render table th {
+    background: var(--bg-deep, #f0f2f5);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.dr-html-render table tr:nth-child(even) {
+    background: var(--bg-surface, #fafbfc);
+}
+
+.dr-html-render strong, .dr-html-render b {
+    font-weight: 600;
+}
+
+.dr-html-render a {
+    color: var(--info, #3b82f6);
+    text-decoration: underline;
+}
+
+.dr-html-render img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    margin: 8px 0;
+}
+
+/* ── Plain Text Rendering ────────────── */
+.dr-doc-content .dr-text-render {
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text-primary, #333);
+    padding: 16px 20px;
+    margin: 0;
+}
+
+/* ── PDF Rendering ───────────────────── */
+.dr-doc-content .pdfv-wrapper {
+    padding: 0;
+    overflow: auto;
+    max-height: 100%;
+}
+
+.dr-doc-content .pdfv-page {
+    margin-bottom: 8px;
+}
+
+/* ── Fallback / Empty State ──────────── */
+.dr-doc-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-muted, #999);
+    height: 100%;
+}
+
+.dr-doc-empty i {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 16px;
+    opacity: 0.4;
+}
+
+.dr-doc-empty p {
+    margin: 4px 0;
+    font-size: 13px;
+}
+
+.dr-doc-empty .dr-doc-hint {
+    font-size: 11px;
+    opacity: 0.7;
+    margin-top: 8px;
+}
+
+/* ── Issues Panel (Right, 45%) ───────── */
+.dr-issues-panel {
+    width: 45%;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    min-width: 300px;
+}
+
+/* ── Highlighted text in document ─────── */
+.dr-highlight {
+    background: rgba(214, 168, 74, 0.25);
+    border-bottom: 2px solid #D6A84A;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.dr-highlight:hover {
+    background: rgba(214, 168, 74, 0.4);
+}
+
+.dr-highlight.dr-highlight-active {
+    background: rgba(214, 168, 74, 0.5);
+    border-bottom-color: #B8743A;
+}
+
+/* ── View Document Button ────────────── */
+#btn-toggle-doc-viewer {
+    gap: 6px;
+    color: var(--text-secondary, #666);
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 6px;
+    font-size: 12px;
+    padding: 4px 10px;
+    transition: all 0.15s;
+}
+
+#btn-toggle-doc-viewer:hover {
+    background: var(--bg-hover, rgba(0,0,0,0.06));
+    color: var(--text-primary, #333);
+}
+
+#btn-toggle-doc-viewer.active {
+    background: linear-gradient(135deg, rgba(214,168,74,0.15), rgba(184,116,58,0.1));
+    border-color: #D6A84A;
+    color: #D6A84A;
+}
+
+/* ── Dark Mode ───────────────────────── */
+[data-theme="dark"] .dr-split-pane,
+.dark-mode .dr-split-pane {
+    border-color: var(--border-color, #30363d);
+    background: var(--bg-surface, #161b22);
+}
+
+[data-theme="dark"] .dr-doc-panel,
+.dark-mode .dr-doc-panel {
+    border-right-color: var(--border-color, #30363d);
+    background: var(--bg-surface, #161b22);
+}
+
+[data-theme="dark"] .dr-doc-header,
+.dark-mode .dr-doc-header {
+    border-bottom-color: var(--border-color, #30363d);
+    background: var(--bg-deep, #0d1117);
+}
+
+[data-theme="dark"] .dr-doc-title,
+.dark-mode .dr-doc-title {
+    color: var(--text-primary, #e6edf3);
+}
+
+[data-theme="dark"] .dr-html-render,
+.dark-mode .dr-html-render {
+    color: var(--text-primary, #e6edf3);
+}
+
+[data-theme="dark"] .dr-html-render h1,
+[data-theme="dark"] .dr-html-render h2,
+[data-theme="dark"] .dr-html-render h3,
+[data-theme="dark"] .dr-html-render h4,
+.dark-mode .dr-html-render h1,
+.dark-mode .dr-html-render h2,
+.dark-mode .dr-html-render h3,
+.dark-mode .dr-html-render h4 {
+    color: var(--text-primary, #e6edf3);
+}
+
+[data-theme="dark"] .dr-html-render h1,
+.dark-mode .dr-html-render h1 {
+    border-bottom-color: var(--border-color, #30363d);
+}
+
+[data-theme="dark"] .dr-html-render table th,
+.dark-mode .dr-html-render table th {
+    background: var(--bg-deep, #0d1117);
+    color: var(--text-secondary, #8b949e);
+}
+
+[data-theme="dark"] .dr-html-render table th,
+[data-theme="dark"] .dr-html-render table td,
+.dark-mode .dr-html-render table th,
+.dark-mode .dr-html-render table td {
+    border-color: var(--border-color, #30363d);
+}
+
+[data-theme="dark"] .dr-html-render table tr:nth-child(even),
+.dark-mode .dr-html-render table tr:nth-child(even) {
+    background: var(--bg-deep, #0d1117);
+}
+
+[data-theme="dark"] .dr-html-render a,
+.dark-mode .dr-html-render a {
+    color: var(--info, #58a6ff);
+}
+
+[data-theme="dark"] .dr-text-render,
+.dark-mode .dr-text-render {
+    color: var(--text-primary, #e6edf3);
+}
+
+[data-theme="dark"] .dr-highlight,
+.dark-mode .dr-highlight {
+    background: rgba(214, 168, 74, 0.2);
+}
+
+[data-theme="dark"] .dr-highlight:hover,
+.dark-mode .dr-highlight:hover {
+    background: rgba(214, 168, 74, 0.35);
+}
+
+[data-theme="dark"] #btn-toggle-doc-viewer,
+.dark-mode #btn-toggle-doc-viewer {
+    border-color: var(--border-color, #30363d);
+    color: var(--text-secondary, #8b949e);
+}
+
+[data-theme="dark"] #btn-toggle-doc-viewer:hover,
+.dark-mode #btn-toggle-doc-viewer:hover {
+    color: var(--text-primary, #e6edf3);
+}
+
+/* ── Responsive ──────────────────────── */
+@media (max-width: 1280px) {
+    .dr-doc-panel { width: 50%; }
+    .dr-issues-panel { width: 50%; }
+}
+
+@media (max-width: 1024px) {
+    .dr-split-pane {
+        flex-direction: column;
+        height: auto;
+        max-height: calc(100vh - 200px);
+    }
+    .dr-doc-panel {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color, #e0e0e0);
+        max-height: 40vh;
+    }
+    .dr-issues-panel {
+        width: 100%;
+        max-height: 40vh;
+    }
+}

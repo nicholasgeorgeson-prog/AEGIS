@@ -1050,8 +1050,8 @@
 /* Laptop (1366px) — reduce modal widths, tighten padding */
 @media (max-width: 1366px) {
     .modal.modal-xl > div:first-child,
-    .modal.modal-xl > .modal-content { max-width: 95vw; }
-    #modal-settings > .modal-content { max-width: 95vw; }
+    .modal.modal-xl > .modal-content { max-width: min(95vw, 1100px); }
+    #modal-settings > .modal-content { max-width: min(95vw, 860px); }
     .modal-header { padding: var(--space-3) var(--space-4); }
     .modal-body { padding: var(--space-4); }
     .modal-footer { padding: var(--space-3) var(--space-4); }
