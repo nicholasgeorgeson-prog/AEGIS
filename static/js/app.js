@@ -12592,21 +12592,20 @@ STEPS TO REPRODUCE
                 const spDocList = document.getElementById('sp-doc-list');
                 const spIssueCount = document.getElementById('sp-issues-found');
 
-                // Hide the SP input section so the dashboard is front and center
+                // Hide ALL sibling sections so the dashboard is front and center
                 const spInputSection = document.getElementById('sharepoint-scan-section');
                 if (spInputSection) spInputSection.style.display = 'none';
-
-                // Also hide the folder scan section and file list above it
                 const folderSection = document.querySelector('.folder-scan-section');
                 if (folderSection) folderSection.style.display = 'none';
                 const batchFileList = document.getElementById('batch-file-list');
                 if (batchFileList) batchFileList.style.display = 'none';
+                // v6.2.4: Hide dropzone — it takes ~180px and pushes dashboard below the fold
+                const dropzoneEl = document.getElementById('batch-dropzone');
+                if (dropzoneEl) dropzoneEl.style.display = 'none';
 
                 if (dashEl) {
                     dashEl.classList.remove('hidden');
                     dashEl.classList.add('scanning');
-                    // Scroll the dashboard into view
-                    setTimeout(() => dashEl.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
                 }
                 if (spDocsTotal) spDocsTotal.textContent = totalFiles;
                 if (spDocsComplete) spDocsComplete.textContent = '0';
@@ -12642,6 +12641,12 @@ STEPS TO REPRODUCE
                     }).join('');
                 }
                 if (window.lucide) window.lucide.createIcons();
+
+                // v6.2.4: Scroll dashboard into view AFTER all DOM changes are done
+                // Must be after doc rows are built so layout is complete
+                setTimeout(() => {
+                    if (dashEl) dashEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 300);
 
                 // Polling — reuses exact same folder-scan-progress endpoint
                 let spLastDocCount = 0;
@@ -12790,6 +12795,9 @@ STEPS TO REPRODUCE
                             if (folderSection2) folderSection2.style.display = '';
                             const batchFileList2 = document.getElementById('batch-file-list');
                             if (batchFileList2) batchFileList2.style.display = '';
+                            // v6.2.4: Restore dropzone
+                            const dropzone2 = document.getElementById('batch-dropzone');
+                            if (dropzone2) dropzone2.style.display = '';
 
                             if (window.lucide) window.lucide.createIcons();
                         }
