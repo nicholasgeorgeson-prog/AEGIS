@@ -373,8 +373,11 @@ def main():
         python_exe = os.path.join(os.getcwd(), "python", "python.exe")
         print(f"  Using embedded Python: {python_exe}")
 
-    def try_pip_install(package, pip_name=None):
-        """Try offline-first, then online pip install."""
+    import subprocess
+
+    def pip_install(package, pip_name=None, required=False):
+        """Install package: offline-first from wheels/, then online fallback.
+        If required=True, prints [FAIL] instead of [SKIP] on failure."""
         pip_name = pip_name or package
         # Try import first
         try:
@@ -384,7 +387,7 @@ def main():
         except ImportError:
             pass
 
-        # Try offline
+        # Try offline from wheels/
         wheels_dirs = []
         for d in ["wheels", "packaging/wheels"]:
             if os.path.isdir(d):
@@ -394,39 +397,56 @@ def main():
             find_links = []
             for d in wheels_dirs:
                 find_links.extend(["--find-links", d])
-            import subprocess
             try:
-                subprocess.run(
-                    [python_exe, "-m", "pip", "install", "--no-index"] + find_links + ["--no-warn-script-location", pip_name],
-                    capture_output=True, timeout=120
+                result = subprocess.run(
+                    [python_exe, "-m", "pip", "install", "--no-index"] + find_links +
+                    ["--no-warn-script-location", pip_name],
+                    capture_output=True, text=True, timeout=120
                 )
-                __import__(package)
-                print(f"  [OK] {pip_name} installed (offline)")
-                return True
-            except Exception:
-                pass
+                try:
+                    __import__(package)
+                    print(f"  [OK] {pip_name} installed (offline)")
+                    return True
+                except ImportError:
+                    # Wheel installed but import still fails — show pip output
+                    if result.stderr:
+                        print(f"  [INFO] pip offline stderr: {result.stderr.strip()[:200]}")
+            except Exception as e:
+                print(f"  [INFO] Offline install error: {e}")
 
-        # Try online
-        import subprocess
+        # Try online fallback
         try:
-            subprocess.run(
+            result = subprocess.run(
                 [python_exe, "-m", "pip", "install", "--no-warn-script-location", pip_name],
-                capture_output=True, timeout=120
+                capture_output=True, text=True, timeout=120
             )
-            __import__(package)
-            print(f"  [OK] {pip_name} installed (online)")
-            return True
-        except Exception:
-            print(f"  [SKIP] {pip_name} not available (optional)")
-            return False
+            try:
+                __import__(package)
+                print(f"  [OK] {pip_name} installed (online)")
+                return True
+            except ImportError:
+                if result.stderr:
+                    print(f"  [INFO] pip online stderr: {result.stderr.strip()[:200]}")
+        except Exception as e:
+            print(f"  [INFO] Online install error: {e}")
 
-    try_pip_install("msal", "msal>=1.20.0")
-    try_pip_install("jwt", "PyJWT>=2.0.0")
-    try_pip_install("truststore", "truststore>=0.9.0")
+        # Failed
+        if required:
+            print(f"  [FAIL] {pip_name} — REQUIRED but could not install")
+        else:
+            print(f"  [SKIP] {pip_name} not available (optional)")
+        return False
+
+    # ── Required packages ─────────────────────────────────────────────
+    pip_install("truststore", "truststore>=0.9.0", required=True)
+
+    # ── Optional packages (auth/SharePoint) ───────────────────────────
+    pip_install("msal", "msal>=1.20.0")
+    pip_install("jwt", "PyJWT>=2.0.0")
 
     # Windows-only packages
     if sys.platform == "win32":
-        try_pip_install("win32security", "pywin32>=300")
+        pip_install("win32security", "pywin32>=300")
 
     print()
 
