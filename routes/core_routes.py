@@ -469,6 +469,107 @@ def diagnostics_email():
         except Exception:
             pass
 
+        # --- v6.2.10: Collect SharePoint/Auth/Scan diagnostic data ---
+        sp_diag = {}
+        try:
+            # Auth service state
+            try:
+                from auth_service import AEGISAuthService
+                auth_svc = AEGISAuthService()
+                sp_diag['auth_service'] = auth_svc.get_auth_summary()
+            except Exception as auth_e:
+                sp_diag['auth_service'] = {'error': str(auth_e)}
+
+            # SharePoint connector availability
+            try:
+                from sharepoint_connector import (
+                    HEADLESS_SP_AVAILABLE, MSAL_AVAILABLE,
+                    SSPI_PREEMPTIVE_AVAILABLE
+                )
+                sp_diag['sp_connector'] = {
+                    'headless_available': HEADLESS_SP_AVAILABLE,
+                    'msal_available': MSAL_AVAILABLE,
+                    'sspi_preemptive_available': SSPI_PREEMPTIVE_AVAILABLE,
+                }
+            except Exception as sp_e:
+                sp_diag['sp_connector'] = {'error': str(sp_e)}
+
+            # Active scan states (batch + folder + SP)
+            try:
+                from routes.review_routes import (
+                    _batch_scan_state, _folder_scan_state,
+                    _batch_scan_state_lock, _folder_scan_state_lock
+                )
+                scan_states = {}
+                with _batch_scan_state_lock:
+                    for scan_id, state in _batch_scan_state.items():
+                        scan_states[f'batch_{scan_id}'] = {
+                            'phase': state.get('phase'),
+                            'total': state.get('total'),
+                            'processed': state.get('processed'),
+                            'errors': state.get('errors'),
+                            'current_file': state.get('current_file'),
+                            'elapsed': state.get('elapsed_seconds'),
+                            'started_at': state.get('started_at'),
+                        }
+                # Folder scan states (separate dict, separate lock)
+                with _folder_scan_state_lock:
+                    for scan_id, state in _folder_scan_state.items():
+                        scan_states[f'folder_{scan_id}'] = {
+                            'phase': state.get('phase'),
+                            'total': state.get('total'),
+                            'processed': state.get('processed'),
+                            'errors': state.get('errors'),
+                            'current_file': state.get('current_file'),
+                            'started_at': state.get('started_at'),
+                        }
+                sp_diag['active_scans'] = scan_states if scan_states else 'none'
+            except Exception as scan_e:
+                sp_diag['active_scans'] = {'error': str(scan_e)}
+
+            # Playwright/headless availability
+            try:
+                import subprocess as sp_sub
+                r = sp_sub.run(
+                    [sys.executable, '-c',
+                     'from playwright.sync_api import sync_playwright; '
+                     'p = sync_playwright().start(); '
+                     'print(p.chromium.executable_path); p.stop()'],
+                    capture_output=True, text=True, timeout=10
+                )
+                sp_diag['playwright'] = {
+                    'available': r.returncode == 0,
+                    'browser_path': r.stdout.strip()[:200] if r.returncode == 0 else None,
+                    'error': r.stderr.strip()[:200] if r.returncode != 0 else None,
+                }
+            except Exception as pw_e:
+                sp_diag['playwright'] = {'available': False, 'error': str(pw_e)}
+
+            # truststore state
+            try:
+                import truststore
+                sp_diag['truststore'] = {'available': True, 'file': getattr(truststore, '__file__', 'unknown')}
+            except ImportError:
+                sp_diag['truststore'] = {'available': False}
+
+            # Log file listing with sizes
+            try:
+                log_dir = config.log_dir
+                if log_dir.exists():
+                    log_files = {}
+                    for lf in sorted(log_dir.glob('*.log')):
+                        log_files[lf.name] = {
+                            'size_kb': round(lf.stat().st_size / 1024, 1),
+                            'modified': datetime.fromtimestamp(lf.stat().st_mtime).isoformat()
+                        }
+                    sp_diag['log_files'] = log_files
+            except Exception:
+                pass
+
+            export_data['sharepoint_diagnostics'] = sp_diag
+        except Exception as diag_e:
+            export_data['sharepoint_diagnostics'] = {'error': str(diag_e)}
+
         # --- Build email body text ---
         version_str = get_version()
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -519,6 +620,57 @@ def diagnostics_email():
             body_lines.append(f"  Installed: {len(installed)} | Missing: {len(missing)}")
             if missing:
                 body_lines.append(f"  Missing: {', '.join(missing)}")
+            body_lines.append('')
+
+        # SharePoint / Auth diagnostics (v6.2.10)
+        if sp_diag:
+            body_lines.append('SHAREPOINT / AUTH DIAGNOSTICS')
+            body_lines.append('=' * 50)
+
+            auth_info = sp_diag.get('auth_service', {})
+            if isinstance(auth_info, dict) and 'error' not in auth_info:
+                body_lines.append(f"  Windows SSO: {auth_info.get('windows_auth', 'unknown')}")
+                body_lines.append(f"  Auth method: {auth_info.get('auth_method', 'unknown')}")
+                body_lines.append(f"  MSAL OAuth: {auth_info.get('msal_available', 'unknown')}")
+                body_lines.append(f"  Truststore: {auth_info.get('truststore', 'unknown')}")
+            elif isinstance(auth_info, dict):
+                body_lines.append(f"  Auth service error: {auth_info.get('error', 'unknown')}")
+
+            sp_conn = sp_diag.get('sp_connector', {})
+            if isinstance(sp_conn, dict) and 'error' not in sp_conn:
+                body_lines.append(f"  Headless SP: {sp_conn.get('headless_available', 'unknown')}")
+                body_lines.append(f"  SSPI preemptive: {sp_conn.get('sspi_preemptive_available', 'unknown')}")
+                body_lines.append(f"  MSAL: {sp_conn.get('msal_available', 'unknown')}")
+            elif isinstance(sp_conn, dict):
+                body_lines.append(f"  SP connector error: {sp_conn.get('error', 'unknown')}")
+
+            pw = sp_diag.get('playwright', {})
+            if isinstance(pw, dict):
+                body_lines.append(f"  Playwright available: {pw.get('available', False)}")
+                if pw.get('browser_path'):
+                    body_lines.append(f"  Browser: {pw['browser_path'][:100]}")
+                if pw.get('error'):
+                    body_lines.append(f"  Playwright error: {pw['error'][:150]}")
+
+            ts = sp_diag.get('truststore', {})
+            if isinstance(ts, dict):
+                body_lines.append(f"  truststore installed: {ts.get('available', False)}")
+
+            scans = sp_diag.get('active_scans', 'none')
+            if isinstance(scans, dict):
+                for sid, sinfo in scans.items():
+                    body_lines.append(f"  Scan {sid}: phase={sinfo.get('phase')}, "
+                                      f"{sinfo.get('processed', 0)}/{sinfo.get('total', 0)} files, "
+                                      f"errors={sinfo.get('errors', 0)}")
+            else:
+                body_lines.append(f"  Active scans: {scans}")
+
+            log_files = sp_diag.get('log_files', {})
+            if log_files:
+                body_lines.append('  Log files:')
+                for name, info in log_files.items():
+                    body_lines.append(f"    {name}: {info.get('size_kb', 0)} KB, modified {info.get('modified', '?')}")
+
             body_lines.append('')
 
         # Recent errors summary
