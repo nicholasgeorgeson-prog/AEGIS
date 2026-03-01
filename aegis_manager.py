@@ -1567,35 +1567,62 @@ class AEGISManager:
                 continue
             to_download.append(path)
 
-        C.info(f'{len(to_download)} source files to check/download')
+        C.info(f'{len(to_download)} source files to check')
 
-        # Compare with local files to find changed
+        # Build SHA lookup from tree for comparison
+        tree_sha_map = {}
+        for f in tree:
+            tree_sha_map[f['path']] = f['sha']
+
+        # Compare local files against Git blob SHAs
+        C.info('Comparing local files with remote...')
         changed = []
         new_files = []
+        up_to_date = 0
         for path in to_download:
             local = os.path.join(self.install_dir, path)
             if not os.path.isfile(local):
                 new_files.append(path)
             else:
-                # Compare by downloading and checking content
-                # For efficiency, we download all and let the copy handle it
-                changed.append(path)
+                # Compute Git blob SHA for local file: sha1("blob {size}\0{content}")
+                try:
+                    with open(local, 'rb') as lf:
+                        content = lf.read()
+                    header = f'blob {len(content)}\0'.encode('utf-8')
+                    local_sha = hashlib.sha1(header + content).hexdigest()
+                    if local_sha != tree_sha_map.get(path, ''):
+                        changed.append(path)
+                    else:
+                        up_to_date += 1
+                except Exception:
+                    changed.append(path)  # If we can't read it, re-download
 
-        total = len(to_download)
+        total = len(changed) + len(new_files)
+        C.ok(f'{up_to_date} files already up to date')
+        if new_files:
+            C.info(f'{len(new_files)} new files')
+        if changed:
+            C.info(f'{len(changed)} changed files')
+
+        if total == 0:
+            C._write(f'\n    {C.GREEN}Everything is up to date!{C.RESET}')
+            return
+
         C.info(f'Downloading {total} files...')
 
-        # Backup first
+        # Backup changed files before overwriting
+        files_to_download = changed + new_files
         C.info('Creating pre-update backup...')
         bdir, bcount = self.backup.create_backup(
-            files=[p for p in to_download if os.path.isfile(os.path.join(self.install_dir, p))],
+            files=[p for p in changed if os.path.isfile(os.path.join(self.install_dir, p))],
             label='pre_update'
         )
         C.ok(f'Backed up {bcount} files to {os.path.basename(bdir)}')
 
-        # Download
+        # Download only changed + new files
         success = 0
         failed = 0
-        for i, path in enumerate(to_download):
+        for i, path in enumerate(files_to_download):
             C.progress_bar(i + 1, total, os.path.basename(path)[:30])
             dest = os.path.join(self.install_dir, path)
             if self.github.download_raw_file(path, dest):
