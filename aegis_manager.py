@@ -861,25 +861,7 @@ class ServerManager:
             C.fail('app.py not found')
             return False
 
-        # Check for Start_AEGIS.bat on Windows
-        if sys.platform == 'win32':
-            bat = os.path.join(self.install_dir, 'Start_AEGIS.bat')
-            if os.path.isfile(bat):
-                C.info('Launching Start_AEGIS.bat...')
-                try:
-                    CREATE_NEW_PROCESS_GROUP = 0x00000200
-                    DETACHED_PROCESS = 0x00000008
-                    subprocess.Popen(
-                        [bat],
-                        creationflags=CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS,
-                        cwd=self.install_dir,
-                        close_fds=True,
-                    )
-                    return self._wait_for_server(30)
-                except Exception as e:
-                    C.warn(f'Start_AEGIS.bat failed: {e}, trying direct Python...')
-
-        # Direct Python start
+        # Strategy 1: Direct Python launch (preferred — works headless)
         C.info(f'Starting with: {python_exe} app.py')
         try:
             if sys.platform == 'win32':
@@ -889,7 +871,9 @@ class ServerManager:
                     [python_exe, app_py],
                     creationflags=CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS,
                     cwd=self.install_dir,
-                    close_fds=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    stdin=subprocess.DEVNULL,
                 )
             else:
                 subprocess.Popen(
@@ -898,17 +882,52 @@ class ServerManager:
                     cwd=self.install_dir,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
+                    stdin=subprocess.DEVNULL,
                 )
-            return self._wait_for_server(30)
+            started = self._wait_for_server(30)
+            if started:
+                return True
+            C.warn('Direct Python start did not respond — trying Start_AEGIS.bat...')
         except Exception as e:
-            C.fail(f'Could not start server: {e}')
-            return False
+            C.warn(f'Direct Python start failed: {e}')
+
+        # Strategy 2: Start_AEGIS.bat with its own console window (Windows only)
+        if sys.platform == 'win32':
+            bat = os.path.join(self.install_dir, 'Start_AEGIS.bat')
+            if os.path.isfile(bat):
+                C.info('Launching Start_AEGIS.bat in new window...')
+                try:
+                    CREATE_NEW_CONSOLE = 0x00000010
+                    subprocess.Popen(
+                        ['cmd', '/c', bat],
+                        creationflags=CREATE_NEW_CONSOLE,
+                        cwd=self.install_dir,
+                    )
+                    return self._wait_for_server(30)
+                except Exception as e:
+                    C.fail(f'Start_AEGIS.bat also failed: {e}')
+                    return False
+
+        C.fail('Could not start server')
+        return False
 
     def restart(self):
         """Restart the AEGIS server."""
         C.info('Stopping server...')
-        self.stop()
-        time.sleep(2)
+        stopped = self.stop()
+        if not stopped:
+            C.warn('Stop may not have completed cleanly')
+
+        # Wait for port to be fully released before starting
+        C.info('Waiting for port to clear...')
+        for _ in range(5):
+            time.sleep(1)
+            running, _ = self.is_running()
+            if not running:
+                break
+        else:
+            C.warn('Port 5050 may still be in use — attempting start anyway')
+
         C.info('Starting server...')
         return self.start()
 
@@ -2360,11 +2379,18 @@ class AEGISManager:
 
         # Server is running — restart it
         C.info('Stopping current server...')
-        stopped = self.server.stop()
-        if not stopped:
-            C.warn('Could not stop server cleanly. Trying force restart...')
+        self.server.stop()
 
-        time.sleep(2)
+        # Wait for port to fully release
+        C.info('Waiting for port to clear...')
+        for i in range(5):
+            time.sleep(1)
+            running, _ = self.server.is_running()
+            if not running:
+                break
+        else:
+            C.warn('Port 5050 may still be in use — attempting start anyway')
+            time.sleep(1)
 
         C.info('Starting server with updated code...')
         started = self.server.start()
