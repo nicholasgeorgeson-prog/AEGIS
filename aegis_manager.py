@@ -1,25 +1,22 @@
 #!/usr/bin/env python3
 """
-AEGIS Manager v1.0.0
+AEGIS Manager v2.0.0
 ====================
 One-stop install, update, repair, backup, and packaging tool for AEGIS.
 
-This single file handles everything:
-  1.  Update AEGIS         — Pull latest version from GitHub
-  2.  Full Sync            — Download ALL source files
-  3.  Health Check          — Verify packages & dependencies
-  4.  Repair               — Fix broken packages (5-phase)
-  5.  Backup               — Create timestamped snapshot
-  6.  Restore              — Restore from backup
-  7.  Server               — Start / Stop / Restart / Status
-  8.  Fresh Install         — Full setup from scratch
-  9.  Package              — Create distribution archive
-  10. Diagnostics          — System info & export
-  11. Self-Update           — Update this manager tool
-  0.  Exit
+Launches a web-based GUI in the default browser with clickable buttons
+for all operations. Falls back to CLI mode with --cli flag.
 
-Zero external dependencies — uses only Python standard library.
-Works with embedded Python (python/python.exe) or system Python.
+Features:
+  • Update AEGIS from GitHub       • Full Sync of all source files
+  • Health Check & Diagnostics     • 5-Phase Offline Repair
+  • Backup & Restore snapshots     • Server Start/Stop/Restart
+  • Fresh Install from scratch     • Distribution packaging
+  • Auto diagnostic email          • Self-update from GitHub
+
+Web UI runs on http://localhost:5051 (separate from AEGIS on :5050).
+Offline-only repair — uses bundled wheels exclusively, no internet needed.
+Zero external dependencies — Python standard library only.
 
 Created by Nicholas Georgeson for AEGIS deployment at NGC.
 """
@@ -38,16 +35,25 @@ import platform
 import subprocess
 import importlib
 import threading
+import queue
+import webbrowser
+import socketserver
 import urllib.request
 import urllib.error
 from datetime import datetime
 from pathlib import Path
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
+from urllib.parse import parse_qs, urlparse
 
 # ═══════════════════════════════════════════════════════════════════════
 # CONSTANTS & CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════
 
-MANAGER_VERSION = "1.0.0"
+MANAGER_VERSION = "2.0.0"
 
 # GitHub
 REPO_OWNER = "nicholasgeorgeson-prog"
@@ -198,6 +204,17 @@ NLTK_DATASETS = [
 # Log file
 LOG_FILE = "aegis_manager.log"
 
+# Web mode globals
+MANAGER_WEB_PORT = 5051
+_web_log_queue = queue.Queue()   # Log lines pushed here for web polling
+_web_mode = False                # True when running web UI
+_current_operation = {           # Track background operation state
+    'running': False,
+    'action': '',
+    'started': 0,
+}
+_current_operation_lock = threading.Lock()
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # class ColorOutput — ANSI terminal colors + logging
@@ -251,12 +268,19 @@ class ColorOutput:
 
     @classmethod
     def _write(cls, text, end='\n'):
-        """Write to stdout and log file."""
+        """Write to stdout, log file, and web queue (if web mode)."""
         print(text, end=end, flush=True)
         if cls._log_file:
             try:
                 cls._log_file.write(cls._strip_ansi(text) + end)
                 cls._log_file.flush()
+            except Exception:
+                pass
+        # Push to web log queue for browser polling
+        if _web_mode:
+            try:
+                clean = cls._strip_ansi(text)
+                _web_log_queue.put(clean + end)
             except Exception:
                 pass
 
@@ -989,7 +1013,7 @@ class PackageManager:
         return dirs
 
     def pip_install(self, packages, force=False):
-        """Install packages with offline-first + online fallback.
+        """Install packages from bundled wheels ONLY (offline, air-gap safe).
 
         Args:
             packages: string or list of package specs
@@ -1003,47 +1027,13 @@ class PackageManager:
 
         wheels_dirs = self.find_wheels_dirs()
 
-        # Strategy 1: Offline install from wheels
-        if wheels_dirs:
-            cmd = [self._python_exe, '-m', 'pip', 'install',
-                   '--no-warn-script-location']
-            for wd in wheels_dirs:
-                cmd.extend(['--no-index', '--find-links', wd])
-            if force:
-                cmd.append('--force-reinstall')
-            cmd.extend(packages)
+        if not wheels_dirs:
+            return False, 'no wheels directory found'
 
-            try:
-                result = subprocess.run(
-                    cmd, capture_output=True, text=True, timeout=300
-                )
-                if result.returncode == 0:
-                    return True, 'offline'
-            except Exception:
-                pass
-
-        # Strategy 2: Hybrid (local wheels + online for missing deps)
-        if wheels_dirs:
-            cmd = [self._python_exe, '-m', 'pip', 'install',
-                   '--no-warn-script-location']
-            for wd in wheels_dirs:
-                cmd.extend(['--find-links', wd])
-            if force:
-                cmd.append('--force-reinstall')
-            cmd.extend(packages)
-
-            try:
-                result = subprocess.run(
-                    cmd, capture_output=True, text=True, timeout=300
-                )
-                if result.returncode == 0:
-                    return True, 'hybrid'
-            except Exception:
-                pass
-
-        # Strategy 3: Online only
         cmd = [self._python_exe, '-m', 'pip', 'install',
                '--no-warn-script-location']
+        for wd in wheels_dirs:
+            cmd.extend(['--no-index', '--find-links', wd])
         if force:
             cmd.append('--force-reinstall')
         cmd.extend(packages)
@@ -1053,10 +1043,11 @@ class PackageManager:
                 cmd, capture_output=True, text=True, timeout=300
             )
             if result.returncode == 0:
-                return True, 'online'
-            return False, result.stderr[:200] if result.stderr else 'unknown error'
+                return True, 'offline'
+            err_msg = result.stderr[:200] if result.stderr else 'unknown error'
+            return False, f'offline install failed: {err_msg}'
         except subprocess.TimeoutExpired:
-            return False, 'timeout'
+            return False, 'timeout (300s)'
         except Exception as e:
             return False, str(e)[:200]
 
@@ -1189,50 +1180,68 @@ class PackageManager:
         return c_pass, c_fail, o_pass, o_fail, details
 
     def check_nltk_data(self):
-        """Check and fix NLTK data packages."""
+        """Check and fix NLTK data packages.
+
+        Handles RecursionError from nltk.data.find() which can occur when
+        NLTK data paths contain problematic zip structures (Lesson: NLTK
+        Phase 4 recursion bug).
+        """
         try:
             import nltk
         except ImportError:
             C.warn('NLTK not available, skipping data check')
-            return
+            return 0, 0
 
         # Set local path
         local_dir = os.path.join(self.install_dir, 'nltk_data')
         if os.path.isdir(local_dir):
             os.environ['NLTK_DATA'] = local_dir
-            if local_dir not in nltk.data.path:
-                nltk.data.path.insert(0, local_dir)
+            # Reset path list to avoid duplicates that cause recursion
+            nltk.data.path = [p for p in nltk.data.path if p != local_dir]
+            nltk.data.path.insert(0, local_dir)
 
         ok_count = 0
         fix_count = 0
         for path, name, category in NLTK_DATASETS:
-            try:
-                nltk.data.find(path)
-                ok_count += 1
-            except LookupError:
-                # Try extracting bundled ZIP
-                fixed = False
-                if os.path.isdir(local_dir):
-                    try:
-                        zip_path = os.path.join(local_dir, category, f'{name}.zip')
-                        extract_dir = os.path.join(local_dir, category, name)
-                        if os.path.exists(zip_path) and not os.path.isdir(extract_dir):
-                            zipfile.ZipFile(zip_path).extractall(
-                                os.path.join(local_dir, category))
-                            if os.path.isdir(extract_dir):
-                                C.ok(f'{name} (extracted from bundled ZIP)')
-                                fixed = True
-                                fix_count += 1
-                    except Exception:
-                        pass
+            # Check if data directory exists directly (bypass nltk.data.find
+            # which can hit recursion errors in some NLTK path configurations)
+            found = False
+            if os.path.isdir(local_dir):
+                data_dir = os.path.join(local_dir, category, name)
+                data_file = os.path.join(local_dir, category, name + '.zip')
+                if os.path.isdir(data_dir) and os.listdir(data_dir):
+                    found = True
 
-                if not fixed:
-                    try:
-                        nltk.download(name, quiet=True)
-                        C.ok(f'{name} (downloaded)')
-                        fix_count += 1
-                    except Exception:
-                        C.fail(f'{name} — missing')
+            if not found:
+                # Fallback: try nltk.data.find with recursion protection
+                try:
+                    nltk.data.find(path)
+                    found = True
+                except (LookupError, RecursionError):
+                    found = False
+
+            if found:
+                ok_count += 1
+                continue
+
+            # Not found — try extracting bundled ZIP
+            fixed = False
+            if os.path.isdir(local_dir):
+                try:
+                    zip_path = os.path.join(local_dir, category, f'{name}.zip')
+                    extract_dir = os.path.join(local_dir, category, name)
+                    if os.path.exists(zip_path) and not os.path.isdir(extract_dir):
+                        with zipfile.ZipFile(zip_path, 'r') as zf:
+                            zf.extractall(os.path.join(local_dir, category))
+                        if os.path.isdir(extract_dir):
+                            C.ok(f'{name} (extracted from bundled ZIP)')
+                            fixed = True
+                            fix_count += 1
+                except Exception as e:
+                    C.warn(f'{name}: extract error — {e}')
+
+            if not fixed:
+                C.fail(f'{name} — missing (add ZIP to nltk_data/{category}/)')
 
         return ok_count, fix_count
 
@@ -2085,6 +2094,7 @@ class AEGISManager:
         C._write(f'  3. Auth Capabilities')
         C._write(f'  4. GitHub Connectivity')
         C._write(f'  5. Export All to JSON')
+        C._write(f'  6. Create Diagnostic Email')
         C._write(f'  0. Back')
 
         choice = C.prompt('Choice: ')
@@ -2099,6 +2109,8 @@ class AEGISManager:
             self._diag_github()
         elif choice == '5':
             self._diag_export()
+        elif choice == '6':
+            self.create_diagnostic_email()
 
     def _diag_system_info(self):
         """Show system information."""
@@ -2250,6 +2262,159 @@ class AEGISManager:
             json.dump(diag, f, indent=2, default=str)
 
         C.ok(f'Diagnostics exported: {output}')
+        return output
+
+    def create_diagnostic_email(self):
+        """Create a .eml file with diagnostics + logs attached, open in Outlook.
+
+        Collects all diagnostic info, attaches relevant log files,
+        and creates an RFC 2822 .eml file that opens in the default
+        mail client (Outlook on Windows).
+        """
+        C.banner('Diagnostic Email', 'Create email with diagnostics for support')
+
+        C.info('Collecting diagnostics...')
+
+        # Step 1: Run full diagnostic export
+        diag = {
+            'timestamp': datetime.now().isoformat(),
+            'manager_version': MANAGER_VERSION,
+            'system': {
+                'platform': platform.platform(),
+                'python': sys.version,
+                'executable': sys.executable,
+                'architecture': platform.machine(),
+            },
+            'aegis': {
+                'version': self._get_local_version(),
+                'install_dir': self.install_dir,
+            },
+        }
+
+        # Server status
+        running, vinfo = self.server.is_running()
+        diag['server'] = {'running': running, 'version_info': vinfo}
+
+        # GitHub
+        ok, ginfo = self.github.check_connectivity()
+        diag['github'] = {'reachable': ok, 'info': ginfo}
+
+        # Package health
+        c_pass, c_fail, o_pass, o_fail, details = self.packages.health_check()
+        diag['packages'] = {
+            'critical_pass': c_pass, 'critical_fail': c_fail,
+            'optional_pass': o_pass, 'optional_fail': o_fail,
+            'critical_details': [(d, p, s, e) for d, p, s, e in details.get('critical', [])],
+            'optional_details': [(d, p, s, e) for d, p, s, e in details.get('optional', [])],
+        }
+
+        # Disk
+        try:
+            usage = shutil.disk_usage(self.install_dir)
+            diag['disk'] = {
+                'free_gb': round(usage.free / (1024**3), 1),
+                'total_gb': round(usage.total / (1024**3), 1),
+            }
+        except Exception:
+            pass
+
+        # Auth capabilities
+        auth_caps = {}
+        for module, desc in [
+            ('requests_negotiate_sspi', 'Windows SSO'),
+            ('requests_ntlm', 'NTLM'),
+            ('sspi', 'SSPI'),
+            ('msal', 'MSAL OAuth'),
+            ('truststore', 'OS Truststore'),
+            ('playwright', 'Headless Browser'),
+        ]:
+            auth_ok, _ = self.packages.check_import(module)
+            auth_caps[desc] = auth_ok
+        diag['auth'] = auth_caps
+
+        # Step 2: Build email
+        diag_json = json.dumps(diag, indent=2, default=str)
+
+        msg = MIMEMultipart()
+        msg['Subject'] = f'AEGIS Diagnostics — v{self._get_local_version()} — {datetime.now().strftime("%Y-%m-%d %H:%M")}'
+        msg['From'] = 'AEGIS Manager <aegis@localhost>'
+        msg['To'] = ''
+
+        # Body
+        body = f"""AEGIS Diagnostic Report
+Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Manager Version: {MANAGER_VERSION}
+AEGIS Version: {self._get_local_version()}
+Platform: {platform.platform()}
+Python: {sys.version.split()[0]}
+
+Packages: {c_pass} critical OK, {c_fail} critical FAIL, {o_pass} optional OK, {o_fail} optional FAIL
+Server: {'Running' if running else 'Stopped'}
+GitHub: {'Reachable' if ok else 'Not reachable'}
+
+--- Please forward this email to your Claude Code session ---
+--- Attach any additional context about the issue you are experiencing ---
+"""
+        msg.attach(MIMEText(body, 'plain'))
+
+        # Attach diagnostics JSON
+        diag_attach = MIMEBase('application', 'json')
+        diag_attach.set_payload(diag_json.encode('utf-8'))
+        encoders.encode_base64(diag_attach)
+        diag_attach.add_header('Content-Disposition', 'attachment',
+                               filename=f'aegis_diagnostics_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json')
+        msg.attach(diag_attach)
+
+        # Attach log files
+        log_files = [
+            os.path.join(self.install_dir, 'aegis_manager.log'),
+            os.path.join(self.install_dir, 'logs', 'app.log'),
+            os.path.join(self.install_dir, 'logs', 'aegis.log'),
+            os.path.join(self.install_dir, 'logs', 'sharepoint.log'),
+            os.path.join(self.install_dir, 'logs', 'auth_service.log'),
+        ]
+
+        for lf in log_files:
+            if os.path.isfile(lf):
+                try:
+                    with open(lf, 'r', encoding='utf-8', errors='replace') as f:
+                        # Last 500 lines max
+                        lines = f.readlines()
+                        content = ''.join(lines[-500:])
+                    log_attach = MIMEBase('text', 'plain')
+                    log_attach.set_payload(content.encode('utf-8'))
+                    encoders.encode_base64(log_attach)
+                    log_attach.add_header('Content-Disposition', 'attachment',
+                                          filename=os.path.basename(lf))
+                    msg.attach(log_attach)
+                    C.ok(f'Attached: {os.path.basename(lf)} ({len(lines)} lines)')
+                except Exception as e:
+                    C.warn(f'Could not attach {os.path.basename(lf)}: {e}')
+
+        # Step 3: Save .eml file
+        eml_name = f'aegis_diagnostic_{datetime.now().strftime("%Y%m%d_%H%M%S")}.eml'
+        eml_path = os.path.join(self.install_dir, eml_name)
+        try:
+            with open(eml_path, 'w', encoding='utf-8') as f:
+                f.write(msg.as_string())
+            C.ok(f'Email created: {eml_name}')
+        except Exception as e:
+            C.fail(f'Could not create email file: {e}')
+            return None
+
+        # Step 4: Open in default mail client
+        if sys.platform == 'win32':
+            try:
+                os.startfile(eml_path)
+                C.ok('Opened in Outlook — add recipient and send!')
+            except Exception as e:
+                C.warn(f'Could not open email: {e}')
+                C.info(f'Email saved at: {eml_path}')
+        else:
+            C.info(f'Email saved at: {eml_path}')
+            C.info('Open in your mail client and forward to support.')
+
+        return eml_path
 
     # ──────────────────────────────────────────────────────────────
     # 11. SELF-UPDATE
@@ -2453,22 +2618,730 @@ pause
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# WEB UI — HTML/CSS/JS (embedded, zero external dependencies)
+# ═══════════════════════════════════════════════════════════════════════
+
+WEB_HTML = r'''<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AEGIS Manager</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--bg2:#161b22;--bg3:#1c2333;--gold:#d6a84a;--gold-dim:#a07c2e;
+--text:#e6edf3;--text2:#8b949e;--green:#3fb950;--red:#f85149;--yellow:#d29922;
+--cyan:#58a6ff;--border:#30363d;--radius:10px}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,
+'Segoe UI',Helvetica,Arial,sans-serif;min-height:100vh;display:flex;flex-direction:column}
+a{color:var(--cyan);text-decoration:none}
+
+/* HEADER */
+.header{background:var(--bg2);border-bottom:2px solid var(--gold);padding:16px 24px;
+display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:1.4rem;color:var(--gold);font-weight:700;letter-spacing:.5px}
+.header h1 span{color:var(--text);font-weight:400;font-size:.85rem;margin-left:8px}
+.status-bar{display:flex;gap:16px;font-size:.82rem}
+.status-pill{padding:4px 12px;border-radius:20px;background:var(--bg3);border:1px solid var(--border)}
+.status-pill.ok{border-color:var(--green);color:var(--green)}
+.status-pill.err{border-color:var(--red);color:var(--red)}
+.status-pill.warn{border-color:var(--yellow);color:var(--yellow)}
+
+/* MAIN CONTENT */
+.main{flex:1;display:flex;flex-direction:column;padding:20px 24px;gap:20px;max-width:1400px;
+margin:0 auto;width:100%}
+
+/* CARDS GRID */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);
+padding:18px 20px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+.card:hover{border-color:var(--gold);transform:translateY(-2px);
+box-shadow:0 4px 20px rgba(214,168,74,.12)}
+.card.running{border-color:var(--gold);animation:pulse 2s infinite}
+.card .icon{font-size:1.5rem;margin-bottom:8px}
+.card h3{font-size:.95rem;font-weight:600;margin-bottom:4px;color:var(--text)}
+.card p{font-size:.78rem;color:var(--text2);line-height:1.4}
+.card.disabled{opacity:.5;pointer-events:none}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(214,168,74,.3)}
+50%{box-shadow:0 0 0 6px rgba(214,168,74,0)}}
+
+/* LOG PANEL */
+.log-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);
+flex:1;min-height:250px;display:flex;flex-direction:column}
+.log-header{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;
+align-items:center;justify-content:space-between;font-size:.82rem}
+.log-header h2{font-size:.9rem;color:var(--gold)}
+.log-body{flex:1;overflow-y:auto;padding:10px 16px;font-family:'Cascadia Code','Fira Code',
+'Consolas',monospace;font-size:.78rem;line-height:1.6;white-space:pre-wrap;
+word-break:break-all;max-height:400px}
+.log-body .ok{color:var(--green)}.log-body .fail{color:var(--red)}
+.log-body .warn{color:var(--yellow)}.log-body .info{color:var(--cyan)}
+.log-body .hdr{color:var(--gold);font-weight:700}
+.log-clear{background:none;border:1px solid var(--border);color:var(--text2);
+padding:4px 10px;border-radius:6px;cursor:pointer;font-size:.75rem}
+.log-clear:hover{border-color:var(--text2)}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);
+z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.active{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--gold);border-radius:var(--radius);
+padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto}
+.modal h2{color:var(--gold);margin-bottom:16px;font-size:1.1rem}
+.modal-actions{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
+.btn{padding:8px 18px;border-radius:6px;border:none;cursor:pointer;font-size:.85rem;
+font-weight:500;transition:all .15s}
+.btn-gold{background:var(--gold);color:#000}.btn-gold:hover{background:#e0b85a}
+.btn-outline{background:none;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{border-color:var(--text2)}
+.btn-red{background:var(--red);color:#fff}.btn-red:hover{background:#ff6b61}
+
+/* RESTORE LIST */
+.backup-list{list-style:none;margin:10px 0}
+.backup-item{padding:10px 14px;border:1px solid var(--border);border-radius:6px;
+margin-bottom:6px;cursor:pointer;transition:all .15s;display:flex;justify-content:space-between;
+align-items:center;font-size:.85rem}
+.backup-item:hover{border-color:var(--gold);background:var(--bg3)}
+.backup-item.selected{border-color:var(--gold);background:rgba(214,168,74,.08)}
+
+/* SERVER CONTROLS */
+.server-controls{display:flex;gap:8px;flex-wrap:wrap}
+.server-btn{padding:6px 16px;border-radius:6px;font-size:.82rem;cursor:pointer;
+border:1px solid var(--border);background:var(--bg3);color:var(--text);transition:all .15s}
+.server-btn:hover{border-color:var(--gold)}
+.server-btn.active{border-color:var(--green);color:var(--green)}
+
+/* PROGRESS */
+.progress-bar{height:3px;background:var(--border);border-radius:2px;margin-top:10px;
+overflow:hidden}
+.progress-fill{height:100%;background:var(--gold);transition:width .3s;width:0%}
+
+/* FOOTER */
+.footer{padding:8px 24px;text-align:center;font-size:.72rem;color:var(--text2);
+border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>&#9670; AEGIS Manager <span>v''' + MANAGER_VERSION + r'''</span></h1>
+  <div class="status-bar">
+    <span class="status-pill" id="pill-version">AEGIS: loading...</span>
+    <span class="status-pill" id="pill-server">Server: checking...</span>
+    <span class="status-pill" id="pill-date">''' + datetime.now().strftime('%Y-%m-%d') + r'''</span>
+  </div>
+</div>
+
+<div class="main">
+  <div class="cards" id="cards">
+    <div class="card" onclick="run('update')" id="card-update">
+      <div class="icon">&#128259;</div><h3>Update AEGIS</h3>
+      <p>Pull latest changes from GitHub</p></div>
+    <div class="card" onclick="run('full_sync')" id="card-full_sync">
+      <div class="icon">&#128230;</div><h3>Full Sync</h3>
+      <p>Download ALL source files</p></div>
+    <div class="card" onclick="run('health_check')" id="card-health_check">
+      <div class="icon">&#129657;</div><h3>Health Check</h3>
+      <p>Verify packages &amp; dependencies</p></div>
+    <div class="card" onclick="run('repair')" id="card-repair">
+      <div class="icon">&#128295;</div><h3>Repair</h3>
+      <p>Fix broken packages (offline, 5-phase)</p></div>
+    <div class="card" onclick="run('backup')" id="card-backup">
+      <div class="icon">&#128190;</div><h3>Backup</h3>
+      <p>Create snapshot of current install</p></div>
+    <div class="card" onclick="showRestoreModal()" id="card-restore">
+      <div class="icon">&#9194;</div><h3>Restore</h3>
+      <p>Restore from backup snapshot</p></div>
+    <div class="card" onclick="showServerModal()" id="card-server">
+      <div class="icon">&#9881;</div><h3>Server</h3>
+      <p>Start / Stop / Restart AEGIS</p></div>
+    <div class="card" onclick="run('fresh_install')" id="card-fresh_install">
+      <div class="icon">&#127968;</div><h3>Fresh Install</h3>
+      <p>Full setup from scratch</p></div>
+    <div class="card" onclick="run('package')" id="card-package">
+      <div class="icon">&#128230;</div><h3>Package</h3>
+      <p>Create distribution archive</p></div>
+    <div class="card" onclick="run('diagnostics')" id="card-diagnostics">
+      <div class="icon">&#128202;</div><h3>Diagnostics</h3>
+      <p>System info &amp; export to JSON</p></div>
+    <div class="card" onclick="run('diagnostic_email')" id="card-diagnostic_email">
+      <div class="icon">&#128231;</div><h3>Diagnostic Email</h3>
+      <p>Create email with logs for support</p></div>
+    <div class="card" onclick="run('self_update')" id="card-self_update">
+      <div class="icon">&#128260;</div><h3>Self-Update</h3>
+      <p>Update this manager tool</p></div>
+  </div>
+
+  <div class="log-panel">
+    <div class="log-header">
+      <h2>&#9654; Output Log</h2>
+      <button class="log-clear" onclick="clearLog()">Clear</button>
+    </div>
+    <div class="log-body" id="log"></div>
+    <div class="progress-bar" id="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+</div>
+
+<!-- RESTORE MODAL -->
+<div class="modal-overlay" id="modal-restore">
+  <div class="modal">
+    <h2>&#9194; Restore from Backup</h2>
+    <ul class="backup-list" id="backup-list"></ul>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-restore')">Cancel</button>
+      <button class="btn btn-gold" id="btn-restore" onclick="doRestore()" disabled>Restore Selected</button>
+    </div>
+  </div>
+</div>
+
+<!-- SERVER MODAL -->
+<div class="modal-overlay" id="modal-server">
+  <div class="modal">
+    <h2>&#9881; Server Management</h2>
+    <p style="margin-bottom:12px;color:var(--text2)" id="server-status-text">Checking...</p>
+    <div class="server-controls">
+      <button class="server-btn" onclick="serverAction('start')">&#9654; Start</button>
+      <button class="server-btn" onclick="serverAction('stop')">&#9632; Stop</button>
+      <button class="server-btn" onclick="serverAction('restart')">&#128260; Restart</button>
+      <button class="server-btn" onclick="serverAction('status')">&#128712; Status</button>
+    </div>
+    <div class="modal-actions" style="margin-top:20px">
+      <button class="btn btn-outline" onclick="closeModal('modal-server')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal">
+    <h2 id="confirm-title">Confirm</h2>
+    <p id="confirm-msg" style="margin:12px 0;color:var(--text2)"></p>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-confirm')">Cancel</button>
+      <button class="btn btn-gold" id="btn-confirm" onclick="confirmAction()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  AEGIS Manager v''' + MANAGER_VERSION + r''' &mdash; Created by Nicholas Georgeson &mdash;
+  Zero external dependencies &mdash; Offline repair
+</div>
+
+<script>
+const LOG = document.getElementById('log');
+let logIdx = 0, polling = null, selectedBackup = null, pendingConfirm = null;
+let opRunning = false;
+
+// Colorize log output
+function colorize(line) {
+  if (line.includes('[OK]')) return '<span class="ok">' + esc(line) + '</span>';
+  if (line.includes('[FAIL]')) return '<span class="fail">' + esc(line) + '</span>';
+  if (line.includes('[WARN]')) return '<span class="warn">' + esc(line) + '</span>';
+  if (line.includes('[INFO]')) return '<span class="info">' + esc(line) + '</span>';
+  if (line.match(/^[═─╔╚║▓░]+/) || line.includes('══')) return '<span class="hdr">' + esc(line) + '</span>';
+  return esc(line);
+}
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function appendLog(text) {
+  const lines = text.split('\n');
+  lines.forEach(l => { if (l.trim()) LOG.innerHTML += colorize(l) + '\n'; });
+  LOG.scrollTop = LOG.scrollHeight;
+}
+
+function clearLog() { LOG.innerHTML = ''; logIdx = 0; }
+
+// Poll for log updates
+function startPolling() {
+  if (polling) return;
+  polling = setInterval(async () => {
+    try {
+      const r = await fetch('/api/log?since=' + logIdx);
+      const d = await r.json();
+      if (d.lines && d.lines.length) {
+        d.lines.forEach(l => appendLog(l));
+        logIdx = d.next_index;
+      }
+      // Check if operation is done
+      if (d.op_running === false && opRunning) {
+        opRunning = false;
+        document.querySelectorAll('.card').forEach(c => c.classList.remove('running','disabled'));
+        stopPolling();
+      }
+    } catch(e) {}
+  }, 500);
+}
+
+function stopPolling() {
+  if (polling) { clearInterval(polling); polling = null; }
+}
+
+// Run an action
+async function run(action) {
+  if (opRunning) return;
+  // Destructive actions need confirmation
+  if (['fresh_install','full_sync'].includes(action)) {
+    pendingConfirm = action;
+    document.getElementById('confirm-title').textContent =
+      action === 'fresh_install' ? 'Fresh Install' : 'Full Sync';
+    document.getElementById('confirm-msg').textContent =
+      'This will download ALL source files from GitHub. User data is preserved. Continue?';
+    document.getElementById('modal-confirm').classList.add('active');
+    return;
+  }
+  doRun(action);
+}
+
+async function doRun(action) {
+  opRunning = true;
+  clearLog();
+  appendLog('Starting ' + action.replace(/_/g, ' ') + '...\n');
+
+  // Highlight active card
+  document.querySelectorAll('.card').forEach(c => c.classList.add('disabled'));
+  const card = document.getElementById('card-' + action);
+  if (card) { card.classList.remove('disabled'); card.classList.add('running'); }
+
+  startPolling();
+  try {
+    await fetch('/api/run', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({action: action})
+    });
+  } catch(e) {
+    appendLog('[FAIL] Could not start operation: ' + e.message + '\n');
+    opRunning = false;
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('running','disabled'));
+  }
+}
+
+function confirmAction() {
+  closeModal('modal-confirm');
+  if (pendingConfirm) { doRun(pendingConfirm); pendingConfirm = null; }
+}
+
+// Restore modal
+async function showRestoreModal() {
+  const list = document.getElementById('backup-list');
+  list.innerHTML = '<li style="padding:12px;color:var(--text2)">Loading backups...</li>';
+  document.getElementById('modal-restore').classList.add('active');
+  selectedBackup = null;
+  document.getElementById('btn-restore').disabled = true;
+
+  try {
+    const r = await fetch('/api/backups');
+    const d = await r.json();
+    if (!d.backups || d.backups.length === 0) {
+      list.innerHTML = '<li style="padding:12px;color:var(--text2)">No backups found</li>';
+      return;
+    }
+    list.innerHTML = '';
+    d.backups.forEach((b, i) => {
+      const li = document.createElement('li');
+      li.className = 'backup-item';
+      li.innerHTML = '<span>v' + esc(b.version) + ' &mdash; ' + esc(b.name) +
+        ' (' + b.file_count + ' files)</span><span style="color:var(--text2)">' +
+        esc(b.created_at) + '</span>';
+      li.onclick = () => {
+        document.querySelectorAll('.backup-item').forEach(x => x.classList.remove('selected'));
+        li.classList.add('selected');
+        selectedBackup = b.name;
+        document.getElementById('btn-restore').disabled = false;
+      };
+      list.appendChild(li);
+    });
+  } catch(e) {
+    list.innerHTML = '<li style="padding:12px;color:var(--red)">Error loading backups</li>';
+  }
+}
+
+async function doRestore() {
+  if (!selectedBackup) return;
+  closeModal('modal-restore');
+  opRunning = true;
+  clearLog();
+  appendLog('Restoring from backup: ' + selectedBackup + '\n');
+  document.querySelectorAll('.card').forEach(c => c.classList.add('disabled'));
+  startPolling();
+  try {
+    await fetch('/api/run', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({action: 'restore', backup_name: selectedBackup})
+    });
+  } catch(e) {
+    appendLog('[FAIL] Restore failed: ' + e.message + '\n');
+    opRunning = false;
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('disabled'));
+  }
+}
+
+// Server modal
+async function showServerModal() {
+  document.getElementById('modal-server').classList.add('active');
+  document.getElementById('server-status-text').textContent = 'Checking...';
+  try {
+    const r = await fetch('/api/server-status');
+    const d = await r.json();
+    document.getElementById('server-status-text').textContent =
+      d.running ? 'Server is RUNNING (v' + (d.version || '?') + ')' : 'Server is STOPPED';
+    document.getElementById('server-status-text').style.color =
+      d.running ? 'var(--green)' : 'var(--red)';
+  } catch(e) {
+    document.getElementById('server-status-text').textContent = 'Error checking status';
+  }
+}
+
+async function serverAction(action) {
+  document.getElementById('server-status-text').textContent = action + 'ing...';
+  document.getElementById('server-status-text').style.color = 'var(--yellow)';
+  clearLog();
+  startPolling();
+  try {
+    const r = await fetch('/api/server', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({action: action})
+    });
+    const d = await r.json();
+    document.getElementById('server-status-text').textContent = d.message || 'Done';
+    document.getElementById('server-status-text').style.color =
+      d.success ? 'var(--green)' : 'var(--red)';
+    refreshStatus();
+  } catch(e) {
+    document.getElementById('server-status-text').textContent = 'Error: ' + e.message;
+  }
+  setTimeout(stopPolling, 2000);
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+// Click outside modal to close
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('active'); });
+});
+
+// Refresh status pills
+async function refreshStatus() {
+  try {
+    const r = await fetch('/api/server-status');
+    const d = await r.json();
+    const sv = document.getElementById('pill-server');
+    sv.textContent = d.running ? 'Server: Running' : 'Server: Stopped';
+    sv.className = 'status-pill ' + (d.running ? 'ok' : 'err');
+    const vp = document.getElementById('pill-version');
+    vp.textContent = 'AEGIS: v' + (d.aegis_version || '?');
+    vp.className = 'status-pill ok';
+  } catch(e) {}
+}
+
+// Init
+refreshStatus();
+setInterval(refreshStatus, 15000);
+</script>
+</body>
+</html>'''
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# class ManagerWebServer — HTTP handler for web UI
+# ═══════════════════════════════════════════════════════════════════════
+
+class ThreadedHTTPServer(socketserver.ThreadingMixIn, HTTPServer):
+    """HTTP server that handles each request in a new thread."""
+    daemon_threads = True
+    allow_reuse_address = True
+
+
+class ManagerHTTPHandler(BaseHTTPRequestHandler):
+    """HTTP request handler for the AEGIS Manager web UI."""
+
+    manager = None  # Set by main() before server starts
+    _log_buffer = []  # Shared log buffer for polling
+    _log_lock = threading.Lock()
+
+    def log_message(self, format, *args):
+        """Suppress default HTTP server logging."""
+        pass
+
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+
+        if path == '/' or path == '/index.html':
+            self._serve_html()
+        elif path == '/api/log':
+            self._serve_log(parsed.query)
+        elif path == '/api/server-status':
+            self._serve_server_status()
+        elif path == '/api/backups':
+            self._serve_backups()
+        else:
+            self._send_json({'error': 'not found'}, 404)
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+
+        content_len = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(content_len) if content_len else b'{}'
+        try:
+            data = json.loads(body)
+        except Exception:
+            data = {}
+
+        if path == '/api/run':
+            self._handle_run(data)
+        elif path == '/api/server':
+            self._handle_server(data)
+        else:
+            self._send_json({'error': 'not found'}, 404)
+
+    def _serve_html(self):
+        """Serve the main HTML page."""
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/html; charset=utf-8')
+        self.end_headers()
+        self.wfile.write(WEB_HTML.encode('utf-8'))
+
+    def _serve_log(self, query_string):
+        """Serve log lines since the given index."""
+        params = parse_qs(query_string)
+        since = int(params.get('since', ['0'])[0])
+
+        with self._log_lock:
+            lines = self._log_buffer[since:]
+            next_idx = len(self._log_buffer)
+
+        with _current_operation_lock:
+            op_running = _current_operation['running']
+
+        self._send_json({
+            'lines': lines,
+            'next_index': next_idx,
+            'op_running': op_running,
+        })
+
+    def _serve_server_status(self):
+        """Check AEGIS server status."""
+        running, vinfo = self.manager.server.is_running()
+        self._send_json({
+            'running': running,
+            'version': vinfo.get('version', '?') if vinfo else None,
+            'aegis_version': self.manager._get_local_version(),
+        })
+
+    def _serve_backups(self):
+        """List available backups."""
+        backups = self.manager.backup.list_backups()
+        self._send_json({'backups': backups})
+
+    def _handle_run(self, data):
+        """Start a background operation."""
+        action = data.get('action', '')
+
+        with _current_operation_lock:
+            if _current_operation['running']:
+                self._send_json({'error': 'Operation already running'}, 409)
+                return
+
+        # Clear log buffer for new operation
+        with self._log_lock:
+            self._log_buffer.clear()
+
+        # Map actions to manager methods
+        action_map = {
+            'update': self.manager.update_aegis,
+            'full_sync': self.manager.full_sync,
+            'health_check': self.manager.health_check,
+            'repair': self.manager.repair,
+            'backup': lambda: self.manager.backup.create_backup(label='manual_web'),
+            'restore': lambda: self._do_restore(data.get('backup_name', '')),
+            'fresh_install': self.manager.fresh_install,
+            'package': self.manager.package_distribution,
+            'diagnostics': self.manager._diag_export,
+            'diagnostic_email': self.manager.create_diagnostic_email,
+            'self_update': self.manager.self_update,
+        }
+
+        method = action_map.get(action)
+        if not method:
+            self._send_json({'error': f'Unknown action: {action}'}, 400)
+            return
+
+        # Run in background thread
+        def _run():
+            with _current_operation_lock:
+                _current_operation['running'] = True
+                _current_operation['action'] = action
+                _current_operation['started'] = time.time()
+            try:
+                method()
+            except Exception as e:
+                C.fail(f'Operation error: {e}')
+            finally:
+                with _current_operation_lock:
+                    _current_operation['running'] = False
+                    _current_operation['action'] = ''
+
+        t = threading.Thread(target=_run, daemon=True)
+        t.start()
+        self._send_json({'started': True, 'action': action})
+
+    def _do_restore(self, backup_name):
+        """Execute a restore operation."""
+        if not backup_name:
+            C.fail('No backup selected')
+            return
+        C.info(f'Restoring from: {backup_name}')
+        restored, errors = self.manager.backup.restore_backup(backup_name)
+        C.ok(f'Restored {restored} files')
+        if errors:
+            C.warn(f'{errors} files had errors')
+        self.manager._auto_restart_if_needed(True, restored)
+
+    def _handle_server(self, data):
+        """Handle server management actions."""
+        action = data.get('action', '')
+        mgr = self.manager
+
+        if action == 'start':
+            started = mgr.server.start()
+            self._send_json({
+                'success': started,
+                'message': 'Server started!' if started else 'Failed to start server'
+            })
+        elif action == 'stop':
+            mgr.server.stop()
+            self._send_json({'success': True, 'message': 'Server stopped'})
+        elif action == 'restart':
+            mgr.server.restart()
+            running, _ = mgr.server.is_running()
+            self._send_json({
+                'success': running,
+                'message': 'Server restarted!' if running else 'Restart may still be in progress'
+            })
+        elif action == 'status':
+            running, vinfo = mgr.server.is_running()
+            sv = vinfo.get('version', '?') if vinfo else '?'
+            self._send_json({
+                'success': True,
+                'running': running,
+                'message': f'Server running (v{sv})' if running else 'Server stopped'
+            })
+        else:
+            self._send_json({'error': f'Unknown server action: {action}'}, 400)
+
+    def _send_json(self, data, status=200):
+        """Send a JSON response."""
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps(data, default=str).encode('utf-8'))
+
+
+def _web_log_forwarder():
+    """Background thread that forwards web log queue items to the HTTP handler's buffer."""
+    while True:
+        try:
+            line = _web_log_queue.get(timeout=1)
+            with ManagerHTTPHandler._log_lock:
+                ManagerHTTPHandler._log_buffer.append(line)
+        except queue.Empty:
+            pass
+        except Exception:
+            pass
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # ENTRY POINT
 # ═══════════════════════════════════════════════════════════════════════
 
 def main():
-    try:
-        manager = AEGISManager()
-        manager.run()
-    except KeyboardInterrupt:
-        print(f'\n\n  Goodbye!')
-    except Exception as e:
-        print(f'\n  FATAL ERROR: {e}')
-        import traceback
-        traceback.print_exc()
-        input('\n  Press Enter to exit...')
-    finally:
-        ColorOutput.close_log()
+    global _web_mode
+
+    # Parse args
+    cli_mode = '--cli' in sys.argv
+
+    if cli_mode:
+        # Classic CLI menu mode
+        try:
+            manager = AEGISManager()
+            manager.run()
+        except KeyboardInterrupt:
+            print('\n\n  Goodbye!')
+        except Exception as e:
+            print(f'\n  FATAL ERROR: {e}')
+            import traceback
+            traceback.print_exc()
+            if sys.platform == 'win32':
+                input('\n  Press Enter to exit...')
+        finally:
+            ColorOutput.close_log()
+    else:
+        # Web UI mode (default)
+        _web_mode = True
+
+        try:
+            manager = AEGISManager()
+        except Exception as e:
+            print(f'FATAL: Could not initialize AEGIS Manager: {e}')
+            import traceback
+            traceback.print_exc()
+            if sys.platform == 'win32':
+                input('\n  Press Enter to exit...')
+            return
+
+        # Patch prompt to auto-confirm in web mode (clicking button = confirmation)
+        original_prompt = C.prompt
+        def web_prompt(msg):
+            """In web mode, auto-confirm all prompts."""
+            C._write(f'    [AUTO] {msg} → y')
+            return 'y'
+        C.prompt = staticmethod(web_prompt)
+
+        ManagerHTTPHandler.manager = manager
+
+        # Start log forwarder thread
+        log_thread = threading.Thread(target=_web_log_forwarder, daemon=True)
+        log_thread.start()
+
+        # Start web server
+        try:
+            server = ThreadedHTTPServer(('0.0.0.0', MANAGER_WEB_PORT), ManagerHTTPHandler)
+        except OSError as e:
+            if 'Address already in use' in str(e) or '10048' in str(e):
+                print(f'\n  Port {MANAGER_WEB_PORT} is already in use.')
+                print(f'  AEGIS Manager may already be running.')
+                print(f'  Open http://localhost:{MANAGER_WEB_PORT} in your browser.')
+                if sys.platform == 'win32':
+                    input('\n  Press Enter to exit...')
+                return
+            raise
+
+        url = f'http://localhost:{MANAGER_WEB_PORT}'
+        print(f'\n  ╔══════════════════════════════════════════════╗')
+        print(f'  ║  AEGIS Manager v{MANAGER_VERSION} — Web UI                ║')
+        print(f'  ║  {url:<44} ║')
+        print(f'  ║  Press Ctrl+C to stop                        ║')
+        print(f'  ╚══════════════════════════════════════════════╝\n')
+
+        # Open browser
+        try:
+            webbrowser.open(url)
+        except Exception:
+            pass
+
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            print('\n  Shutting down...')
+        finally:
+            server.shutdown()
+            ColorOutput.close_log()
 
 
 if __name__ == '__main__':
