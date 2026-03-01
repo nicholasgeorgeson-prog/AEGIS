@@ -2514,7 +2514,12 @@ def sharepoint_scan_selected():
     connector SYNCHRONOUSLY in this handler, which blocked the HTTP
     response for 30+ seconds (or hung forever on Windows when the
     second Playwright browser launch collided with the first).
+
+    v6.3.1: Added diagnostic version marker for deployment verification.
     """
+    # ── v6.3.1: Diagnostic marker — confirms this code version is loaded ──
+    logger.info('[SP-scan-selected] ENTRY — v6.3.1 async handler (non-blocking)')
+
     SPConnector, sp_parse_url = _get_sharepoint_connector()
     if SPConnector is None:
         return jsonify({
@@ -2551,6 +2556,7 @@ def sharepoint_scan_selected():
     # Generate scan_id — return IMMEDIATELY (v6.2.9)
     # Connector creation happens in background thread
     scan_id = uuid.uuid4().hex[:12]
+    logger.info(f'[SP-scan-selected] Creating scan state {scan_id} for {len(selected_files)} files (BEFORE thread spawn)')
 
     with _folder_scan_state_lock:
         _cleanup_old_scans()

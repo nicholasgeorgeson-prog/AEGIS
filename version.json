@@ -1,13 +1,22 @@
 {
-  "version": "6.3.0",
+  "version": "6.3.1",
   "release_date": "2026-03-01",
-  "core_version": "6.3.0",
+  "core_version": "6.3.1",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.3.1",
+      "date": "2026-03-01",
+      "changes": [
+        "FIX: Added diagnostic version marker to sharepoint_scan_selected endpoint — confirms v6.3.1 async handler is loaded via logger.info at function entry",
+        "FIX: Added scan state creation logging — confirms scan state dict is created BEFORE background thread spawn",
+        "NOTE: Diagnostic from v6.3.0 confirmed the Windows machine was still running OLD synchronous review_routes.py despite version.json showing 6.3.0. The v6.2.9 async fix was never deployed. Running AEGIS Manager > Update AEGIS will now pull this file."
+      ]
+    },
     {
       "version": "6.3.0",
       "date": "2026-03-01",
