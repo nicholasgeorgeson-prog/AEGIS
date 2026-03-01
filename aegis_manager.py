@@ -427,7 +427,9 @@ class GitHubClient:
     def check_connectivity(self):
         """Quick connectivity check. Returns (ok, info_dict)."""
         try:
-            data = self._api_get('rate_limit')
+            # rate_limit is at API root, not under repos/
+            raw = self._request('https://api.github.com/rate_limit')
+            data = json.loads(raw)
             core = data.get('rate', {})
             return True, {
                 'remaining': core.get('remaining', '?'),
@@ -449,7 +451,7 @@ class GitHubClient:
     def get_head_sha(self):
         """Get current HEAD commit SHA."""
         try:
-            data = self._api_get(f'git/ref/heads/{BRANCH}')
+            data = self._api_get(f'git/refs/heads/{BRANCH}')
             return data['object']['sha']
         except Exception:
             return None
