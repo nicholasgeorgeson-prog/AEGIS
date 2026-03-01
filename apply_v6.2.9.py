@@ -297,7 +297,7 @@ def main():
 
     # Check version.json
     try:
-        with open("version.json", "r") as f:
+        with open("version.json", "r", encoding="utf-8") as f:
             vdata = json.load(f)
         if vdata.get("version") == EXPECTED_VERSION:
             print(f"  [OK] version.json = {EXPECTED_VERSION}")
@@ -310,7 +310,7 @@ def main():
 
     # Check critical v6.2.9 feature: background thread for SP connector
     try:
-        with open("routes/review_routes.py", "r") as f:
+        with open("routes/review_routes.py", "r", encoding="utf-8", errors="replace") as f:
             content = f.read()
         if "connecting" in content and "background" in content.lower():
             print("  [OK] review_routes.py has v6.2.9 async SP scan")
@@ -330,7 +330,7 @@ def main():
 
     # Check AbortController in app.js (v6.2.9)
     try:
-        with open("static/js/app.js", "r") as f:
+        with open("static/js/app.js", "r", encoding="utf-8", errors="replace") as f:
             content = f.read()
         if "AbortController" in content:
             print("  [OK] app.js has AbortController (v6.2.9)")
