@@ -6,7 +6,6 @@ nlp_offline/
 .secret_key
 cookies*.txt
 aegis_pat.txt
-Setup_AEGIS_Manager.bat
 .claude/
 
 # Python
