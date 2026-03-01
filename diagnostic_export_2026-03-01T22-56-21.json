@@ -1,0 +1,2421 @@
+{
+  "diagnostic_export": {
+    "version": "6.3.1",
+    "export_timestamp": "2026-03-01T17:56:21.663632",
+    "session_id": "7130c11e",
+    "session_start": "2026-03-01T17:45:52.816721",
+    "sanitized": true
+  },
+  "summary": {
+    "total_errors": 0,
+    "total_warnings": 0,
+    "errors_by_type": {},
+    "most_frequent": []
+  },
+  "errors": [],
+  "warnings": [],
+  "request_stats": {
+    "total_requests": 177,
+    "error_count": 2,
+    "error_rate": "1.1%",
+    "avg_duration_ms": 769.0026101694917,
+    "max_duration_ms": 32091.181,
+    "status_codes": {
+      "2xx": 71,
+      "3xx": 104,
+      "4xx": 2,
+      "5xx": 0
+    }
+  },
+  "recent_requests": [
+    {
+      "timestamp": "2026-03-01T17:46:33.869721",
+      "method": "GET",
+      "path": "/static/js/features/proposal-compare.js",
+      "status_code": 304,
+      "duration_ms": 6.032,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:33.871722",
+      "method": "GET",
+      "path": "/static/js/features/hyperlink-visualizations.js",
+      "status_code": 304,
+      "duration_ms": 9.034,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:33.871722",
+      "method": "GET",
+      "path": "/static/js/features/link-history.js",
+      "status_code": 304,
+      "duration_ms": 6.944,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:33.873720",
+      "method": "GET",
+      "path": "/static/js/features/hyperlink-validator.js",
+      "status_code": 304,
+      "duration_ms": 11.032,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:33.875721",
+      "method": "GET",
+      "path": "/static/js/features/graph-export.js",
+      "status_code": 304,
+      "duration_ms": 5.001,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:34.144297",
+      "method": "GET",
+      "path": "/static/js/features/role-source-viewer.js",
+      "status_code": 304,
+      "duration_ms": 4.0,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:34.196547",
+      "method": "GET",
+      "path": "/static/js/features/data-explorer.js",
+      "status_code": 304,
+      "duration_ms": 6.636,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:34.197548",
+      "method": "GET",
+      "path": "/static/js/features/statement-review-mode.js",
+      "status_code": 304,
+      "duration_ms": 6.516,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:34.199548",
+      "method": "GET",
+      "path": "/static/js/features/cinematic-progress.js",
+      "status_code": 304,
+      "duration_ms": 7.515,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:34.200553",
+      "method": "GET",
+      "path": "/static/js/features/frontend-logger.js",
+      "status_code": 304,
+      "duration_ms": 10.642000000000001,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:34.202549",
+      "method": "GET",
+      "path": "/static/js/features/molten-progress.js",
+      "status_code": 304,
+      "duration_ms": 5.001,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:34.459974",
+      "method": "GET",
+      "path": "/static/js/features/style-presets.js",
+      "status_code": 304,
+      "duration_ms": 4.005,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:34.532684",
+      "method": "GET",
+      "path": "/static/js/features/statement-history.js",
+      "status_code": 304,
+      "duration_ms": 7.005,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:34.534690",
+      "method": "GET",
+      "path": "/static/js/features/scan-progress-dashboard.js",
+      "status_code": 304,
+      "duration_ms": 7.0,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:34.535687",
+      "method": "GET",
+      "path": "/static/js/features/pdf-viewer.js",
+      "status_code": 304,
+      "duration_ms": 9.001999999999999,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:34.537138",
+      "method": "GET",
+      "path": "/static/js/features/metrics-analytics.js",
+      "status_code": 304,
+      "duration_ms": 8.45,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:34.539142",
+      "method": "GET",
+      "path": "/static/js/features/mass-statement-review.js",
+      "status_code": 304,
+      "duration_ms": 5.457,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:34.781601",
+      "method": "GET",
+      "path": "/static/js/features/statement-source-viewer.js",
+      "status_code": 304,
+      "duration_ms": 4.0,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:34.863592",
+      "method": "GET",
+      "path": "/static/js/features/doc-review-viewer.js",
+      "status_code": 304,
+      "duration_ms": 5.515,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:34.865593",
+      "method": "GET",
+      "path": "/static/js/features/batch-results.js",
+      "status_code": 304,
+      "duration_ms": 8.515,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:34.866781",
+      "method": "GET",
+      "path": "/static/js/features/technology-showcase.js",
+      "status_code": 304,
+      "duration_ms": 7.702999999999999,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:34.867785",
+      "method": "GET",
+      "path": "/static/js/features/demo-simulator.js",
+      "status_code": 304,
+      "duration_ms": 9.708,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:34.869785",
+      "method": "GET",
+      "path": "/static/css/features/portfolio.css",
+      "status_code": 304,
+      "duration_ms": 5.194,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.095698",
+      "method": "GET",
+      "path": "/api/csrf-token",
+      "status_code": 200,
+      "duration_ms": 2.568,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.185418",
+      "method": "GET",
+      "path": "/static/audio/demo/manifest.json",
+      "status_code": 304,
+      "duration_ms": 7.0,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.221681",
+      "method": "GET",
+      "path": "/api/presets/aerospace",
+      "status_code": 200,
+      "duration_ms": 31.782999999999998,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.232194",
+      "method": "GET",
+      "path": "/static/css/features/proposal-compare.css",
+      "status_code": 304,
+      "duration_ms": 9.514,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.234190",
+      "method": "GET",
+      "path": "/api/capabilities",
+      "status_code": 200,
+      "duration_ms": 42.292,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.244498",
+      "method": "GET",
+      "path": "/static/css/features/technology-showcase.css",
+      "status_code": 304,
+      "duration_ms": 10.308,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.245497",
+      "method": "GET",
+      "path": "/static/css/features/hyperlink-validator.css",
+      "status_code": 304,
+      "duration_ms": 5.52,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.393333",
+      "method": "GET",
+      "path": "/api/scan-profiles",
+      "status_code": 200,
+      "duration_ms": 202.43800000000002,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.404521",
+      "method": "GET",
+      "path": "/api/function-categories",
+      "status_code": 200,
+      "duration_ms": 306.882,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.405520",
+      "method": "GET",
+      "path": "/api/version",
+      "status_code": 200,
+      "duration_ms": 10.189,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.412740",
+      "method": "GET",
+      "path": "/static/css/features/hyperlink-enhanced.css",
+      "status_code": 304,
+      "duration_ms": 5.09,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.413739",
+      "method": "GET",
+      "path": "/static/css/features/hv-cinematic-progress.css",
+      "status_code": 304,
+      "duration_ms": 7.0889999999999995,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.502791",
+      "method": "GET",
+      "path": "/static/css/features/link-history.css",
+      "status_code": 304,
+      "duration_ms": 5.006,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.551243",
+      "method": "POST",
+      "path": "/api/config/hyperlinks",
+      "status_code": 200,
+      "duration_ms": 7.51,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.594737",
+      "method": "GET",
+      "path": "/api/metrics/landing",
+      "status_code": 200,
+      "duration_ms": 40.495000000000005,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.595736",
+      "method": "GET",
+      "path": "/api/roles/dictionary",
+      "status_code": 200,
+      "duration_ms": 42.494,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.602884",
+      "method": "GET",
+      "path": "/static/css/features/cinematic-progress.css",
+      "status_code": 304,
+      "duration_ms": 4.998,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.603883",
+      "method": "GET",
+      "path": "/static/css/features/batch-progress-dashboard.css",
+      "status_code": 304,
+      "duration_ms": 4.999,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.729567",
+      "method": "GET",
+      "path": "/static/css/features/batch-results.css",
+      "status_code": 304,
+      "duration_ms": 5.133,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.730567",
+      "method": "GET",
+      "path": "/static/css/features/doc-review-viewer.css",
+      "status_code": 304,
+      "duration_ms": 6.133,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.811290",
+      "method": "GET",
+      "path": "/static/css/features/cinematic-loader.css",
+      "status_code": 304,
+      "duration_ms": 4.1339999999999995,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.862583",
+      "method": "GET",
+      "path": "/api/extraction/capabilities",
+      "status_code": 200,
+      "duration_ms": 308.34099999999995,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.868722",
+      "method": "GET",
+      "path": "/static/css/features/molten-progress.css",
+      "status_code": 304,
+      "duration_ms": 4.624,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.931337",
+      "method": "GET",
+      "path": "/api/version",
+      "status_code": 200,
+      "duration_ms": 6.007000000000001,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.932336",
+      "method": "GET",
+      "path": "/static/css/features/data-explorer.css",
+      "status_code": 304,
+      "duration_ms": 5.998,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:35.937578",
+      "method": "GET",
+      "path": "/static/css/features/mass-statement-review.css",
+      "status_code": 304,
+      "duration_ms": 4.241,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:36.042129",
+      "method": "GET",
+      "path": "/static/css/features/statement-history.css",
+      "status_code": 304,
+      "duration_ms": 5.211,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:36.054650",
+      "method": "GET",
+      "path": "/api/proposal-compare/projects",
+      "status_code": 200,
+      "duration_ms": 19.319,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:36.061268",
+      "method": "GET",
+      "path": "/static/css/features/export-suite.css",
+      "status_code": 304,
+      "duration_ms": 4.109,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:36.131502",
+      "method": "GET",
+      "path": "/static/css/print.css",
+      "status_code": 304,
+      "duration_ms": 4.0,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:46:36.176770",
+      "method": "GET",
+      "path": "/favicon.ico",
+      "status_code": 204,
+      "duration_ms": 3.5109999999999997,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:47:04.273596",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 3.0,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:47:27.298898",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 3.0140000000000002,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:47:34.285685",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 2.505,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:48:04.284700",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 3.513,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:48:27.297865",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 3.1029999999999998,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:48:34.288005",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 3.105,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:49:04.285031",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 3.509,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:49:27.309505",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 3.002,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:49:34.282842",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 2.0,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:50:04.282819",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 3.5509999999999997,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:50:27.309102",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 3.006,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:50:34.288704",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 2.134,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:51:04.290126",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 2.06,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:51:08.083800",
+      "method": "GET",
+      "path": "/api/csrf-token",
+      "status_code": 200,
+      "duration_ms": 3.5100000000000002,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:51:27.635938",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 8.068000000000001,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:51:34.330708",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 40.643,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:51:38.002735",
+      "method": "POST",
+      "path": "/api/review/sharepoint-connect-and-scan",
+      "status_code": 200,
+      "duration_ms": 29825.789,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:52:04.288267",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 3.085,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:52:27.306851",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 3.999,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:52:34.284285",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 2.1919999999999997,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:52:58.801144",
+      "method": "GET",
+      "path": "/api/csrf-token",
+      "status_code": 200,
+      "duration_ms": 2.0010000000000003,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:53:04.291974",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 0.0,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:53:27.301142",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 0.0,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:53:34.287731",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 3.0820000000000003,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:54:04.286468",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 2.999,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:54:12.136158",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend-logs",
+      "status_code": 200,
+      "duration_ms": 5.007000000000001,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:54:12.157557",
+      "method": "GET",
+      "path": "/api/scan-history",
+      "status_code": 200,
+      "duration_ms": 19.283,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:54:12.162188",
+      "method": "GET",
+      "path": "/api/diagnostics/summary",
+      "status_code": 200,
+      "duration_ms": 2.633,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:54:12.180061",
+      "method": "GET",
+      "path": "/api/scan-history/statements/review-stats",
+      "status_code": 200,
+      "duration_ms": 15.871,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:54:12.231172",
+      "method": "GET",
+      "path": "/api/roles/dictionary",
+      "status_code": 200,
+      "duration_ms": 45.080000000000005,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:54:12.255742",
+      "method": "GET",
+      "path": "/api/function-categories",
+      "status_code": 200,
+      "duration_ms": 16.147000000000002,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:54:15.622409",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 2.516,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:54:16.942753",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 4.45,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:54:34.296392",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 3.002,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:54:44.175082",
+      "method": "GET",
+      "path": "/api/diagnostics/summary",
+      "status_code": 200,
+      "duration_ms": 4.005,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:54:44.221157",
+      "method": "GET",
+      "path": "/api/version",
+      "status_code": 200,
+      "duration_ms": 5.505999999999999,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:54:58.912630",
+      "method": "POST",
+      "path": "/api/diagnostics/capture-console",
+      "status_code": 200,
+      "duration_ms": 2.518,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:54:58.968938",
+      "method": "POST",
+      "path": "/api/diagnostics/capture-console",
+      "status_code": 200,
+      "duration_ms": 3.003,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:54:59.023024",
+      "method": "POST",
+      "path": "/api/diagnostics/capture-console",
+      "status_code": 200,
+      "duration_ms": 2.005,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:55:04.293578",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 3.0010000000000003,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:55:34.298517",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 2.996,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:56:04.290741",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend",
+      "status_code": 200,
+      "duration_ms": 2.572,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:56:16.644653",
+      "method": "GET",
+      "path": "/api/diagnostics/summary",
+      "status_code": 200,
+      "duration_ms": 3.002,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:56:16.685892",
+      "method": "GET",
+      "path": "/api/version",
+      "status_code": 200,
+      "duration_ms": 5.212,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:56:21.547620",
+      "method": "POST",
+      "path": "/api/diagnostics/frontend-logs",
+      "status_code": 200,
+      "duration_ms": 4.002000000000001,
+      "error": null
+    },
+    {
+      "timestamp": "2026-03-01T17:56:21.604208",
+      "method": "GET",
+      "path": "/api/version",
+      "status_code": 200,
+      "duration_ms": 4.516,
+      "error": null
+    }
+  ],
+  "system_info": {
+    "python_version": "3.10.11",
+    "python_executable": "C:\\Use_f9aae5\\M26_d12955\\One_86070b\\Des_231040\\Doc_814207\\AEG_fb4bc9\\python\\python.exe",
+    "platform_system": "Windows",
+    "platform_release": "10",
+    "platform_machine": "AMD64",
+    "app_version": "6.3.1",
+    "app_directory": "C:\\Use_f9aae5\\M26_d12955\\One_86070b\\Des_231040\\Doc Review\\AEGIS",
+    "installed_packages": {
+      "error": "Could not enumerate packages"
+    },
+    "config_snapshot": {
+      "hyperlink_settings": {
+        "validation_mode": "validator"
+      }
+    },
+    "working_directory": "C:\\Use_f9aae5\\M26_d12955\\One_86070b\\Des_231040\\Doc Review\\AEGIS",
+    "temp_directory": "C:\\Use_f9aae5\\M26_d12955\\One_86070b\\Des_231040\\Doc_814207\\AEGIS\\temp"
+  },
+  "modules": {
+    "scan_history": {
+      "available": true,
+      "version": "6.3.1",
+      "has_class": true
+    },
+    "role_extractor_v3": {
+      "available": true,
+      "version": "unknown",
+      "has_class": true
+    },
+    "role_integration": {
+      "available": true,
+      "version": "2.7.0",
+      "has_class": true
+    },
+    "role_consolidation_engine": {
+      "available": true,
+      "version": "unknown",
+      "has_class": true
+    },
+    "role_management_studio_v3": {
+      "available": true,
+      "version": "unknown",
+      "has_class": true
+    },
+    "acronym_checker": {
+      "available": true,
+      "version": "6.3.1",
+      "has_class": true
+    },
+    "spell_checker": {
+      "available": true,
+      "version": "2.5.0",
+      "has_class": false
+    },
+    "grammar_checker": {
+      "available": true,
+      "version": "2.6.0",
+      "has_class": false
+    },
+    "hyperlink_checker": {
+      "available": true,
+      "version": "2.5.0",
+      "has_class": true
+    },
+    "markup_engine": {
+      "available": true,
+      "version": "2.9.1",
+      "has_class": true
+    },
+    "export_module": {
+      "available": true,
+      "version": "unknown",
+      "has_class": false
+    },
+    "document_compare": {
+      "available": true,
+      "version": "1.0.0",
+      "has_class": true
+    },
+    "statement_forge": {
+      "available": true,
+      "version": "3.0.49",
+      "has_class": false
+    },
+    "docling_extractor": {
+      "available": true,
+      "version": "1.1.0",
+      "has_class": true
+    },
+    "pdf_extractor_v2": {
+      "available": true,
+      "version": "2.9.1",
+      "has_class": true
+    }
+  },
+  "database_state": {
+    "scan_history_db": {
+      "available": true,
+      "path": "C:\\Use_f9aae5\\M26_d12955\\One_86070b\\Des_231040\\Doc_814207\\AEGIS\\scan_history.db",
+      "tables": {
+        "documents": {
+          "row_count": 61
+        },
+        "sqlite_sequence": {
+          "row_count": 13
+        },
+        "scans": {
+          "row_count": 104
+        },
+        "roles": {
+          "row_count": 1602
+        },
+        "role_dictionary": {
+          "row_count": 1139
+        },
+        "document_roles": {
+          "row_count": 1146
+        },
+        "scan_profiles": {
+          "row_count": 0
+        },
+        "issue_changes": {
+          "row_count": 43
+        },
+        "scan_statements": {
+          "row_count": 666
+        },
+        "function_categories": {
+          "row_count": 92
+        },
+        "role_function_tags": {
+          "row_count": 692
+        },
+        "document_category_types": {
+          "row_count": 0
+        },
+        "document_categories": {
+          "row_count": 5
+        },
+        "role_required_actions": {
+          "row_count": 0
+        },
+        "role_relationships": {
+          "row_count": 508
+        },
+        "hyperlink_exclusions": {
+          "row_count": 7
+        },
+        "link_scan_history": {
+          "row_count": 20
+        }
+      },
+      "documents": {
+        "total": 61,
+        "comparable": 19,
+        "max_scans_per_doc": 8,
+        "avg_scans_per_doc": 1.7
+      },
+      "scans": {
+        "total": 104,
+        "oldest": "2026-02-18 21:09:26",
+        "newest": "2026-02-24 19:56:43"
+      }
+    }
+  },
+  "frontend_logs": {
+    "session": {
+      "stats": {
+        "total": 111,
+        "byLevel": {
+          "LOG": 88,
+          "INFO": 1,
+          "WARN": 1,
+          "DEBUG": 19,
+          "ERROR": 2
+        },
+        "sessionId": "fe-n8eedhem",
+        "oldestLog": "2026-03-01T22:46:33.525Z",
+        "newestLog": "2026-03-01T22:56:16.678Z"
+      },
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 Edg/145.0.0.0",
+      "url": "http://localhost:5050/",
+      "received_at": "2026-03-01T17:56:21.544620"
+    },
+    "logs": [
+      {
+        "timestamp": "2026-03-01T22:46:34.149Z",
+        "level": "LOG",
+        "message": "[TWR RoleSourceViewer] Initializing v3.2.2",
+        "location": "http://localhost:5050/static/js/features/role-source-viewer.js?v=6.3.1:3065",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.150Z",
+        "level": "LOG",
+        "message": "[TWR RoleSourceViewer] Initialized successfully",
+        "location": "http://localhost:5050/static/js/features/role-source-viewer.js?v=6.3.1:3065",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.151Z",
+        "level": "LOG",
+        "message": "[TWR RoleSourceViewer] Module loaded v3.2.2",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.210Z",
+        "level": "LOG",
+        "message": "[TWR] DataExplorer module loaded v1.0.0",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.212Z",
+        "level": "INFO",
+        "message": "[TWR Logger] [INFO] Frontend logger initialized {\n  \"version\": \"1.0.0\",\n  \"sessionId\": \"fe-mm8cagh0-k9w1oq3cc\",\n  \"bufferSize\": 500\n}",
+        "location": "info (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:144)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.212Z",
+        "level": "LOG",
+        "message": "[TWR Logger] Module loaded v1.0.0",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.212Z",
+        "level": "LOG",
+        "message": "[TWR StatementReviewMode] Module initialized v1.0.0",
+        "location": "http://localhost:5050/static/js/features/statement-review-mode.js?v=6.3.1:1028",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.212Z",
+        "level": "LOG",
+        "message": "[TWR StatementReviewMode] Module loaded v1.0.0",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.550Z",
+        "level": "LOG",
+        "message": "[TWR] MassStatementReview module loaded v1.0.0",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.789Z",
+        "level": "LOG",
+        "message": "[TWR StatementSourceViewer] Initialized v1.1.0",
+        "location": "http://localhost:5050/static/js/features/statement-source-viewer.js?v=6.3.1:1670",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.881Z",
+        "level": "LOG",
+        "message": "[HelpDocs] Initializing v6.1.0",
+        "location": "HTMLDocument.<anonymous> (http://localhost:5050/static/js/help-docs.js?v=6.3.1:10728)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.890Z",
+        "level": "LOG",
+        "message": "[HelpDocs] Search index built: 99 entries",
+        "location": "HTMLDocument.<anonymous> (http://localhost:5050/static/js/help-docs.js?v=6.3.1:10728)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.901Z",
+        "level": "LOG",
+        "message": "[TWR] Initializing Document Profiles settings...",
+        "location": "HTMLDocument.<anonymous> (http://localhost:5050/static/js/app.js?v=6.3.1:10173)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.902Z",
+        "level": "LOG",
+        "message": "[TWR] Initializing comprehensive fixes...",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.902Z",
+        "level": "LOG",
+        "message": "[TWR] Lucide already available",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.902Z",
+        "level": "LOG",
+        "message": "[TWR] Chart.js already available",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.902Z",
+        "level": "LOG",
+        "message": "[TWR] File selection guards applied",
+        "location": "HTMLDocument.initFixes (http://localhost:5050/static/js/app.js?v=6.3.1:11531)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.902Z",
+        "level": "LOG",
+        "message": "[TWR] History buttons fixed",
+        "location": "HTMLDocument.initFixes (http://localhost:5050/static/js/app.js?v=6.3.1:11534)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.902Z",
+        "level": "LOG",
+        "message": "[TWR] Search input fixed",
+        "location": "HTMLDocument.initFixes (http://localhost:5050/static/js/app.js?v=6.3.1:11540)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.919Z",
+        "level": "LOG",
+        "message": "[TWR] Comprehensive fixes initialized",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.920Z",
+        "level": "LOG",
+        "message": "%c[AEGIS SP] v6.2.6 SP scan module loaded color:#D6A84A;font-weight:bold;",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.921Z",
+        "level": "LOG",
+        "message": "[SmartSearch] Initializing on #dict-search",
+        "location": "initDictionarySmartSearch (http://localhost:5050/static/js/app.js?v=6.3.1:14798)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.929Z",
+        "level": "LOG",
+        "message": "[SmartSearch] Created dropdown for #dict-search",
+        "location": "initDictionarySmartSearch (http://localhost:5050/static/js/app.js?v=6.3.1:14798)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.929Z",
+        "level": "LOG",
+        "message": "[TWR Dict] SmartSearch initialized for dict-search",
+        "location": "HTMLDocument.initRoleDictionary (http://localhost:5050/static/js/app.js?v=6.3.1:14690)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.929Z",
+        "level": "LOG",
+        "message": "[SF] Initializing Statement Forge v3.0.111...",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.930Z",
+        "level": "LOG",
+        "message": "[SmartSearch] Initializing on #sf-search-input",
+        "location": "initStatementForgeSmartSearch (http://localhost:5050/static/js/app.js?v=6.3.1:15628)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.935Z",
+        "level": "LOG",
+        "message": "[SmartSearch] Created dropdown for #sf-search-input",
+        "location": "initStatementForgeSmartSearch (http://localhost:5050/static/js/app.js?v=6.3.1:15628)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.935Z",
+        "level": "LOG",
+        "message": "[SF] SmartSearch initialized for sf-search-input",
+        "location": "HTMLDocument.init (http://localhost:5050/static/js/app.js?v=6.3.1:15613)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.935Z",
+        "level": "LOG",
+        "message": "[TWR] Statement Forge v3.0.111 initialized",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.937Z",
+        "level": "LOG",
+        "message": "[TWR] Binding missing button handlers...",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.937Z",
+        "level": "LOG",
+        "message": "[TWR] Button fixes applied successfully",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.937Z",
+        "level": "LOG",
+        "message": "[TWR DictV5] Initializing dictionary overhaul...",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.937Z",
+        "level": "LOG",
+        "message": "[TWR DictV5] Dictionary overhaul initialized",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.937Z",
+        "level": "LOG",
+        "message": "[TWR RolesTabs] Found 8 nav items",
+        "location": "HTMLDocument.init (http://localhost:5050/static/js/roles-tabs-fix.js?v=6.3.1:4218)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.937Z",
+        "level": "LOG",
+        "message": "[TWR RolesTabs] Tab delegation handler attached to modal",
+        "location": "HTMLDocument.init (http://localhost:5050/static/js/roles-tabs-fix.js?v=6.3.1:4218)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.952Z",
+        "level": "LOG",
+        "message": "[TWR RolesTabs] Fully initialized",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.952Z",
+        "level": "LOG",
+        "message": "[FunctionTags] Initializing...",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.953Z",
+        "level": "LOG",
+        "message": "[AEGIS Guide] Initializing v2.3.0... ENABLED",
+        "location": "HTMLDocument.<anonymous> (http://localhost:5050/static/js/features/guide-system.js?v=6.3.1:5761)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.954Z",
+        "level": "LOG",
+        "message": "[AEGIS Guide] Initializing voice narration system",
+        "location": "Object.init (http://localhost:5050/static/js/features/guide-system.js?v=6.3.1:3554)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.954Z",
+        "level": "LOG",
+        "message": "[AEGIS Guide] Initialization complete (narration: ON )",
+        "location": "HTMLDocument.<anonymous> (http://localhost:5050/static/js/features/guide-system.js?v=6.3.1:5761)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.955Z",
+        "level": "LOG",
+        "message": "[TWR StylePresets] Initializing style presets",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.955Z",
+        "level": "LOG",
+        "message": "[TWR StylePresets] Restored saved preset: aerospace",
+        "location": "HTMLDocument.init (http://localhost:5050/static/js/features/style-presets.js?v=6.3.1:85)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.955Z",
+        "level": "LOG",
+        "message": "[TWR StylePresets] Initialized with 8 preset buttons",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.013Z",
+        "level": "LOG",
+        "message": "[AEGIS Guide] Selected voice: Microsoft Zira - English (United States)",
+        "location": "SpeechSynthesis.loadVoices (http://localhost:5050/static/js/features/guide-system.js?v=6.3.1:4414)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.013Z",
+        "level": "LOG",
+        "message": "[AEGIS Guide] Loaded 3 TTS voices",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.013Z",
+        "level": "LOG",
+        "message": "[HelpContent] Initializing v3.2.4",
+        "location": "http://localhost:5050/static/js/help-content.js?v=6.3.1:510",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.013Z",
+        "level": "LOG",
+        "message": "[HelpContent] HelpDocs.content has 99 sections",
+        "location": "http://localhost:5050/static/js/help-content.js?v=6.3.1:510",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.013Z",
+        "level": "LOG",
+        "message": "[HelpContent] Building navigation from 18 sections",
+        "location": "Object.init (http://localhost:5050/static/js/help-content.js?v=6.3.1:39)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.014Z",
+        "level": "LOG",
+        "message": "[HelpContent] Rendering initial section: welcome",
+        "location": "http://localhost:5050/static/js/help-content.js?v=6.3.1:510",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.014Z",
+        "level": "LOG",
+        "message": "[HelpContent] Rendering section: welcome - Title: Welcome to AEGIS",
+        "location": "Object.init (http://localhost:5050/static/js/help-content.js?v=6.3.1:44)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.015Z",
+        "level": "LOG",
+        "message": "[HelpContent] Initialized successfully",
+        "location": "http://localhost:5050/static/js/help-content.js?v=6.3.1:510",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.017Z",
+        "level": "LOG",
+        "message": "[AEGIS DocReviewViewer] Initialized",
+        "location": "initNewFeatureListeners (http://localhost:5050/static/js/app.js?v=6.3.1:8859)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.144Z",
+        "level": "LOG",
+        "message": "[TWR] Patching review functions for run state updates...",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.144Z",
+        "level": "LOG",
+        "message": "[TWR] Run state fixes applied successfully",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.144Z",
+        "level": "LOG",
+        "message": "[TWR] renderScanHistory overridden",
+        "location": "initHistoryFixes (http://localhost:5050/static/js/history-fixes.js?v=6.3.1:47)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.144Z",
+        "level": "LOG",
+        "message": "[TWR] History fixes applied successfully",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.193Z",
+        "level": "LOG",
+        "message": "[AEGIS Guide] Audio manifest loaded — 124 sections",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.396Z",
+        "level": "WARN",
+        "message": "[TWR] Profile list container not found",
+        "location": "loadScanProfiles (http://localhost:5050/static/js/app.js?v=6.3.1:6384)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.407Z",
+        "level": "LOG",
+        "message": "[FunctionTags] Initialized with 92 categories",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.421Z",
+        "level": "LOG",
+        "message": "[TWR Events] Drag-drop initialized",
+        "location": "initDragDrop (http://localhost:5050/static/js/app.js?v=6.3.1:878)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.425Z",
+        "level": "LOG",
+        "message": "[TWR Events] Event listeners initialized",
+        "location": "initEventListeners (http://localhost:5050/static/js/app.js?v=6.3.1:865)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.430Z",
+        "level": "LOG",
+        "message": "[TWR Events] Keyboard shortcuts initialized",
+        "location": "initKeyboardShortcuts (http://localhost:5050/static/js/app.js?v=6.3.1:889)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:47:04.276Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 1\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:47:34.287Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 2\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:48:04.286Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 3\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:48:34.291Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 4\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:49:04.286Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 5\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:49:34.285Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 6\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:50:04.284Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 7\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:50:34.290Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 8\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:51:03.891Z",
+        "level": "LOG",
+        "message": "[TWR Modals] Opened: batch-upload-modal",
+        "location": "HTMLButtonElement.<anonymous> (http://localhost:5050/static/js/ui/events.js?v=6.3.1:481)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:51:04.293Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 9\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:51:34.332Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 10\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:51:38.005Z",
+        "level": "LOG",
+        "message": "%c[AEGIS SP] Connect & Scan response received color:#22c55e;font-weight:bold;font-size:13px;",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:51:38.005Z",
+        "level": "LOG",
+        "message": "[AEGIS SP] discovery: supported_files=63 files_count=63",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:51:38.005Z",
+        "level": "LOG",
+        "message": "[AEGIS SP] Rendering file selector with 63 files...",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:51:38.005Z",
+        "level": "LOG",
+        "message": "[AEGIS SP] _renderSpFileSelector called with 63 files",
+        "location": "HTMLButtonElement.<anonymous> (http://localhost:5050/static/js/app.js?v=6.3.1:13261)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:51:38.031Z",
+        "level": "LOG",
+        "message": "[AEGIS SP] ✓ File selector rendered. User should see file checkboxes and \"Scan Selected\" button.",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:51:38.092Z",
+        "level": "LOG",
+        "message": "[TWR SP] File selector: 63 files, 63 checked",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:52:04.290Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 11\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:52:34.286Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 12\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:52:58.769Z",
+        "level": "LOG",
+        "message": "%c[AEGIS SP] ▶ _startSPSelectedScan() called (v6.2.9) color:#D6A84A;font-weight:bold;font-size:13px;",
+        "location": "btnScanSelected.onclick (http://localhost:5050/static/js/app.js?v=6.3.1:12782)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:52:58.769Z",
+        "level": "LOG",
+        "message": "[AEGIS SP] Starting scan of 63 selected files (v6.2.9 — non-blocking)",
+        "location": "btnScanSelected.onclick (http://localhost:5050/static/js/app.js?v=6.3.1:12782)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:52:58.795Z",
+        "level": "LOG",
+        "message": "[AEGIS SP] Step 1/3: Fetching CSRF token...",
+        "location": "btnScanSelected.onclick (http://localhost:5050/static/js/app.js?v=6.3.1:12782)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:52:58.834Z",
+        "level": "LOG",
+        "message": "[AEGIS SP] Step 1/3: ✓ CSRF token obtained",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:52:58.834Z",
+        "level": "LOG",
+        "message": "[AEGIS SP] Step 2/3: Sending scan request to backend...",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:53:04.296Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 13\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:53:34.291Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 14\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:54:04.291Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 15\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:33.525Z",
+        "level": "LOG",
+        "message": "[TWR ConsoleCapture] Started capturing console logs",
+        "location": "http://localhost:5050/static/js/features/console-capture.js?v=6.3.1:317",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:33.525Z",
+        "level": "LOG",
+        "message": "[TWR ConsoleCapture] Module loaded v1.0.0",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:33.548Z",
+        "level": "LOG",
+        "message": "[TWR DocCompare] Module loaded",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:33.554Z",
+        "level": "LOG",
+        "message": "[DocCompare] Module initialized",
+        "location": "http://localhost:5050/static/js/features/doc-compare.js?v=6.3.1:1732",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:33.554Z",
+        "level": "LOG",
+        "message": "[DocCompare] Module loaded",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:33.554Z",
+        "level": "LOG",
+        "message": "[SowGenerator] Initialized",
+        "location": "http://localhost:5050/static/js/features/sow-generator.js?v=6.3.1:614",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:33.554Z",
+        "level": "LOG",
+        "message": "[SowGenerator] Module loaded",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:33.556Z",
+        "level": "LOG",
+        "message": "[TWR Portfolio] Initializing...",
+        "location": "http://localhost:5050/static/js/features/portfolio.js?v=6.3.1:968",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:33.575Z",
+        "level": "LOG",
+        "message": "[TWR Portfolio] Module ready",
+        "location": "http://localhost:5050/static/js/features/portfolio.js?v=6.3.1:968",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:33.576Z",
+        "level": "LOG",
+        "message": "[TWR Portfolio] Module loaded v3.0.114",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:33.892Z",
+        "level": "LOG",
+        "message": "[TWR GraphExport] Module loaded v1.0.0",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.149Z",
+        "level": "LOG",
+        "message": "[TWR RoleSourceViewer] Initializing v3.2.2",
+        "location": "http://localhost:5050/static/js/features/role-source-viewer.js?v=6.3.1:3065",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.150Z",
+        "level": "LOG",
+        "message": "[TWR RoleSourceViewer] Initialized successfully",
+        "location": "http://localhost:5050/static/js/features/role-source-viewer.js?v=6.3.1:3065",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.151Z",
+        "level": "LOG",
+        "message": "[TWR RoleSourceViewer] Module loaded v3.2.2",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.210Z",
+        "level": "LOG",
+        "message": "[TWR] DataExplorer module loaded v1.0.0",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.212Z",
+        "level": "INFO",
+        "message": "[TWR Logger] [INFO] Frontend logger initialized {\n  \"version\": \"1.0.0\",\n  \"sessionId\": \"fe-mm8cagh0-k9w1oq3cc\",\n  \"bufferSize\": 500\n}",
+        "location": "info (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:144)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.212Z",
+        "level": "LOG",
+        "message": "[TWR Logger] Module loaded v1.0.0",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.212Z",
+        "level": "LOG",
+        "message": "[TWR StatementReviewMode] Module initialized v1.0.0",
+        "location": "http://localhost:5050/static/js/features/statement-review-mode.js?v=6.3.1:1028",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.212Z",
+        "level": "LOG",
+        "message": "[TWR StatementReviewMode] Module loaded v1.0.0",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.550Z",
+        "level": "LOG",
+        "message": "[TWR] MassStatementReview module loaded v1.0.0",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.789Z",
+        "level": "LOG",
+        "message": "[TWR StatementSourceViewer] Initialized v1.1.0",
+        "location": "http://localhost:5050/static/js/features/statement-source-viewer.js?v=6.3.1:1670",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.881Z",
+        "level": "LOG",
+        "message": "[HelpDocs] Initializing v6.1.0",
+        "location": "HTMLDocument.<anonymous> (http://localhost:5050/static/js/help-docs.js?v=6.3.1:10728)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.890Z",
+        "level": "LOG",
+        "message": "[HelpDocs] Search index built: 99 entries",
+        "location": "HTMLDocument.<anonymous> (http://localhost:5050/static/js/help-docs.js?v=6.3.1:10728)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.901Z",
+        "level": "LOG",
+        "message": "[TWR] Initializing Document Profiles settings...",
+        "location": "HTMLDocument.<anonymous> (http://localhost:5050/static/js/app.js?v=6.3.1:10173)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.902Z",
+        "level": "LOG",
+        "message": "[TWR] Initializing comprehensive fixes...",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.902Z",
+        "level": "LOG",
+        "message": "[TWR] Lucide already available",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.902Z",
+        "level": "LOG",
+        "message": "[TWR] Chart.js already available",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.902Z",
+        "level": "LOG",
+        "message": "[TWR] File selection guards applied",
+        "location": "HTMLDocument.initFixes (http://localhost:5050/static/js/app.js?v=6.3.1:11531)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.902Z",
+        "level": "LOG",
+        "message": "[TWR] History buttons fixed",
+        "location": "HTMLDocument.initFixes (http://localhost:5050/static/js/app.js?v=6.3.1:11534)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.902Z",
+        "level": "LOG",
+        "message": "[TWR] Search input fixed",
+        "location": "HTMLDocument.initFixes (http://localhost:5050/static/js/app.js?v=6.3.1:11540)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.919Z",
+        "level": "LOG",
+        "message": "[TWR] Comprehensive fixes initialized",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.920Z",
+        "level": "LOG",
+        "message": "%c[AEGIS SP] v6.2.6 SP scan module loaded color:#D6A84A;font-weight:bold;",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.921Z",
+        "level": "LOG",
+        "message": "[SmartSearch] Initializing on #dict-search",
+        "location": "initDictionarySmartSearch (http://localhost:5050/static/js/app.js?v=6.3.1:14798)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.929Z",
+        "level": "LOG",
+        "message": "[SmartSearch] Created dropdown for #dict-search",
+        "location": "initDictionarySmartSearch (http://localhost:5050/static/js/app.js?v=6.3.1:14798)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.929Z",
+        "level": "LOG",
+        "message": "[TWR Dict] SmartSearch initialized for dict-search",
+        "location": "HTMLDocument.initRoleDictionary (http://localhost:5050/static/js/app.js?v=6.3.1:14690)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.929Z",
+        "level": "LOG",
+        "message": "[SF] Initializing Statement Forge v3.0.111...",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.930Z",
+        "level": "LOG",
+        "message": "[SmartSearch] Initializing on #sf-search-input",
+        "location": "initStatementForgeSmartSearch (http://localhost:5050/static/js/app.js?v=6.3.1:15628)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.935Z",
+        "level": "LOG",
+        "message": "[SmartSearch] Created dropdown for #sf-search-input",
+        "location": "initStatementForgeSmartSearch (http://localhost:5050/static/js/app.js?v=6.3.1:15628)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.935Z",
+        "level": "LOG",
+        "message": "[SF] SmartSearch initialized for sf-search-input",
+        "location": "HTMLDocument.init (http://localhost:5050/static/js/app.js?v=6.3.1:15613)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.935Z",
+        "level": "LOG",
+        "message": "[TWR] Statement Forge v3.0.111 initialized",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.937Z",
+        "level": "LOG",
+        "message": "[TWR] Binding missing button handlers...",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.937Z",
+        "level": "LOG",
+        "message": "[TWR] Button fixes applied successfully",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.937Z",
+        "level": "LOG",
+        "message": "[TWR DictV5] Initializing dictionary overhaul...",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.937Z",
+        "level": "LOG",
+        "message": "[TWR DictV5] Dictionary overhaul initialized",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.937Z",
+        "level": "LOG",
+        "message": "[TWR RolesTabs] Found 8 nav items",
+        "location": "HTMLDocument.init (http://localhost:5050/static/js/roles-tabs-fix.js?v=6.3.1:4218)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.937Z",
+        "level": "LOG",
+        "message": "[TWR RolesTabs] Tab delegation handler attached to modal",
+        "location": "HTMLDocument.init (http://localhost:5050/static/js/roles-tabs-fix.js?v=6.3.1:4218)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.952Z",
+        "level": "LOG",
+        "message": "[TWR RolesTabs] Fully initialized",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.952Z",
+        "level": "LOG",
+        "message": "[FunctionTags] Initializing...",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.953Z",
+        "level": "LOG",
+        "message": "[AEGIS Guide] Initializing v2.3.0... ENABLED",
+        "location": "HTMLDocument.<anonymous> (http://localhost:5050/static/js/features/guide-system.js?v=6.3.1:5761)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.954Z",
+        "level": "LOG",
+        "message": "[AEGIS Guide] Initializing voice narration system",
+        "location": "Object.init (http://localhost:5050/static/js/features/guide-system.js?v=6.3.1:3554)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.954Z",
+        "level": "LOG",
+        "message": "[AEGIS Guide] Initialization complete (narration: ON )",
+        "location": "HTMLDocument.<anonymous> (http://localhost:5050/static/js/features/guide-system.js?v=6.3.1:5761)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.955Z",
+        "level": "LOG",
+        "message": "[TWR StylePresets] Initializing style presets",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.955Z",
+        "level": "LOG",
+        "message": "[TWR StylePresets] Restored saved preset: aerospace",
+        "location": "HTMLDocument.init (http://localhost:5050/static/js/features/style-presets.js?v=6.3.1:85)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:34.955Z",
+        "level": "LOG",
+        "message": "[TWR StylePresets] Initialized with 8 preset buttons",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.013Z",
+        "level": "LOG",
+        "message": "[AEGIS Guide] Selected voice: Microsoft Zira - English (United States)",
+        "location": "SpeechSynthesis.loadVoices (http://localhost:5050/static/js/features/guide-system.js?v=6.3.1:4414)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.013Z",
+        "level": "LOG",
+        "message": "[AEGIS Guide] Loaded 3 TTS voices",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.013Z",
+        "level": "LOG",
+        "message": "[HelpContent] Initializing v3.2.4",
+        "location": "http://localhost:5050/static/js/help-content.js?v=6.3.1:510",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.013Z",
+        "level": "LOG",
+        "message": "[HelpContent] HelpDocs.content has 99 sections",
+        "location": "http://localhost:5050/static/js/help-content.js?v=6.3.1:510",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.013Z",
+        "level": "LOG",
+        "message": "[HelpContent] Building navigation from 18 sections",
+        "location": "Object.init (http://localhost:5050/static/js/help-content.js?v=6.3.1:39)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.014Z",
+        "level": "LOG",
+        "message": "[HelpContent] Rendering initial section: welcome",
+        "location": "http://localhost:5050/static/js/help-content.js?v=6.3.1:510",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.014Z",
+        "level": "LOG",
+        "message": "[HelpContent] Rendering section: welcome - Title: Welcome to AEGIS",
+        "location": "Object.init (http://localhost:5050/static/js/help-content.js?v=6.3.1:44)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.015Z",
+        "level": "LOG",
+        "message": "[HelpContent] Initialized successfully",
+        "location": "http://localhost:5050/static/js/help-content.js?v=6.3.1:510",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.017Z",
+        "level": "LOG",
+        "message": "[AEGIS DocReviewViewer] Initialized",
+        "location": "initNewFeatureListeners (http://localhost:5050/static/js/app.js?v=6.3.1:8859)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.144Z",
+        "level": "LOG",
+        "message": "[TWR] Patching review functions for run state updates...",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.144Z",
+        "level": "LOG",
+        "message": "[TWR] Run state fixes applied successfully",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.144Z",
+        "level": "LOG",
+        "message": "[TWR] renderScanHistory overridden",
+        "location": "initHistoryFixes (http://localhost:5050/static/js/history-fixes.js?v=6.3.1:47)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.144Z",
+        "level": "LOG",
+        "message": "[TWR] History fixes applied successfully",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.193Z",
+        "level": "LOG",
+        "message": "[AEGIS Guide] Audio manifest loaded — 124 sections",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.396Z",
+        "level": "WARN",
+        "message": "[TWR] Profile list container not found",
+        "location": "loadScanProfiles (http://localhost:5050/static/js/app.js?v=6.3.1:6384)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.407Z",
+        "level": "LOG",
+        "message": "[FunctionTags] Initialized with 92 categories",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.421Z",
+        "level": "LOG",
+        "message": "[TWR Events] Drag-drop initialized",
+        "location": "initDragDrop (http://localhost:5050/static/js/app.js?v=6.3.1:878)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.425Z",
+        "level": "LOG",
+        "message": "[TWR Events] Event listeners initialized",
+        "location": "initEventListeners (http://localhost:5050/static/js/app.js?v=6.3.1:865)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:46:35.430Z",
+        "level": "LOG",
+        "message": "[TWR Events] Keyboard shortcuts initialized",
+        "location": "initKeyboardShortcuts (http://localhost:5050/static/js/app.js?v=6.3.1:889)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:47:04.276Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 1\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:47:34.287Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 2\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:48:04.286Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 3\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:48:34.291Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 4\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:49:04.286Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 5\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:49:34.285Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 6\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:50:04.284Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 7\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:50:34.290Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 8\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:51:03.891Z",
+        "level": "LOG",
+        "message": "[TWR Modals] Opened: batch-upload-modal",
+        "location": "HTMLButtonElement.<anonymous> (http://localhost:5050/static/js/ui/events.js?v=6.3.1:481)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:51:04.293Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 9\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:51:34.332Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 10\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:51:38.005Z",
+        "level": "LOG",
+        "message": "%c[AEGIS SP] Connect & Scan response received color:#22c55e;font-weight:bold;font-size:13px;",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:51:38.005Z",
+        "level": "LOG",
+        "message": "[AEGIS SP] discovery: supported_files=63 files_count=63",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:51:38.005Z",
+        "level": "LOG",
+        "message": "[AEGIS SP] Rendering file selector with 63 files...",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:51:38.005Z",
+        "level": "LOG",
+        "message": "[AEGIS SP] _renderSpFileSelector called with 63 files",
+        "location": "HTMLButtonElement.<anonymous> (http://localhost:5050/static/js/app.js?v=6.3.1:13261)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:51:38.031Z",
+        "level": "LOG",
+        "message": "[AEGIS SP] ✓ File selector rendered. User should see file checkboxes and \"Scan Selected\" button.",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:51:38.092Z",
+        "level": "LOG",
+        "message": "[TWR SP] File selector: 63 files, 63 checked",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:52:04.290Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 11\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:52:34.286Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 12\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:52:58.769Z",
+        "level": "LOG",
+        "message": "%c[AEGIS SP] ▶ _startSPSelectedScan() called (v6.2.9) color:#D6A84A;font-weight:bold;font-size:13px;",
+        "location": "btnScanSelected.onclick (http://localhost:5050/static/js/app.js?v=6.3.1:12782)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:52:58.769Z",
+        "level": "LOG",
+        "message": "[AEGIS SP] Starting scan of 63 selected files (v6.2.9 — non-blocking)",
+        "location": "btnScanSelected.onclick (http://localhost:5050/static/js/app.js?v=6.3.1:12782)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:52:58.795Z",
+        "level": "LOG",
+        "message": "[AEGIS SP] Step 1/3: Fetching CSRF token...",
+        "location": "btnScanSelected.onclick (http://localhost:5050/static/js/app.js?v=6.3.1:12782)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:52:58.834Z",
+        "level": "LOG",
+        "message": "[AEGIS SP] Step 1/3: ✓ CSRF token obtained",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:52:58.834Z",
+        "level": "LOG",
+        "message": "[AEGIS SP] Step 2/3: Sending scan request to backend...",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:53:04.296Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 13\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:53:34.291Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 14\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:54:04.291Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 15\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:54:12.138Z",
+        "level": "LOG",
+        "message": "[TWR ConsoleCapture] Logs submitted successfully",
+        "location": "async refreshDiagnosticSummary (http://localhost:5050/static/js/app.js?v=6.3.1:18638)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:54:34.299Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 16\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:54:44.168Z",
+        "level": "LOG",
+        "message": "[TWR] Loading: Collecting frontend diagnostics and generating email...",
+        "location": "showLoading (http://localhost:5050/static/js/app.js?v=6.3.1:342)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:54:44.212Z",
+        "level": "LOG",
+        "message": "[TWR] Collected frontend diagnostics: {\n  \"consoleLogs\": 103,\n  \"dashboardError\": false,\n  \"spState\": true,\n  \"domState\": true\n}",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:54:58.836Z",
+        "level": "ERROR",
+        "message": "[AEGIS SP] ⚠️ Fetch timeout after 120s — aborting",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:54:58.836Z",
+        "level": "ERROR",
+        "message": "[AEGIS SP] ❌ Scan selected error: AbortError signal is aborted without reason",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:55:04.296Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 17\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:55:34.300Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 18\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:56:04.292Z",
+        "level": "DEBUG",
+        "message": "[TWR Logger] [DEBUG] Synced logs to backend {\n  \"count\": 19\n}",
+        "location": "debug (http://localhost:5050/static/js/features/frontend-logger.js?v=6.3.1:140)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:56:16.638Z",
+        "level": "LOG",
+        "message": "[TWR] Loading: Collecting frontend diagnostics and generating email...",
+        "location": "showLoading (http://localhost:5050/static/js/app.js?v=6.3.1:342)",
+        "sessionId": "fe-n8eedhem"
+      },
+      {
+        "timestamp": "2026-03-01T22:56:16.678Z",
+        "level": "LOG",
+        "message": "[TWR] Collected frontend diagnostics: {\n  \"consoleLogs\": 110,\n  \"dashboardError\": false,\n  \"spState\": true,\n  \"domState\": true\n}",
+        "location": "unknown",
+        "sessionId": "fe-n8eedhem"
+      }
+    ],
+    "total_captured": 211
+  }
+}
