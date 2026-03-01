@@ -438,7 +438,46 @@ def main():
         return False
 
     # ── Required packages ─────────────────────────────────────────────
-    pip_install("truststore", "truststore>=0.9.0", required=True)
+    # truststore: Try direct wheel path first (most reliable), then pip_install fallback
+    _truststore_installed = False
+    _ts_wheel = os.path.join("wheels", "truststore-0.10.4-py3-none-any.whl")
+    try:
+        __import__("truststore")
+        print(f"  [OK] truststore already installed")
+        _truststore_installed = True
+    except ImportError:
+        pass
+
+    if not _truststore_installed and os.path.isfile(_ts_wheel):
+        # Validate it's a real wheel (ZIP file), not a failed HTML download
+        _ts_size = os.path.getsize(_ts_wheel)
+        if _ts_size < 5000:
+            print(f"  [WARN] truststore wheel is only {_ts_size} bytes — likely a failed download")
+            print(f"         Deleting corrupt file and trying online install...")
+            os.remove(_ts_wheel)
+        else:
+            print(f"  [INFO] Installing truststore from wheel ({_ts_size:,} bytes)...")
+            try:
+                result = subprocess.run(
+                    [python_exe, "-m", "pip", "install", "--no-warn-script-location",
+                     "--force-reinstall", _ts_wheel],
+                    capture_output=True, text=True, timeout=120
+                )
+                try:
+                    __import__("truststore")
+                    print(f"  [OK] truststore installed from wheel")
+                    _truststore_installed = True
+                except ImportError:
+                    print(f"  [WARN] Wheel install succeeded but import failed")
+                    if result.stderr:
+                        print(f"         pip stderr: {result.stderr.strip()[:300]}")
+                    if result.stdout:
+                        print(f"         pip stdout: {result.stdout.strip()[:300]}")
+            except Exception as e:
+                print(f"  [WARN] Direct wheel install failed: {e}")
+
+    if not _truststore_installed:
+        pip_install("truststore", "truststore>=0.9.0", required=True)
 
     # ── Optional packages (auth/SharePoint) ───────────────────────────
     pip_install("msal", "msal>=1.20.0")
