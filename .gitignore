@@ -5,6 +5,7 @@ nlp_offline/
 # Security-sensitive files
 .secret_key
 cookies*.txt
+aegis_pat.txt
 .claude/
 
 # Python

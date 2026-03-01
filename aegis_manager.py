@@ -54,9 +54,28 @@ REPO_OWNER = "nicholasgeorgeson-prog"
 REPO_NAME = "AEGIS"
 REPO = f"{REPO_OWNER}/{REPO_NAME}"
 BRANCH = "main"
-PAT = "YOUR_GITHUB_PAT_HERE"
 BASE_RAW_URL = f"https://raw.githubusercontent.com/{REPO}/{BRANCH}"
 API_BASE = f"https://api.github.com/repos/{REPO}"
+
+def _load_pat():
+    """Load GitHub PAT from aegis_pat.txt, env var, or built-in fallback."""
+    # Strategy 1: Local file (preferred — not committed to GitHub)
+    for pat_file in ['aegis_pat.txt', os.path.join(os.path.dirname(__file__), 'aegis_pat.txt')]:
+        try:
+            with open(pat_file, 'r', encoding='utf-8') as f:
+                token = f.read().strip()
+                if token and token.startswith('ghp_'):
+                    return token
+        except (OSError, IOError):
+            pass
+    # Strategy 2: Environment variable
+    token = os.environ.get('AEGIS_GITHUB_PAT', '').strip()
+    if token and token.startswith('ghp_'):
+        return token
+    # Strategy 3: Built-in (will be placeholder on GitHub copy)
+    return "YOUR_GITHUB_PAT_HERE"
+
+PAT = _load_pat()
 
 # Server
 SERVER_HOST = "localhost"
