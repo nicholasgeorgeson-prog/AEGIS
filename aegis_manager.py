@@ -1638,8 +1638,9 @@ class AEGISManager:
         # Ensure __init__.py in Python package dirs
         self._ensure_init_files()
 
-        # Show restart reminder
-        self._show_restart_reminder()
+        # Auto-restart server if Python files were updated
+        python_updated = any(p.endswith('.py') for p in files_to_download)
+        self._auto_restart_if_needed(python_updated, success)
 
     # ──────────────────────────────────────────────────────────────
     # 2. FULL SYNC
@@ -1702,7 +1703,9 @@ class AEGISManager:
             C.warn(f'{failed} files failed')
 
         self._ensure_init_files()
-        self._show_restart_reminder()
+
+        # Full sync always includes Python files — auto-restart
+        self._auto_restart_if_needed(True, success)
 
     # ──────────────────────────────────────────────────────────────
     # 3. HEALTH CHECK
@@ -2318,17 +2321,66 @@ class AEGISManager:
                     with open(init, 'w') as f:
                         f.write('')
 
-    def _show_restart_reminder(self):
-        """Show server restart reminder."""
+    def _auto_restart_if_needed(self, python_updated, files_downloaded):
+        """Auto-restart the AEGIS server after updates that include Python files.
+
+        Args:
+            python_updated: True if any .py files were in the download set
+            files_downloaded: Number of files successfully downloaded
+        """
+        if files_downloaded == 0:
+            C.info('No files were downloaded — no restart needed.')
+            return
+
+        if not python_updated:
+            C._write('')
+            C.ok('Update complete (CSS/JS/HTML only — no restart needed).')
+            C.info('Refresh your browser to see changes.')
+            return
+
+        # Python files were updated — server MUST restart for changes to take effect
         C._write('')
         C._write(f'  {C.GOLD}╔══════════════════════════════════════════════════════╗{C.RESET}')
         C._write(f'  {C.GOLD}║{C.RESET}                                                      {C.GOLD}║{C.RESET}')
-        C._write(f'  {C.GOLD}║{C.RESET}   {C.BOLD}>>> RESTART THE AEGIS SERVER <<<{C.RESET}                  {C.GOLD}║{C.RESET}')
-        C._write(f'  {C.GOLD}║{C.RESET}                                                      {C.GOLD}║{C.RESET}')
-        C._write(f'  {C.GOLD}║{C.RESET}   Python changes only take effect after restart.     {C.GOLD}║{C.RESET}')
-        C._write(f'  {C.GOLD}║{C.RESET}   Use Server menu (option 7) or Start_AEGIS.bat      {C.GOLD}║{C.RESET}')
+        C._write(f'  {C.GOLD}║{C.RESET}   {C.BOLD}Python files updated — restarting server...{C.RESET}        {C.GOLD}║{C.RESET}')
         C._write(f'  {C.GOLD}║{C.RESET}                                                      {C.GOLD}║{C.RESET}')
         C._write(f'  {C.GOLD}╚══════════════════════════════════════════════════════╝{C.RESET}')
+        C._write('')
+
+        running, _ = self.server.is_running()
+        if not running:
+            C.info('Server is not currently running — starting it now...')
+            started = self.server.start()
+            if started:
+                C.ok('Server started successfully with updated code!')
+            else:
+                C.warn('Could not start server automatically.')
+                C.info('Start manually: double-click Start_AEGIS.bat')
+            return
+
+        # Server is running — restart it
+        C.info('Stopping current server...')
+        stopped = self.server.stop()
+        if not stopped:
+            C.warn('Could not stop server cleanly. Trying force restart...')
+
+        time.sleep(2)
+
+        C.info('Starting server with updated code...')
+        started = self.server.start()
+        if started:
+            C.ok('Server restarted successfully with updated code!')
+            C._write('')
+            C.info('Refresh your browser to see changes.')
+        else:
+            C.warn('Server did not respond after restart.')
+            C.info('Try starting manually: double-click Start_AEGIS.bat')
+
+    def _show_restart_reminder(self):
+        """Legacy: Show server restart reminder (kept for backward compat)."""
+        # Replaced by _auto_restart_if_needed() in v6.3.1
+        # Kept as a no-op in case any external code calls it
+        self._auto_restart_if_needed(True, 1)
 
     def _create_start_bat(self, path):
         """Create a basic Start_AEGIS.bat for Windows."""
