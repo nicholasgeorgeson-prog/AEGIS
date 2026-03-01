@@ -1,13 +1,23 @@
 {
-  "version": "6.2.9",
-  "release_date": "2026-02-26",
-  "core_version": "6.2.9",
+  "version": "6.3.0",
+  "release_date": "2026-03-01",
+  "core_version": "6.3.0",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.3.0",
+      "date": "2026-03-01",
+      "changes": [
+        "FIX: Frontend AbortController timeout for SP scan increased from 30s to 120s — prevents false timeouts when server is running older synchronous code or HeadlessSP auth takes longer than expected",
+        "FIX: Timeout error message now suggests server restart after updates — guides users to the actual fix instead of retrying the same broken state",
+        "FIX: Enhanced diagnostic email with SP/auth diagnostics in core_routes.py — captures auth_service status, SharePoint connector state, and platform details",
+        "NOTE: v6.2.9 backend code is correct (async connector creation) but REQUIRES server restart to take effect. Python file changes are only loaded when the server process restarts."
+      ]
+    },
     {
       "version": "6.2.9",
       "date": "2026-02-26",

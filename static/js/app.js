@@ -12910,14 +12910,16 @@ STEPS TO REPRODUCE
                 // creation happens in background thread, not in the HTTP handler)
                 console.log('[AEGIS SP] Step 2/3: Sending scan request to backend...');
 
-                // AbortController with 30s timeout — belt-and-suspenders safety net
-                // The backend should return in <1 second now (v6.2.9), but if something
-                // goes wrong we don't want to hang forever like pre-v6.2.9
+                // AbortController with 120s timeout — safety net for edge cases
+                // v6.3.0: Increased from 30s to 120s. The v6.2.9 backend returns in <1 second
+                // (connector creation in background thread), but if the server is running
+                // older code, HeadlessSP auth takes 35-45s. 30s was too tight and caused
+                // false timeouts. 120s ensures even worst-case HeadlessSP auth completes.
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => {
-                    console.error('[AEGIS SP] ⚠️ Fetch timeout after 30s — aborting');
+                    console.error('[AEGIS SP] ⚠️ Fetch timeout after 120s — aborting');
                     controller.abort();
-                }, 30000);
+                }, 120000);
 
                 let resp;
                 try {
@@ -12997,7 +12999,7 @@ STEPS TO REPRODUCE
             } catch (err) {
                 console.error('[AEGIS SP] ❌ Scan selected error:', err.name, err.message);
                 var userMsg = err.name === 'AbortError'
-                    ? 'Scan request timed out after 30 seconds — please try again'
+                    ? 'Scan request timed out — the server may need a restart after updates. Try restarting AEGIS and scanning again.'
                     : 'Failed to start scan: ' + err.message;
                 window.showToast?.(userMsg, 'error');
                 if (btnScanSelected) {
