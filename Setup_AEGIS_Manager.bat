@@ -171,15 +171,17 @@ exit /b 1
 :: Check file size
 for %%F in ("!DL_FILE!") do set "DL_SIZE=%%~zF"
 if not defined DL_SIZE set "DL_SIZE=0"
-if !DL_SIZE! LSS 1000 (
-    echo.
-    echo   [ERROR] Downloaded file too small (!DL_SIZE! bytes).
-    echo   The GitHub PAT may be expired or the repo is not accessible.
-    del "!DL_FILE!" >nul 2>&1
-    echo.
-    pause
-    exit /b 1
-)
+if !DL_SIZE! GEQ 1000 goto :download_ok
+
+echo.
+echo   [ERROR] Downloaded file too small: !DL_SIZE! bytes.
+echo   The GitHub PAT may be expired or the repo is not accessible.
+del "!DL_FILE!" >nul 2>&1
+echo.
+pause
+exit /b 1
+
+:download_ok
 echo     File size: !DL_SIZE! bytes
 echo.
 
