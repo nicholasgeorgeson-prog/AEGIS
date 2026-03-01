@@ -159,6 +159,12 @@ FILES.update({
     "version.json": "version.json",
     "static/version.json": "static/version.json",
     "README.md": "README.md",
+    "requirements.txt": "requirements.txt",
+})
+
+# ── Wheel packages (offline pip install) ──────────────────────────────────
+FILES.update({
+    "wheels/truststore-0.10.4-py3-none-any.whl": "wheels/truststore-0.10.4-py3-none-any.whl",
 })
 
 
@@ -240,6 +246,7 @@ def main():
         "routes", "hyperlink_validator", "proposal_compare",
         "statement_forge", "portfolio", "static/js/features",
         "static/css/features", "templates", "static/js/vendor/pdfjs",
+        "wheels",
     ]
     for d in dirs_to_create:
         os.makedirs(d, exist_ok=True)
