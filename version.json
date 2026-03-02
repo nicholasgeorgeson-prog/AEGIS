@@ -18,7 +18,11 @@
         "FIX: All SharePoint scan toast notifications (success, error, warning) are now visible to users — previously ALL were silently swallowed",
         "FIX: Added diagnostic version marker to sharepoint_scan_selected endpoint — confirms v6.3.1 async handler is loaded via logger.info at function entry",
         "FIX: Added scan state creation logging — confirms scan state dict is created BEFORE background thread spawn",
-        "NOTE: Root cause of 'nothing happening' on SP scan was that ALL user feedback channels (toast notifications) were broken — window.showToast was undefined"
+        "NOTE: Root cause of 'nothing happening' on SP scan was that ALL user feedback channels (toast notifications) were broken — window.showToast was undefined",
+        "PERF: Added missing DB indexes on scans(document_id), document_roles(document_id, role_id), issue_changes(scan_id, document_id) — speeds up all JOIN queries",
+        "FIX: delete_scan() now cascades to scan_statements table — prevents orphaned statement rows from accumulating (was causing DB bloat)",
+        "FIX: api_error_response() calls in config_routes.py had wrong argument order — status code was in message position, always defaulting to HTTP 400 instead of intended 404/500",
+        "PERF: /api/capabilities now caches import checks — spaCy, docling, and other expensive imports are tested once per server session instead of on every boot request"
       ]
     },
     {

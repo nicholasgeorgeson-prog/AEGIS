@@ -625,6 +625,10 @@ def api_prose_lint():
         return (jsonify({'success': False, 'error': {'code': 'LINT_ERROR', 'message': str(e)}}), 500)
 _cached_checker_count = None
 
+# v6.3.1: Cache capabilities — imports are expensive (especially spaCy, docling, torch)
+# and don't change during a server session. Checked once, cached forever.
+_cached_capabilities = None
+
 
 @config_bp.route('/api/capabilities', methods=['GET'])
 @handle_api_errors
@@ -633,51 +637,60 @@ def capabilities():
     Get server capabilities for UI feature gating (v5.9.40).
     Called during boot by app.js checkCapabilities().
     Returns what export/analysis features are available.
+
+    v6.3.1: Capabilities are cached after first check — imports don't change
+    during a server session, and spaCy/docling imports are expensive.
     """
-    caps = {
-        'excel_export': False,
-        'pdf_export': False,
-        'docling': False,
-        'mammoth': False,
-        'spacy': False,
-        'proposal_compare': False,
-        'sharepoint': False,
-    }
-    try:
-        import openpyxl
-        caps['excel_export'] = True
-    except ImportError:
-        pass
-    try:
-        from reportlab.lib.pagesizes import letter
-        caps['pdf_export'] = True
-    except ImportError:
-        pass
-    try:
-        from docling_extractor import DoclingManager
-        caps['docling'] = True
-    except Exception:
-        pass
-    try:
-        import mammoth
-        caps['mammoth'] = True
-    except ImportError:
-        pass
-    try:
-        import spacy
-        caps['spacy'] = True
-    except ImportError:
-        pass
-    try:
-        from proposal_compare.parser import ProposalParser
-        caps['proposal_compare'] = True
-    except Exception:
-        pass
-    try:
-        from sharepoint_connector import SharePointConnector
-        caps['sharepoint'] = True
-    except Exception:
-        pass
+    global _cached_capabilities
+
+    if _cached_capabilities is None:
+        caps = {
+            'excel_export': False,
+            'pdf_export': False,
+            'docling': False,
+            'mammoth': False,
+            'spacy': False,
+            'proposal_compare': False,
+            'sharepoint': False,
+        }
+        try:
+            import openpyxl
+            caps['excel_export'] = True
+        except ImportError:
+            pass
+        try:
+            from reportlab.lib.pagesizes import letter
+            caps['pdf_export'] = True
+        except ImportError:
+            pass
+        try:
+            from docling_extractor import DoclingManager
+            caps['docling'] = True
+        except Exception:
+            pass
+        try:
+            import mammoth
+            caps['mammoth'] = True
+        except ImportError:
+            pass
+        try:
+            import spacy
+            caps['spacy'] = True
+        except ImportError:
+            pass
+        try:
+            from proposal_compare.parser import ProposalParser
+            caps['proposal_compare'] = True
+        except Exception:
+            pass
+        try:
+            from sharepoint_connector import SharePointConnector
+            caps['sharepoint'] = True
+        except Exception:
+            pass
+        _cached_capabilities = caps
+    else:
+        caps = _cached_capabilities
 
     # v6.2.0: Auth service diagnostics
     auth_info = None
@@ -793,13 +806,13 @@ def learning_patterns_get(module_id):
     """Get full pattern file contents for a specific learner module (v5.9.52)."""
     mod, err = _get_learner_module(module_id)
     if not mod:
-        return api_error_response(err, 404)
+        return api_error_response('NOT_FOUND', err, 404)
     try:
         patterns = mod.load_patterns()
         return jsonify({'success': True, 'data': patterns})
     except Exception as e:
         logger.exception(f'Error loading patterns for {module_id}: {e}')
-        return api_error_response(str(e), 500)
+        return api_error_response('INTERNAL_ERROR', str(e), 500)
 
 
 @config_bp.route('/api/learning/patterns/<module_id>', methods=['DELETE'])
@@ -809,7 +822,7 @@ def learning_patterns_clear(module_id):
     """Clear pattern file for a specific learner module (v5.9.52)."""
     mod, err = _get_learner_module(module_id)
     if not mod:
-        return api_error_response(err, 404)
+        return api_error_response('NOT_FOUND', err, 404)
     try:
         import os
         if hasattr(mod, 'PATTERNS_FILE') and os.path.exists(mod.PATTERNS_FILE):
@@ -820,7 +833,7 @@ def learning_patterns_clear(module_id):
         return jsonify({'success': True, 'message': f'Cleared patterns for {_LEARNER_MODULES[module_id]["label"]}'})
     except Exception as e:
         logger.exception(f'Error clearing patterns for {module_id}: {e}')
-        return api_error_response(str(e), 500)
+        return api_error_response('INTERNAL_ERROR', str(e), 500)
 
 
 @config_bp.route('/api/learning/patterns', methods=['DELETE'])
@@ -856,7 +869,7 @@ def learning_export_module(module_id):
     """Download pattern file for a specific module as JSON (v5.9.52)."""
     mod, err = _get_learner_module(module_id)
     if not mod:
-        return api_error_response(err, 404)
+        return api_error_response('NOT_FOUND', err, 404)
     try:
         patterns = mod.load_patterns()
         from flask import Response
@@ -870,7 +883,7 @@ def learning_export_module(module_id):
         )
     except Exception as e:
         logger.exception(f'Error exporting patterns for {module_id}: {e}')
-        return api_error_response(str(e), 500)
+        return api_error_response('INTERNAL_ERROR', str(e), 500)
 
 
 @config_bp.route('/api/learning/export', methods=['GET'])
@@ -1189,7 +1202,7 @@ def demo_audio_generate():
     try:
         from demo_audio_generator import generate_demo_audio, get_demo_scenes_from_js
     except ImportError:
-        return api_error_response('Demo audio generator not available', 500)
+        return api_error_response('NOT_AVAILABLE', 'Demo audio generator not available', 500)
 
     data = request.get_json(silent=True) or {}
     voice = data.get('voice', 'en-US-GuyNeural')
@@ -1197,7 +1210,7 @@ def demo_audio_generate():
 
     scenes = get_demo_scenes_from_js()
     if not scenes:
-        return api_error_response('No demo scenes found in guide-system.js', 404)
+        return api_error_response('NOT_FOUND', 'No demo scenes found in guide-system.js', 404)
 
     output_dir = str(config.base_dir / 'static' / 'audio' / 'demo')
     result = generate_demo_audio(scenes, output_dir=output_dir, voice=voice, force=force)

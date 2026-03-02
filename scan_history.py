@@ -277,7 +277,8 @@ class ScanHistoryDB:
                     results_json TEXT,
                     FOREIGN KEY (document_id) REFERENCES documents(id)
                 )
-            ''')
+            ''',
+            'CREATE INDEX IF NOT EXISTS idx_scans_document_id ON scans(document_id)')
 
         self._create_table_safe('roles', '''
                 CREATE TABLE IF NOT EXISTS roles (
@@ -364,7 +365,9 @@ class ScanHistoryDB:
                     FOREIGN KEY (role_id) REFERENCES roles(id),
                     UNIQUE(document_id, role_id)
                 )
-            ''')
+            ''',
+            'CREATE INDEX IF NOT EXISTS idx_document_roles_doc ON document_roles(document_id)',
+            'CREATE INDEX IF NOT EXISTS idx_document_roles_role ON document_roles(role_id)')
 
         self._create_table_safe('scan_profiles', '''
                 CREATE TABLE IF NOT EXISTS scan_profiles (
@@ -391,7 +394,9 @@ class ScanHistoryDB:
                     FOREIGN KEY (document_id) REFERENCES documents(id),
                     FOREIGN KEY (scan_id) REFERENCES scans(id)
                 )
-            ''')
+            ''',
+            'CREATE INDEX IF NOT EXISTS idx_issue_changes_scan ON issue_changes(scan_id)',
+            'CREATE INDEX IF NOT EXISTS idx_issue_changes_doc ON issue_changes(document_id)')
 
         self._create_table_safe('scan_statements', '''
                 CREATE TABLE IF NOT EXISTS scan_statements (
@@ -1814,6 +1819,9 @@ class ScanHistoryDB:
 
                 # Delete issue_changes for this scan
                 cursor.execute('DELETE FROM issue_changes WHERE scan_id = ?', (scan_id,))
+
+                # Delete scan_statements for this scan (v6.3.1: prevent orphaned rows)
+                cursor.execute('DELETE FROM scan_statements WHERE scan_id = ?', (scan_id,))
 
                 # Delete the scan itself
                 cursor.execute('DELETE FROM scans WHERE id = ?', (scan_id,))
