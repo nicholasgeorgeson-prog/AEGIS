@@ -1,13 +1,24 @@
 {
-  "version": "6.3.11",
+  "version": "6.3.12",
   "release_date": "2026-03-02",
-  "core_version": "6.3.11",
+  "core_version": "6.3.12",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.3.12",
+      "date": "2026-03-02",
+      "changes": [
+        "DEFINITIVE FIX: SharePoint scan — one-request architecture eliminates ALL second requests",
+        "ARCH: Discovery endpoint now auto-starts scan of ALL discovered files immediately in background thread",
+        "ARCH: Progress endpoint falls back to ANY active SharePoint scan when exact scan_id not found",
+        "WHY: Corporate DLP/proxy blocks every type of second request (POST and GET) — only the discovery POST works",
+        "ZERO new JavaScript required — works with ANY cached browser JS version"
+      ]
+    },
     {
       "version": "6.3.11",
       "date": "2026-03-02",

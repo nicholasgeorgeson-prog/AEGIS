@@ -1819,6 +1819,34 @@ def folder_scan_progress(scan_id):
     with _folder_scan_state_lock:
         state = _folder_scan_state.get(scan_id)
 
+    # v6.3.12: Fallback — if exact scan_id not found, look for ANY active SharePoint
+    # scan. This is the definitive fix for corporate DLP/proxy environments where the
+    # browser's second request (scan trigger) NEVER reaches the server. The discovery
+    # endpoint auto-starts the scan (with its own scan_id), but the cached browser JS
+    # polls with a different scan_id it generated client-side. This fallback bridges
+    # the gap by finding the auto-started scan regardless of what scan_id the client uses.
+    if not state:
+        with _folder_scan_state_lock:
+            # Priority 1: Active SP scan (still running)
+            for sid, s in _folder_scan_state.items():
+                if (s.get('source', '').startswith('sharepoint')
+                        and s.get('phase') in ('connecting', 'reviewing')):
+                    state = s
+                    scan_id = sid
+                    logger.info(f'[SP-progress] Fallback: mapped unknown scan_id to active SP scan {sid} (phase={s["phase"]})')
+                    break
+            # Priority 2: Recently completed SP scan (within 5 min)
+            if not state:
+                for sid, s in _folder_scan_state.items():
+                    if (s.get('source', '').startswith('sharepoint')
+                            and s.get('phase') in ('complete', 'error')
+                            and s.get('completed_at')
+                            and time.time() - s['completed_at'] < 300):
+                        state = s
+                        scan_id = sid
+                        logger.info(f'[SP-progress] Fallback: mapped unknown scan_id to completed SP scan {sid} (phase={s["phase"]})')
+                        break
+
     if not state:
         return jsonify({'success': False, 'error': {'message': f'Scan {scan_id} not found', 'code': 'SCAN_NOT_FOUND'}}), 404
 
@@ -2848,51 +2876,74 @@ def sharepoint_connect_and_scan():
     for f in files:
         f['size_human'] = _human_size(f.get('size', 0))
 
-    # v6.1.11: discover_only mode — return files without starting a scan
-    # v6.3.5: Cache the authenticated connector for reuse during scan.
-    # Previously connector.close() destroyed the SSO session here, forcing
-    # the scan endpoint to create a brand new HeadlessSP browser + re-auth
-    # (which hung on Windows). Now we cache the connector with a token and
-    # the scan endpoint picks it up — zero re-authentication needed.
+    # v6.3.12: ONE-REQUEST ARCHITECTURE — Auto-start scan on discovery.
+    #
+    # DEFINITIVE FIX for corporate DLP/proxy environments (Lessons 170-177):
+    # Every attempt at a second request (POST or GET) to trigger the scan was
+    # blocked by the corporate DLP/proxy. Only the discovery POST consistently
+    # reaches the server. Solution: auto-start scanning ALL discovered files
+    # immediately in the discovery response, with NO second request needed.
+    #
+    # The frontend still gets the file list (for cached JS to render the file
+    # picker UI), but the scan is ALREADY RUNNING in the background. When the
+    # cached JS tries to trigger a scan via a second request that never arrives,
+    # the progress endpoint's fallback (also v6.3.12) finds the auto-started
+    # scan and returns its progress — regardless of what scan_id the client uses.
+    #
+    # This replaces the v6.3.5 connector cache approach — no cache needed when
+    # the scan starts immediately with the already-authenticated connector.
     if discover_only:
-        connector_token = None
-        try:
-            connector_token = uuid.uuid4().hex[:16]
-            with _sp_connector_cache_lock:
-                # Clean expired entries first
-                now = time.time()
-                expired = [k for k, v in _sp_connector_cache.items()
-                           if now - v['created_at'] > _SP_CONNECTOR_CACHE_TTL]
-                for k in expired:
-                    try:
-                        _sp_connector_cache[k]['connector'].close()
-                    except Exception:
-                        pass
-                    del _sp_connector_cache[k]
-                # Cache this connector
-                _sp_connector_cache[connector_token] = {
-                    'connector': connector,
-                    'created_at': now,
-                    'site_url': actual_site_url,
-                    'connector_type': result.get('connector_type', 'rest'),
-                    'files': files,  # v6.3.9: Cache files server-side so scan POST doesn't need to send them
-                    'library_path': library_path,
-                }
-            logger.info(f'[SP-discover] Cached connector with token {connector_token[:8]}... (type={result.get("connector_type", "rest")})')
-        except Exception as e:
-            logger.warning(f'[SP-discover] Failed to cache connector: {e} — closing instead')
-            connector_token = None
-            try:
-                connector.close()
-            except Exception:
-                pass
+        # Auto-start scan of ALL discovered files
+        auto_scan_id = uuid.uuid4().hex[:12]
+
+        with _folder_scan_state_lock:
+            _cleanup_old_scans()
+            _folder_scan_state[auto_scan_id] = {
+                'phase': 'reviewing',
+                'total_files': len(files),
+                'processed': 0,
+                'errors': 0,
+                'current_file': 'Starting SharePoint document scan...',
+                'current_chunk': 0,
+                'total_chunks': (len(files) + FOLDER_SCAN_CHUNK_SIZE - 1) // FOLDER_SCAN_CHUNK_SIZE,
+                'documents': [],
+                'summary': {
+                    'total_documents': len(files),
+                    'processed': 0,
+                    'errors': 0,
+                    'total_issues': 0,
+                    'total_words': 0,
+                    'issues_by_severity': {'Critical': 0, 'High': 0, 'Medium': 0, 'Low': 0, 'Info': 0},
+                    'issues_by_category': {},
+                    'grade_distribution': {},
+                },
+                'roles_found': {},
+                'started_at': time.time(),
+                'completed_at': None,
+                'elapsed_seconds': 0,
+                'estimated_remaining': None,
+                'folder_path': f'SharePoint: {library_path}',
+                'source': 'sharepoint_auto',  # Tagged so progress fallback can find it
+            }
+
+        flask_app = current_app._get_current_object()
+        thread = threading.Thread(
+            target=_process_sharepoint_scan_async,
+            args=(auto_scan_id, connector, files, options, flask_app),
+            daemon=True,
+            name=f'sp-auto-scan-{auto_scan_id}',
+        )
+        thread.start()
+
+        logger.info(f'[SP-discover] AUTO-SCAN STARTED: scan_id={auto_scan_id}, {len(files)} files from {library_path} (one-request architecture v6.3.12)')
 
         return jsonify({
             'success': True,
             'data': {
-                'scan_id': None,
+                'scan_id': auto_scan_id,  # v6.3.12: Auto-started scan ID
                 'discover_only': True,
-                'connector_token': connector_token,  # v6.3.5: token for scan reuse
+                'auto_scan_started': True,  # v6.3.12: Signal to frontend that scan is already running
+                'connector_token': None,  # v6.3.12: No longer needed — scan uses connector directly
                 'site_title': result.get('title', ''),
                 'site_url': actual_site_url,
                 'library_path': library_path,
@@ -2904,7 +2955,7 @@ def sharepoint_connect_and_scan():
                     'supported_files': len(files),
                     'total_size': total_size,
                     'total_size_human': _human_size(total_size),
-                    'files': files,  # Return ALL files (not capped at 100)
+                    'files': files,  # Return ALL files (for cached JS to render file picker)
                     'file_type_breakdown': type_breakdown,
                 }
             }
