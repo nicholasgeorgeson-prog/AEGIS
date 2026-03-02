@@ -908,6 +908,7 @@ class ServerManager:
 
         # Strategy 1: Direct Python launch (preferred — works headless)
         C.info(f'Starting with: {python_exe} app.py')
+        strategy1_launched = False
         try:
             if sys.platform == 'win32':
                 CREATE_NEW_PROCESS_GROUP = 0x00000200
@@ -929,15 +930,18 @@ class ServerManager:
                     stderr=subprocess.DEVNULL,
                     stdin=subprocess.DEVNULL,
                 )
-            started = self._wait_for_server(30)
+            strategy1_launched = True
+            # AEGIS can take 60-90s to boot on Windows (spaCy, docling, 105+ checkers)
+            started = self._wait_for_server(90)
             if started:
                 return True
-            C.warn('Direct Python start did not respond — trying Start_AEGIS.bat...')
+            C.warn('Direct Python start did not respond in 90s')
         except Exception as e:
             C.warn(f'Direct Python start failed: {e}')
 
         # Strategy 2: Start_AEGIS.bat with its own console window (Windows only)
-        if sys.platform == 'win32':
+        # Only try if Strategy 1 didn't launch a process (avoid two competing instances)
+        if sys.platform == 'win32' and not strategy1_launched:
             bat = os.path.join(self.install_dir, 'Start_AEGIS.bat')
             if os.path.isfile(bat):
                 C.info('Launching Start_AEGIS.bat in new window...')
@@ -948,10 +952,15 @@ class ServerManager:
                         creationflags=CREATE_NEW_CONSOLE,
                         cwd=self.install_dir,
                     )
-                    return self._wait_for_server(30)
+                    return self._wait_for_server(90)
                 except Exception as e:
                     C.fail(f'Start_AEGIS.bat also failed: {e}')
                     return False
+
+        if strategy1_launched:
+            C.warn('Server process was started but is not responding yet.')
+            C.info('It may still be loading. Check http://localhost:5050 in a minute.')
+            return False
 
         C.fail('Could not start server')
         return False
@@ -965,13 +974,15 @@ class ServerManager:
 
         # Wait for port to be fully released before starting
         C.info('Waiting for port to clear...')
-        for _ in range(5):
+        for i in range(10):
             time.sleep(1)
             running, _ = self.is_running()
             if not running:
+                C.ok('Port cleared.')
                 break
         else:
             C.warn('Port 5050 may still be in use — attempting start anyway')
+            time.sleep(2)
 
         C.info('Starting server...')
         return self.start()
@@ -980,14 +991,20 @@ class ServerManager:
         """Poll /api/version until server responds."""
         C.info(f'Waiting for server (up to {timeout}s)...')
         start = time.time()
+        last_log = 0
         while time.time() - start < timeout:
+            elapsed = int(time.time() - start)
             running, info = self.is_running()
             if running:
                 ver = info.get('version', '?') if info else '?'
                 C.ok(f'Server is running (v{ver})')
                 return True
-            time.sleep(1)
-        C.warn('Server did not respond in time. It may still be starting.')
+            # Show progress every 10 seconds so user knows it's not stuck
+            if elapsed >= last_log + 10:
+                C.info(f'  Still waiting... {elapsed}s / {timeout}s')
+                last_log = elapsed
+            time.sleep(2)
+        C.warn(f'Server did not respond after {timeout}s. It may still be starting.')
         return False
 
     def _find_python(self):
@@ -2591,24 +2608,27 @@ GitHub: {'Reachable' if ok else 'Not reachable'}
 
         # Wait for port to fully release
         C.info('Waiting for port to clear...')
-        for i in range(5):
+        for i in range(10):
             time.sleep(1)
             running, _ = self.server.is_running()
             if not running:
+                C.ok('Port cleared.')
                 break
         else:
             C.warn('Port 5050 may still be in use — attempting start anyway')
-            time.sleep(1)
+            time.sleep(2)
 
         C.info('Starting server with updated code...')
+        C.info('(AEGIS boot takes 60-90s on Windows — loading NLP models)')
         started = self.server.start()
         if started:
             C.ok('Server restarted successfully with updated code!')
             C._write('')
             C.info('Refresh your browser to see changes.')
         else:
-            C.warn('Server did not respond after restart.')
-            C.info('Try starting manually: double-click Start_AEGIS.bat')
+            C.warn('Server may still be loading in the background.')
+            C.info('Wait 1-2 minutes, then check http://localhost:5050')
+            C.info('Or start manually: double-click Start_AEGIS.bat')
 
     def _show_restart_reminder(self):
         """Legacy: Show server restart reminder (kept for backward compat)."""
