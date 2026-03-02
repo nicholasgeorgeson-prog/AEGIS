@@ -53,7 +53,7 @@ from urllib.parse import parse_qs, urlparse
 # CONSTANTS & CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════
 
-MANAGER_VERSION = "2.1.0"
+MANAGER_VERSION = "2.2.0"
 
 # GitHub
 REPO_OWNER = "nicholasgeorgeson-prog"
@@ -432,15 +432,36 @@ class GitHubClient:
             if e.code == 403 and 'rate limit' in str(e.read().decode('utf-8', 'replace')).lower():
                 C.warn('GitHub API rate limit exceeded. Wait a minute and try again.')
             raise
-        except Exception:
+        except Exception as e1:
             # SSL fallback: try with CERT_NONE
-            ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-            self._ssl_ctx = ctx
-            resp = urllib.request.urlopen(req, context=ctx, timeout=timeout)
-            self._rate_remaining = resp.headers.get('X-RateLimit-Remaining')
-            return resp.read()
+            try:
+                ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                self._ssl_ctx = ctx
+                resp = urllib.request.urlopen(req, context=ctx, timeout=timeout)
+                self._rate_remaining = resp.headers.get('X-RateLimit-Remaining')
+                return resp.read()
+            except Exception as e2:
+                pass
+
+            # Final fallback: try subprocess curl (available on most systems)
+            try:
+                curl_cmd = ['curl', '-sL', '--max-time', str(timeout)]
+                if self._pat:
+                    curl_cmd += ['-H', f'Authorization: token {self._pat}']
+                if accept:
+                    curl_cmd += ['-H', f'Accept: {accept}']
+                curl_cmd += ['-H', 'User-Agent: AEGIS-Manager/2.0']
+                if method == 'GET':
+                    curl_cmd.append(url)
+                    result = subprocess.run(curl_cmd, capture_output=True, timeout=timeout + 5)
+                    if result.returncode == 0 and result.stdout:
+                        return result.stdout
+            except Exception:
+                pass
+
+            raise Exception(f'All network strategies failed for {url[:80]}: {e1}')
 
     def _api_get(self, endpoint):
         """GET from GitHub API, return parsed JSON."""
@@ -2925,16 +2946,22 @@ async function doRun(action) {
   const card = document.getElementById('card-' + action);
   if (card) { card.classList.remove('disabled'); card.classList.add('running'); }
 
-  startPolling();
   try {
-    await fetch('/api/run', {
+    const resp = await fetch('/api/run', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({action: action})
     });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || 'Server returned ' + resp.status);
+    }
+    // Only start polling AFTER the operation was successfully started
+    startPolling();
   } catch(e) {
     appendLog('[FAIL] Could not start operation: ' + e.message + '\n');
     opRunning = false;
+    stopPolling();
     document.querySelectorAll('.card').forEach(c => c.classList.remove('running','disabled'));
   }
 }
@@ -3088,38 +3115,61 @@ class ManagerHTTPHandler(BaseHTTPRequestHandler):
         """Suppress default HTTP server logging."""
         pass
 
-    def do_GET(self):
-        parsed = urlparse(self.path)
-        path = parsed.path
+    def do_OPTIONS(self):
+        """Handle CORS preflight requests."""
+        try:
+            self.send_response(200)
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+            self.end_headers()
+        except Exception:
+            pass
 
-        if path == '/' or path == '/index.html':
-            self._serve_html()
-        elif path == '/api/log':
-            self._serve_log(parsed.query)
-        elif path == '/api/server-status':
-            self._serve_server_status()
-        elif path == '/api/backups':
-            self._serve_backups()
-        else:
-            self._send_json({'error': 'not found'}, 404)
+    def do_GET(self):
+        try:
+            parsed = urlparse(self.path)
+            path = parsed.path
+
+            if path == '/' or path == '/index.html':
+                self._serve_html()
+            elif path == '/api/log':
+                self._serve_log(parsed.query)
+            elif path == '/api/server-status':
+                self._serve_server_status()
+            elif path == '/api/backups':
+                self._serve_backups()
+            else:
+                self._send_json({'error': 'not found'}, 404)
+        except Exception as e:
+            try:
+                self._send_json({'error': f'Internal error: {e}'}, 500)
+            except Exception:
+                pass
 
     def do_POST(self):
-        parsed = urlparse(self.path)
-        path = parsed.path
-
-        content_len = int(self.headers.get('Content-Length', 0))
-        body = self.rfile.read(content_len) if content_len else b'{}'
         try:
-            data = json.loads(body)
-        except Exception:
-            data = {}
+            parsed = urlparse(self.path)
+            path = parsed.path
 
-        if path == '/api/run':
-            self._handle_run(data)
-        elif path == '/api/server':
-            self._handle_server(data)
-        else:
-            self._send_json({'error': 'not found'}, 404)
+            content_len = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_len) if content_len else b'{}'
+            try:
+                data = json.loads(body)
+            except Exception:
+                data = {}
+
+            if path == '/api/run':
+                self._handle_run(data)
+            elif path == '/api/server':
+                self._handle_server(data)
+            else:
+                self._send_json({'error': 'not found'}, 404)
+        except Exception as e:
+            try:
+                self._send_json({'error': f'Internal error: {e}'}, 500)
+            except Exception:
+                pass
 
     def _serve_html(self):
         """Serve the main HTML page."""
@@ -3148,17 +3198,24 @@ class ManagerHTTPHandler(BaseHTTPRequestHandler):
 
     def _serve_server_status(self):
         """Check AEGIS server status."""
-        running, vinfo = self.manager.server.is_running()
-        self._send_json({
-            'running': running,
-            'version': vinfo.get('version', '?') if vinfo else None,
-            'aegis_version': self.manager._get_local_version(),
-        })
+        try:
+            running, vinfo = self.manager.server.is_running()
+            self._send_json({
+                'running': running,
+                'version': vinfo.get('version', '?') if vinfo else None,
+                'aegis_version': self.manager._get_local_version(),
+            })
+        except Exception as e:
+            self._send_json({'running': False, 'version': None,
+                             'aegis_version': '?', 'error': str(e)[:200]})
 
     def _serve_backups(self):
         """List available backups."""
-        backups = self.manager.backup.list_backups()
-        self._send_json({'backups': backups})
+        try:
+            backups = self.manager.backup.list_backups()
+            self._send_json({'backups': backups})
+        except Exception as e:
+            self._send_json({'backups': [], 'error': str(e)[:200]})
 
     def _handle_run(self, data):
         """Start a background operation."""
@@ -3229,32 +3286,35 @@ class ManagerHTTPHandler(BaseHTTPRequestHandler):
         action = data.get('action', '')
         mgr = self.manager
 
-        if action == 'start':
-            started = mgr.server.start()
-            self._send_json({
-                'success': started,
-                'message': 'Server started!' if started else 'Failed to start server'
-            })
-        elif action == 'stop':
-            mgr.server.stop()
-            self._send_json({'success': True, 'message': 'Server stopped'})
-        elif action == 'restart':
-            mgr.server.restart()
-            running, _ = mgr.server.is_running()
-            self._send_json({
-                'success': running,
-                'message': 'Server restarted!' if running else 'Restart may still be in progress'
-            })
-        elif action == 'status':
-            running, vinfo = mgr.server.is_running()
-            sv = vinfo.get('version', '?') if vinfo else '?'
-            self._send_json({
-                'success': True,
-                'running': running,
-                'message': f'Server running (v{sv})' if running else 'Server stopped'
-            })
-        else:
-            self._send_json({'error': f'Unknown server action: {action}'}, 400)
+        try:
+            if action == 'start':
+                started = mgr.server.start()
+                self._send_json({
+                    'success': started,
+                    'message': 'Server started!' if started else 'Failed to start server'
+                })
+            elif action == 'stop':
+                mgr.server.stop()
+                self._send_json({'success': True, 'message': 'Server stopped'})
+            elif action == 'restart':
+                mgr.server.restart()
+                running, _ = mgr.server.is_running()
+                self._send_json({
+                    'success': running,
+                    'message': 'Server restarted!' if running else 'Restart may still be in progress'
+                })
+            elif action == 'status':
+                running, vinfo = mgr.server.is_running()
+                sv = vinfo.get('version', '?') if vinfo else '?'
+                self._send_json({
+                    'success': True,
+                    'running': running,
+                    'message': f'Server running (v{sv})' if running else 'Server stopped'
+                })
+            else:
+                self._send_json({'error': f'Unknown server action: {action}'}, 400)
+        except Exception as e:
+            self._send_json({'success': False, 'error': str(e)[:200]}, 500)
 
     def _send_json(self, data, status=200):
         """Send a JSON response."""
