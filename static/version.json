@@ -12,9 +12,13 @@
       "version": "6.3.1",
       "date": "2026-03-01",
       "changes": [
+        "FIX: CRITICAL — window.showToast was NEVER defined as a global function. 46+ calls in app.js and 2 in landing-page.js silently failed via optional chaining (?.)",
+        "FIX: Added showToast shim in modals.js that auto-detects argument order (app.js uses message,type; other files use type,message) and routes to window.toast correctly",
+        "FIX: Added inline _spDiag() diagnostic in _startSPSelectedScan() — creates visible DOM status independent of toast system for SharePoint scan debugging",
+        "FIX: All SharePoint scan toast notifications (success, error, warning) are now visible to users — previously ALL were silently swallowed",
         "FIX: Added diagnostic version marker to sharepoint_scan_selected endpoint — confirms v6.3.1 async handler is loaded via logger.info at function entry",
         "FIX: Added scan state creation logging — confirms scan state dict is created BEFORE background thread spawn",
-        "NOTE: Diagnostic from v6.3.0 confirmed the Windows machine was still running OLD synchronous review_routes.py despite version.json showing 6.3.0. The v6.2.9 async fix was never deployed. Running AEGIS Manager > Update AEGIS will now pull this file."
+        "NOTE: Root cause of 'nothing happening' on SP scan was that ALL user feedback channels (toast notifications) were broken — window.showToast was undefined"
       ]
     },
     {

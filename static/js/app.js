@@ -12852,27 +12852,50 @@ STEPS TO REPRODUCE
          * then starts progress polling on the existing SP scan dashboard.
          */
         async function _startSPSelectedScan() {
-            console.log('%c[AEGIS SP] ▶ _startSPSelectedScan() called (v6.2.9)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
+            console.log('%c[AEGIS SP] ▶ _startSPSelectedScan() called (v6.3.1)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
+
+            // v6.3.1: Inline diagnostic status — visible without toast dependency
+            const _spDiag = (msg, isError) => {
+                console.log('[AEGIS SP] ' + (isError ? '❌ ' : '✓ ') + msg);
+                let statusEl = document.getElementById('sp-scan-diag');
+                if (!statusEl) {
+                    statusEl = document.createElement('div');
+                    statusEl.id = 'sp-scan-diag';
+                    statusEl.style.cssText = 'padding:6px 10px;margin:6px 0;border-radius:4px;font-size:12px;font-family:monospace;';
+                    const selector = document.getElementById('sp-file-selector');
+                    if (selector) selector.insertAdjacentElement('afterbegin', statusEl);
+                }
+                statusEl.style.background = isError ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.15)';
+                statusEl.style.color = isError ? '#f87171' : '#86efac';
+                statusEl.style.border = '1px solid ' + (isError ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)');
+                statusEl.textContent = msg;
+            };
+
             const selectorEl = document.getElementById('sp-file-selector');
             const fileListEl = document.getElementById('sp-file-list');
             const btnScanSelected = document.getElementById('btn-sp-scan-selected');
             if (!selectorEl || !fileListEl) {
                 console.error('[AEGIS SP] ❌ Missing elements: selectorEl=', !!selectorEl, 'fileListEl=', !!fileListEl);
+                _spDiag('FAIL: Missing DOM elements (selector=' + !!selectorEl + ', fileList=' + !!fileListEl + ')', true);
                 return;
             }
+            _spDiag('Step 0: DOM elements found ✓');
 
             // Get discovery context
             let ctx;
             try {
                 ctx = JSON.parse(selectorEl.dataset.discoveryCtx || '{}');
             } catch (e) {
+                _spDiag('FAIL: Could not parse discovery context — ' + e.message, true);
                 window.showToast?.('Internal error: missing discovery context', 'error');
                 return;
             }
+            _spDiag('Step 0: Discovery context parsed — site=' + (ctx.site_url || 'MISSING') + ', files=' + (ctx.files?.length || 0));
 
             // Collect selected file indices
             const checkedCbs = fileListEl.querySelectorAll('.sp-file-check:checked');
             if (checkedCbs.length === 0) {
+                _spDiag('FAIL: No files checked (0 checkboxes selected)', true);
                 window.showToast?.('Please select at least one file to scan', 'warning');
                 return;
             }
@@ -12886,11 +12909,13 @@ STEPS TO REPRODUCE
             });
 
             if (selectedFiles.length === 0) {
+                _spDiag('FAIL: ' + checkedCbs.length + ' boxes checked but 0 files matched ctx.files[idx]', true);
                 window.showToast?.('No files found for selected items', 'error');
                 return;
             }
 
-            console.log(`[AEGIS SP] Starting scan of ${selectedFiles.length} selected files (v6.2.9 — non-blocking)`);
+            _spDiag('Step 0: ' + selectedFiles.length + ' files selected for scan ✓');
+            console.log(`[AEGIS SP] Starting scan of ${selectedFiles.length} selected files (v6.3.1 — non-blocking)`);
 
             // Disable buttons during scan start
             if (btnScanSelected) {
@@ -12901,13 +12926,16 @@ STEPS TO REPRODUCE
             [btnSpConnectScan, btnSpTest, btnSpDiscover, btnSpScan].forEach(b => { if (b) b.disabled = true; });
 
             try {
-                // v6.2.9: Step 1 — Get fresh CSRF token
+                // v6.3.1: Step 1 — Get fresh CSRF token
+                _spDiag('Step 1/3: Fetching CSRF token...');
                 console.log('[AEGIS SP] Step 1/3: Fetching CSRF token...');
                 const csrf = await _freshCSRF();
+                _spDiag('Step 1/3: CSRF token obtained ✓ (' + (csrf ? csrf.substring(0, 8) + '...' : 'NULL') + ')');
                 console.log('[AEGIS SP] Step 1/3: ✓ CSRF token obtained');
 
-                // v6.2.9: Step 2 — POST to start scan (NOW returns IMMEDIATELY — connector
+                // v6.3.1: Step 2 — POST to start scan (returns IMMEDIATELY — connector
                 // creation happens in background thread, not in the HTTP handler)
+                _spDiag('Step 2/3: Sending POST to /api/review/sharepoint-scan-selected...');
                 console.log('[AEGIS SP] Step 2/3: Sending scan request to backend...');
 
                 // AbortController with 120s timeout — safety net for edge cases
@@ -12940,15 +12968,18 @@ STEPS TO REPRODUCE
                 } finally {
                     clearTimeout(timeoutId);
                 }
+                _spDiag('Step 2/3: Backend responded — HTTP ' + resp.status);
                 console.log('[AEGIS SP] Step 2/3: ✓ Backend responded (status=' + resp.status + ')');
 
                 const json = await resp.json();
+                _spDiag('Step 2/3: JSON parsed — success=' + json.success + ', scan_id=' + (json.data?.scan_id || 'none'));
                 console.log('[AEGIS SP] Step 2/3: ✓ Response parsed, success=' + json.success + ', scan_id=' + (json.data?.scan_id || 'none'));
 
                 if (json.success && json.data?.scan_id) {
                     const scanId = json.data.scan_id;
                     const totalFiles = json.data.total_files || selectedFiles.length;
 
+                    _spDiag('Step 3/3: ✓ Scan started! scanId=' + scanId + ', totalFiles=' + totalFiles);
                     console.log('%c[AEGIS SP] Step 3/3: ✓ Scan started! scanId=' + scanId + ' totalFiles=' + totalFiles, 'color:#22c55e;font-weight:bold;');
 
                     window.showToast?.('Scan started — ' + totalFiles + ' files (authenticating to SharePoint...)', 'success');
@@ -12965,13 +12996,15 @@ STEPS TO REPRODUCE
                         btnSpScan.disabled = false;
                     }
 
-                    // v6.2.9: Launch cinematic dashboard — backend is now authenticating
+                    // v6.3.1: Launch cinematic dashboard — backend is now authenticating
                     // in the background thread. Dashboard will show 'Connecting to SharePoint...'
                     // phase while backend creates the connector + authenticates SSO.
-                    console.log('%c[AEGIS SP] Step 3/3: ▶ Launching cinematic dashboard (v6.2.9)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
+                    _spDiag('Step 3/3: Launching cinematic dashboard...');
+                    console.log('%c[AEGIS SP] Step 3/3: ▶ Launching cinematic dashboard (v6.3.1)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
                     try {
                         await _showSpCinematicDashboard(scanId, totalFiles, selectedFiles);
                     } catch (dashErr) {
+                        _spDiag('FAIL: Dashboard launch error — ' + dashErr.message, true);
                         console.error('[AEGIS SP] ❌ Dashboard launch failed:', dashErr);
                         window._aegisLastDashboardError = { message: dashErr.message, stack: dashErr.stack, time: new Date().toISOString(), source: 'caller_catch' };
                         window.showToast?.('SP scan dashboard error: ' + (dashErr.message || 'Unknown'), 'error');
@@ -12987,6 +13020,7 @@ STEPS TO REPRODUCE
                     }
                 } else {
                     const errMsg = json.data?.message || json.error?.message || 'Failed to start scan';
+                    _spDiag('FAIL: Server returned error — ' + errMsg, true);
                     console.error('[AEGIS SP] ❌ Scan start failed:', errMsg);
                     window.showToast?.(errMsg, 'error');
                     // Re-enable scan selected button on failure
@@ -12998,6 +13032,7 @@ STEPS TO REPRODUCE
                 }
             } catch (err) {
                 console.error('[AEGIS SP] ❌ Scan selected error:', err.name, err.message);
+                _spDiag('FAIL: ' + err.name + ' — ' + err.message, true);
                 var userMsg = err.name === 'AbortError'
                     ? 'Scan request timed out — the server may need a restart after updates. Try restarting AEGIS and scanning again.'
                     : 'Failed to start scan: ' + err.message;

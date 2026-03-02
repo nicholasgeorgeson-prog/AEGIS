@@ -706,6 +706,15 @@ window.showModal = TWR.Modals.showModal;
 window.showContentModal = TWR.Modals.showContentModal;
 window.closeModals = TWR.Modals.closeModals;
 window.toast = TWR.Modals.toast;
+// v6.3.1: showToast shim — app.js (46 calls) and landing-page.js use showToast
+// which was never defined as a global. This shim auto-detects argument order:
+// app.js uses (message, type), other files use (type, message).
+window.showToast = function(a, b, duration) {
+    if (!window.toast) return;
+    var knownTypes = {success:1, error:1, warning:1, info:1, loading:1};
+    if (knownTypes[a]) { window.toast(a, b, duration); }
+    else { window.toast(b || 'info', a, duration); }
+};
 window.showLoading = TWR.Modals.showLoading;
 window.hideLoading = TWR.Modals.hideLoading;
 window.updateLoadingMessage = TWR.Modals.updateLoadingMessage;
