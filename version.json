@@ -1,13 +1,33 @@
 {
-  "version": "6.3.1",
-  "release_date": "2026-03-01",
-  "core_version": "6.3.1",
+  "version": "6.3.2",
+  "release_date": "2026-03-02",
+  "core_version": "6.3.2",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.3.2",
+      "date": "2026-03-02",
+      "changes": [
+        "REFACTOR: Extracted _human_size() to routes/_shared.py — eliminated 3 duplicate definitions in review_routes.py",
+        "REFACTOR: Consolidated escapeHtml() — removed 4 inline IIFE copies, all modules now use the global window.escapeHtml()",
+        "CLEANUP: Deleted orphaned nlp_enhancer.py (zero imports anywhere in codebase)",
+        "CLEANUP: Archived 44 superseded apply_v*.py scripts to archive/apply_scripts/",
+        "REFACTOR: Standardized logging across all 10 blueprint modules to use get_logger(__name__) from config_logging",
+        "PERF: Scoped lucide.createIcons() calls in modal renders to pass container target instead of scanning entire DOM",
+        "REFACTOR: Lazy-load checker imports in core.py — checker modules imported on-demand instead of all 105+ at engine construction",
+        "FIX: Write-time deduplication for responsibilities_json — prevents duplicate entries from repeated document scans",
+        "FIX: Config.json schema validation on startup — missing keys auto-filled with defaults, logged as warnings",
+        "CSS: Z-index stratification — defined 10 CSS custom properties (--z-dropdown through --z-cinema) in base.css, applied across modals, toasts, overlays",
+        "CSS: Dark mode selector consolidation — converted 449 .dark-mode selectors to [data-theme='dark'] across 10 CSS files with mixed usage",
+        "CSS: Reduced 9 unnecessary !important declarations across export-suite.css, doc-review-viewer.css, and modals.css",
+        "JS: Added handleFetchError(error, context, opts) utility to api/client.js — extracts messages from structured error objects, shows toast, logs to console",
+        "JS: Standardized 18 fetch error handlers across 9 files to use handleFetchError — fixes unguarded error.message access and inconsistent toast patterns"
+      ]
+    },
     {
       "version": "6.3.1",
       "date": "2026-03-01",
