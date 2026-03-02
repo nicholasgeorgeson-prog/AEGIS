@@ -1,13 +1,23 @@
 {
-  "version": "6.3.12",
+  "version": "6.3.13",
   "release_date": "2026-03-02",
-  "core_version": "6.3.12",
+  "core_version": "6.3.13",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.3.13",
+      "date": "2026-03-02",
+      "changes": [
+        "FIX: v6.3.12 auto-scan worked but response still said discover_only:True — cached JS showed file picker instead of dashboard",
+        "ARCH: Removed discover_only gate entirely — ALL discovery requests now start scan and return scan_id in normal format",
+        "ARCH: Cached JS sees scan_id without discover_only flag → enters scan-started path → shows progress dashboard",
+        "KEEPS: v6.3.12 progress fallback (any active SP scan) still active as safety net"
+      ]
+    },
     {
       "version": "6.3.12",
       "date": "2026-03-02",

@@ -2876,90 +2876,18 @@ def sharepoint_connect_and_scan():
     for f in files:
         f['size_human'] = _human_size(f.get('size', 0))
 
-    # v6.3.12: ONE-REQUEST ARCHITECTURE — Auto-start scan on discovery.
+    # v6.3.13: IGNORE discover_only — always start scan immediately.
     #
-    # DEFINITIVE FIX for corporate DLP/proxy environments (Lessons 170-177):
-    # Every attempt at a second request (POST or GET) to trigger the scan was
-    # blocked by the corporate DLP/proxy. Only the discovery POST consistently
-    # reaches the server. Solution: auto-start scanning ALL discovered files
-    # immediately in the discovery response, with NO second request needed.
+    # The discover_only flag was designed for a two-request flow (discover → select
+    # files → trigger scan). Corporate DLP/proxy blocks ALL second requests, so the
+    # trigger never arrives. Instead of returning a file list and waiting for a scan
+    # trigger, we ALWAYS start scanning immediately. The response format matches the
+    # normal "scan started" path — no discover_only flag — so the cached browser JS
+    # enters its "scan started" code path and shows the progress dashboard.
     #
-    # The frontend still gets the file list (for cached JS to render the file
-    # picker UI), but the scan is ALREADY RUNNING in the background. When the
-    # cached JS tries to trigger a scan via a second request that never arrives,
-    # the progress endpoint's fallback (also v6.3.12) finds the auto-started
-    # scan and returns its progress — regardless of what scan_id the client uses.
-    #
-    # This replaces the v6.3.5 connector cache approach — no cache needed when
-    # the scan starts immediately with the already-authenticated connector.
-    if discover_only:
-        # Auto-start scan of ALL discovered files
-        auto_scan_id = uuid.uuid4().hex[:12]
-
-        with _folder_scan_state_lock:
-            _cleanup_old_scans()
-            _folder_scan_state[auto_scan_id] = {
-                'phase': 'reviewing',
-                'total_files': len(files),
-                'processed': 0,
-                'errors': 0,
-                'current_file': 'Starting SharePoint document scan...',
-                'current_chunk': 0,
-                'total_chunks': (len(files) + FOLDER_SCAN_CHUNK_SIZE - 1) // FOLDER_SCAN_CHUNK_SIZE,
-                'documents': [],
-                'summary': {
-                    'total_documents': len(files),
-                    'processed': 0,
-                    'errors': 0,
-                    'total_issues': 0,
-                    'total_words': 0,
-                    'issues_by_severity': {'Critical': 0, 'High': 0, 'Medium': 0, 'Low': 0, 'Info': 0},
-                    'issues_by_category': {},
-                    'grade_distribution': {},
-                },
-                'roles_found': {},
-                'started_at': time.time(),
-                'completed_at': None,
-                'elapsed_seconds': 0,
-                'estimated_remaining': None,
-                'folder_path': f'SharePoint: {library_path}',
-                'source': 'sharepoint_auto',  # Tagged so progress fallback can find it
-            }
-
-        flask_app = current_app._get_current_object()
-        thread = threading.Thread(
-            target=_process_sharepoint_scan_async,
-            args=(auto_scan_id, connector, files, options, flask_app),
-            daemon=True,
-            name=f'sp-auto-scan-{auto_scan_id}',
-        )
-        thread.start()
-
-        logger.info(f'[SP-discover] AUTO-SCAN STARTED: scan_id={auto_scan_id}, {len(files)} files from {library_path} (one-request architecture v6.3.12)')
-
-        return jsonify({
-            'success': True,
-            'data': {
-                'scan_id': auto_scan_id,  # v6.3.12: Auto-started scan ID
-                'discover_only': True,
-                'auto_scan_started': True,  # v6.3.12: Signal to frontend that scan is already running
-                'connector_token': None,  # v6.3.12: No longer needed — scan uses connector directly
-                'site_title': result.get('title', ''),
-                'site_url': actual_site_url,
-                'library_path': library_path,
-                'auth_method': result.get('auth_method', 'none'),
-                'ssl_fallback': result.get('ssl_fallback', False),
-                'connector_type': result.get('connector_type', 'rest'),
-                'discovery': {
-                    'total_discovered': len(files),
-                    'supported_files': len(files),
-                    'total_size': total_size,
-                    'total_size_human': _human_size(total_size),
-                    'files': files,  # Return ALL files (for cached JS to render file picker)
-                    'file_type_breakdown': type_breakdown,
-                }
-            }
-        })
+    # Combined with the progress endpoint fallback (v6.3.12), this gives end-to-end
+    # visibility: discovery → auto-scan → dashboard → progress polling → results.
+    # Zero new JavaScript required. Works with any cached JS version.
 
     # Generate scan_id and start the scan
     scan_id = uuid.uuid4().hex[:12]
