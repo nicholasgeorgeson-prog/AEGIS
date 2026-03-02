@@ -1725,8 +1725,36 @@ Also moved default `to_email` assignment to the top of the function (line 389) s
 **Files**: `routes/review_routes.py` (new sp_scan_go endpoint), `static/js/app.js` (GET trigger replaces POST)
 **Lesson**: When a specific HTTP POST consistently fails to reach the server in a corporate environment while other requests to the same server succeed, the issue is the POST method itself — not the URL, body size, or headers. Switch to GET for trigger/command endpoints on localhost tools where REST purity doesn't matter. GET requests are treated fundamentally differently by every corporate proxy, DLP, and WAF system. The pattern is: cache state during a working request (discovery), then trigger via GET with only a cache lookup token.
 
+### 178. One-Request Architecture — Auto-Scan on Discovery (v6.3.12)
+**Problem**: SharePoint batch scan trigger NEVER reached the server across 9 versions (v6.3.3-v6.3.11). Every type of second request was blocked: large POST, small POST, zero-payload POST, GET, GET with cached token. Even after auto-reload mechanism to force fresh JS, the corporate proxy served cached JS files. The ONLY request that consistently worked was the initial discovery POST to `sharepoint-connect-and-scan`.
+**Root Cause**: Corporate DLP/proxy blocks ALL second requests regardless of method, body size, or headers. Even a ~100 byte GET was blocked. Additionally, the proxy aggressively caches `app.js` regardless of `?v=` cache-bust parameters, so new JavaScript code never loads on the browser.
+**Definitive Fix**: Two-part server-side-only change requiring ZERO new JavaScript:
+1. **Discovery auto-starts scan**: `sharepoint_connect_and_scan()` with `discover_only=True` now ALSO creates scan state and starts a background scan thread immediately. The connector (already authenticated from discovery) is passed directly to the scan thread — no second auth needed. Response still includes the file list (for cached JS to render its file picker UI) plus the auto-started `scan_id`.
+2. **Progress fallback**: `folder_scan_progress()` — when exact `scan_id` not found in `_folder_scan_state`, searches for ANY active SharePoint scan (`source.startswith('sharepoint')` with `phase in ('connecting', 'reviewing')`). Falls back to recently completed SP scans (within 5 min). This bridges the gap between the server's auto-started `scan_id` and whatever random `scan_id` the cached browser JS generates.
+**Why this works with ANY cached JS version**: (1) Discovery POST always works. (2) Scan starts server-side — no trigger request needed. (3) Cached JS shows file picker, user clicks "Scan Selected", the second request silently fails, but the dashboard polling (`folder-scan-progress/<random_id>` → fallback finds auto-started scan) returns real progress. (4) User sees actual scan progress regardless of which JS version is cached.
+**Key insight**: After 9 versions trying to make a second request work (different methods, payloads, endpoints), the solution was to eliminate the second request entirely. The discovery request does everything.
+**Files**: `routes/review_routes.py` (discovery auto-scan + progress fallback)
+**Lesson**: When corporate infrastructure blocks ALL second requests, the fix is architectural — merge everything into the one request that works. Don't fight the proxy; design around it. The pattern is: (1) single working request does ALL server-side work, (2) background thread for long-running operations, (3) polling endpoint with fuzzy matching (fallback to any active scan) for resilience against scan_id mismatches.
+
+### 179. Version Reporting Unreliability — `/api/version` Reads Disk, Not Running Code (v6.3.15)
+**Problem**: SharePoint auto-scan (v6.3.13) deployed via Manager but never worked. Manager reported "Server is running (v6.3.14)" but old pre-v6.3.13 Python code was still in memory. 13+ discovery attempts across an entire day all returned files WITHOUT `scan_id` — the auto-scan code was never executing.
+**Root Cause**: THREE compounding issues:
+1. **`get_version()` reads from disk**: `config_logging.get_version()` reads `version.json` from disk every call. AEGIS Manager checks `/api/version` (which calls `get_version()`) to verify the server version. When Manager updates files on disk (including `version.json`), the endpoint immediately reports the new version — but the Python code in memory is still the OLD version. Manager's "Server is running (v6.3.14)" check proved nothing about code reload.
+2. **`discover_only: true` always sent by JS**: `app.js` line 13287 always sent `discover_only: true` in the discovery POST body. The v6.3.13 backend had code to IGNORE this flag and auto-start scan, BUT if the server wasn't restarted after the v6.3.13 update, the old code in memory still honored `discover_only: true` and returned files without `scan_id`.
+3. **Server restart not confirmed**: Manager's `_auto_restart_if_needed()` detects .py file changes and attempts restart, but on the Windows machine (Waitress server, OneDrive paths, corporate environment), the restart may silently fail or the old process may not fully terminate.
+**Evidence**: `sharepoint.log` showed 13+ discovery attempts, ALL ending after "list_files returned 63 file(s)" with ZERO scan starts. Zero matches for "scan_id" or "auto_scan" across ALL log files. The auto-scan code from v6.3.13 was never executing despite Manager reporting v6.3.14.
+**Fix**: Removed `discover_only: true` from the JS POST body entirely. When absent, backend `data.get('discover_only', False)` defaults to `False`. This makes ALL backend versions (old and new) auto-start scan and return `scan_id`. Also added v6.3.15 diagnostic markers to `aegis.sharepoint` logger at both endpoint entry and scan start — these write to `sharepoint.log` (confirmed captured in diagnostics) so we can verify which Python code is actually loaded.
+**Files**: `static/js/app.js` (removed `discover_only: true`), `routes/review_routes.py` (diagnostic markers)
+**Key diagnostic pattern**: Added version-stamped log entries to a KNOWN-CAPTURED log file:
+```python
+_sp_diag = logging.getLogger('aegis.sharepoint')
+_sp_diag.info('[ROUTE] ═══ review_routes.py v6.3.15 ═══ sharepoint_connect_and_scan ENTRY')
+```
+If `sharepoint.log` shows "v6.3.15" after update, code WAS reloaded. If it shows an older version or no entry, code was NOT reloaded and server must be manually restarted.
+**Lesson**: NEVER trust `/api/version` or Manager's version check to confirm Python code was reloaded — it only proves `version.json` was updated on disk. To verify code reload: (1) add version-stamped log entries to the code itself, (2) check those log entries after update. When a client-side flag (`discover_only`) gates server behavior, and the server is supposed to ignore that flag, ALSO remove the flag from the client — belt-and-suspenders. If old server code is still in memory, the removed flag defaults to the desired value (`False`), making the feature work regardless of which code version is loaded.
+
 ### 151 (Updated). Version Management Update
-- **Current version**: 6.3.10
+- **Current version**: 6.3.15
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
