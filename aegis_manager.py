@@ -53,7 +53,7 @@ from urllib.parse import parse_qs, urlparse
 # CONSTANTS & CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════
 
-MANAGER_VERSION = "2.2.2"
+MANAGER_VERSION = "2.2.3"
 
 # GitHub
 REPO_OWNER = "nicholasgeorgeson-prog"
@@ -2471,6 +2471,7 @@ GitHub: {'Reachable' if ok else 'Not reachable'}
         # Step 3: Try Outlook COM auto-send first (Windows)
         to_email = 'nicholas.georgeson@gmail.com'
         sent_via_com = False
+        eml_path = None
 
         if sys.platform == 'win32':
             try:
@@ -2528,7 +2529,10 @@ GitHub: {'Reachable' if ok else 'Not reachable'}
         # Step 4: .eml fallback (if COM didn't work)
         if not sent_via_com:
             # Set recipient in .eml so it opens pre-filled
-            msg.replace_header('To', to_email)
+            try:
+                msg.replace_header('To', to_email)
+            except KeyError:
+                msg['To'] = to_email
 
             eml_name = f'aegis_diagnostic_{datetime.now().strftime("%Y%m%d_%H%M%S")}.eml'
             eml_path = os.path.join(self.install_dir, eml_name)
