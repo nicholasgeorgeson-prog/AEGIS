@@ -1,13 +1,25 @@
 {
-  "version": "6.3.5",
+  "version": "6.3.6",
   "release_date": "2026-03-02",
-  "core_version": "6.3.5",
+  "core_version": "6.3.6",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.3.6",
+      "date": "2026-03-02",
+      "changes": [
+        "PERF: SharePoint Online domains now go DIRECTLY to HeadlessSP — skips REST connector entirely",
+        "PERF: Eliminates ~10 second wasted REST auth cascade (Negotiate → MSAL device code → 401 → retry → 401) that ALWAYS fails on SPO",
+        "PERF: Discovery + scan combined: ~15-25 seconds for HeadlessSP auth instead of 25-35s (REST fail + HeadlessSP)",
+        "BACKEND: SPO domain auto-detection (.sharepoint.com/.us/.de/.cn) routes to HeadlessSP first",
+        "BACKEND: Background thread also skips REST for SPO — only tries REST for on-premises SharePoint",
+        "BACKEND: Includes v6.3.5 connector cache (reuse authenticated connector from discovery to scan)"
+      ]
+    },
     {
       "version": "6.3.5",
       "date": "2026-03-02",

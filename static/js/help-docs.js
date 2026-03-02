@@ -8163,6 +8163,15 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.3.6 <span class="changelog-date">March 2, 2026</span></h3>
+        <p><strong>SharePoint Online Fast-Path &mdash; Direct HeadlessSP + Connector Cache</strong></p>
+        <ul>
+            <li><strong>PERF: SPO domains skip REST connector entirely</strong> &mdash; auto-detects .sharepoint.com/.us domains and goes directly to HeadlessSP, eliminating ~10 seconds of wasted REST auth cascade (Negotiate &rarr; MSAL &rarr; 401 &rarr; retry) that always fails on SharePoint Online</li>
+            <li><strong>PERF: Connector cache reuses authenticated session</strong> &mdash; discovery phase caches the HeadlessSP connector with a 5-minute token; scan phase picks it up for zero re-authentication</li>
+            <li><strong>PERF: Background thread also uses SPO fast-path</strong> &mdash; if connector cache misses, the fallback connector creation skips REST for SPO domains</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v6.3.2 <span class="changelog-date">March 2, 2026</span></h3>
         <p><strong>Deep Dive Codebase Improvements &mdash; Cleanup, Performance, Structure, Polish</strong></p>
         <ul>

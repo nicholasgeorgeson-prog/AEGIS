@@ -2325,51 +2325,102 @@ def sharepoint_connect_and_scan():
 
     logger.info(f'SharePoint connect-and-scan: site_url="{actual_site_url}", library_path="{library_path}", discover_only={discover_only}')
 
-    # Combined connect + discover
-    connector = SPConnector(actual_site_url)
-    result = connector.connect_and_discover(
-        library_path=library_path,
-        recursive=recursive,
-        max_files=max_files
-    )
+    # v6.3.6: Check if this is a SharePoint Online domain — skip REST connector entirely.
+    # REST always fails with 401 (empty WWW-Authenticate) on SPO because legacy auth is
+    # disabled. The REST → MSAL → retry cascade wastes ~10 seconds before HeadlessSP fallback.
+    # Go directly to HeadlessSP for known SPO domains.
+    _is_spo_domain = any(p in actual_site_url.lower() for p in (
+        'sharepoint.com', 'sharepoint.us', 'sharepoint.de', 'sharepoint.cn'
+    ))
 
     # v6.1.3: Track headless fallback state for error reporting
     _headless_available = False
     _headless_tried = False
     _headless_error = ''
+    connector = None
+    result = None
 
-    if not result['success']:
-        # v6.1.3: Try headless browser as fallback (uses Windows SSO like Chrome)
-        headless_succeeded = False
+    # v6.3.6: For SPO domains, go directly to HeadlessSP — no REST attempt
+    if _is_spo_domain:
         try:
             from sharepoint_connector import HeadlessSPConnector, HEADLESS_SP_AVAILABLE
             _headless_available = HEADLESS_SP_AVAILABLE
             if HEADLESS_SP_AVAILABLE:
                 _headless_tried = True
-                logger.info(f"SharePoint: REST API auth failed — trying headless browser (Windows SSO)... library_path=\"{library_path}\"")
-                headless_connector = HeadlessSPConnector(actual_site_url)
-                headless_result = headless_connector.connect_and_discover(
+                logger.info(f"SharePoint Online detected — going direct to HeadlessSP (skipping REST)")
+                connector = HeadlessSPConnector(actual_site_url)
+                result = connector.connect_and_discover(
                     library_path=library_path,
                     recursive=recursive,
                     max_files=max_files,
                 )
-                if headless_result['success']:
-                    # Replace connector and result — continue with headless
-                    connector.close()
-                    connector = headless_connector
-                    result = headless_result
-                    headless_succeeded = True
-                    logger.info(f"SharePoint: Headless browser connected — {len(result.get('files', []))} files found")
+                if result['success']:
+                    logger.info(f"SharePoint: HeadlessSP connected — {len(result.get('files', []))} files found")
                 else:
-                    _headless_error = headless_result.get('message', 'Headless browser authentication failed')
-                    headless_connector.close()
-                    logger.warning(f"SharePoint: Headless fallback also failed: {_headless_error}")
+                    _headless_error = result.get('message', 'Headless browser authentication failed')
+                    logger.warning(f"SharePoint: HeadlessSP failed: {_headless_error}")
+                    connector.close()
+                    connector = None
             else:
-                logger.warning("SharePoint: Playwright not installed — headless browser fallback unavailable")
+                logger.warning("SharePoint Online detected but Playwright not installed — falling back to REST")
         except Exception as e:
             _headless_tried = True
             _headless_error = str(e)
-            logger.warning(f"SharePoint: Headless fallback exception: {e}")
+            logger.warning(f"SharePoint: HeadlessSP exception: {e}")
+            if connector:
+                try:
+                    connector.close()
+                except Exception:
+                    pass
+                connector = None
+
+    # For on-premises SharePoint (non-SPO) or when HeadlessSP unavailable, try REST first
+    if result is None or not result.get('success'):
+        rest_connector = SPConnector(actual_site_url)
+        rest_result = rest_connector.connect_and_discover(
+            library_path=library_path,
+            recursive=recursive,
+            max_files=max_files
+        )
+        if rest_result['success']:
+            connector = rest_connector
+            result = rest_result
+        else:
+            # REST failed — try HeadlessSP as fallback (if not already tried for SPO)
+            if not _headless_tried:
+                try:
+                    from sharepoint_connector import HeadlessSPConnector, HEADLESS_SP_AVAILABLE
+                    _headless_available = HEADLESS_SP_AVAILABLE
+                    if HEADLESS_SP_AVAILABLE:
+                        _headless_tried = True
+                        logger.info(f"SharePoint: REST API auth failed — trying headless browser (Windows SSO)... library_path=\"{library_path}\"")
+                        headless_connector = HeadlessSPConnector(actual_site_url)
+                        headless_result = headless_connector.connect_and_discover(
+                            library_path=library_path,
+                            recursive=recursive,
+                            max_files=max_files,
+                        )
+                        if headless_result['success']:
+                            rest_connector.close()
+                            connector = headless_connector
+                            result = headless_result
+                            logger.info(f"SharePoint: Headless browser connected — {len(result.get('files', []))} files found")
+                        else:
+                            _headless_error = headless_result.get('message', 'Headless browser authentication failed')
+                            headless_connector.close()
+                            logger.warning(f"SharePoint: Headless fallback also failed: {_headless_error}")
+                    else:
+                        logger.warning("SharePoint: Playwright not installed — headless browser fallback unavailable")
+                except Exception as e:
+                    _headless_tried = True
+                    _headless_error = str(e)
+                    logger.warning(f"SharePoint: Headless fallback exception: {e}")
+
+            # If we still don't have a working connector, close REST
+            if not result or not result.get('success'):
+                rest_connector.close()
+                if result is None:
+                    result = rest_result  # Use REST error for reporting
 
     if not result['success']:
         connector.close()
@@ -2608,8 +2659,8 @@ def sharepoint_scan_selected():
 
     v6.3.1: Added diagnostic version marker for deployment verification.
     """
-    # ── v6.3.1: Diagnostic marker — confirms this code version is loaded ──
-    logger.info('[SP-scan-selected] ENTRY — v6.3.1 async handler (non-blocking)')
+    # ── v6.3.6: Diagnostic marker — confirms this code version is loaded ──
+    logger.info('[SP-scan-selected] ENTRY — v6.3.6 async handler (connector cache + SPO fast-path)')
 
     SPConnector, sp_parse_url = _get_sharepoint_connector()
     if SPConnector is None:
@@ -3043,12 +3094,17 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
         SPConnector, _ = _get_sharepoint_connector()
         connector_created = False
 
-        # Strategy 1: Try the connector type that worked during discovery
-        if connector_type == 'headless':
+        # v6.3.6: Detect SPO domains — skip REST entirely (always fails with 401)
+        _is_spo = any(p in (site_url or '').lower() for p in (
+            'sharepoint.com', 'sharepoint.us', 'sharepoint.de', 'sharepoint.cn'
+        ))
+
+        # Strategy 1: HeadlessSP — primary for SPO domains, or when discovery used headless
+        if connector_type == 'headless' or _is_spo:
             try:
                 from sharepoint_connector import HeadlessSPConnector, HEADLESS_SP_AVAILABLE
                 if HEADLESS_SP_AVAILABLE:
-                    logger.info(f"SP scan {scan_id}: Trying HeadlessSPConnector...")
+                    logger.info(f"SP scan {scan_id}: Trying HeadlessSPConnector (SPO={_is_spo}, type={connector_type})...")
                     with _folder_scan_state_lock:
                         state = _folder_scan_state.get(scan_id)
                         if state:
@@ -3072,10 +3128,10 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
                         pass
                     connector = None
 
-        # Strategy 2: Try REST connector
-        if not connector_created and SPConnector:
+        # Strategy 2: REST connector — only for on-premises (non-SPO) SharePoint
+        if not connector_created and SPConnector and not _is_spo:
             try:
-                logger.info(f"SP scan {scan_id}: Trying REST connector...")
+                logger.info(f"SP scan {scan_id}: Trying REST connector (on-premises)...")
                 with _folder_scan_state_lock:
                     state = _folder_scan_state.get(scan_id)
                     if state:
@@ -3100,7 +3156,7 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
                     connector = None
 
         # Strategy 3: Headless fallback if REST failed and not already tried
-        if not connector_created and connector_type != 'headless':
+        if not connector_created and not _is_spo and connector_type != 'headless':
             try:
                 from sharepoint_connector import HeadlessSPConnector, HEADLESS_SP_AVAILABLE
                 if HEADLESS_SP_AVAILABLE:
