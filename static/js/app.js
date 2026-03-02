@@ -7928,15 +7928,8 @@ const FixAssistant = (function() {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // UTILITY FUNCTIONS
+    // UTILITY FUNCTIONS (escapeHtml shared from outer scope)
     // ═══════════════════════════════════════════════════════════════════════════
-
-    function escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
 
     function debounce(fn, delay) {
         let timeout;
@@ -14664,22 +14657,10 @@ STEPS TO REPRODUCE
             }
 
         } catch (error) {
-            console.error('[TWR] Failed to load batch document:', error);
-            if (window.showToast) {
-                window.showToast('Failed to load document: ' + error.message, 'error');
-            }
+            handleFetchError(error, 'Load document');
             // Show batch results again on error
             document.getElementById('batch-results').style.display = 'block';
         }
-    }
-    
-    // Helper - escape HTML (may already exist)
-    function escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/&/g, '&amp;')
-                  .replace(/</g, '&lt;')
-                  .replace(/>/g, '&gt;')
-                  .replace(/"/g, '&quot;');
     }
     
     // Initialize when DOM ready
@@ -14980,7 +14961,7 @@ console.log('[TWR] Batch upload functionality loaded');
                 toast('error', typeof result.error === 'string' ? result.error : result.error?.message || 'Failed to seed dictionary');
             }
         } catch (error) {
-            toast('error', 'Error seeding dictionary: ' + error.message);
+            handleFetchError(error, 'Seed dictionary');
         }
     }
     
@@ -15087,10 +15068,10 @@ console.log('[TWR] Batch upload functionality loaded');
                 toast('error', typeof result.error === 'string' ? result.error : result.error?.message || 'Failed to save role');
             }
         } catch (error) {
-            toast('error', 'Error saving role: ' + error.message);
+            handleFetchError(error, 'Save role');
         }
     }
-    
+
     window.editDictRole = function(roleId) {
         openRoleModal(roleId);
     };
@@ -15112,10 +15093,10 @@ console.log('[TWR] Batch upload functionality loaded');
                 await loadRoleDictionary();
             }
         } catch (error) {
-            toast('error', 'Error: ' + error.message);
+            handleFetchError(error, 'Toggle role');
         }
     };
-    
+
     window.deleteDictRole = async function(roleId) {
         if (!confirm('Delete this role from the dictionary?')) return;
         
@@ -15131,10 +15112,10 @@ console.log('[TWR] Batch upload functionality loaded');
                 await loadRoleDictionary();
             }
         } catch (error) {
-            toast('error', 'Error: ' + error.message);
+            handleFetchError(error, 'Delete role');
         }
     };
-    
+
     // ================================================================
     // v2.9.1 D2: SMART IMPORT WIZARD
     // ================================================================
@@ -15523,7 +15504,7 @@ console.log('[TWR] Batch upload functionality loaded');
                 }
             }
         } catch (error) {
-            toast('error', 'Sync error: ' + error.message);
+            handleFetchError(error, 'Dictionary sync');
         }
     }
     
@@ -15549,7 +15530,7 @@ console.log('[TWR] Batch upload functionality loaded');
                 toast('error', result.error || 'Failed to create master file');
             }
         } catch (error) {
-            toast('error', 'Error creating master: ' + error.message);
+            handleFetchError(error, 'Create master');
         } finally {
             hideLoading();
         }
@@ -15573,12 +15554,6 @@ console.log('[TWR] Batch upload functionality loaded');
         // Download the shareable master file
         window.location.href = '/api/roles/dictionary/download-master?include_inactive=false';
         toast('success', 'Downloading role_dictionary_master.json - share this with your team!');
-    }
-    
-    // Helper
-    function escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
     
     function debounce(func, wait) {
@@ -17268,12 +17243,6 @@ const StatementForge = (function() {
         }
     }
     
-    // Helper functions
-    function escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
-    
     function truncate(str, maxLen) {
         if (!str || str.length <= maxLen) return str;
         return str.substring(0, maxLen) + '...';
@@ -17783,14 +17752,6 @@ const StatementForge = (function() {
         container.style.display = 'block';
     }
     
-    // Helper for escaping HTML
-    function escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-    
     // Toggle export menu helper
     function toggleExportMenu(menuId) {
         const menu = document.getElementById(menuId);
@@ -18184,14 +18145,6 @@ const ExportReview = (function() {
         }
     }
     
-    /**
-     * Helper functions
-     */
-    function escapeHtml(str) {
-        if (!str) return '';
-        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
-    
     function showModal(id) {
         const modal = document.getElementById(id);
         if (modal) {
@@ -18468,10 +18421,7 @@ const AITroubleshoot = (function() {
             return filename;
         } catch (error) {
             if (window.hideLoading) hideLoading();
-            console.error('[TWR] Failed to export diagnostic package:', error);
-            if (window.toast) {
-                toast('error', 'Failed to export diagnostics: ' + error.message);
-            }
+            handleFetchError(error, 'Export diagnostics');
             throw error;
         }
     }

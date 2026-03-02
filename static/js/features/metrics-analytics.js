@@ -110,7 +110,12 @@ window.MetricsAnalytics = (function () {
 
     function refreshIcons() {
         if (typeof lucide !== 'undefined' && lucide.createIcons) {
-            lucide.createIcons();
+            var modal = document.getElementById('modal-metrics-analytics');
+            if (modal) {
+                lucide.createIcons({ nodes: [modal] });
+            } else {
+                lucide.createIcons();
+            }
         }
     }
 
@@ -1289,7 +1294,11 @@ window.MetricsAnalytics = (function () {
                 }
             })
             .catch(function (err) {
-                console.warn('[MetricsAnalytics] Proposal metrics unavailable:', err.message);
+                if (typeof handleFetchError === 'function') {
+                    handleFetchError(err, 'Proposal metrics', { toast: false });
+                } else {
+                    console.warn('[MetricsAnalytics] Proposal metrics unavailable:', err && err.message || err);
+                }
                 _showProposalsEmpty();
             });
     }

@@ -1813,10 +1813,10 @@
             });
             if (!resp.ok) {
                 const errData = await resp.json().catch(() => ({}));
-                console.warn('[TWR RolesTabs] Adjudication API error:', resp.status, errData);
+                handleFetchError(errData, 'Adjudication', { level: 'warning' });
             }
         } catch (e) {
-            console.warn('[TWR RolesTabs] Failed to persist adjudication:', e);
+            handleFetchError(e, 'Adjudication', { level: 'warning' });
         }
 
         // v4.6.1: Update status in-place in AdjState.roles so re-render reflects changes

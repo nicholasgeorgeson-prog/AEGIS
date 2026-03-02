@@ -133,8 +133,8 @@
                 showDictError('Failed to load dictionary: ' + (result.error || 'Unknown error'));
             }
         } catch (error) {
-            console.error('[TWR DictV5] Error loading dictionary:', error);
-            showDictError('Error loading dictionary: ' + error.message);
+            var msg = handleFetchError(error, 'Load dictionary', { toast: false });
+            showDictError('Error loading dictionary: ' + msg);
         }
     }
 
@@ -1745,7 +1745,7 @@
                 showToast('error', 'Failed to save: ' + (result.error || 'Unknown error'));
             }
         } catch (error) {
-            showToast('error', 'Error saving role: ' + error.message);
+            handleFetchError(error, 'Save role');
         }
     }
 
@@ -1802,7 +1802,7 @@
                 showToast('error', 'Failed: ' + (result.error || 'Unknown error'));
             }
         } catch (error) {
-            showToast('error', 'Error: ' + error.message);
+            handleFetchError(error, 'Toggle role');
         }
     }
 
@@ -1827,7 +1827,7 @@
                 showToast('error', 'Failed: ' + (result.error || 'Unknown error'));
             }
         } catch (error) {
-            showToast('error', 'Error: ' + error.message);
+            handleFetchError(error, 'Delete role');
         }
     }
 

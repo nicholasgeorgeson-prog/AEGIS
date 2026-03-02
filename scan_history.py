@@ -886,6 +886,62 @@ class ScanHistoryDB:
             
             # Update document-role relationship
             responsibilities = role_data.get('responsibilities', [])
+
+            # v6.3.2: Write-time deduplication — prevent duplicate statements
+            # within the same JSON blob. Dedup by normalized text content.
+            if responsibilities:
+                seen_texts = set()
+                deduped = []
+                for resp in responsibilities:
+                    if isinstance(resp, str):
+                        key = resp.strip().lower()
+                    elif isinstance(resp, dict):
+                        key = (resp.get('text') or resp.get('responsibility') or '').strip().lower()
+                    else:
+                        key = str(resp).strip().lower()
+                    if key and key not in seen_texts:
+                        seen_texts.add(key)
+                        deduped.append(resp)
+                responsibilities = deduped
+
+            # v6.3.2: On re-scan, merge with existing entries to preserve
+            # user edits (review_status, notes) while adding new statements
+            existing_json = None
+            cursor.execute('''
+                SELECT responsibilities_json FROM document_roles
+                WHERE document_id = ? AND role_id = ?
+            ''', (document_id, role_id))
+            existing_row = cursor.fetchone()
+            if existing_row and existing_row[0]:
+                try:
+                    existing = json.loads(existing_row[0])
+                    if isinstance(existing, list) and existing:
+                        # Build lookup of existing entries by normalized text
+                        existing_by_text = {}
+                        for entry in existing:
+                            if isinstance(entry, str):
+                                existing_by_text[entry.strip().lower()] = entry
+                            elif isinstance(entry, dict):
+                                txt = (entry.get('text') or entry.get('responsibility') or '').strip().lower()
+                                if txt:
+                                    existing_by_text[txt] = entry
+
+                        # Merge: keep existing entries (preserves user edits),
+                        # add genuinely new ones from this scan
+                        merged = list(existing)
+                        for resp in responsibilities:
+                            if isinstance(resp, str):
+                                key = resp.strip().lower()
+                            elif isinstance(resp, dict):
+                                key = (resp.get('text') or resp.get('responsibility') or '').strip().lower()
+                            else:
+                                key = str(resp).strip().lower()
+                            if key and key not in existing_by_text:
+                                merged.append(resp)
+                        responsibilities = merged
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
             cursor.execute('''
                 INSERT INTO document_roles (document_id, role_id, mention_count, responsibilities_json)
                 VALUES (?, ?, ?, ?)

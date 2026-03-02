@@ -36,7 +36,8 @@ from routes._shared import (
     BATCH_SCAN_MAX_WORKERS,
     BATCH_SCAN_PER_FILE_TIMEOUT,
     BATCH_SCAN_CLEANUP_AGE,
-    get_engine
+    get_engine,
+    _human_size
 )
 import routes._shared as _shared
 
@@ -877,15 +878,6 @@ def folder_discover():
             'max_depth': max_depth,
         }
     })
-
-
-def _human_size(size_bytes):
-    """Convert bytes to human-readable size string."""
-    for unit in ['B', 'KB', 'MB', 'GB']:
-        if size_bytes < 1024:
-            return f'{size_bytes:.1f} {unit}'
-        size_bytes /= 1024
-    return f'{size_bytes:.1f} TB'
 
 
 # =============================================================================
@@ -2398,13 +2390,6 @@ def sharepoint_connect_and_scan():
         ext = f.get('extension', 'unknown')
         type_breakdown[ext] = type_breakdown.get(ext, 0) + 1
 
-    def _human_size(b):
-        for unit in ('B', 'KB', 'MB', 'GB'):
-            if b < 1024:
-                return f'{b:.1f} {unit}'
-            b /= 1024
-        return f'{b:.1f} TB'
-
     for f in files:
         f['size_human'] = _human_size(f.get('size', 0))
 
@@ -2793,13 +2778,6 @@ def sharepoint_scan_start():
     for f in files:
         ext = f.get('extension', 'unknown')
         type_breakdown[ext] = type_breakdown.get(ext, 0) + 1
-
-    def _human_size(b):
-        for unit in ('B', 'KB', 'MB', 'GB'):
-            if b < 1024:
-                return f'{b:.1f} {unit}'
-            b /= 1024
-        return f'{b:.1f} TB'
 
     # Add size_human and relative path display
     for f in files:

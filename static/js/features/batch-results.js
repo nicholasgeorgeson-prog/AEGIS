@@ -396,7 +396,7 @@ window.BatchResults = (function () {
             }
         });
 
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        if (typeof lucide !== 'undefined') { var _c = document.getElementById('batch-results'); lucide.createIcons(_c ? { nodes: [_c] } : undefined); }
     }
 
     function _renderFilterSummary() {
@@ -567,7 +567,7 @@ window.BatchResults = (function () {
             });
         });
 
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        if (typeof lucide !== 'undefined') { var _c = document.getElementById('batch-results'); lucide.createIcons(_c ? { nodes: [_c] } : undefined); }
     }
 
     function _buildSevMiniBar(issues) {
@@ -632,7 +632,7 @@ window.BatchResults = (function () {
         // Render issues list
         _renderDrillDownIssues(docIndex);
 
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        if (typeof lucide !== 'undefined') { var _c = document.getElementById('batch-results'); lucide.createIcons(_c ? { nodes: [_c] } : undefined); }
     }
 
     function _renderDrillDownIssues(docIndex) {
@@ -683,7 +683,7 @@ window.BatchResults = (function () {
         });
 
         container.innerHTML = html;
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        if (typeof lucide !== 'undefined') { var _c = document.getElementById('batch-results'); lucide.createIcons(_c ? { nodes: [_c] } : undefined); }
     }
 
     function _hideDocDrillDown() {
@@ -895,7 +895,7 @@ window.BatchResults = (function () {
         _renderDocumentTable();
         _renderSeverityChart();
 
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        if (typeof lucide !== 'undefined') { var _c = document.getElementById('batch-results'); lucide.createIcons(_c ? { nodes: [_c] } : undefined); }
     }
 
     function hide() {

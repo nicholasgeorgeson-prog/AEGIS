@@ -213,6 +213,98 @@ def reset_config():
     _config = None
 
 
+def validate_user_config(config_path: Optional[Path] = None) -> dict:
+    """v6.3.2: Validate config.json and fill missing keys with defaults.
+
+    Reads config.json, checks structure, fills missing top-level and nested
+    keys with sensible defaults, and writes back if any defaults were added.
+    Logs warnings for any issues found but never crashes.
+
+    Args:
+        config_path: Path to config.json. Defaults to project root.
+
+    Returns:
+        The validated config dict.
+    """
+    if config_path is None:
+        config_path = Path(__file__).parent / 'config.json'
+
+    _DEFAULTS = {
+        'reviewer_name': 'AEGIS',
+        'hyperlink_settings': {
+            'validation_mode': 'validator'
+        },
+        'default_checks': {
+            'check_acronyms': True,
+            'check_passive_voice': True,
+            'check_weak_language': True,
+            'check_wordy_phrases': True,
+            'check_nominalization': True,
+            'check_jargon': True,
+            'check_ambiguous_pronouns': True,
+            'check_requirements_language': True,
+            'check_gender_language': True,
+            'check_punctuation': True,
+            'check_sentence_length': True,
+            'check_repeated_words': True,
+            'check_capitalization': True,
+            'check_contractions': True,
+            'check_references': True,
+            'check_document_structure': True,
+            'check_tables_figures': True,
+            'check_track_changes': True,
+            'check_consistency': True,
+            'check_lists': True,
+        },
+        'acronym_settings': {
+            'ignore_common_acronyms': False,
+        },
+        'learningEnabled': True,
+    }
+
+    import json as _json
+
+    # Load existing config
+    user_config = {}
+    if config_path.exists():
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                user_config = _json.load(f)
+            if not isinstance(user_config, dict):
+                print(f'[AEGIS] config.json is not a dict (got {type(user_config).__name__}), resetting to defaults', file=sys.stderr)
+                user_config = {}
+        except _json.JSONDecodeError as e:
+            print(f'[AEGIS] config.json has invalid JSON: {e}. Using defaults.', file=sys.stderr)
+            user_config = {}
+        except Exception as e:
+            print(f'[AEGIS] Could not read config.json: {e}. Using defaults.', file=sys.stderr)
+            user_config = {}
+
+    # Fill missing keys
+    filled = []
+    for key, default_value in _DEFAULTS.items():
+        if key not in user_config:
+            user_config[key] = default_value
+            filled.append(key)
+        elif isinstance(default_value, dict) and isinstance(user_config[key], dict):
+            # Fill missing sub-keys in nested dicts
+            for sub_key, sub_default in default_value.items():
+                if sub_key not in user_config[key]:
+                    user_config[key][sub_key] = sub_default
+                    filled.append(f'{key}.{sub_key}')
+
+    # Write back if defaults were added
+    if filled:
+        print(f'[AEGIS] config.json: filled {len(filled)} missing key(s): {", ".join(filled)}', file=sys.stderr)
+        try:
+            with open(config_path, 'w', encoding='utf-8') as f:
+                _json.dump(user_config, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f'[AEGIS] Could not write defaults to config.json: {e}', file=sys.stderr)
+
+    return user_config
+
+
 # =============================================================================
 # STRUCTURED LOGGING
 # =============================================================================

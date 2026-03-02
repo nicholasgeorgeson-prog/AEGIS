@@ -292,6 +292,12 @@ _docling_pool = _PersistentDoclingPool()
 # so subsequent files in the same batch/scan don't waste 60-120s each on timeouts
 _docling_session_broken = False
 
+# v6.3.2: Module-level checker instance cache
+# First AEGISEngine() eagerly imports + instantiates all checkers (warms import cache).
+# Subsequent engines reuse cached instances instead of re-importing/re-instantiating,
+# saving significant overhead in batch scans where each thread creates its own engine.
+_checker_cache = None  # Dict of cached checker instances + NLP attributes, or None
+
 # v5.9.40: Clean up persistent worker on exit (non-daemon process won't auto-terminate)
 atexit.register(lambda: _docling_pool.shutdown() if _docling_pool else None)
 
@@ -1321,7 +1327,29 @@ class AEGISEngine:
         self._init_checkers()
     
     def _init_checkers(self):
-        """Initialize all checkers with lazy loading."""
+        """Initialize all checkers.
+
+        v6.3.2: Uses module-level cache for batch scan performance.
+        First engine does full eager load (warms Python import cache + instantiates
+        all checkers). Subsequent engines reuse cached instances via shallow copy,
+        avoiding redundant import resolution and object construction for 105+ checkers.
+        """
+        global _checker_cache
+
+        if _checker_cache is not None:
+            # Fast path: reuse cached checker instances
+            self.checkers = dict(_checker_cache['checkers'])
+            self._nlp_checkers = _checker_cache['nlp_checkers']
+            self._nlp_available = _checker_cache['nlp_available']
+            self._enhanced_analyzers = _checker_cache['enhanced_analyzers']
+            self._v330_checkers = _checker_cache['v330_checkers']
+            self._v330_learner = _checker_cache['v330_learner']
+            self._v330_nlp = _checker_cache['v330_nlp']
+            self._v340_checkers = _checker_cache['v340_checkers']
+            _log(f" Reusing cached checkers: {len(self.checkers)} instances")
+            return
+
+        # Full eager load — first engine warms the import cache
         try:
             from writing_quality_checker import (
                 WeakLanguageChecker, WordyPhrasesChecker, NominalizationChecker,
@@ -1832,6 +1860,19 @@ class AEGISEngine:
             _log(f"   ✗ Advanced analysis checkers error: {e}")
 
         _log(f" v5.3.0 spaCy Ecosystem Suite: 11 new checkers registered")
+
+        # v6.3.2: Cache all checker instances for reuse by subsequent engines
+        _checker_cache = {
+            'checkers': dict(self.checkers),
+            'nlp_checkers': self._nlp_checkers,
+            'nlp_available': self._nlp_available,
+            'enhanced_analyzers': self._enhanced_analyzers,
+            'v330_checkers': self._v330_checkers,
+            'v330_learner': self._v330_learner,
+            'v330_nlp': self._v330_nlp,
+            'v340_checkers': self._v340_checkers,
+        }
+        _log(f" Cached {len(self.checkers)} checker instances for reuse by batch engines")
 
     # Boilerplate patterns to filter out
     BOILERPLATE_PATTERNS = [

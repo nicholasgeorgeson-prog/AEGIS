@@ -34,11 +34,15 @@ Metrics:
 import os
 import json
 import logging
+try:
+    from config_logging import get_logger
+except Exception:
+    get_logger = None
 import tempfile
 import traceback
 from flask import Blueprint, request, jsonify, send_file, current_app
 
-logger = logging.getLogger(__name__)
+logger = get_logger('proposal_compare') if get_logger else logging.getLogger(__name__)
 
 pc_blueprint = Blueprint('proposal_compare', __name__)
 

@@ -396,6 +396,19 @@ def is_learning_enabled():
     return True
 
 
+# ---------------------------------------------------------------------------
+# Size formatting utility
+# ---------------------------------------------------------------------------
+
+def _human_size(size_bytes):
+    """Convert bytes to human-readable size string."""
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if size_bytes < 1024:
+            return f'{size_bytes:.1f} {unit}'
+        size_bytes /= 1024
+    return f'{size_bytes:.1f} TB'
+
+
 # Batch constants
 # v5.5.0: Increased from 10/100MB to support large document repositories
 MAX_BATCH_SIZE = 50  # Max files per single HTTP upload batch

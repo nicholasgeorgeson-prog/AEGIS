@@ -291,8 +291,11 @@ TWR.LandingPage = (function() {
             versionEl.textContent = `v${data._appVersion}`;
         }
 
-        // Refresh Lucide icons
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        // Refresh Lucide icons (scoped to landing page container)
+        if (typeof lucide !== 'undefined') {
+            const lpPage = document.querySelector('.lp-page');
+            lucide.createIcons(lpPage ? { nodes: [lpPage] } : undefined);
+        }
 
         // Animate count-up for metrics
         requestAnimationFrame(() => animateCountUp());
@@ -454,20 +457,20 @@ TWR.LandingPage = (function() {
         const metricsEl = document.getElementById('lp-metrics');
         if (metricsEl) {
             metricsEl.innerHTML = buildMetricsHTML();
-            if (typeof lucide !== 'undefined') lucide.createIcons();
+            if (typeof lucide !== 'undefined') lucide.createIcons({ nodes: [metricsEl] });
             animateCountUp();
         }
         // Also update recent
         const recentEl = document.getElementById('lp-recent');
         if (recentEl) {
             recentEl.innerHTML = buildRecentHTML();
-            if (typeof lucide !== 'undefined') lucide.createIcons();
+            if (typeof lucide !== 'undefined') lucide.createIcons({ nodes: [recentEl] });
         }
         // v5.9.5: Also update footer (checker count, NLP engines, extractors)
         const footerEl = document.getElementById('lp-footer');
         if (footerEl) {
             footerEl.innerHTML = buildFooterHTML();
-            if (typeof lucide !== 'undefined') lucide.createIcons();
+            if (typeof lucide !== 'undefined') lucide.createIcons({ nodes: [footerEl] });
         }
     }
 

@@ -5167,7 +5167,10 @@ window.ProposalCompare = (function() {
                     headers: { 'X-CSRF-Token': getCSRF() }
                 }).then(function(r) { return r.json(); })
                   .then(function(j) { return j.success ? j.data : null; })
-                  .catch(function() { return null; });
+                  .catch(function(e) {
+                      console.warn('[ProposalCompare] Failed to load proposal ' + ps.id + ':', e && e.message || e);
+                      return null;
+                  });
             });
             var fullProposals = (await Promise.all(loadPromises)).filter(Boolean);
 

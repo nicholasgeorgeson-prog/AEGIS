@@ -17,8 +17,12 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from flask import Blueprint, jsonify, request
 
-# Set up logging
-logger = logging.getLogger('portfolio')
+# Set up logging — defensive pattern matching other blueprints
+try:
+    from config_logging import get_logger
+    logger = get_logger('portfolio')
+except Exception:
+    logger = logging.getLogger('portfolio')
 
 # Create Blueprint
 portfolio_blueprint = Blueprint('portfolio', __name__)

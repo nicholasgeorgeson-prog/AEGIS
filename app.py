@@ -121,7 +121,7 @@ try:
     from config_logging import (
         get_config, get_logger, get_rate_limiter, VERSION, APP_NAME,
         generate_csrf_token, verify_csrf_token, StructuredLogger,
-        log_production_error
+        log_production_error, validate_user_config
     )
 except Exception as e:
     _capture_startup_error(e, 'config_logging import failed')
@@ -138,6 +138,12 @@ except Exception as e:
 # ---------------------------------------------------------------------------
 config = get_config()
 logger = get_logger('app')
+
+# v6.3.2: Validate config.json and fill missing keys with defaults
+try:
+    validate_user_config()
+except Exception as e:
+    logger.warning(f'config.json validation failed (non-fatal): {e}')
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = config.secret_key

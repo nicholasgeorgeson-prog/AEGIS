@@ -446,9 +446,21 @@ TWR.API = (function() {
     }
     
     // ========================================
+    // ERROR HANDLING UTILITY
+    // ========================================
+
+    /**
+     * Extract a human-readable message from any error shape and optionally
+     * show a toast + console log. Re-exported as window.handleFetchError.
+     */
+    function handleFetchError(err, context, opts) {
+        return window.handleFetchError(err, context, opts);
+    }
+
+    // ========================================
     // PUBLIC API
     // ========================================
-    
+
     return {
         // CSRF
         initCSRF,
@@ -496,7 +508,10 @@ TWR.API = (function() {
         
         // Diagnostics
         getDiagnostics,
-        exportDiagnostics
+        exportDiagnostics,
+
+        // Error handling utility
+        handleFetchError
     };
 })();
 
@@ -507,5 +522,49 @@ TWR.API = (function() {
 window.api = TWR.API.api;
 window.initCSRF = TWR.API.initCSRF;
 window.fetchCSRFToken = TWR.API.fetchCSRFToken;
+
+/**
+ * Extract a human-readable error message from any error shape.
+ * Works with: structured API responses {error: {message}},
+ * plain objects {error: 'string'}, Error instances, strings.
+ * Optionally shows a toast and logs to console.
+ *
+ * @param {*} err - The error to extract a message from
+ * @param {string} [context] - Short label for log prefix (e.g. 'Save role')
+ * @param {object} [opts] - Options: {toast: true, level: 'error'}
+ * @returns {string} The extracted message
+ */
+window.handleFetchError = function handleFetchError(err, context, opts) {
+    var o = Object.assign({ toast: true, level: 'error' }, opts || {});
+
+    // Extract message from various shapes
+    var msg = 'Unknown error';
+    if (!err) {
+        msg = 'Unknown error';
+    } else if (typeof err === 'string') {
+        msg = err;
+    } else if (err.error && typeof err.error === 'object' && err.error.message) {
+        msg = err.error.message;
+    } else if (err.error && typeof err.error === 'string') {
+        msg = err.error;
+    } else if (err.message) {
+        msg = err.message;
+    } else if (err.statusText) {
+        msg = err.statusText;
+    } else {
+        try { msg = JSON.stringify(err); } catch (_) { msg = String(err); }
+    }
+
+    // Log
+    var prefix = context ? '[' + context + '] ' : '';
+    console.error(prefix + msg);
+
+    // Show toast if available
+    if (o.toast && typeof window.showToast === 'function') {
+        window.showToast(prefix + msg, o.level);
+    }
+
+    return msg;
+};
 
 console.log('[TWR] API module loaded');
