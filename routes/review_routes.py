@@ -96,6 +96,16 @@ _FOLDER_SCAN_CLEANUP_AGE = 1800  # 30 minutes
 _batch_scan_state = {}
 _batch_scan_state_lock = threading.Lock()
 
+# =============================================================================
+# v6.3.5: SharePoint Connector Cache
+# =============================================================================
+# Caches authenticated SP connectors from discovery for reuse during scan.
+# Key: connector_token (str) → {'connector': obj, 'created_at': float, ...}
+# Connectors auto-expire after 5 minutes (TTL).
+_sp_connector_cache = {}
+_sp_connector_cache_lock = threading.Lock()
+_SP_CONNECTOR_CACHE_TTL = 300  # 5 minutes
+
 
 def _cleanup_old_scans():
     """Remove completed scan state older than cleanup age for both folder and batch scans."""
@@ -2455,13 +2465,48 @@ def sharepoint_connect_and_scan():
         f['size_human'] = _human_size(f.get('size', 0))
 
     # v6.1.11: discover_only mode — return files without starting a scan
+    # v6.3.5: Cache the authenticated connector for reuse during scan.
+    # Previously connector.close() destroyed the SSO session here, forcing
+    # the scan endpoint to create a brand new HeadlessSP browser + re-auth
+    # (which hung on Windows). Now we cache the connector with a token and
+    # the scan endpoint picks it up — zero re-authentication needed.
     if discover_only:
-        connector.close()
+        connector_token = None
+        try:
+            connector_token = uuid.uuid4().hex[:16]
+            with _sp_connector_cache_lock:
+                # Clean expired entries first
+                now = time.time()
+                expired = [k for k, v in _sp_connector_cache.items()
+                           if now - v['created_at'] > _SP_CONNECTOR_CACHE_TTL]
+                for k in expired:
+                    try:
+                        _sp_connector_cache[k]['connector'].close()
+                    except Exception:
+                        pass
+                    del _sp_connector_cache[k]
+                # Cache this connector
+                _sp_connector_cache[connector_token] = {
+                    'connector': connector,
+                    'created_at': now,
+                    'site_url': actual_site_url,
+                    'connector_type': result.get('connector_type', 'rest'),
+                }
+            logger.info(f'[SP-discover] Cached connector with token {connector_token[:8]}... (type={result.get("connector_type", "rest")})')
+        except Exception as e:
+            logger.warning(f'[SP-discover] Failed to cache connector: {e} — closing instead')
+            connector_token = None
+            try:
+                connector.close()
+            except Exception:
+                pass
+
         return jsonify({
             'success': True,
             'data': {
                 'scan_id': None,
                 'discover_only': True,
+                'connector_token': connector_token,  # v6.3.5: token for scan reuse
                 'site_title': result.get('title', ''),
                 'site_url': actual_site_url,
                 'library_path': library_path,
@@ -2579,6 +2624,7 @@ def sharepoint_scan_selected():
     selected_files = data.get('files', [])
     options = data.get('options', {})
     connector_type = data.get('connector_type', 'rest')
+    connector_token = data.get('connector_token', '').strip()  # v6.3.5
 
     if not site_url:
         return jsonify({
@@ -2591,6 +2637,27 @@ def sharepoint_scan_selected():
             'success': False,
             'error': {'message': 'No files selected for scanning', 'code': 'NO_FILES'}
         }), 400
+
+    # v6.3.5: Look up cached connector from discovery phase.
+    # This is the critical fix — reuse the already-authenticated connector
+    # instead of creating a brand new HeadlessSP browser + re-auth.
+    cached_connector = None
+    if connector_token:
+        with _sp_connector_cache_lock:
+            entry = _sp_connector_cache.pop(connector_token, None)
+        if entry:
+            age = time.time() - entry['created_at']
+            if age < _SP_CONNECTOR_CACHE_TTL:
+                cached_connector = entry['connector']
+                logger.info(f'[SP-scan-selected] ✓ Reusing cached connector (token={connector_token[:8]}..., age={age:.0f}s)')
+            else:
+                logger.warning(f'[SP-scan-selected] Cached connector expired (age={age:.0f}s > {_SP_CONNECTOR_CACHE_TTL}s) — will create new')
+                try:
+                    entry['connector'].close()
+                except Exception:
+                    pass
+        else:
+            logger.warning(f'[SP-scan-selected] Connector token {connector_token[:8]}... not found in cache — will create new')
 
     # Calculate stats for selected files
     total_size = sum(f.get('size', 0) for f in selected_files)
@@ -2612,6 +2679,14 @@ def sharepoint_scan_selected():
         logger.info(f'[SP-scan-selected] Generated server scan_id: {scan_id}')
     logger.info(f'[SP-scan-selected] Creating scan state {scan_id} for {len(selected_files)} files (BEFORE thread spawn)')
 
+    # v6.3.5: Determine initial phase and status message based on connector availability
+    if cached_connector:
+        initial_phase = 'reviewing'
+        initial_msg = 'Starting document scan...'
+    else:
+        initial_phase = 'connecting'
+        initial_msg = 'Authenticating to SharePoint...'
+
     # v6.3.4: MERGE into existing pre-registered state if it exists,
     # otherwise create fresh. The pre-register endpoint creates a
     # placeholder state so the dashboard polling doesn't get 404s.
@@ -2620,19 +2695,20 @@ def sharepoint_scan_selected():
         existing = _folder_scan_state.get(scan_id)
         if existing:
             # Merge into pre-registered state — update with real details
+            existing['phase'] = initial_phase
             existing['total_files'] = len(selected_files)
-            existing['current_file'] = 'Authenticating to SharePoint...'
+            existing['current_file'] = initial_msg
             existing['total_chunks'] = (len(selected_files) + FOLDER_SCAN_CHUNK_SIZE - 1) // FOLDER_SCAN_CHUNK_SIZE
             existing['summary']['total_documents'] = len(selected_files)
             existing['folder_path'] = f'SharePoint: {library_path} ({len(selected_files)} selected)'
-            logger.info(f'[SP-scan-selected] Merged into pre-registered state {scan_id}')
+            logger.info(f'[SP-scan-selected] Merged into pre-registered state {scan_id} (phase={initial_phase})')
         else:
             _folder_scan_state[scan_id] = {
-                'phase': 'connecting',
+                'phase': initial_phase,
                 'total_files': len(selected_files),
                 'processed': 0,
                 'errors': 0,
-                'current_file': 'Authenticating to SharePoint...',
+                'current_file': initial_msg,
                 'current_chunk': 0,
                 'total_chunks': (len(selected_files) + FOLDER_SCAN_CHUNK_SIZE - 1) // FOLDER_SCAN_CHUNK_SIZE,
                 'documents': [],
@@ -2654,13 +2730,15 @@ def sharepoint_scan_selected():
                 'folder_path': f'SharePoint: {library_path} ({len(selected_files)} selected)',
                 'source': 'sharepoint',
             }
-            logger.info(f'[SP-scan-selected] Created fresh state {scan_id}')
+            logger.info(f'[SP-scan-selected] Created fresh state {scan_id} (phase={initial_phase})')
 
-    # Spawn background thread — connector creation + auth + scan all happen here
+    # v6.3.5: Spawn background thread with cached connector (if available).
+    # When cached_connector is not None, the background thread skips all 3
+    # connection strategies and goes straight to scanning — zero re-auth.
     flask_app = current_app._get_current_object()
     thread = threading.Thread(
         target=_process_sharepoint_scan_async,
-        args=(scan_id, None, selected_files, options, flask_app),
+        args=(scan_id, cached_connector, selected_files, options, flask_app),
         kwargs={
             'site_url': site_url,
             'connector_type': connector_type,
@@ -2671,7 +2749,10 @@ def sharepoint_scan_selected():
     )
     thread.start()
 
-    logger.info(f"SharePoint scan-selected {scan_id}: {len(selected_files)} files from {library_path} — background thread started (connector will be created in thread)")
+    if cached_connector:
+        logger.info(f"SharePoint scan-selected {scan_id}: {len(selected_files)} files from {library_path} — thread started with CACHED connector (zero re-auth)")
+    else:
+        logger.info(f"SharePoint scan-selected {scan_id}: {len(selected_files)} files from {library_path} — thread started (connector will be created in thread)")
 
     return jsonify({
         'success': True,

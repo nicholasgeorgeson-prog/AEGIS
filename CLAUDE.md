@@ -1614,9 +1614,39 @@ if not _xxx_auth_service_loaded:
 **Lesson**: When deploying Python fixes, ALWAYS include prominent "RESTART THE SERVER" instructions. Frontend timeouts should be 3-4x the expected backend operation time, not just barely sufficient. The v6.2.9 async fix was correct but useless until the server was restarted to load it. Console logs showing instant CSRF (34ms) + 30-second scan timeout is the exact signature of "old synchronous Python code still in memory."
 
 ### 151 (Updated). Version Management Update
-- **Current version**: 6.3.2
+- **Current version**: 6.3.5
 
-### 170. Deep Dive Codebase Improvements — 4-Batch Refactoring Pattern (v6.3.2)
+### 170. Dashboard-First Architecture for SP Batch Scan (v6.3.3)
+**Problem**: SharePoint batch scan POST to `/api/review/sharepoint-scan-selected` hung indefinitely — the cinematic dashboard NEVER appeared. Investigated for DAYS across v6.2.9–v6.3.2. Log analysis confirmed the POST never reached the Flask route handler (zero matches for "scan-selected" across ALL log files). Probable cause: Waitress thread exhaustion (4 threads) or fetch blocking at TCP level.
+**Root Cause**: The frontend `_startSPSelectedScan()` used `await fetch(...)` — the cinematic dashboard only launched AFTER the POST completed. If the POST hung (for ANY reason), the dashboard never appeared and the UI looked frozen.
+**Fix**: Dashboard-first architecture — decouple dashboard display from POST response:
+1. Generate `scan_id` client-side via `crypto.randomUUID()` (no server dependency)
+2. Show cinematic dashboard IMMEDIATELY before any POST (`_showSpCinematicDashboard()`)
+3. Fire POST as fire-and-forget (`.then()/.catch()`, no `await`) — includes `scan_id` in body
+4. Dashboard polling handles 404 gracefully as "Initializing..." phase (backend hasn't created scan state yet)
+5. Backend accepts optional `scan_id` from request body — uses it instead of generating one
+6. When POST eventually completes, backend creates scan state with client-provided scan_id
+7. Dashboard polling seamlessly picks up real progress
+**404 handling in polling**: New `poll404Count` counter with progressive messages: "Initializing scan..." (0-10s) → "Sending scan request..." (10-30s) → "Authenticating to SharePoint..." (30-60s) → "Still waiting..." (60s+). Max 90 polls (3 minutes) before error.
+**Key design principle**: The dashboard is the user-facing contract. It must appear instantly regardless of backend state. The POST is just a signal to the backend — its timing should never block the UI.
+**Files**: `static/js/app.js` (_startSPSelectedScan rewrite, polling 404 handler), `routes/review_routes.py` (accept client scan_id)
+**Lesson**: When a frontend `await fetch()` blocks the UI from showing important feedback, invert the dependency: show the UI first, fire the request in the background, and have the UI poll for state changes. This pattern is resilient to: hung POSTs, thread exhaustion, old server code, network timeouts, and slow SSO authentication. The client-side scan_id is the bridge that lets the dashboard and backend synchronize without the POST being the middleman.
+
+### 172. Connector Cache — Reuse Authenticated SP Session Between Discovery and Scan (v6.3.5)
+**Problem**: SharePoint batch scan was stuck on "Authenticating SharePoint" for 3+ minutes. Even with v6.3.3 dashboard-first and v6.3.4 pre-register, the background thread tried to create a brand new HeadlessSPConnector and re-authenticate — which hung on Windows (second Playwright browser launch collision or Waitress thread exhaustion preventing the POST from even reaching the handler).
+**Root Cause**: The discovery endpoint (`/api/review/sharepoint-connect-and-scan` with `discover_only=true`) authenticated via HeadlessSP, listed files, then called `connector.close()` at line 2459, destroying the SSO session. The scan endpoint (`/api/review/sharepoint-scan-selected`) spawned a background thread that had to create a BRAND NEW HeadlessSPConnector — requiring a full browser launch + SSO redirect chain (25-45 seconds on Windows). This second browser launch either hung permanently (process collision) or never reached the handler (thread exhaustion). Confirmed by ZERO "scan-selected" entries in ALL log files.
+**Fix**: Connector cache pattern:
+1. Module-level `_sp_connector_cache` dict with `threading.Lock` and 5-minute TTL
+2. Discovery endpoint: Instead of `connector.close()`, generates a `connector_token` (UUID hex[:16]), stores the connector in cache, returns `connector_token` in the JSON response
+3. Frontend: Saves `connector_token` in `_spDiscoveryContext`, passes it through to scan POST body
+4. Scan-selected endpoint: Looks up `connector_token` in cache, pops the connector, passes it directly to `_process_sharepoint_scan_async(connector=cached_connector)`
+5. When `connector is not None`, the background thread skips ALL 3 connection strategies — goes straight to file scanning with zero delay
+6. Expired entries auto-cleaned during cache operations; graceful fallback to creating new connector if token missing/expired
+**Key insight**: `_process_sharepoint_scan_async()` already supported receiving a pre-authenticated connector — when `connector is not None`, it skips all 3 connection strategies and transitions directly to `phase='reviewing'`. The cache just bridges the gap between the two HTTP requests.
+**Files**: `routes/review_routes.py` (cache infrastructure + discovery cache + scan lookup), `static/js/app.js` (connector_token in discovery context + scan POST body)
+**Lesson**: When two HTTP endpoints need to share an expensive resource (authenticated browser session, database connection pool, ML model), cache it at module level with a token-based lookup. The token travels through the frontend between the two requests. Always include TTL + auto-cleanup to prevent memory leaks. The pattern is: create resource → cache with token → return token → receive token → pop from cache → use resource → resource lifecycle managed by consumer.
+
+### 171. Deep Dive Codebase Improvements — 4-Batch Refactoring Pattern (v6.3.2)
 **Context**: A comprehensive 6-category audit produced 53+ findings across Backend Python, Frontend JS, CSS/Visual, Database, Dependencies/Security, and E2E Features. After verification, 15 items were already fixed and 17 needed work. The remaining items were organized into 4 safe, independently-testable batches ordered from zero-risk to progressively higher-touch changes.
 **Batch 1 (Zero-Risk Cleanup)**: Extract shared utility `_human_size()` to `routes/_shared.py` (removed 3 copies). Consolidated 5 inline `escapeHtml()` copies to use global `window.escapeHtml()`. Deleted orphaned `nlp_enhancer.py`. Archived 44 `apply_v*.py` scripts to `archive/apply_scripts/`. Standardized logging to `get_logger(__name__)` across all 10 blueprint files.
 **Batch 2 (Memory & Performance)**: Scoped `lucide.createIcons()` calls to pass `{target: container}` instead of scanning full DOM. No setInterval leaks found (landing-page.js already clean). No Blob URL leaks found (roles modules already call `revokeObjectURL`). Per-file `gc.collect()` already implemented in batch scan.

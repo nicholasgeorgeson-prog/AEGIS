@@ -13034,6 +13034,7 @@ STEPS TO REPRODUCE
                         site_url: ctx.site_url,
                         library_path: ctx.library_path,
                         connector_type: ctx.connector_type,
+                        connector_token: ctx.connector_token || '',  // v6.3.5: reuse cached connector
                         files: selectedFiles,
                         scan_id: clientScanId
                     })
@@ -13305,10 +13306,12 @@ STEPS TO REPRODUCE
 
                             // v6.1.11: Show file selector instead of auto-scanning
                             // Store discovery context for scan-selected endpoint
+                            // v6.3.5: Include connector_token for reusing authenticated session
                             const _spDiscoveryContext = {
                                 site_url: d.site_url || siteUrl,
                                 library_path: d.library_path || spLibraryPath?.value?.trim() || '',
                                 connector_type: d.connector_type || 'rest',
+                                connector_token: d.connector_token || '',
                                 files: disc.files || []
                             };
 

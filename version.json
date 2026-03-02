@@ -1,13 +1,26 @@
 {
-  "version": "6.3.4",
+  "version": "6.3.5",
   "release_date": "2026-03-02",
-  "core_version": "6.3.4",
+  "core_version": "6.3.5",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.3.5",
+      "date": "2026-03-02",
+      "changes": [
+        "FIX: SharePoint batch scan now reuses the authenticated connector from discovery — ZERO re-authentication for scan phase",
+        "FIX: Eliminates the 3+ minute hang caused by launching a second HeadlessSP browser for re-auth",
+        "BACKEND: Connector cache (_sp_connector_cache) stores authenticated connectors with 5-minute TTL and auto-cleanup",
+        "BACKEND: Discovery endpoint returns connector_token instead of closing the connector",
+        "BACKEND: scan-selected endpoint looks up cached connector by token, passes directly to background thread",
+        "BACKEND: When cached connector is available, background thread skips all 3 connection strategies — goes straight to scanning",
+        "FRONTEND: Discovery context includes connector_token, passed through to scan POST body"
+      ]
+    },
     {
       "version": "6.3.4",
       "date": "2026-03-02",
