@@ -53,7 +53,7 @@ from urllib.parse import parse_qs, urlparse
 # CONSTANTS & CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════
 
-MANAGER_VERSION = "2.2.0"
+MANAGER_VERSION = "2.2.1"
 
 # GitHub
 REPO_OWNER = "nicholasgeorgeson-prog"
