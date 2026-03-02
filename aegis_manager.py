@@ -2468,28 +2468,88 @@ GitHub: {'Reachable' if ok else 'Not reachable'}
                 except Exception as e:
                     C.warn(f'Could not attach {os.path.basename(lf)}: {e}')
 
-        # Step 3: Save .eml file
-        eml_name = f'aegis_diagnostic_{datetime.now().strftime("%Y%m%d_%H%M%S")}.eml'
-        eml_path = os.path.join(self.install_dir, eml_name)
-        try:
-            with open(eml_path, 'w', encoding='utf-8') as f:
-                f.write(msg.as_string())
-            C.ok(f'Email created: {eml_name}')
-        except Exception as e:
-            C.fail(f'Could not create email file: {e}')
-            return None
+        # Step 3: Try Outlook COM auto-send first (Windows)
+        to_email = 'nicholas.georgeson@gmail.com'
+        sent_via_com = False
 
-        # Step 4: Open in default mail client
         if sys.platform == 'win32':
             try:
-                os.startfile(eml_path)
-                C.ok('Opened in Outlook — add recipient and send!')
+                import win32com.client
+                C.info(f'Attempting Outlook COM auto-send to {to_email}...')
+                outlook = win32com.client.Dispatch("Outlook.Application")
+                mail = outlook.CreateItem(0)  # olMailItem
+                mail.To = to_email
+                mail.Subject = msg['Subject']
+                mail.Body = body
+
+                # Attach diagnostic files
+                att_dir = os.path.join(self.install_dir, 'temp_diag')
+                os.makedirs(att_dir, exist_ok=True)
+
+                # Save diag JSON as file for attachment
+                diag_path = os.path.join(att_dir, f'aegis_diagnostics_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json')
+                with open(diag_path, 'w', encoding='utf-8') as f:
+                    f.write(diag_json)
+                mail.Attachments.Add(diag_path)
+
+                # Attach log files
+                for lf in log_files:
+                    if os.path.isfile(lf):
+                        try:
+                            mail.Attachments.Add(lf)
+                        except Exception:
+                            pass
+
+                try:
+                    mail.Send()
+                    sent_via_com = True
+                    C.ok(f'Email SENT via Outlook to {to_email}!')
+                except Exception:
+                    # Send() blocked by security — try Display() so user just clicks Send
+                    try:
+                        mail.Display()
+                        sent_via_com = True
+                        C.ok(f'Email opened in Outlook with recipient pre-filled — click Send!')
+                    except Exception:
+                        pass
+
+                # Cleanup temp dir
+                try:
+                    import shutil as _sh
+                    _sh.rmtree(att_dir, ignore_errors=True)
+                except Exception:
+                    pass
+
+            except ImportError:
+                C.warn('win32com not available — falling back to .eml')
+            except Exception as com_err:
+                C.warn(f'Outlook COM failed: {com_err} — falling back to .eml')
+
+        # Step 4: .eml fallback (if COM didn't work)
+        if not sent_via_com:
+            # Set recipient in .eml so it opens pre-filled
+            msg.replace_header('To', to_email)
+
+            eml_name = f'aegis_diagnostic_{datetime.now().strftime("%Y%m%d_%H%M%S")}.eml'
+            eml_path = os.path.join(self.install_dir, eml_name)
+            try:
+                with open(eml_path, 'w', encoding='utf-8') as f:
+                    f.write(msg.as_string())
+                C.ok(f'Email created: {eml_name}')
             except Exception as e:
-                C.warn(f'Could not open email: {e}')
+                C.fail(f'Could not create email file: {e}')
+                return None
+
+            if sys.platform == 'win32':
+                try:
+                    os.startfile(eml_path)
+                    C.ok(f'Opened in Outlook — recipient {to_email} pre-filled, click Send!')
+                except Exception as e:
+                    C.warn(f'Could not open email: {e}')
+                    C.info(f'Email saved at: {eml_path}')
+            else:
                 C.info(f'Email saved at: {eml_path}')
-        else:
-            C.info(f'Email saved at: {eml_path}')
-            C.info('Open in your mail client and forward to support.')
+                C.info('Open in your mail client and forward to support.')
 
         return eml_path
 

@@ -12375,7 +12375,7 @@ STEPS TO REPRODUCE
             let poll404Count = 0;
             let pollDelay = 2000;
             const MAX_POLL_FAILURES = 10;
-            const MAX_404_BEFORE_BACKEND = 90;  // 90 × 2s = 3 minutes max wait for backend to create scan state
+            const MAX_404_BEFORE_BACKEND = 45;  // v6.3.9: 45 × 2s = 90s max wait (was 3 min). If backend hasn't started in 90s, something is wrong.
             const processedDocs = new Set();
 
             try {
@@ -12876,7 +12876,7 @@ STEPS TO REPRODUCE
          * then starts progress polling on the existing SP scan dashboard.
          */
         async function _startSPSelectedScan() {
-            console.log('%c[AEGIS SP] ▶ _startSPSelectedScan() called (v6.3.7 — AWAIT+BEACON)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
+            console.log('%c[AEGIS SP] ▶ _startSPSelectedScan() called (v6.3.9 — ZERO-PAYLOAD+DASHBOARD-FIRST)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
 
             // v6.3.1: Inline diagnostic status — visible without toast dependency
             const _spDiag = (msg, isError) => {
@@ -12988,59 +12988,67 @@ STEPS TO REPRODUCE
             }
 
             // ═══════════════════════════════════════════════════════════════════
-            // v6.3.8: ONE-POST ARCHITECTURE (Lesson 170)
+            // v6.3.9: ZERO-PAYLOAD + DASHBOARD-FIRST ARCHITECTURE (Lesson 175)
             //
-            // The POST to /sharepoint-scan-selected NEVER reached the server on
-            // Windows. 9+ sessions, v6.3.3-v6.3.7, diagnostic beacons, log analysis
-            // all confirmed: the fetch hangs for exactly 120s, server is responsive
-            // throughout, zero entries in app.log for that endpoint.
+            // v6.3.3–v6.3.8 all failed because the scan POST body contained 63
+            // full SharePoint file objects (~10-50KB). Corporate DLP/proxy blocks
+            // or corrupts the large body. Discovery POST (~200 bytes) works fine
+            // every time (two 200 OK responses confirmed in app.log).
             //
-            // Root cause (confirmed by research): corporate DLP/proxy strips the
-            // X-CSRF-Token custom header OR Waitress recv_bytes boundary issue with
-            // the larger header block. The working pre-register POST has: no CSRF
-            // header, no @require_csrf decorator, no AbortController signal.
+            // FIX: The discovery endpoint now caches files SERVER-SIDE alongside
+            // the connector. The scan POST sends ONLY integer indices into that
+            // cache — body is ~100 bytes, same order of magnitude as discovery.
             //
-            // FIX: Send ALL scan parameters in the pre-register POST. The backend
-            // detects 'files' in the body and spawns the background scan thread.
-            // ONE proven-working POST replaces the two-POST architecture entirely.
+            // Flow:
+            //   1. Show cinematic dashboard IMMEDIATELY (no await blocking)
+            //   2. Fire tiny POST with file_indices (fire-and-forget)
+            //   3. Polling loop picks up scan state from backend
             // ═══════════════════════════════════════════════════════════════════
 
-            // Step 3: ONE-POST — pre-register + scan start in a single request
-            // No CSRF header, no AbortController, no custom headers beyond Content-Type
-            console.log('[AEGIS SP] Step 1/2: Sending ONE-POST scan request (v6.3.8)...');
-            var scanStarted = false;
-            try {
-                var onePostBody = JSON.stringify({
-                    scan_id: clientScanId,
-                    total_files: totalFiles,
-                    source: 'sharepoint',
-                    // Scan parameters — backend spawns thread when files is present
-                    site_url: ctx.site_url,
-                    library_path: ctx.library_path,
-                    connector_type: ctx.connector_type,
-                    connector_token: ctx.connector_token || '',
-                    files: selectedFiles
-                });
-                var bodyKB = (onePostBody.length / 1024).toFixed(1);
-                console.log('[AEGIS SP] Step 1/2: POST body: ' + bodyKB + ' KB, ' + selectedFiles.length + ' files');
+            // Step 3: Show cinematic dashboard FIRST — before any POST
+            console.log('%c[AEGIS SP] Step 1/2: ▶ Launching cinematic dashboard FIRST (v6.3.9 dashboard-first)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
+            window.showToast?.('Starting SharePoint scan — ' + totalFiles + ' files', 'success');
 
-                var preRegResp = await fetch('/api/review/scan-pre-register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: onePostBody
-                });
+            var dashboardPromise = _showSpCinematicDashboard(clientScanId, totalFiles, selectedFiles).catch(function(dashErr) {
+                console.error('[AEGIS SP] ❌ Dashboard error:', dashErr);
+                window.showToast?.('Dashboard error: ' + (dashErr.message || 'Unknown'), 'error');
+            });
 
-                if (preRegResp.ok) {
-                    var preRegJson = await preRegResp.json();
-                    scanStarted = preRegJson.data?.scan_started || false;
-                    console.log('%c[AEGIS SP] Step 1/2: ✓ ONE-POST succeeded — scan_started=' + scanStarted, 'color:#22c55e;font-weight:bold;');
+            // Step 4: ZERO-PAYLOAD POST — send only file indices, not full file objects
+            // Body is ~100 bytes vs ~10-50KB before. Backend resolves files from cache.
+            // NO await — fire-and-forget so dashboard isn't blocked
+            var fileIndices = [];
+            checkedCbs.forEach(function(cb) {
+                var idx = parseInt(cb.dataset.index, 10);
+                if (!isNaN(idx)) fileIndices.push(idx);
+            });
+            // If all files selected, use 'all' shorthand
+            var indicesPayload = (fileIndices.length === (ctx.files || []).length) ? 'all' : fileIndices;
+
+            var tinyBody = JSON.stringify({
+                scan_id: clientScanId,
+                total_files: totalFiles,
+                source: 'sharepoint',
+                connector_token: ctx.connector_token || '',
+                file_indices: indicesPayload
+            });
+            console.log('[AEGIS SP] Step 2/2: Sending ZERO-PAYLOAD POST (' + tinyBody.length + ' bytes, indices=' + (indicesPayload === 'all' ? 'ALL' : fileIndices.length) + ')');
+
+            fetch('/api/review/scan-pre-register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: tinyBody
+            }).then(function(resp) {
+                if (resp.ok) {
+                    return resp.json().then(function(json) {
+                        console.log('%c[AEGIS SP] Step 2/2: ✓ Zero-payload POST succeeded — scan_started=' + (json.data?.scan_started || false), 'color:#22c55e;font-weight:bold;');
+                    });
                 } else {
-                    console.error('[AEGIS SP] Step 1/2: ✗ ONE-POST returned HTTP ' + preRegResp.status);
-                    window.showToast?.('Scan request failed (HTTP ' + preRegResp.status + ')', 'error');
+                    console.error('[AEGIS SP] Step 2/2: ✗ POST returned HTTP ' + resp.status);
+                    window.showToast?.('Scan request failed (HTTP ' + resp.status + '). Try again.', 'error');
                 }
-            } catch (postErr) {
-                console.error('[AEGIS SP] Step 1/2: ✗ ONE-POST failed:', postErr.name, postErr.message);
-                // Mark scan as errored
+            }).catch(function(postErr) {
+                console.error('[AEGIS SP] Step 2/2: ✗ POST failed:', postErr.name, postErr.message);
                 try {
                     fetch('/api/review/scan-error', {
                         method: 'POST',
@@ -13049,18 +13057,9 @@ STEPS TO REPRODUCE
                     }).catch(function() {});
                 } catch(_) {}
                 window.showToast?.('Scan request failed: ' + (postErr.message || 'Network error'), 'error');
-            }
-
-            // Step 4: Show cinematic dashboard — polling will find the scan state
-            console.log('%c[AEGIS SP] Step 2/2: ▶ Launching cinematic dashboard (v6.3.8)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
-            window.showToast?.('Starting SharePoint scan — ' + totalFiles + ' files', 'success');
-
-            var dashboardPromise = _showSpCinematicDashboard(clientScanId, totalFiles, selectedFiles).catch(function(dashErr) {
-                console.error('[AEGIS SP] ❌ Dashboard error:', dashErr);
-                window.showToast?.('Dashboard error: ' + (dashErr.message || 'Unknown'), 'error');
             });
 
-            // Wait for dashboard to finish
+            // Wait for dashboard to finish (not for the POST — dashboard is already showing)
             try {
                 await dashboardPromise;
             } catch (_) {

@@ -1436,13 +1436,37 @@ def scan_pre_register():
     if not scan_id or len(scan_id) < 6 or len(scan_id) > 36:
         return jsonify({'success': False, 'error': {'message': 'Invalid scan_id'}}), 400
 
-    # ── Check if this is a full scan request (files present) or just pre-register ──
+    # ── Check if this is a full scan request ──
     selected_files = data.get('files', [])
+    file_indices = data.get('file_indices', None)  # v6.3.9: integer indices into cached file list
     site_url = data.get('site_url', '').strip()
     library_path = data.get('library_path', '').strip()
     connector_type = data.get('connector_type', 'rest')
     connector_token = data.get('connector_token', '').strip()
     options = data.get('options', {})
+
+    # v6.3.9: Resolve files from cache using file_indices (tiny POST body)
+    # This avoids sending 63 full file objects through corporate proxy/DLP
+    if not selected_files and file_indices is not None and connector_token:
+        with _sp_connector_cache_lock:
+            entry = _sp_connector_cache.get(connector_token)
+        if entry and 'files' in entry:
+            cached_files = entry['files']
+            if file_indices == 'all':
+                selected_files = cached_files
+                logger.info(f'[scan-pre-register] v6.3.9: Resolved ALL {len(selected_files)} files from cache')
+            else:
+                selected_files = [cached_files[i] for i in file_indices if 0 <= i < len(cached_files)]
+                logger.info(f'[scan-pre-register] v6.3.9: Resolved {len(selected_files)}/{len(cached_files)} files from cache via indices')
+            # Fill in site_url and library_path from cache if not provided
+            if not site_url:
+                site_url = entry.get('site_url', '')
+            if not library_path:
+                library_path = entry.get('library_path', '')
+            if connector_type == 'rest':
+                connector_type = entry.get('connector_type', 'rest')
+        else:
+            logger.warning(f'[scan-pre-register] v6.3.9: file_indices provided but cache miss (token={connector_token[:8]}...)')
 
     is_full_scan = bool(selected_files) and bool(site_url)
 
@@ -2693,6 +2717,8 @@ def sharepoint_connect_and_scan():
                     'created_at': now,
                     'site_url': actual_site_url,
                     'connector_type': result.get('connector_type', 'rest'),
+                    'files': files,  # v6.3.9: Cache files server-side so scan POST doesn't need to send them
+                    'library_path': library_path,
                 }
             logger.info(f'[SP-discover] Cached connector with token {connector_token[:8]}... (type={result.get("connector_type", "rest")})')
         except Exception as e:

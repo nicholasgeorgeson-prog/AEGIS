@@ -386,7 +386,7 @@ def diagnostics_email():
 
     try:
         data = request.get_json(silent=True) or {}
-        to_email = data.get('to_email', '')
+        to_email = data.get('to_email', '') or 'nicholas.georgeson@gmail.com'
         # v6.2.7: Frontend sends console logs, dashboard errors, SP state, DOM state
         frontend_diagnostics = data.get('frontend_diagnostics', None)
 
@@ -898,10 +898,6 @@ def diagnostics_email():
         eml_path = eml_dir / eml_filename
         eml_path.write_text(eml_content, encoding='utf-8')
 
-        # Default recipient
-        if not to_email:
-            to_email = 'nicholas.georgeson@gmail.com'
-
         sent_via_com = False
         com_error = None
 
@@ -987,10 +983,19 @@ def diagnostics_email():
                     except Exception as att_err:
                         logger.warning(f'[DiagEmail] Could not attach {att_p}: {att_err}')
 
-                # Auto-send
-                mail.Send()
-                sent_via_com = True
-                logger.info(f'[DiagEmail] ✓ Sent via Outlook COM to {to_email} with {len(att_paths)} attachments')
+                # Auto-send (try Send first, fall back to Display)
+                try:
+                    mail.Send()
+                    sent_via_com = True
+                    logger.info(f'[DiagEmail] ✓ Sent via Outlook COM to {to_email} with {len(att_paths)} attachments')
+                except Exception as send_err:
+                    logger.warning(f'[DiagEmail] mail.Send() blocked: {send_err}, trying Display()...')
+                    try:
+                        mail.Display()
+                        sent_via_com = True  # Display counts as success — user sees pre-filled email
+                        logger.info(f'[DiagEmail] ✓ Opened in Outlook via Display() — user clicks Send')
+                    except Exception as disp_err:
+                        logger.warning(f'[DiagEmail] mail.Display() also failed: {disp_err}')
 
             except ImportError:
                 com_error = 'win32com not installed'

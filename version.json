@@ -1,13 +1,26 @@
 {
-  "version": "6.3.8",
+  "version": "6.3.9",
   "release_date": "2026-03-02",
-  "core_version": "6.3.8",
+  "core_version": "6.3.9",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.3.9",
+      "date": "2026-03-02",
+      "changes": [
+        "FIX: SharePoint scan — zero-payload POST architecture eliminates large body that corporate proxy blocks",
+        "FIX: Discovery now caches files server-side — scan POST sends only integer file indices (~100 bytes vs ~50KB)",
+        "FIX: Dashboard-first architecture — cinematic progress dashboard shows BEFORE scan POST, never blocked by await",
+        "FIX: Stale scan polling — reduced max 404 wait from 3 minutes to 90 seconds with clearer error message",
+        "FIX: Diagnostic email auto-send using Outlook COM automation (win32com.client) instead of .eml file approach",
+        "BACKEND: _sp_connector_cache now stores files[] and library_path alongside connector during discovery",
+        "BACKEND: scan-pre-register accepts file_indices (integer array or 'all') to resolve files from server-side cache"
+      ]
+    },
     {
       "version": "6.3.8",
       "date": "2026-03-02",
