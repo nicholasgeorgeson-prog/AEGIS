@@ -1,13 +1,24 @@
 {
-  "version": "6.3.3",
+  "version": "6.3.4",
   "release_date": "2026-03-02",
-  "core_version": "6.3.3",
+  "core_version": "6.3.4",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.3.4",
+      "date": "2026-03-02",
+      "changes": [
+        "FIX: Pre-register endpoint (/api/review/scan-pre-register) creates scan state BEFORE heavy POST — eliminates 3-minute 'Initializing...' phase",
+        "FIX: Dashboard polling immediately finds 'Connecting to SharePoint...' instead of 404 errors",
+        "FIX: Waitress thread count increased from 4 to 8 — reduces thread exhaustion that prevented heavy POST from being processed",
+        "FIX: Backend merges into pre-registered scan state instead of creating duplicate — preserves elapsed timer from pre-register",
+        "BACKEND: Lightweight scan-pre-register endpoint has no CSRF, no heavy imports, returns in <10ms"
+      ]
+    },
     {
       "version": "6.3.3",
       "date": "2026-03-02",

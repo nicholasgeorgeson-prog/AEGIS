@@ -12936,22 +12936,26 @@ STEPS TO REPRODUCE
             console.log('[AEGIS SP] ' + selectedFiles.length + ' files selected for scan');
 
             // ═══════════════════════════════════════════════════════════════════
-            // v6.3.3 DASHBOARD-FIRST ARCHITECTURE (Lesson 170)
+            // v6.3.4 DASHBOARD-FIRST + PRE-REGISTER ARCHITECTURE (Lesson 170-171)
             //
-            // Previous versions (v6.2.9–v6.3.2) awaited the POST response before
-            // showing the cinematic dashboard. If the POST hung (thread exhaustion,
-            // old code, Waitress blocking), the dashboard NEVER appeared and the
-            // tool looked frozen. This was a persistent problem for DAYS.
+            // v6.3.3 showed the dashboard before POST — but the POST still hung,
+            // leaving the scan state uncreated. Polling got 404s for 3+ minutes
+            // showing only "Initializing scan..." with no real progress.
             //
-            // New approach:
+            // v6.3.4 fix: PRE-REGISTER the scan state via a lightweight endpoint
+            // BEFORE showing the dashboard. This tiny POST has no CSRF, no heavy
+            // imports, and returns in <10ms. The polling loop immediately finds
+            // "Connecting to SharePoint..." instead of 404.
+            //
+            // Flow:
             //   1. Generate scan_id CLIENT-SIDE
-            //   2. Show cinematic dashboard IMMEDIATELY (before POST)
-            //   3. Fire POST in background (fire-and-forget with error handling)
-            //   4. Dashboard polling handles 404 gracefully as "Initializing..."
-            //   5. Backend accepts client-provided scan_id
+            //   2. PRE-REGISTER scan state (tiny POST, <10ms)
+            //   3. Show cinematic dashboard (polling immediately sees state)
+            //   4. Fire heavy POST in background (fire-and-forget)
+            //   5. Backend merges into existing state when it finally processes
             //
-            // This guarantees the user ALWAYS sees the dashboard — even if the
-            // POST hangs forever, times out, or fails entirely.
+            // Also: Waitress threads increased from 4 to 8 to reduce thread
+            // exhaustion that was preventing the heavy POST from being processed.
             // ═══════════════════════════════════════════════════════════════════
 
             // Step 1: Generate scan_id CLIENT-SIDE
@@ -12959,12 +12963,11 @@ STEPS TO REPRODUCE
             try {
                 clientScanId = crypto.randomUUID().replace(/-/g, '').substring(0, 12);
             } catch (_) {
-                // Fallback for older browsers without crypto.randomUUID
                 clientScanId = 'sp' + Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
             }
             const totalFiles = selectedFiles.length;
 
-            console.log('%c[AEGIS SP] Dashboard-first: clientScanId=' + clientScanId + ', totalFiles=' + totalFiles, 'color:#D6A84A;font-weight:bold;');
+            console.log('%c[AEGIS SP] Dashboard-first+PreReg: clientScanId=' + clientScanId + ', totalFiles=' + totalFiles, 'color:#D6A84A;font-weight:bold;');
 
             // Step 2: Disable buttons, hide file selector
             if (btnScanSelected) {
@@ -12982,25 +12985,45 @@ STEPS TO REPRODUCE
                 btnSpScan.dataset.discoveryFiles = JSON.stringify(selectedFiles);
             }
 
-            // Step 3: Show cinematic dashboard IMMEDIATELY — before any POST
-            // The dashboard polling will get 404s initially and show "Initializing..."
-            // until the backend creates the scan state
-            console.log('%c[AEGIS SP] Step 1: ▶ Launching cinematic dashboard IMMEDIATELY (v6.3.3)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
+            // Step 3: PRE-REGISTER scan state — lightweight, no CSRF, <10ms
+            // This creates the scan state BEFORE the dashboard starts polling,
+            // so polling immediately sees "Connecting to SharePoint..." instead of 404
+            console.log('[AEGIS SP] Step 1/3: Pre-registering scan state...');
+            try {
+                var preRegResp = await fetch('/api/review/scan-pre-register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        scan_id: clientScanId,
+                        total_files: totalFiles,
+                        source: 'sharepoint'
+                    })
+                });
+                if (preRegResp.ok) {
+                    console.log('%c[AEGIS SP] Step 1/3: ✓ Scan state pre-registered', 'color:#22c55e;font-weight:bold;');
+                } else {
+                    console.warn('[AEGIS SP] Step 1/3: Pre-register returned HTTP ' + preRegResp.status + ' — dashboard will handle 404s');
+                }
+            } catch (preRegErr) {
+                console.warn('[AEGIS SP] Step 1/3: Pre-register failed:', preRegErr.message, '— dashboard will handle 404s');
+            }
+
+            // Step 4: Show cinematic dashboard — polling will find the pre-registered state
+            console.log('%c[AEGIS SP] Step 2/3: ▶ Launching cinematic dashboard (v6.3.4)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
             window.showToast?.('Starting SharePoint scan — ' + totalFiles + ' files', 'success');
 
-            // Launch dashboard — don't await, let it run in parallel with the POST
             var dashboardPromise = _showSpCinematicDashboard(clientScanId, totalFiles, selectedFiles).catch(function(dashErr) {
                 console.error('[AEGIS SP] ❌ Dashboard error:', dashErr);
                 window.showToast?.('Dashboard error: ' + (dashErr.message || 'Unknown'), 'error');
             });
 
-            // Step 4: Fire POST in background — fire-and-forget
-            // The dashboard is already visible. This POST tells the backend to
-            // start the scan. If it hangs or fails, the dashboard remains visible
-            // and will show appropriate error states via polling.
-            console.log('[AEGIS SP] Step 2: Firing background POST to /api/review/sharepoint-scan-selected (fire-and-forget)');
+            // Step 5: Fire heavy POST in background — fire-and-forget
+            // The scan state already exists (pre-registered). This POST tells the
+            // backend to authenticate to SharePoint and start processing files.
+            // The backend will MERGE into the existing state (same scan_id).
+            console.log('[AEGIS SP] Step 3/3: Firing background POST to /api/review/sharepoint-scan-selected (fire-and-forget)');
             _freshCSRF().then(function(csrf) {
-                console.log('[AEGIS SP] Step 2: CSRF obtained, sending POST...');
+                console.log('[AEGIS SP] Step 3/3: CSRF obtained, sending POST...');
                 return fetch('/api/review/sharepoint-scan-selected', {
                     method: 'POST',
                     headers: {
@@ -13012,24 +13035,22 @@ STEPS TO REPRODUCE
                         library_path: ctx.library_path,
                         connector_type: ctx.connector_type,
                         files: selectedFiles,
-                        scan_id: clientScanId  // v6.3.3: client-provided scan_id
+                        scan_id: clientScanId
                     })
                 });
             }).then(function(resp) {
-                console.log('%c[AEGIS SP] Step 2: ✓ POST completed — HTTP ' + resp.status, 'color:#22c55e;font-weight:bold;');
+                console.log('%c[AEGIS SP] Step 3/3: ✓ POST completed — HTTP ' + resp.status, 'color:#22c55e;font-weight:bold;');
                 return resp.json();
             }).then(function(json) {
                 if (json.success) {
-                    console.log('[AEGIS SP] Step 2: ✓ Backend confirmed scan_id=' + (json.data?.scan_id || clientScanId));
+                    console.log('[AEGIS SP] Step 3/3: ✓ Backend confirmed scan_id=' + (json.data?.scan_id || clientScanId));
                 } else {
                     var errMsg = json.data?.message || json.error?.message || 'Server rejected scan request';
-                    console.error('[AEGIS SP] Step 2: ✗ Backend error: ' + errMsg);
+                    console.error('[AEGIS SP] Step 3/3: ✗ Backend error: ' + errMsg);
                     window.showToast?.('Scan error: ' + errMsg, 'error');
                 }
             }).catch(function(err) {
-                console.error('[AEGIS SP] Step 2: ✗ POST failed:', err.name, err.message);
-                // Don't panic — the dashboard is already showing.
-                // The polling loop will handle the error state after MAX_POLL_FAILURES.
+                console.error('[AEGIS SP] Step 3/3: ✗ POST failed:', err.name, err.message);
                 if (err.name === 'TypeError' && /fetch|network/i.test(err.message)) {
                     window.showToast?.('Cannot reach server — restart may be needed (AEGIS Manager → Option 7)', 'error');
                 } else {

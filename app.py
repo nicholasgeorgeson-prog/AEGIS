@@ -644,7 +644,7 @@ def main():
             try:
                 from waitress import serve
                 logger.info('Starting with Waitress WSGI server')
-                serve(app, host=config.host, port=config.port, threads=4)
+                serve(app, host=config.host, port=config.port, threads=8)
             except ImportError:
                 logger.warning('Waitress not available, using Flask with threading')
                 app.run(host=config.host, port=config.port, debug=False, threaded=True)

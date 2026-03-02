@@ -1394,6 +1394,67 @@ def _process_folder_scan_async(scan_id, discovered, options):
                 state['elapsed_seconds'] = round(time.time() - state['started_at'], 1)
 
 
+@review_bp.route('/api/review/scan-pre-register', methods=['POST'])
+@handle_api_errors
+def scan_pre_register():
+    """
+    v6.3.4: Lightweight endpoint to pre-register a scan state.
+
+    Called by the frontend BEFORE the heavy POST to /sharepoint-scan-selected.
+    Creates a minimal scan state entry so that the polling loop immediately
+    finds the scan (no 404s during the "Initializing..." phase).
+
+    NO @require_csrf — this endpoint only creates an empty placeholder state
+    keyed by a client-generated random scan_id. No security risk for a
+    local-only tool (localhost:5050).
+
+    Body: { scan_id: string, total_files: int, source: string }
+    Returns: { success: true }
+    """
+    data = request.get_json(silent=True) or {}
+    scan_id = (data.get('scan_id') or '').strip()
+    total_files = data.get('total_files', 0)
+    source = data.get('source', 'sharepoint')
+
+    if not scan_id or len(scan_id) < 6 or len(scan_id) > 36:
+        return jsonify({'success': False, 'error': {'message': 'Invalid scan_id'}}), 400
+
+    with _folder_scan_state_lock:
+        if scan_id not in _folder_scan_state:
+            _folder_scan_state[scan_id] = {
+                'phase': 'connecting',
+                'total_files': int(total_files),
+                'processed': 0,
+                'errors': 0,
+                'current_file': 'Authenticating to SharePoint...',
+                'current_chunk': 0,
+                'total_chunks': max(1, (int(total_files) + FOLDER_SCAN_CHUNK_SIZE - 1) // FOLDER_SCAN_CHUNK_SIZE),
+                'documents': [],
+                'summary': {
+                    'total_documents': int(total_files),
+                    'processed': 0,
+                    'errors': 0,
+                    'total_issues': 0,
+                    'total_words': 0,
+                    'issues_by_severity': {'Critical': 0, 'High': 0, 'Medium': 0, 'Low': 0, 'Info': 0},
+                    'issues_by_category': {},
+                    'grade_distribution': {},
+                },
+                'roles_found': {},
+                'started_at': time.time(),
+                'completed_at': None,
+                'elapsed_seconds': 0,
+                'estimated_remaining': None,
+                'folder_path': f'{source}: pre-registered ({total_files} files)',
+                'source': source,
+            }
+            logger.info(f'[scan-pre-register] Created scan state {scan_id} for {total_files} files (source={source})')
+        else:
+            logger.info(f'[scan-pre-register] Scan state {scan_id} already exists — no-op')
+
+    return jsonify({'success': True, 'data': {'scan_id': scan_id}})
+
+
 @review_bp.route('/api/review/folder-scan-progress/<scan_id>', methods=['GET'])
 @handle_api_errors
 def folder_scan_progress(scan_id):
@@ -2551,35 +2612,49 @@ def sharepoint_scan_selected():
         logger.info(f'[SP-scan-selected] Generated server scan_id: {scan_id}')
     logger.info(f'[SP-scan-selected] Creating scan state {scan_id} for {len(selected_files)} files (BEFORE thread spawn)')
 
+    # v6.3.4: MERGE into existing pre-registered state if it exists,
+    # otherwise create fresh. The pre-register endpoint creates a
+    # placeholder state so the dashboard polling doesn't get 404s.
     with _folder_scan_state_lock:
         _cleanup_old_scans()
-        _folder_scan_state[scan_id] = {
-            'phase': 'connecting',  # v6.2.9: New initial phase — background thread updates to 'reviewing' after auth
-            'total_files': len(selected_files),
-            'processed': 0,
-            'errors': 0,
-            'current_file': 'Authenticating to SharePoint...',
-            'current_chunk': 0,
-            'total_chunks': (len(selected_files) + FOLDER_SCAN_CHUNK_SIZE - 1) // FOLDER_SCAN_CHUNK_SIZE,
-            'documents': [],
-            'summary': {
-                'total_documents': len(selected_files),
+        existing = _folder_scan_state.get(scan_id)
+        if existing:
+            # Merge into pre-registered state — update with real details
+            existing['total_files'] = len(selected_files)
+            existing['current_file'] = 'Authenticating to SharePoint...'
+            existing['total_chunks'] = (len(selected_files) + FOLDER_SCAN_CHUNK_SIZE - 1) // FOLDER_SCAN_CHUNK_SIZE
+            existing['summary']['total_documents'] = len(selected_files)
+            existing['folder_path'] = f'SharePoint: {library_path} ({len(selected_files)} selected)'
+            logger.info(f'[SP-scan-selected] Merged into pre-registered state {scan_id}')
+        else:
+            _folder_scan_state[scan_id] = {
+                'phase': 'connecting',
+                'total_files': len(selected_files),
                 'processed': 0,
                 'errors': 0,
-                'total_issues': 0,
-                'total_words': 0,
-                'issues_by_severity': {'Critical': 0, 'High': 0, 'Medium': 0, 'Low': 0, 'Info': 0},
-                'issues_by_category': {},
-                'grade_distribution': {},
-            },
-            'roles_found': {},
-            'started_at': time.time(),
-            'completed_at': None,
-            'elapsed_seconds': 0,
-            'estimated_remaining': None,
-            'folder_path': f'SharePoint: {library_path} ({len(selected_files)} selected)',
-            'source': 'sharepoint',
-        }
+                'current_file': 'Authenticating to SharePoint...',
+                'current_chunk': 0,
+                'total_chunks': (len(selected_files) + FOLDER_SCAN_CHUNK_SIZE - 1) // FOLDER_SCAN_CHUNK_SIZE,
+                'documents': [],
+                'summary': {
+                    'total_documents': len(selected_files),
+                    'processed': 0,
+                    'errors': 0,
+                    'total_issues': 0,
+                    'total_words': 0,
+                    'issues_by_severity': {'Critical': 0, 'High': 0, 'Medium': 0, 'Low': 0, 'Info': 0},
+                    'issues_by_category': {},
+                    'grade_distribution': {},
+                },
+                'roles_found': {},
+                'started_at': time.time(),
+                'completed_at': None,
+                'elapsed_seconds': 0,
+                'estimated_remaining': None,
+                'folder_path': f'SharePoint: {library_path} ({len(selected_files)} selected)',
+                'source': 'sharepoint',
+            }
+            logger.info(f'[SP-scan-selected] Created fresh state {scan_id}')
 
     # Spawn background thread — connector creation + auth + scan all happen here
     flask_app = current_app._get_current_object()
