@@ -1,13 +1,23 @@
 {
-  "version": "6.3.13",
+  "version": "6.3.14",
   "release_date": "2026-03-02",
-  "core_version": "6.3.13",
+  "core_version": "6.3.14",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.3.14",
+      "date": "2026-03-02",
+      "changes": [
+        "FIX: Sandbox testing revealed JS always showed file picker regardless of server auto-scan — scan_id in response was ignored",
+        "ARCH: Added d.scan_id detection in Connect&Scan response handler — if server started scanning, skip file picker and show dashboard directly",
+        "ARCH: Zero second request needed — dashboard uses server's scan_id for polling, progress fallback as safety net",
+        "TEST: Created test_sp_scan_flow.py sandbox test that exercises exact backend + frontend code paths"
+      ]
+    },
     {
       "version": "6.3.13",
       "date": "2026-03-02",

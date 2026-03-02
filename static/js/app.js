@@ -13332,6 +13332,22 @@ STEPS TO REPRODUCE
                                 spFilePreview.classList.remove('hidden');
                             }
 
+                            // v6.3.14: If server already started scanning (scan_id in response),
+                            // skip file picker and go DIRECTLY to the cinematic dashboard.
+                            // This is the definitive fix for corporate DLP/proxy environments.
+                            // The backend auto-starts the scan during discovery (v6.3.13).
+                            // No second request needed — dashboard polls with the server's scan_id.
+                            if (d.scan_id) {
+                                console.log('%c[AEGIS SP] ⚡ Server auto-started scan: ' + d.scan_id + ' — skipping file picker, showing dashboard directly', 'color:#D6A84A;font-weight:bold;font-size:14px;');
+                                const autoTotalFiles = disc.supported_files || disc.total_discovered || 0;
+                                window.showToast?.(`Scanning ${autoTotalFiles} documents from SharePoint...`, 'success');
+                                try {
+                                    await _showSpCinematicDashboard(d.scan_id, autoTotalFiles, disc.files || []);
+                                } catch(dashErr) {
+                                    console.error('[AEGIS SP] Dashboard error after auto-scan:', dashErr);
+                                    window.showToast?.('Dashboard error — scan is running in background. Check progress in a moment.', 'warning');
+                                }
+                            } else {
                             // v6.1.11: Show file selector instead of auto-scanning
                             // Store discovery context for scan-selected endpoint
                             // v6.3.5: Include connector_token for reusing authenticated session
@@ -13349,6 +13365,7 @@ STEPS TO REPRODUCE
                             console.log('[AEGIS SP] ✓ File selector rendered. User should see file checkboxes and "Scan Selected" button.');
 
                             window.showToast?.(`Found ${disc.supported_files} documents — select files to scan`, 'success');
+                            } // end else (no scan_id — file picker path)
                         } else {
                             // Connected but no files
                             window.showToast?.(d.message || 'No supported documents found', 'info');
