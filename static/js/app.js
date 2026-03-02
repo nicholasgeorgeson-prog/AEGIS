@@ -12026,8 +12026,8 @@ STEPS TO REPRODUCE
 
         // v6.2.6: Top-level version marker — set on page load, not inside click handler
         // Check from F12 console: window.__AEGIS_SP_CINEMATIC
-        window.__AEGIS_SP_CINEMATIC = 'v6.2.7';
-        console.log('%c[AEGIS SP] v6.2.6 SP scan module loaded', 'color:#D6A84A;font-weight:bold;');
+        window.__AEGIS_SP_CINEMATIC = 'v6.3.2';
+        console.log('%c[AEGIS SP] v6.3.2 SP scan module loaded (no AbortController)', 'color:#D6A84A;font-weight:bold;');
 
         const btnSpTest = document.getElementById('btn-sp-test');
         const btnSpDiscover = document.getElementById('btn-sp-discover');
@@ -12845,7 +12845,7 @@ STEPS TO REPRODUCE
          * then starts progress polling on the existing SP scan dashboard.
          */
         async function _startSPSelectedScan() {
-            console.log('%c[AEGIS SP] ▶ _startSPSelectedScan() called (v6.3.1)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
+            console.log('%c[AEGIS SP] ▶ _startSPSelectedScan() called (v6.3.2 — no AbortController)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
 
             // v6.3.1: Inline diagnostic status — visible without toast dependency
             const _spDiag = (msg, isError) => {
@@ -12908,7 +12908,7 @@ STEPS TO REPRODUCE
             }
 
             _spDiag('Step 0: ' + selectedFiles.length + ' files selected for scan ✓');
-            console.log(`[AEGIS SP] Starting scan of ${selectedFiles.length} selected files (v6.3.1 — non-blocking)`);
+            console.log(`[AEGIS SP] Starting scan of ${selectedFiles.length} selected files (v6.3.2 — no abort timeout)`);
 
             // Disable buttons during scan start
             if (btnScanSelected) {
@@ -12926,41 +12926,29 @@ STEPS TO REPRODUCE
                 _spDiag('Step 1/3: CSRF token obtained ✓ (' + (csrf ? csrf.substring(0, 8) + '...' : 'NULL') + ')');
                 console.log('[AEGIS SP] Step 1/3: ✓ CSRF token obtained');
 
-                // v6.3.1: Step 2 — POST to start scan (returns IMMEDIATELY — connector
+                // v6.3.2: Step 2 — POST to start scan (returns IMMEDIATELY — connector
                 // creation happens in background thread, not in the HTTP handler)
                 _spDiag('Step 2/3: Sending POST to /api/review/sharepoint-scan-selected...');
-                console.log('[AEGIS SP] Step 2/3: Sending scan request to backend...');
+                console.log('[AEGIS SP] Step 2/3: Sending scan request to backend (v6.3.2 — no AbortController)...');
 
-                // AbortController with 120s timeout — safety net for edge cases
-                // v6.3.0: Increased from 30s to 120s. The v6.2.9 backend returns in <1 second
-                // (connector creation in background thread), but if the server is running
-                // older code, HeadlessSP auth takes 35-45s. 30s was too tight and caused
-                // false timeouts. 120s ensures even worst-case HeadlessSP auth completes.
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => {
-                    console.error('[AEGIS SP] ⚠️ Fetch timeout after 120s — aborting');
-                    controller.abort();
-                }, 120000);
-
-                let resp;
-                try {
-                    resp = await fetch('/api/review/sharepoint-scan-selected', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-Token': csrf
-                        },
-                        body: JSON.stringify({
-                            site_url: ctx.site_url,
-                            library_path: ctx.library_path,
-                            connector_type: ctx.connector_type,
-                            files: selectedFiles
-                        }),
-                        signal: controller.signal
-                    });
-                } finally {
-                    clearTimeout(timeoutId);
-                }
+                // v6.3.2: Removed AbortController — it caused false AbortErrors on
+                // Windows environments. No client-side timeout needed for localhost:
+                // - If server is alive (v6.2.9+): returns in <1 second
+                // - If server is dead: fetch throws TypeError immediately
+                // - If server is running old blocking code: completes in 30-60s
+                const resp = await fetch('/api/review/sharepoint-scan-selected', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrf
+                    },
+                    body: JSON.stringify({
+                        site_url: ctx.site_url,
+                        library_path: ctx.library_path,
+                        connector_type: ctx.connector_type,
+                        files: selectedFiles
+                    })
+                });
                 _spDiag('Step 2/3: Backend responded — HTTP ' + resp.status);
                 console.log('[AEGIS SP] Step 2/3: ✓ Backend responded (status=' + resp.status + ')');
 
@@ -13024,11 +13012,16 @@ STEPS TO REPRODUCE
                     }
                 }
             } catch (err) {
-                console.error('[AEGIS SP] ❌ Scan selected error:', err.name, err.message);
+                console.error('[AEGIS SP] ❌ Scan selected error:', err.name, err.message, err);
                 _spDiag('FAIL: ' + err.name + ' — ' + err.message, true);
-                var userMsg = err.name === 'AbortError'
-                    ? 'Scan request timed out — the server may need a restart after updates. Try restarting AEGIS and scanning again.'
-                    : 'Failed to start scan: ' + err.message;
+                var userMsg;
+                if (err.name === 'TypeError' && /fetch|network/i.test(err.message)) {
+                    userMsg = 'Cannot reach AEGIS server. The server may need a restart after updates (AEGIS Manager → Option 7 → Restart).';
+                } else if (err.name === 'AbortError') {
+                    userMsg = 'Request was aborted. The server may need a restart after updates (AEGIS Manager → Option 7 → Restart).';
+                } else {
+                    userMsg = 'Failed to start scan: ' + (err.message || err.name || 'Unknown error');
+                }
                 window.showToast?.(userMsg, 'error');
                 if (btnScanSelected) {
                     btnScanSelected.disabled = false;
