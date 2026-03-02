@@ -53,7 +53,7 @@ from urllib.parse import parse_qs, urlparse
 # CONSTANTS & CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════
 
-MANAGER_VERSION = "2.2.1"
+MANAGER_VERSION = "2.2.2"
 
 # GitHub
 REPO_OWNER = "nicholasgeorgeson-prog"
@@ -1850,7 +1850,24 @@ class AEGISManager:
         if c_fail == 0:
             C._write(f'  {C.GREEN}{C.BOLD}All {c_pass} critical packages working!{C.RESET}')
         else:
-            C._write(f'  {C.RED}{c_fail} critical package(s) broken — run Repair (option 4){C.RESET}')
+            C._write(f'  {C.RED}{c_fail} critical package(s) broken{C.RESET}')
+            C._write('')
+            C._write(f'  {C.YELLOW}{C.BOLD}Auto-repairing {c_fail} broken critical package(s)...{C.RESET}')
+            C._write('')
+            try:
+                self.packages.full_repair()
+                C._write('')
+                C._write(f'  {C.GREEN}{C.BOLD}Auto-repair complete. Re-checking...{C.RESET}')
+                C._write('')
+                c2_pass, c2_fail, _, _, _ = self.packages.health_check()
+                if c2_fail == 0:
+                    C._write(f'  {C.GREEN}{C.BOLD}✓ All {c2_pass} critical packages now working!{C.RESET}')
+                else:
+                    C._write(f'  {C.RED}{c2_fail} critical package(s) still broken after repair{C.RESET}')
+                    C._write(f'  {C.YELLOW}Try: Full Sync (option 2) then Repair (option 4){C.RESET}')
+            except Exception as e:
+                C._write(f'  {C.RED}Auto-repair failed: {e}{C.RESET}')
+                C._write(f'  {C.YELLOW}Try running Repair (option 4) manually{C.RESET}')
         if o_fail > 0:
             C._write(f'  {C.YELLOW}{o_fail} optional package(s) not available{C.RESET}')
 

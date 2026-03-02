@@ -1408,18 +1408,25 @@ def _process_folder_scan_async(scan_id, discovered, options):
 @handle_api_errors
 def scan_pre_register():
     """
-    v6.3.4: Lightweight endpoint to pre-register a scan state.
+    v6.3.8: ONE-POST SharePoint scan architecture (Lesson 170).
 
-    Called by the frontend BEFORE the heavy POST to /sharepoint-scan-selected.
-    Creates a minimal scan state entry so that the polling loop immediately
-    finds the scan (no 404s during the "Initializing..." phase).
+    Previously this was a lightweight pre-register, followed by a separate
+    heavy POST to /sharepoint-scan-selected. That second POST NEVER reached
+    the server on the Windows machine — 8+ diagnostic sessions proved it.
+    Beacons confirmed the fetch was sent but Flask/Waitress never received it.
 
-    NO @require_csrf — this endpoint only creates an empty placeholder state
-    keyed by a client-generated random scan_id. No security risk for a
-    local-only tool (localhost:5050).
+    The fix: merge ALL scan-start logic into this single endpoint. This
+    endpoint is PROVEN to work (two instances in logs, both 200 in <5ms).
+    No @require_csrf, no X-CSRF-Token header, no AbortController signal —
+    all three of which differentiated the failing POST from this working one.
 
-    Body: { scan_id: string, total_files: int, source: string }
-    Returns: { success: true }
+    When 'files' is present in the body: creates scan state AND spawns the
+    background scan thread (full scan-start flow).
+    When 'files' is absent: lightweight pre-register only (backward compat).
+
+    NO @require_csrf — localhost-only tool (localhost:5050). No security risk.
+    Body: { scan_id, total_files, source, [files, site_url, library_path,
+            connector_type, connector_token, options] }
     """
     data = request.get_json(silent=True) or {}
     scan_id = (data.get('scan_id') or '').strip()
@@ -1429,14 +1436,74 @@ def scan_pre_register():
     if not scan_id or len(scan_id) < 6 or len(scan_id) > 36:
         return jsonify({'success': False, 'error': {'message': 'Invalid scan_id'}}), 400
 
+    # ── Check if this is a full scan request (files present) or just pre-register ──
+    selected_files = data.get('files', [])
+    site_url = data.get('site_url', '').strip()
+    library_path = data.get('library_path', '').strip()
+    connector_type = data.get('connector_type', 'rest')
+    connector_token = data.get('connector_token', '').strip()
+    options = data.get('options', {})
+
+    is_full_scan = bool(selected_files) and bool(site_url)
+
+    if is_full_scan:
+        logger.info(f'[scan-pre-register] ONE-POST scan: {scan_id}, {len(selected_files)} files, site={site_url}, lib={library_path}')
+    else:
+        logger.info(f'[scan-pre-register] Lightweight pre-register: {scan_id}, {total_files} files (source={source})')
+
+    # ── Look up cached connector if full scan ──
+    cached_connector = None
+    if is_full_scan and connector_token:
+        with _sp_connector_cache_lock:
+            entry = _sp_connector_cache.pop(connector_token, None)
+        if entry:
+            age = time.time() - entry['created_at']
+            if age < _SP_CONNECTOR_CACHE_TTL:
+                cached_connector = entry['connector']
+                logger.info(f'[scan-pre-register] ✓ Reusing cached connector (token={connector_token[:8]}..., age={age:.0f}s)')
+            else:
+                logger.warning(f'[scan-pre-register] Cached connector expired (age={age:.0f}s) — will create new')
+                try:
+                    entry['connector'].close()
+                except Exception:
+                    pass
+        else:
+            logger.warning(f'[scan-pre-register] Connector token {connector_token[:8]}... not found — will create new')
+
+    # ── Determine initial phase ──
+    if is_full_scan:
+        total_files = len(selected_files)
+        if cached_connector:
+            initial_phase = 'reviewing'
+            initial_msg = 'Starting document scan...'
+        else:
+            initial_phase = 'connecting'
+            initial_msg = 'Authenticating to SharePoint...'
+        folder_label = f'SharePoint: {library_path} ({total_files} selected)'
+    else:
+        initial_phase = 'connecting'
+        initial_msg = 'Authenticating to SharePoint...'
+        folder_label = f'{source}: pre-registered ({total_files} files)'
+
+    # ── Create or merge scan state ──
     with _folder_scan_state_lock:
-        if scan_id not in _folder_scan_state:
+        _cleanup_old_scans()
+        existing = _folder_scan_state.get(scan_id)
+        if existing:
+            existing['phase'] = initial_phase
+            existing['total_files'] = int(total_files)
+            existing['current_file'] = initial_msg
+            existing['total_chunks'] = max(1, (int(total_files) + FOLDER_SCAN_CHUNK_SIZE - 1) // FOLDER_SCAN_CHUNK_SIZE)
+            existing['summary']['total_documents'] = int(total_files)
+            existing['folder_path'] = folder_label
+            logger.info(f'[scan-pre-register] Merged into existing state {scan_id} (phase={initial_phase})')
+        else:
             _folder_scan_state[scan_id] = {
-                'phase': 'connecting',
+                'phase': initial_phase,
                 'total_files': int(total_files),
                 'processed': 0,
                 'errors': 0,
-                'current_file': 'Authenticating to SharePoint...',
+                'current_file': initial_msg,
                 'current_chunk': 0,
                 'total_chunks': max(1, (int(total_files) + FOLDER_SCAN_CHUNK_SIZE - 1) // FOLDER_SCAN_CHUNK_SIZE),
                 'documents': [],
@@ -1455,13 +1522,64 @@ def scan_pre_register():
                 'completed_at': None,
                 'elapsed_seconds': 0,
                 'estimated_remaining': None,
-                'folder_path': f'{source}: pre-registered ({total_files} files)',
+                'folder_path': folder_label,
                 'source': source,
             }
-            logger.info(f'[scan-pre-register] Created scan state {scan_id} for {total_files} files (source={source})')
-        else:
-            logger.info(f'[scan-pre-register] Scan state {scan_id} already exists — no-op')
+            logger.info(f'[scan-pre-register] Created scan state {scan_id} (phase={initial_phase})')
 
+    # ── If full scan: spawn background thread ──
+    if is_full_scan:
+        SPConnector, sp_parse_url = _get_sharepoint_connector()
+        if SPConnector is None:
+            with _folder_scan_state_lock:
+                state = _folder_scan_state.get(scan_id)
+                if state:
+                    state['phase'] = 'error'
+                    state['error_message'] = 'SharePoint connector not available'
+            return jsonify({
+                'success': False,
+                'error': {'message': 'SharePoint connector not available', 'code': 'SP_UNAVAILABLE'}
+            }), 500
+
+        flask_app = current_app._get_current_object()
+        thread = threading.Thread(
+            target=_process_sharepoint_scan_async,
+            args=(scan_id, cached_connector, selected_files, options, flask_app),
+            kwargs={
+                'site_url': site_url,
+                'connector_type': connector_type,
+                'library_path': library_path,
+            },
+            daemon=True,
+            name=f'sp-scan-{scan_id}',
+        )
+        thread.start()
+
+        total_size = sum(f.get('size', 0) for f in selected_files)
+        type_breakdown = {}
+        for f in selected_files:
+            ext = f.get('extension', f.get('name', '').rsplit('.', 1)[-1] if '.' in f.get('name', '') else 'unknown')
+            type_breakdown[ext] = type_breakdown.get(ext, 0) + 1
+
+        logger.info(f'[scan-pre-register] Scan thread started: {scan_id}, {len(selected_files)} files, cached_connector={cached_connector is not None}')
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'scan_id': scan_id,
+                'total_files': len(selected_files),
+                'library_path': library_path,
+                'scan_started': True,
+                'discovery': {
+                    'total_discovered': len(selected_files),
+                    'supported_files': len(selected_files),
+                    'total_size': total_size,
+                    'file_type_breakdown': type_breakdown,
+                }
+            }
+        })
+
+    # ── Lightweight pre-register only ──
     return jsonify({'success': True, 'data': {'scan_id': scan_id}})
 
 

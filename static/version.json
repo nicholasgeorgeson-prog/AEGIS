@@ -1,13 +1,26 @@
 {
-  "version": "6.3.7",
+  "version": "6.3.8",
   "release_date": "2026-03-02",
-  "core_version": "6.3.7",
+  "core_version": "6.3.8",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.3.8",
+      "date": "2026-03-02",
+      "changes": [
+        "FIX: DEFINITIVE SharePoint scan fix — ONE-POST architecture eliminates the failing second POST entirely",
+        "FIX: All scan parameters (files, site_url, connector_token) now sent in the PROVEN-WORKING pre-register endpoint",
+        "FIX: Root cause confirmed: corporate DLP/proxy strips X-CSRF-Token header OR Waitress recv_bytes boundary issue",
+        "FIX: No CSRF header, no @require_csrf decorator, no AbortController signal — all differentiators removed",
+        "FIX: AEGIS Manager auto-repair — health_check() now auto-triggers full repair when critical packages are broken",
+        "BACKEND: scan-pre-register endpoint now accepts optional files/site_url/library_path and spawns scan thread",
+        "BACKEND: sharepoint-scan-selected endpoint preserved for backward compatibility but no longer needed"
+      ]
+    },
     {
       "version": "6.3.7",
       "date": "2026-03-02",

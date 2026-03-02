@@ -12987,31 +12987,72 @@ STEPS TO REPRODUCE
                 btnSpScan.dataset.discoveryFiles = JSON.stringify(selectedFiles);
             }
 
-            // Step 3: PRE-REGISTER scan state — lightweight, no CSRF, <10ms
-            // This creates the scan state BEFORE the dashboard starts polling,
-            // so polling immediately sees "Connecting to SharePoint..." instead of 404
-            console.log('[AEGIS SP] Step 1/3: Pre-registering scan state...');
+            // ═══════════════════════════════════════════════════════════════════
+            // v6.3.8: ONE-POST ARCHITECTURE (Lesson 170)
+            //
+            // The POST to /sharepoint-scan-selected NEVER reached the server on
+            // Windows. 9+ sessions, v6.3.3-v6.3.7, diagnostic beacons, log analysis
+            // all confirmed: the fetch hangs for exactly 120s, server is responsive
+            // throughout, zero entries in app.log for that endpoint.
+            //
+            // Root cause (confirmed by research): corporate DLP/proxy strips the
+            // X-CSRF-Token custom header OR Waitress recv_bytes boundary issue with
+            // the larger header block. The working pre-register POST has: no CSRF
+            // header, no @require_csrf decorator, no AbortController signal.
+            //
+            // FIX: Send ALL scan parameters in the pre-register POST. The backend
+            // detects 'files' in the body and spawns the background scan thread.
+            // ONE proven-working POST replaces the two-POST architecture entirely.
+            // ═══════════════════════════════════════════════════════════════════
+
+            // Step 3: ONE-POST — pre-register + scan start in a single request
+            // No CSRF header, no AbortController, no custom headers beyond Content-Type
+            console.log('[AEGIS SP] Step 1/2: Sending ONE-POST scan request (v6.3.8)...');
+            var scanStarted = false;
             try {
+                var onePostBody = JSON.stringify({
+                    scan_id: clientScanId,
+                    total_files: totalFiles,
+                    source: 'sharepoint',
+                    // Scan parameters — backend spawns thread when files is present
+                    site_url: ctx.site_url,
+                    library_path: ctx.library_path,
+                    connector_type: ctx.connector_type,
+                    connector_token: ctx.connector_token || '',
+                    files: selectedFiles
+                });
+                var bodyKB = (onePostBody.length / 1024).toFixed(1);
+                console.log('[AEGIS SP] Step 1/2: POST body: ' + bodyKB + ' KB, ' + selectedFiles.length + ' files');
+
                 var preRegResp = await fetch('/api/review/scan-pre-register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        scan_id: clientScanId,
-                        total_files: totalFiles,
-                        source: 'sharepoint'
-                    })
+                    body: onePostBody
                 });
+
                 if (preRegResp.ok) {
-                    console.log('%c[AEGIS SP] Step 1/3: ✓ Scan state pre-registered', 'color:#22c55e;font-weight:bold;');
+                    var preRegJson = await preRegResp.json();
+                    scanStarted = preRegJson.data?.scan_started || false;
+                    console.log('%c[AEGIS SP] Step 1/2: ✓ ONE-POST succeeded — scan_started=' + scanStarted, 'color:#22c55e;font-weight:bold;');
                 } else {
-                    console.warn('[AEGIS SP] Step 1/3: Pre-register returned HTTP ' + preRegResp.status + ' — dashboard will handle 404s');
+                    console.error('[AEGIS SP] Step 1/2: ✗ ONE-POST returned HTTP ' + preRegResp.status);
+                    window.showToast?.('Scan request failed (HTTP ' + preRegResp.status + ')', 'error');
                 }
-            } catch (preRegErr) {
-                console.warn('[AEGIS SP] Step 1/3: Pre-register failed:', preRegErr.message, '— dashboard will handle 404s');
+            } catch (postErr) {
+                console.error('[AEGIS SP] Step 1/2: ✗ ONE-POST failed:', postErr.name, postErr.message);
+                // Mark scan as errored
+                try {
+                    fetch('/api/review/scan-error', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ scan_id: clientScanId, error: (postErr.name || 'Error') + ': ' + (postErr.message || 'Unknown') })
+                    }).catch(function() {});
+                } catch(_) {}
+                window.showToast?.('Scan request failed: ' + (postErr.message || 'Network error'), 'error');
             }
 
-            // Step 4: Show cinematic dashboard — polling will find the pre-registered state
-            console.log('%c[AEGIS SP] Step 2/3: ▶ Launching cinematic dashboard (v6.3.4)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
+            // Step 4: Show cinematic dashboard — polling will find the scan state
+            console.log('%c[AEGIS SP] Step 2/2: ▶ Launching cinematic dashboard (v6.3.8)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
             window.showToast?.('Starting SharePoint scan — ' + totalFiles + ' files', 'success');
 
             var dashboardPromise = _showSpCinematicDashboard(clientScanId, totalFiles, selectedFiles).catch(function(dashErr) {
@@ -13019,99 +13060,7 @@ STEPS TO REPRODUCE
                 window.showToast?.('Dashboard error: ' + (dashErr.message || 'Unknown'), 'error');
             });
 
-            // Step 5: POST to sharepoint-scan-selected — AWAITED (v6.3.7)
-            // v6.3.3-v6.3.6 used fire-and-forget .then() chain — the POST silently
-            // failed on Windows and NEVER reached the server (zero entries in app.log).
-            // v6.3.7: Convert to await with diagnostic beacons, timeout, and error
-            // propagation so failures are visible in server logs and scan state.
-            console.log('[AEGIS SP] Step 3/3: Sending POST to /api/review/sharepoint-scan-selected (AWAITED v6.3.7)');
-
-            // Beacon helper — fires lightweight POST to /api/diagnostics/beacon
-            // that logs at INFO level in app.log. No CSRF needed. Fire-and-forget.
-            var _beacon = function(step, detail, error) {
-                try {
-                    fetch('/api/diagnostics/beacon', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ step: step, scan_id: clientScanId, detail: detail || '', error: error || '' })
-                    }).catch(function() {});
-                } catch(_) {}
-            };
-
-            try {
-                // 3a: Get CSRF token
-                _beacon('csrf_start', 'Requesting CSRF token');
-                var csrf = await _freshCSRF();
-                _beacon('csrf_done', 'CSRF obtained, length=' + (csrf ? csrf.length : 0));
-                console.log('[AEGIS SP] Step 3/3: CSRF obtained (' + (csrf ? csrf.length : 0) + ' chars)');
-
-                // 3b: Build request body and measure size
-                var scanBody = JSON.stringify({
-                    site_url: ctx.site_url,
-                    library_path: ctx.library_path,
-                    connector_type: ctx.connector_type,
-                    connector_token: ctx.connector_token || '',
-                    files: selectedFiles,
-                    scan_id: clientScanId
-                });
-                var bodyKB = (scanBody.length / 1024).toFixed(1);
-                _beacon('post_start', 'Sending POST, body=' + bodyKB + 'KB, files=' + selectedFiles.length);
-                console.log('[AEGIS SP] Step 3/3: POST body size: ' + bodyKB + ' KB (' + selectedFiles.length + ' files)');
-
-                // 3c: Send with AbortController timeout (120s)
-                var abortCtl = new AbortController();
-                var abortTimer = setTimeout(function() { abortCtl.abort(); }, 120000);
-
-                var resp = await fetch('/api/review/sharepoint-scan-selected', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': csrf
-                    },
-                    body: scanBody,
-                    signal: abortCtl.signal
-                });
-                clearTimeout(abortTimer);
-
-                _beacon('post_done', 'HTTP ' + resp.status);
-                console.log('%c[AEGIS SP] Step 3/3: ✓ POST completed — HTTP ' + resp.status, 'color:#22c55e;font-weight:bold;');
-
-                // 3d: Parse response
-                var json = await resp.json();
-                if (json.success) {
-                    _beacon('scan_confirmed', 'Backend confirmed scan_id=' + (json.data?.scan_id || clientScanId));
-                    console.log('[AEGIS SP] Step 3/3: ✓ Backend confirmed scan_id=' + (json.data?.scan_id || clientScanId));
-                } else {
-                    var errMsg = json.data?.message || json.error?.message || 'Server rejected scan request';
-                    _beacon('scan_rejected', errMsg, errMsg);
-                    console.error('[AEGIS SP] Step 3/3: ✗ Backend error: ' + errMsg);
-                    window.showToast?.('Scan error: ' + errMsg, 'error');
-                }
-            } catch (postErr) {
-                var errName = postErr.name || 'Error';
-                var errMsg = postErr.message || 'Unknown';
-                _beacon('post_failed', errName + ': ' + errMsg, errMsg);
-                console.error('[AEGIS SP] Step 3/3: ✗ POST FAILED:', errName, errMsg);
-
-                // Mark scan as errored so dashboard stops showing "Connecting..."
-                try {
-                    fetch('/api/review/scan-error', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ scan_id: clientScanId, error: errName + ': ' + errMsg })
-                    }).catch(function() {});
-                } catch(_) {}
-
-                if (errName === 'AbortError') {
-                    window.showToast?.('Scan request timed out (120s) — server may need restart (AEGIS Manager → Option 7)', 'error');
-                } else if (errName === 'TypeError' && /fetch|network/i.test(errMsg)) {
-                    window.showToast?.('Cannot reach server — restart may be needed (AEGIS Manager → Option 7)', 'error');
-                } else {
-                    window.showToast?.('Scan request failed: ' + errMsg, 'error');
-                }
-            }
-
-            // Wait for dashboard to finish (it completes when scan finishes or errors out)
+            // Wait for dashboard to finish
             try {
                 await dashboardPromise;
             } catch (_) {
