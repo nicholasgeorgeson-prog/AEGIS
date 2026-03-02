@@ -1465,6 +1465,39 @@ def scan_pre_register():
     return jsonify({'success': True, 'data': {'scan_id': scan_id}})
 
 
+@review_bp.route('/api/review/scan-error', methods=['POST'])
+@handle_api_errors
+def scan_error():
+    """
+    v6.3.7: Mark a pre-registered scan as errored.
+
+    Called by the frontend when the heavy POST to /sharepoint-scan-selected fails
+    (timeout, network error, etc.). Updates the scan state so the polling dashboard
+    shows the error instead of being stuck at "Connecting...".
+
+    NO @require_csrf — same rationale as scan-pre-register.
+    Body: { scan_id: string, error: string }
+    """
+    data = request.get_json(silent=True) or {}
+    scan_id = (data.get('scan_id') or '').strip()
+    error_msg = data.get('error', 'Scan request failed')
+
+    if not scan_id:
+        return jsonify({'success': False, 'error': {'message': 'Missing scan_id'}}), 400
+
+    with _folder_scan_state_lock:
+        state = _folder_scan_state.get(scan_id)
+        if state:
+            state['phase'] = 'error'
+            state['completed_at'] = time.time()
+            state['current_file'] = f'Error: {error_msg}'
+            logger.warning(f'[scan-error] Scan {scan_id} marked as errored: {error_msg}')
+        else:
+            logger.warning(f'[scan-error] Scan {scan_id} not found — no state to update')
+
+    return jsonify({'success': True})
+
+
 @review_bp.route('/api/review/folder-scan-progress/<scan_id>', methods=['GET'])
 @handle_api_errors
 def folder_scan_progress(scan_id):

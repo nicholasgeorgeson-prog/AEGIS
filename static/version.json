@@ -1,13 +1,25 @@
 {
-  "version": "6.3.6",
+  "version": "6.3.7",
   "release_date": "2026-03-02",
-  "core_version": "6.3.6",
+  "core_version": "6.3.7",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.3.7",
+      "date": "2026-03-02",
+      "changes": [
+        "FIX: SharePoint scan-selected POST was NEVER reaching the server — converted fire-and-forget .then() chain to awaited fetch",
+        "FIX: Diagnostic beacons now log each scan step at INFO level in app.log — makes frontend failures visible server-side",
+        "FIX: New /api/diagnostics/beacon endpoint logs scan steps (csrf_start, csrf_done, post_start, post_done, post_failed)",
+        "FIX: New /api/review/scan-error endpoint marks pre-registered scan as errored when POST fails",
+        "FIX: AbortController with 120s timeout prevents infinite hangs on scan POST",
+        "FIX: Dashboard now shows error state instead of stuck 'Connecting...' when POST fails"
+      ]
+    },
     {
       "version": "6.3.6",
       "date": "2026-03-02",

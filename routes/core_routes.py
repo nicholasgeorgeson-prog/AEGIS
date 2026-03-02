@@ -947,6 +947,28 @@ def diagnostics_frontend():
         return jsonify({'success': True, 'received': 0})
 
 
+@core_bp.route('/api/diagnostics/beacon', methods=['POST'])
+def diagnostics_beacon():
+    """
+    Lightweight diagnostic beacon — logs scan steps at INFO level so they
+    appear in app.log. Used by frontend to confirm which steps actually execute.
+    No CSRF required. Returns 200 immediately.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        step = data.get('step', 'unknown')
+        scan_id = data.get('scan_id', '?')
+        detail = data.get('detail', '')
+        error = data.get('error', '')
+        if error:
+            logger.warning(f'[BEACON] scan={scan_id} step={step} ERROR: {error} {detail}')
+        else:
+            logger.info(f'[BEACON] scan={scan_id} step={step} {detail}')
+    except Exception:
+        pass
+    return jsonify({'ok': True})
+
+
 @core_bp.route('/api/diagnostics/frontend-logs', methods=['POST'])
 def diagnostics_frontend_logs():
     """
