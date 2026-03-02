@@ -10021,11 +10021,13 @@ window.emailDiagnosticsViaOutlook = async function() {
             throw new Error(result?.error?.message || 'Failed to generate diagnostic email');
         }
 
-        console.log('[TWR] Diagnostic .eml generated:', result.filename, '| Attachments:', result.attachments, '| Opened:', result.opened);
+        console.log('[TWR] Diagnostic email result:', result.filename, '| Sent:', result.sent, '| Attachments:', result.attachments, '| Opened:', result.opened);
 
-        if (result.opened) {
+        if (result.sent) {
+            // v6.3.7: Auto-sent via Outlook COM
+            toast('success', `Diagnostic email sent to ${result.to_email || toEmail} with ${result.attachments} log files attached.`, 8000);
+        } else if (result.opened) {
             toast('success', `Opening diagnostic email in Outlook with ${result.attachments} log files attached...`, 6000);
-            // Show confirmation modal
             setTimeout(() => {
                 showDiagnosticEmlModal(result.filename, result.attachments, result.opened);
             }, 500);

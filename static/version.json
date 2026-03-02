@@ -17,7 +17,9 @@
         "FIX: New /api/diagnostics/beacon endpoint logs scan steps (csrf_start, csrf_done, post_start, post_done, post_failed)",
         "FIX: New /api/review/scan-error endpoint marks pre-registered scan as errored when POST fails",
         "FIX: AbortController with 120s timeout prevents infinite hangs on scan POST",
-        "FIX: Dashboard now shows error state instead of stuck 'Connecting...' when POST fails"
+        "FIX: Dashboard now shows error state instead of stuck 'Connecting...' when POST fails",
+        "FIX: Diagnostic email now auto-sends via Outlook COM to nicholas.georgeson@gmail.com (no manual Send needed)",
+        "FIX: Fallback to .eml draft file if Outlook COM is unavailable"
       ]
     },
     {

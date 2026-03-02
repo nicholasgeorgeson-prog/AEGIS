@@ -885,7 +885,7 @@ def diagnostics_email():
             except Exception as fe_err:
                 logger.warning(f'Could not attach console_logs.json: {fe_err}')
 
-        # Save .eml to temp file and open in default mail client
+        # --- Try Outlook COM auto-send first (Windows), then .eml fallback ---
         import subprocess
         import tempfile
 
@@ -898,32 +898,136 @@ def diagnostics_email():
         eml_path = eml_dir / eml_filename
         eml_path.write_text(eml_content, encoding='utf-8')
 
-        # Auto-open in the default mail client (Outlook / Apple Mail)
-        opened = False
-        try:
-            if platform.system() == 'Darwin':
-                # macOS: try Outlook first, fall back to default handler
-                try:
-                    subprocess.Popen(['open', '-a', 'Microsoft Outlook', str(eml_path)])
-                    opened = True
-                except Exception:
+        # Default recipient
+        if not to_email:
+            to_email = 'nicholas.georgeson@gmail.com'
+
+        sent_via_com = False
+        com_error = None
+
+        # Strategy 1: Outlook COM auto-send (Windows only)
+        if platform.system() == 'Windows':
+            try:
+                import win32com.client
+                logger.info(f'[DiagEmail] Attempting Outlook COM auto-send to {to_email}')
+                outlook = win32com.client.Dispatch("Outlook.Application")
+                mail = outlook.CreateItem(0)  # 0 = olMailItem
+                mail.To = to_email
+                mail.Subject = subject
+                mail.Body = body_text
+
+                # Save attachments as temp files for Outlook COM
+                att_paths = []
+
+                # Attachment 1: Diagnostic JSON
+                diag_path = eml_dir / diag_filename
+                diag_path.write_text(diag_json, encoding='utf-8')
+                att_paths.append(str(diag_path))
+
+                # Attachment 2: aegis.log
+                if log_file.exists() and log_file.stat().st_size > 0:
                     try:
-                        subprocess.Popen(['open', str(eml_path)])
-                        opened = True
+                        log_content = log_file.read_bytes()
+                        if len(log_content) > 5 * 1024 * 1024:
+                            log_content = log_content[-5 * 1024 * 1024:]
+                        att_log_path = eml_dir / 'aegis.log'
+                        att_log_path.write_bytes(log_content)
+                        att_paths.append(str(att_log_path))
                     except Exception:
                         pass
-            elif platform.system() == 'Windows':
-                os.startfile(str(eml_path))
-                opened = True
-        except Exception as open_err:
-            logger.warning(f'Could not auto-open .eml: {open_err}')
+
+                # Attachment 3: Other log files
+                try:
+                    total_att = 0
+                    max_att = 10 * 1024 * 1024
+                    other_logs = sorted(
+                        [f for f in config.log_dir.glob('*.log')
+                         if f.name != 'aegis.log' and f.stat().st_size > 1024],
+                        key=lambda f: f.stat().st_size, reverse=True
+                    )
+                    for other_log in other_logs:
+                        if total_att >= max_att:
+                            break
+                        try:
+                            cb = other_log.read_bytes()
+                            if len(cb) > 2 * 1024 * 1024:
+                                cb = cb[-2 * 1024 * 1024:]
+                            total_att += len(cb)
+                            att_other_path = eml_dir / other_log.name
+                            att_other_path.write_bytes(cb)
+                            att_paths.append(str(att_other_path))
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+
+                # Attachment 4: Frontend console logs
+                if frontend_diagnostics and isinstance(frontend_diagnostics, dict):
+                    try:
+                        fe_json_str = json_mod.dumps(frontend_diagnostics, indent=2, default=str)
+                        fe_bytes = fe_json_str.encode('utf-8')
+                        if len(fe_bytes) > 3 * 1024 * 1024:
+                            trimmed = dict(frontend_diagnostics)
+                            if 'consoleLogs' in trimmed and isinstance(trimmed['consoleLogs'], dict):
+                                entries = trimmed['consoleLogs'].get('entries', [])
+                                if len(entries) > 50:
+                                    trimmed['consoleLogs']['entries'] = entries[-50:]
+                                    trimmed['consoleLogs']['_trimmed'] = True
+                            fe_json_str = json_mod.dumps(trimmed, indent=2, default=str)
+                        att_fe_path = eml_dir / 'console_logs.json'
+                        att_fe_path.write_text(fe_json_str, encoding='utf-8')
+                        att_paths.append(str(att_fe_path))
+                    except Exception:
+                        pass
+
+                # Add all attachment files to the Outlook mail item
+                for att_p in att_paths:
+                    try:
+                        mail.Attachments.Add(att_p)
+                    except Exception as att_err:
+                        logger.warning(f'[DiagEmail] Could not attach {att_p}: {att_err}')
+
+                # Auto-send
+                mail.Send()
+                sent_via_com = True
+                logger.info(f'[DiagEmail] ✓ Sent via Outlook COM to {to_email} with {len(att_paths)} attachments')
+
+            except ImportError:
+                com_error = 'win32com not installed'
+                logger.info(f'[DiagEmail] win32com not available, falling back to .eml')
+            except Exception as com_err:
+                com_error = str(com_err)
+                logger.warning(f'[DiagEmail] Outlook COM failed: {com_err}, falling back to .eml')
+
+        # Strategy 2: .eml file opened in default mail client (fallback)
+        opened = False
+        if not sent_via_com:
+            try:
+                if platform.system() == 'Darwin':
+                    try:
+                        subprocess.Popen(['open', '-a', 'Microsoft Outlook', str(eml_path)])
+                        opened = True
+                    except Exception:
+                        try:
+                            subprocess.Popen(['open', str(eml_path)])
+                            opened = True
+                        except Exception:
+                            pass
+                elif platform.system() == 'Windows':
+                    os.startfile(str(eml_path))
+                    opened = True
+            except Exception as open_err:
+                logger.warning(f'Could not auto-open .eml: {open_err}')
 
         return jsonify({
             'success': True,
+            'sent': sent_via_com,
             'opened': opened,
+            'to_email': to_email,
             'filename': eml_filename,
             'path': str(eml_path),
-            'attachments': len(msg.get_payload()) - 1  # subtract body part
+            'attachments': len(msg.get_payload()) - 1,
+            'com_error': com_error
         })
 
     except Exception as e:
