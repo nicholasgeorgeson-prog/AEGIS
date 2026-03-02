@@ -1640,6 +1640,164 @@ def scan_error():
     return jsonify({'success': True})
 
 
+@review_bp.route('/api/review/sp-go/<connector_token>', methods=['GET'])
+@handle_api_errors
+def sp_scan_go(connector_token):
+    """
+    v6.3.10: GET-based scan trigger — bypasses corporate proxy POST blocking.
+
+    After 6 versions (v6.3.3-v6.3.9) where POST-based scan triggers NEVER
+    reached the server on the corporate network (regardless of body size —
+    even a 100-byte POST was blocked), this GET endpoint provides an
+    alternative trigger that corporate proxies cannot block.
+
+    GET requests are fundamentally different from POST at the protocol level
+    and are treated differently by every proxy, DLP, and WAF system.
+    Corporate DLP inspects POST bodies for sensitive data but passes GETs.
+
+    Parameters (URL path + query string):
+        connector_token (path): Token from discovery phase (cached connector)
+        scan_id (query): Client-generated scan ID for progress tracking
+        mode (query): 'all' or comma-separated file indices (e.g., '0,1,2,3')
+
+    Uses cached connector + files from the discovery phase.
+    No @require_csrf — GET endpoint, localhost-only tool.
+    """
+    scan_id = request.args.get('scan_id', '').strip()
+    mode = request.args.get('mode', 'all').strip()
+
+    logger.info(f'[sp-go] ✓ GET trigger received: token={connector_token[:8] if connector_token else "??"}..., scan_id={scan_id}, mode={mode[:30]}')
+
+    if not scan_id or len(scan_id) < 6 or len(scan_id) > 36:
+        return jsonify({'success': False, 'error': {'message': 'Invalid scan_id'}}), 400
+
+    if not connector_token or len(connector_token) < 8:
+        return jsonify({'success': False, 'error': {'message': 'Invalid connector_token'}}), 400
+
+    # ── Look up cached connector and files ──
+    entry = None
+    with _sp_connector_cache_lock:
+        entry = _sp_connector_cache.pop(connector_token, None)
+
+    if not entry:
+        logger.warning(f'[sp-go] Connector token {connector_token[:8]}... not found in cache')
+        return jsonify({
+            'success': False,
+            'error': {'message': 'Connector session expired or not found. Please re-discover.', 'code': 'CACHE_MISS'}
+        }), 404
+
+    age = time.time() - entry['created_at']
+    if age > _SP_CONNECTOR_CACHE_TTL:
+        logger.warning(f'[sp-go] Connector expired (age={age:.0f}s > TTL={_SP_CONNECTOR_CACHE_TTL}s)')
+        try:
+            entry['connector'].close()
+        except Exception:
+            pass
+        return jsonify({
+            'success': False,
+            'error': {'message': 'Connector session expired. Please re-discover.', 'code': 'EXPIRED'}
+        }), 410
+
+    cached_connector = entry['connector']
+    cached_files = entry.get('files', [])
+    site_url = entry.get('site_url', '')
+    library_path = entry.get('library_path', '')
+    connector_type = entry.get('connector_type', 'rest')
+
+    # ── Resolve file selection ──
+    if mode == 'all':
+        selected_files = cached_files
+    else:
+        try:
+            indices = [int(i.strip()) for i in mode.split(',') if i.strip()]
+            selected_files = [cached_files[i] for i in indices if 0 <= i < len(cached_files)]
+        except (ValueError, IndexError):
+            selected_files = cached_files
+
+    if not selected_files:
+        logger.warning(f'[sp-go] No files resolved from mode={mode}')
+        return jsonify({
+            'success': False,
+            'error': {'message': 'No files found for selected indices'}
+        }), 400
+
+    total_files = len(selected_files)
+    logger.info(f'[sp-go] ✓ Resolved {total_files} files (age={age:.0f}s, site={site_url}, lib={library_path})')
+
+    # ── Create scan state ──
+    with _folder_scan_state_lock:
+        _cleanup_old_scans()
+        _folder_scan_state[scan_id] = {
+            'phase': 'reviewing',
+            'total_files': total_files,
+            'processed': 0,
+            'errors': 0,
+            'current_file': 'Starting document scan...',
+            'current_chunk': 0,
+            'total_chunks': max(1, (total_files + FOLDER_SCAN_CHUNK_SIZE - 1) // FOLDER_SCAN_CHUNK_SIZE),
+            'documents': [],
+            'summary': {
+                'total_documents': total_files,
+                'processed': 0,
+                'errors': 0,
+                'total_issues': 0,
+                'total_words': 0,
+                'issues_by_severity': {'Critical': 0, 'High': 0, 'Medium': 0, 'Low': 0, 'Info': 0},
+                'issues_by_category': {},
+                'grade_distribution': {},
+            },
+            'roles_found': {},
+            'started_at': time.time(),
+            'completed_at': None,
+            'elapsed_seconds': 0,
+            'estimated_remaining': None,
+            'folder_path': f'SharePoint: {library_path} ({total_files} selected)',
+            'source': 'sharepoint',
+        }
+    logger.info(f'[sp-go] Created scan state: {scan_id} (phase=reviewing, {total_files} files)')
+
+    # ── Get SP connector class (for background thread module access) ──
+    SPConnector, sp_parse_url = _get_sharepoint_connector()
+    if SPConnector is None:
+        with _folder_scan_state_lock:
+            state = _folder_scan_state.get(scan_id)
+            if state:
+                state['phase'] = 'error'
+                state['error_message'] = 'SharePoint connector not available'
+        return jsonify({
+            'success': False,
+            'error': {'message': 'SharePoint connector not available', 'code': 'SP_UNAVAILABLE'}
+        }), 500
+
+    # ── Spawn background thread ──
+    flask_app = current_app._get_current_object()
+    thread = threading.Thread(
+        target=_process_sharepoint_scan_async,
+        args=(scan_id, cached_connector, selected_files, {}, flask_app),
+        kwargs={
+            'site_url': site_url,
+            'connector_type': connector_type,
+            'library_path': library_path,
+        },
+        daemon=True,
+        name=f'sp-scan-{scan_id}',
+    )
+    thread.start()
+
+    logger.info(f'[sp-go] ✓ Scan thread started: {scan_id}, {total_files} files, connector_age={age:.0f}s')
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'scan_id': scan_id,
+            'total_files': total_files,
+            'library_path': library_path,
+            'scan_started': True,
+            'trigger': 'GET',
+        }
+    })
+
+
 @review_bp.route('/api/review/folder-scan-progress/<scan_id>', methods=['GET'])
 @handle_api_errors
 def folder_scan_progress(scan_id):

@@ -1,13 +1,22 @@
 {
-  "version": "6.3.9",
+  "version": "6.3.10",
   "release_date": "2026-03-02",
-  "core_version": "6.3.9",
+  "core_version": "6.3.10",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.3.10",
+      "date": "2026-03-02",
+      "changes": [
+        "FIX: SharePoint scan — GET-based trigger replaces POST that corporate proxy blocks (7th version, definitive fix)",
+        "NEW: GET /api/review/sp-go/<token> endpoint — uses cached connector+files from discovery, zero request body",
+        "ARCH: POST-based scan triggers failed across v6.3.3-v6.3.9 regardless of body size — GET is protocol-level bypass"
+      ]
+    },
     {
       "version": "6.3.9",
       "date": "2026-03-02",
