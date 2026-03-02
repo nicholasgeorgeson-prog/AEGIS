@@ -8,18 +8,25 @@
  * v3.0.110: Enterprise polish - expanded design tokens, improved transitions,
  *           focus indicators, and interaction states
  *
- * Z-INDEX SCALE:
- * Use these standardized values to prevent stacking conflicts:
- *   --z-base:        0       Base elements
- *   --z-dropdown:    100     Dropdowns, popovers
- *   --z-sticky:      200     Sticky headers, sidebars
- *   --z-fixed:       300     Fixed navigation
- *   --z-tooltip:     500     Tooltips
- *   --z-modal:       1000    Modal dialogs
- *   --z-modal-alert: 1100    Alerts within modals
- *   --z-loading:     2000    Loading overlays
- *   --z-toast:       2500    Toast notifications
- *   --z-max:         9999    Maximum (use sparingly)
+ * Z-INDEX SCALE (v6.3.2):
+ * Use these standardized CSS variables to prevent stacking conflicts:
+ *   --z-base:          0       Base elements
+ *   --z-dropdown:      100     Dropdowns, popovers
+ *   --z-sticky:        200     Sticky headers, sidebars
+ *   --z-fixed:         300     Fixed navigation
+ *   --z-tooltip:       500     Tooltips
+ *   --z-modal-backdrop:900     Modal backdrop overlay
+ *   --z-modal:         1000    Modal dialogs
+ *   --z-modal-alert:   1100    Alerts within modals
+ *   --z-loading:       2000    Loading overlays
+ *   --z-popover:       10000   Popovers above modals
+ *   --z-modal-nested:  10200   Nested modals (e.g., pattern viewer)
+ *   --z-modal-top:     15000   Top-level modals (e.g., proposal compare)
+ *   --z-spotlight:     149000  Guide system spotlight
+ *   --z-demo-bar:      149800  Demo playback bar
+ *   --z-beacon:        150000  Help beacon
+ *   --z-cinema:        155000  Cinematic showcase overlay
+ *   --z-toast:         200000  Toast notifications (always on top)
  */
 
 /**
@@ -267,8 +274,15 @@
     --z-modal: 1000;
     --z-modal-alert: 1100;
     --z-loading: 2000;
+    --z-popover: 10000;
+    --z-modal-nested: 10200;
+    --z-modal-top: 15000;
+    --z-spotlight: 149000;
+    --z-demo-bar: 149800;
+    --z-beacon: 150000;
+    --z-cinema: 155000;
     --z-toast: 200000;
-    --z-max: 9999;
+    --z-max: 200000;
 
     /* ─────────────────────────────────────────────────────────────────────────
        FOCUS RING

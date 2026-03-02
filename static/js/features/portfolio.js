@@ -910,10 +910,7 @@ window.Portfolio = (function() {
             console.log('[TWR Portfolio] Document loaded successfully');
 
         } catch (error) {
-            console.error('[TWR Portfolio] Error opening document:', error);
-            if (window.showToast) {
-                window.showToast('Failed to load document: ' + error.message, 'error');
-            }
+            handleFetchError(error, 'Load document');
         }
     }
 

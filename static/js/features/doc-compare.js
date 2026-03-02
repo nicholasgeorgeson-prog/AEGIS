@@ -210,7 +210,7 @@ window.DocCompare = (function() {
                         await loadComparison();
                     }
                 } catch (error) {
-                    showToast('Failed to load scans for selected document: ' + error.message, 'error');
+                    handleFetchError(error, 'Load document scans');
                 }
             });
         }
@@ -552,7 +552,7 @@ window.DocCompare = (function() {
             }
 
         } catch (error) {
-            showToast('Failed to load document scans: ' + error.message, 'error');
+            handleFetchError(error, 'Load document scans');
         }
     }
 

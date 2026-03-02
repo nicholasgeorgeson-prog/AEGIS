@@ -765,13 +765,13 @@
 
 /* ── Dark Mode Overrides ──────────────────────────────── */
 [data-theme="dark"] .settings-card,
-.dark-mode .settings-card {
+[data-theme="dark"] .settings-card {
     background: var(--bg-tertiary);
     border-color: var(--border-default);
 }
 
 [data-theme="dark"] .settings-danger-zone,
-.dark-mode .settings-danger-zone {
+[data-theme="dark"] .settings-danger-zone {
     background: rgba(239, 68, 68, 0.06);
 }
 
@@ -779,24 +779,24 @@
 [data-theme="dark"] .settings-health-results,
 [data-theme="dark"] .settings-update-status,
 [data-theme="dark"] .settings-auth-section,
-.dark-mode .settings-diag-stat,
-.dark-mode .settings-health-results,
-.dark-mode .settings-update-status,
-.dark-mode .settings-auth-section {
+[data-theme="dark"] .settings-diag-stat,
+[data-theme="dark"] .settings-health-results,
+[data-theme="dark"] .settings-update-status,
+[data-theme="dark"] .settings-auth-section {
     background: var(--bg-surface);
 }
 
 [data-theme="dark"] .switch .slider,
-.dark-mode .switch .slider {
+[data-theme="dark"] .switch .slider {
     background: var(--bg-surface);
     border-color: var(--border-default);
 }
 [data-theme="dark"] .switch .slider::before,
-.dark-mode .switch .slider::before {
+[data-theme="dark"] .switch .slider::before {
     background: var(--text-muted);
 }
 [data-theme="dark"] .switch input:checked + .slider::before,
-.dark-mode .switch input:checked + .slider::before {
+[data-theme="dark"] .switch input:checked + .slider::before {
     background: #fff;
 }
 

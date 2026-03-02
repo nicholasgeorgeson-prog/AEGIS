@@ -6,7 +6,7 @@
  */
 
 /* v5.9.19: Reduced backdrop opacity and removed blur so particle canvas is subtly visible around modal edges */
-.modal { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: opacity var(--duration-normal), visibility var(--duration-normal); }
+.modal { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: flex; align-items: center; justify-content: center; z-index: var(--z-modal); opacity: 0; visibility: hidden; transition: opacity var(--duration-normal), visibility var(--duration-normal); }
 .modal.active, .modal.show { opacity: 1; visibility: visible; }
 .modal > div:first-child:not(.modal-overlay), .modal > .modal-content { background: var(--bg-primary); border: 1px solid var(--border-default); border-radius: var(--radius-xl); width: 90%; max-width: 500px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: var(--shadow-xl); transform: scale(0.95); transition: transform var(--duration-normal); }
 .modal.active > div:first-child:not(.modal-overlay), .modal.active > .modal-content, .modal.show > div:first-child:not(.modal-overlay), .modal.show > .modal-content { transform: scale(1); }
@@ -540,11 +540,11 @@
 
 /* Ensure modal is properly layered */
 .modal {
-    z-index: 1000;
+    z-index: var(--z-modal);
 }
 
 .modal.active {
-    z-index: 1001;
+    z-index: var(--z-modal);
 }
 
 /* Fix for modal not blocking background */
@@ -569,12 +569,12 @@
 
 /* Statement Forge fullscreen - true fullscreen */
 #modal-statement-forge.modal-fullscreen .modal-content {
-    width: 100vw !important;
-    height: 100vh !important;
-    max-width: none !important;
-    max-height: none !important;
-    border-radius: 0 !important;
-    border: none !important;
+    width: 100vw;
+    height: 100vh;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+    border: none;
 }
 
 .modal-fullscreen .modal-body {

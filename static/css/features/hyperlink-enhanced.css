@@ -33,7 +33,7 @@
 }
 
 /* Dark mode adjustments */
-.dark-mode .hv-modal-content,
+[data-theme="dark"] .hv-modal-content,
 [data-theme="dark"] .hv-modal-content {
     --hv-glass-bg: rgba(30, 41, 59, 0.8);
     --hv-glass-border: rgba(255, 255, 255, 0.1);
@@ -1479,13 +1479,13 @@
 }
 
 /* Dark mode for history panel */
-.dark-mode .hv-history-panel,
+[data-theme="dark"] .hv-history-panel,
 [data-theme="dark"] .hv-history-panel {
     background: rgba(30, 41, 59, 0.95);
     border-left-color: var(--border-color);
 }
 
-.dark-mode .hv-history-panel.open,
+[data-theme="dark"] .hv-history-panel.open,
 [data-theme="dark"] .hv-history-panel.open {
     box-shadow: -5px 0 25px rgba(0, 0, 0, 0.4);
 }
@@ -1595,18 +1595,18 @@
 }
 
 /* Dark mode adjustments */
-.dark-mode .hv-filter-indicator,
+[data-theme="dark"] .hv-filter-indicator,
 [data-theme="dark"] .hv-filter-indicator {
     background: linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(59, 130, 246, 0.15) 100%);
     border-color: rgba(59, 130, 246, 0.4);
 }
 
-.dark-mode .hv-clear-filter-btn,
+[data-theme="dark"] .hv-clear-filter-btn,
 [data-theme="dark"] .hv-clear-filter-btn {
     background: rgba(59, 130, 246, 0.3);
 }
 
-.dark-mode .hv-heatmap-cell.hv-heatmap-all,
+[data-theme="dark"] .hv-heatmap-cell.hv-heatmap-all,
 [data-theme="dark"] .hv-heatmap-cell.hv-heatmap-all {
     background: linear-gradient(135deg, rgba(107, 114, 128, 0.25) 0%, rgba(107, 114, 128, 0.15) 100%);
     border-color: rgba(107, 114, 128, 0.5);
@@ -1683,18 +1683,18 @@
 }
 
 /* Dark mode for large dataset elements */
-.dark-mode .hv-domain-count,
+[data-theme="dark"] .hv-domain-count,
 [data-theme="dark"] .hv-domain-count {
     background: var(--bg-secondary);
 }
 
-.dark-mode .hv-domain-search-input,
+[data-theme="dark"] .hv-domain-search-input,
 [data-theme="dark"] .hv-domain-search-input {
     background: var(--bg-tertiary);
     border-color: var(--border-color);
 }
 
-.dark-mode .hv-heatmap-more,
+[data-theme="dark"] .hv-heatmap-more,
 [data-theme="dark"] .hv-heatmap-more {
     background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0.1) 100%);
     border-color: rgba(59, 130, 246, 0.4);
@@ -2155,13 +2155,13 @@
 }
 
 /* Dark mode adjustments */
-.dark-mode .hv-domain-carousel-wrapper,
+[data-theme="dark"] .hv-domain-carousel-wrapper,
 [data-theme="dark"] .hv-domain-carousel-wrapper {
     background: rgba(30, 41, 59, 0.8);
     border-color: rgba(255, 255, 255, 0.1);
 }
 
-.dark-mode .hv-domain-carousel-wrapper::before,
+[data-theme="dark"] .hv-domain-carousel-wrapper::before,
 [data-theme="dark"] .hv-domain-carousel-wrapper::before {
     background:
         radial-gradient(ellipse at 20% 20%, rgba(34, 197, 94, 0.08) 0%, transparent 50%),
@@ -2169,13 +2169,13 @@
         radial-gradient(ellipse at 50% 50%, rgba(139, 92, 246, 0.05) 0%, transparent 70%);
 }
 
-.dark-mode .hv-carousel-nav,
+[data-theme="dark"] .hv-carousel-nav,
 [data-theme="dark"] .hv-carousel-nav {
     background: var(--bg-tertiary);
     border-color: var(--border-color);
 }
 
-.dark-mode .hv-carousel-dot,
+[data-theme="dark"] .hv-carousel-dot,
 [data-theme="dark"] .hv-carousel-dot {
     background: var(--border-color);
 }

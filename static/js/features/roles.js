@@ -4114,8 +4114,7 @@ TWR.Roles = (function() {
             if (loading) loading.style.display = 'none';
             setTimeout(() => updateGraphWithAdjudication(), 100);
         } catch (error) {
-            console.error('[TWR Roles] Graph rendering error:', error);
-            toast('error', 'Failed to render graph: ' + error.message);
+            handleFetchError(error, 'Render graph');
             if (weightSlider) weightSlider.disabled = false;
             container.style.display = 'none';
             fallback.style.display = 'block';

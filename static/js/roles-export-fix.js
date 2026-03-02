@@ -130,8 +130,7 @@
             console.log('[TWR RolesExport] Export complete:', filename);
             
         } catch (error) {
-            console.error('[TWR RolesExport] Export failed:', error);
-            toast('error', 'Export failed: ' + error.message);
+            handleFetchError(error, 'Roles export');
         }
     }
     

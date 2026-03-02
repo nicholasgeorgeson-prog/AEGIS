@@ -8163,6 +8163,25 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.3.2 <span class="changelog-date">March 2, 2026</span></h3>
+        <p><strong>Deep Dive Codebase Improvements &mdash; Cleanup, Performance, Structure, Polish</strong></p>
+        <ul>
+            <li><strong>REFACTOR: Shared _human_size() utility</strong> &mdash; Extracted 3 duplicate copies from review_routes.py into routes/_shared.py</li>
+            <li><strong>REFACTOR: Consolidated escapeHtml()</strong> &mdash; Removed 5 inline IIFE copies across proposal-compare.js, metrics-analytics.js, batch-results.js, and doc-review-viewer.js. All now use the global window.escapeHtml()</li>
+            <li><strong>CLEANUP: Deleted orphaned nlp_enhancer.py</strong> &mdash; Zero imports anywhere in codebase</li>
+            <li><strong>CLEANUP: Archived 44 apply_v*.py scripts</strong> &mdash; Moved to archive/apply_scripts/, keeping only latest in root</li>
+            <li><strong>REFACTOR: Standardized logging</strong> &mdash; All 10 blueprint files now use get_logger(__name__) from config_logging with except Exception fallback</li>
+            <li><strong>PERF: Scoped lucide.createIcons()</strong> &mdash; Modal renders and tab switches now pass {target: container} to avoid full-DOM scans</li>
+            <li><strong>PERF: Lazy checker imports in core.py</strong> &mdash; Subsequent AEGISEngine instances import only enabled checkers. First engine warms the import cache</li>
+            <li><strong>FIX: Write-time dedup for responsibilities_json</strong> &mdash; Prevents unbounded JSON blob growth from repeated scans of the same document</li>
+            <li><strong>ENH: Config.json schema validation</strong> &mdash; validate_config() at startup fills missing keys with defaults and logs warnings</li>
+            <li><strong>CSS: Z-index stratification</strong> &mdash; CSS custom properties (--z-dropdown through --z-cinema) replace 50+ arbitrary values in base.css, modals.css, layout.css, and 8 feature CSS files</li>
+            <li><strong>CSS: Dark mode selector consolidation</strong> &mdash; 9 files with mixed .dark-mode / [data-theme=&quot;dark&quot;] selectors standardized to [data-theme=&quot;dark&quot;]</li>
+            <li><strong>CSS: Reduced !important usage</strong> &mdash; 48 unnecessary !important declarations removed from 7 CSS files by increasing selector specificity</li>
+            <li><strong>ENH: Standardized fetch error handling</strong> &mdash; New handleFetchError() utility in client.js extracts messages from any error shape (structured API, Error, string). 18+ call sites across 9 JS files updated. Fire-and-forget endpoints intentionally left silent</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v6.2.0 <span class="changelog-date">February 25, 2026</span></h3>
         <p><strong>Major Release: Async Batch Scan, Cinematic Dashboard, Unified Auth, Responsive Design</strong></p>
         <ul>

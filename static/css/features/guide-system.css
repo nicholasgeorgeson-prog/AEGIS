@@ -1471,31 +1471,31 @@
 }
 
 /* Light mode overrides */
-body:not(.dark-mode) .demo-picker-overview-card,
+body:not([data-theme="dark"]) .demo-picker-overview-card,
 body.light-mode .demo-picker-overview-card {
     background: linear-gradient(135deg, rgba(255, 107, 53, 0.08), rgba(247, 147, 26, 0.05));
 }
 
-body:not(.dark-mode) .demo-picker-card,
+body:not([data-theme="dark"]) .demo-picker-card,
 body.light-mode .demo-picker-card {
     background: rgba(0, 0, 0, 0.02);
     border-color: rgba(0, 0, 0, 0.1);
 }
 
-body:not(.dark-mode) .demo-picker-card:hover,
+body:not([data-theme="dark"]) .demo-picker-card:hover,
 body.light-mode .demo-picker-card:hover {
     background: rgba(51, 184, 255, 0.05);
     border-color: var(--aegis-blue, #33b8ff);
 }
 
-body:not(.dark-mode) .demo-picker-overview-title,
-body:not(.dark-mode) .demo-picker-card-title,
+body:not([data-theme="dark"]) .demo-picker-overview-title,
+body:not([data-theme="dark"]) .demo-picker-card-title,
 body.light-mode .demo-picker-overview-title,
 body.light-mode .demo-picker-card-title {
     color: var(--text-primary, #1f2328);
 }
 
-body:not(.dark-mode) .demo-picker-back,
+body:not([data-theme="dark"]) .demo-picker-back,
 body.light-mode .demo-picker-back {
     color: var(--aegis-blue, #0969da);
 }

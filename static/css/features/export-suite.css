@@ -7,10 +7,9 @@
    Export Format Grid — 5 cards in a row
    ============================================================ */
 .export-format-group {
-    display: grid !important;
+    display: grid;
     grid-template-columns: repeat(5, 1fr);
     gap: 8px;
-    flex-direction: row !important;
 }
 
 .export-format-group .radio-card {
