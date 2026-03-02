@@ -53,7 +53,7 @@ from urllib.parse import parse_qs, urlparse
 # CONSTANTS & CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════
 
-MANAGER_VERSION = "2.0.0"
+MANAGER_VERSION = "2.1.0"
 
 # GitHub
 REPO_OWNER = "nicholasgeorgeson-prog"
@@ -1012,12 +1012,13 @@ class PackageManager:
                     dirs.append(d)
         return dirs
 
-    def pip_install(self, packages, force=False):
-        """Install packages from bundled wheels ONLY (offline, air-gap safe).
+    def pip_install(self, packages, force=False, offline_only=False):
+        """Install packages — tries offline first, falls back to online.
 
         Args:
             packages: string or list of package specs
             force: use --force-reinstall
+            offline_only: if True, skip online fallback (air-gap environments)
 
         Returns:
             (success: bool, method: str)
@@ -1027,29 +1028,50 @@ class PackageManager:
 
         wheels_dirs = self.find_wheels_dirs()
 
-        if not wheels_dirs:
-            return False, 'no wheels directory found'
+        # Strategy 1: Offline from bundled wheels
+        if wheels_dirs:
+            cmd = [self._python_exe, '-m', 'pip', 'install',
+                   '--no-warn-script-location']
+            for wd in wheels_dirs:
+                cmd.extend(['--no-index', '--find-links', wd])
+            if force:
+                cmd.append('--force-reinstall')
+            cmd.extend(packages)
 
-        cmd = [self._python_exe, '-m', 'pip', 'install',
-               '--no-warn-script-location']
-        for wd in wheels_dirs:
-            cmd.extend(['--no-index', '--find-links', wd])
-        if force:
-            cmd.append('--force-reinstall')
-        cmd.extend(packages)
+            try:
+                result = subprocess.run(
+                    cmd, capture_output=True, text=True, timeout=300
+                )
+                if result.returncode == 0:
+                    return True, 'offline'
+            except subprocess.TimeoutExpired:
+                pass
+            except Exception:
+                pass
 
-        try:
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=300
-            )
-            if result.returncode == 0:
-                return True, 'offline'
-            err_msg = result.stderr[:200] if result.stderr else 'unknown error'
-            return False, f'offline install failed: {err_msg}'
-        except subprocess.TimeoutExpired:
-            return False, 'timeout (300s)'
-        except Exception as e:
-            return False, str(e)[:200]
+        # Strategy 2: Online fallback (if not air-gapped)
+        if not offline_only:
+            cmd = [self._python_exe, '-m', 'pip', 'install',
+                   '--no-warn-script-location']
+            if force:
+                cmd.append('--force-reinstall')
+            cmd.extend(packages)
+
+            try:
+                result = subprocess.run(
+                    cmd, capture_output=True, text=True, timeout=300
+                )
+                if result.returncode == 0:
+                    return True, 'online'
+                err_msg = result.stderr[:200] if result.stderr else 'unknown error'
+                return False, f'install failed: {err_msg}'
+            except subprocess.TimeoutExpired:
+                return False, 'timeout (300s)'
+            except Exception as e:
+                return False, str(e)[:200]
+
+        # Offline-only mode and offline install failed
+        return False, 'offline install failed (no wheels found or incompatible)'
 
     def check_import(self, module_name):
         """Test if a module can be imported.
