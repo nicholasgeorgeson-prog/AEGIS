@@ -1,13 +1,22 @@
 {
-  "version": "6.3.10",
+  "version": "6.3.11",
   "release_date": "2026-03-02",
-  "core_version": "6.3.10",
+  "core_version": "6.3.11",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.3.11",
+      "date": "2026-03-02",
+      "changes": [
+        "FIX: Stale browser cache prevented v6.3.10 GET trigger from loading — browser was still running v6.3.9 JS",
+        "NEW: Auto-reload mechanism — JS compares hardcoded _AEGIS_JS_VERSION against /api/version, forces reload on mismatch",
+        "SAFETY: sessionStorage guard prevents infinite reload loops if version never matches"
+      ]
+    },
     {
       "version": "6.3.10",
       "date": "2026-03-02",

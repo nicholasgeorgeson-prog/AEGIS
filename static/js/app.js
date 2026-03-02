@@ -792,12 +792,15 @@ async function checkCapabilities() {
     }
 }
 
+// v6.3.11: Hardcoded JS version — compared against server version to detect stale cache
+var _AEGIS_JS_VERSION = '6.3.11';
+
 async function loadVersionLabel() {
     // v4.9.9: Use /api/version as primary (reads fresh from root version.json via get_version())
     // Falls back to /static/version.json if API unavailable
     let version = null;
     try {
-        const r = await fetch('/api/version');
+        const r = await fetch('/api/version', {cache: 'no-store'});
         if (r.ok) {
             const data = await r.json();
             version = data.app_version;
@@ -814,6 +817,22 @@ async function loadVersionLabel() {
             console.warn('[AEGIS] Failed to load version:', e);
         }
     }
+
+    // v6.3.11: Auto-reload if JS version doesn't match server version
+    // This catches stale browser cache after server updates
+    if (version && version !== _AEGIS_JS_VERSION) {
+        console.warn('[AEGIS] Version mismatch! JS=' + _AEGIS_JS_VERSION + ' Server=' + version + ' — forcing reload');
+        // Prevent infinite reload loop — check if we already tried
+        var reloadKey = 'aegis-version-reload-' + version;
+        if (!sessionStorage.getItem(reloadKey)) {
+            sessionStorage.setItem(reloadKey, Date.now().toString());
+            window.location.reload(true);  // true = bypass cache
+            return;  // Stop execution, page is reloading
+        } else {
+            console.warn('[AEGIS] Already attempted reload for v' + version + ' — continuing with stale JS');
+        }
+    }
+
     if (version) {
         const els = {
             'version-label': `Enterprise v${version}`,
