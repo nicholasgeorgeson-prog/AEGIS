@@ -2538,9 +2538,17 @@ def sharepoint_scan_selected():
         ext = f.get('extension', f.get('name', '').rsplit('.', 1)[-1] if '.' in f.get('name', '') else 'unknown')
         type_breakdown[ext] = type_breakdown.get(ext, 0) + 1
 
-    # Generate scan_id — return IMMEDIATELY (v6.2.9)
-    # Connector creation happens in background thread
-    scan_id = uuid.uuid4().hex[:12]
+    # v6.3.3: Accept client-provided scan_id for dashboard-first architecture
+    # The frontend generates scan_id and shows the cinematic dashboard BEFORE
+    # this POST arrives. Using the same scan_id lets the dashboard's polling
+    # pick up real progress as soon as this state is created.
+    client_scan_id = data.get('scan_id', '').strip()
+    if client_scan_id and len(client_scan_id) >= 8 and len(client_scan_id) <= 32:
+        scan_id = client_scan_id
+        logger.info(f'[SP-scan-selected] Using client-provided scan_id: {scan_id}')
+    else:
+        scan_id = uuid.uuid4().hex[:12]
+        logger.info(f'[SP-scan-selected] Generated server scan_id: {scan_id}')
     logger.info(f'[SP-scan-selected] Creating scan state {scan_id} for {len(selected_files)} files (BEFORE thread spawn)')
 
     with _folder_scan_state_lock:

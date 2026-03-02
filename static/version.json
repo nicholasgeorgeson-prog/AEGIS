@@ -1,13 +1,24 @@
 {
-  "version": "6.3.2",
+  "version": "6.3.3",
   "release_date": "2026-03-02",
-  "core_version": "6.3.2",
+  "core_version": "6.3.3",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.3.3",
+      "date": "2026-03-02",
+      "changes": [
+        "FIX: Dashboard-first architecture for SharePoint batch scan — cinematic dashboard now appears IMMEDIATELY before POST request",
+        "FIX: Client-side scan_id generation decouples dashboard display from backend response — eliminates POST hang causing frozen UI",
+        "FIX: Polling loop handles 404 gracefully as 'Initializing...' phase while backend creates scan state",
+        "FIX: Fire-and-forget POST pattern — scan request sent in background, dashboard visible even if POST hangs",
+        "BACKEND: sharepoint_scan_selected() accepts optional client-provided scan_id for dashboard-first sync"
+      ]
+    },
     {
       "version": "6.3.2",
       "date": "2026-03-02",

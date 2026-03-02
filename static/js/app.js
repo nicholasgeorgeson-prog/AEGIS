@@ -12370,8 +12370,10 @@ STEPS TO REPRODUCE
             // Async polling loop
             let since = 0;
             let pollFailures = 0;
+            let poll404Count = 0;
             let pollDelay = 2000;
             const MAX_POLL_FAILURES = 10;
+            const MAX_404_BEFORE_BACKEND = 90;  // 90 × 2s = 3 minutes max wait for backend to create scan state
             const processedDocs = new Set();
 
             try {
@@ -12379,11 +12381,38 @@ STEPS TO REPRODUCE
                     while (true) {
                         try {
                             const resp = await fetch('/api/review/folder-scan-progress/' + scanId + '?since=' + since);
+
+                            // v6.3.3: Handle 404 gracefully — backend hasn't created
+                            // the scan state yet. This is EXPECTED in dashboard-first
+                            // architecture: we show the dashboard before the POST
+                            // completes, so the first few polls will get 404.
+                            if (resp.status === 404) {
+                                poll404Count++;
+                                if (poll404Count >= MAX_404_BEFORE_BACKEND) {
+                                    throw new Error('Backend did not start scan after ' + Math.round(MAX_404_BEFORE_BACKEND * pollDelay / 1000) + 's — server may need restart');
+                                }
+                                // Show "Initializing..." phase in dashboard
+                                var initPhaseMsg = poll404Count <= 5 ? 'Initializing scan...'
+                                    : poll404Count <= 15 ? 'Sending scan request to server...'
+                                    : poll404Count <= 30 ? 'Authenticating to SharePoint (this may take 30-60 seconds)...'
+                                    : 'Still waiting for server response... (' + Math.round(poll404Count * pollDelay / 1000) + 's)';
+                                updateProgress(1, 'SharePoint Scan — Initializing');
+                                if (queueStatus) queueStatus.textContent = initPhaseMsg;
+                                if (subtitleEl) subtitleEl.textContent = 'Preparing secure connection to SharePoint';
+                                if (poll404Count <= 3 || poll404Count % 10 === 0) {
+                                    addActivity('initializing', initPhaseMsg);
+                                }
+                                await new Promise(r => setTimeout(r, pollDelay));
+                                continue;
+                            }
+
                             if (!resp.ok) throw new Error('HTTP ' + resp.status);
                             const json = await resp.json();
                             if (!json.success) throw new Error(json.error ? (json.error.message || 'Progress fetch failed') : 'Progress fetch failed');
 
+                            // Backend responded successfully — reset failure counters
                             pollFailures = 0;
+                            poll404Count = 0;
                             pollDelay = 2000;
 
                             const d = json.data;
@@ -12845,7 +12874,7 @@ STEPS TO REPRODUCE
          * then starts progress polling on the existing SP scan dashboard.
          */
         async function _startSPSelectedScan() {
-            console.log('%c[AEGIS SP] ▶ _startSPSelectedScan() called (v6.3.2 — no AbortController)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
+            console.log('%c[AEGIS SP] ▶ _startSPSelectedScan() called (v6.3.3 — DASHBOARD-FIRST)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
 
             // v6.3.1: Inline diagnostic status — visible without toast dependency
             const _spDiag = (msg, isError) => {
@@ -12872,7 +12901,6 @@ STEPS TO REPRODUCE
                 _spDiag('FAIL: Missing DOM elements (selector=' + !!selectorEl + ', fileList=' + !!fileListEl + ')', true);
                 return;
             }
-            _spDiag('Step 0: DOM elements found ✓');
 
             // Get discovery context
             let ctx;
@@ -12883,12 +12911,10 @@ STEPS TO REPRODUCE
                 window.showToast?.('Internal error: missing discovery context', 'error');
                 return;
             }
-            _spDiag('Step 0: Discovery context parsed — site=' + (ctx.site_url || 'MISSING') + ', files=' + (ctx.files?.length || 0));
 
             // Collect selected file indices
             const checkedCbs = fileListEl.querySelectorAll('.sp-file-check:checked');
             if (checkedCbs.length === 0) {
-                _spDiag('FAIL: No files checked (0 checkboxes selected)', true);
                 window.showToast?.('Please select at least one file to scan', 'warning');
                 return;
             }
@@ -12907,36 +12933,75 @@ STEPS TO REPRODUCE
                 return;
             }
 
-            _spDiag('Step 0: ' + selectedFiles.length + ' files selected for scan ✓');
-            console.log(`[AEGIS SP] Starting scan of ${selectedFiles.length} selected files (v6.3.2 — no abort timeout)`);
+            console.log('[AEGIS SP] ' + selectedFiles.length + ' files selected for scan');
 
-            // Disable buttons during scan start
+            // ═══════════════════════════════════════════════════════════════════
+            // v6.3.3 DASHBOARD-FIRST ARCHITECTURE (Lesson 170)
+            //
+            // Previous versions (v6.2.9–v6.3.2) awaited the POST response before
+            // showing the cinematic dashboard. If the POST hung (thread exhaustion,
+            // old code, Waitress blocking), the dashboard NEVER appeared and the
+            // tool looked frozen. This was a persistent problem for DAYS.
+            //
+            // New approach:
+            //   1. Generate scan_id CLIENT-SIDE
+            //   2. Show cinematic dashboard IMMEDIATELY (before POST)
+            //   3. Fire POST in background (fire-and-forget with error handling)
+            //   4. Dashboard polling handles 404 gracefully as "Initializing..."
+            //   5. Backend accepts client-provided scan_id
+            //
+            // This guarantees the user ALWAYS sees the dashboard — even if the
+            // POST hangs forever, times out, or fails entirely.
+            // ═══════════════════════════════════════════════════════════════════
+
+            // Step 1: Generate scan_id CLIENT-SIDE
+            var clientScanId;
+            try {
+                clientScanId = crypto.randomUUID().replace(/-/g, '').substring(0, 12);
+            } catch (_) {
+                // Fallback for older browsers without crypto.randomUUID
+                clientScanId = 'sp' + Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
+            }
+            const totalFiles = selectedFiles.length;
+
+            console.log('%c[AEGIS SP] Dashboard-first: clientScanId=' + clientScanId + ', totalFiles=' + totalFiles, 'color:#D6A84A;font-weight:bold;');
+
+            // Step 2: Disable buttons, hide file selector
             if (btnScanSelected) {
                 btnScanSelected.disabled = true;
-                btnScanSelected.innerHTML = '<i data-lucide="loader" class="spin" style="width:14px;height:14px;margin-right:4px;"></i><span>Starting scan...</span>';
+                btnScanSelected.innerHTML = '<i data-lucide="loader" class="spin" style="width:14px;height:14px;margin-right:4px;"></i><span>Scanning...</span>';
                 lucide?.createIcons?.();
             }
             [btnSpConnectScan, btnSpTest, btnSpDiscover, btnSpScan].forEach(b => { if (b) b.disabled = true; });
+            selectorEl.classList.add('hidden');
 
-            try {
-                // v6.3.1: Step 1 — Get fresh CSRF token
-                _spDiag('Step 1/3: Fetching CSRF token...');
-                console.log('[AEGIS SP] Step 1/3: Fetching CSRF token...');
-                const csrf = await _freshCSRF();
-                _spDiag('Step 1/3: CSRF token obtained ✓ (' + (csrf ? csrf.substring(0, 8) + '...' : 'NULL') + ')');
-                console.log('[AEGIS SP] Step 1/3: ✓ CSRF token obtained');
+            // Store scan info on the Scan All button (existing pattern)
+            if (btnSpScan) {
+                btnSpScan.dataset.scanId = clientScanId;
+                btnSpScan.dataset.totalFiles = totalFiles;
+                btnSpScan.dataset.discoveryFiles = JSON.stringify(selectedFiles);
+            }
 
-                // v6.3.2: Step 2 — POST to start scan (returns IMMEDIATELY — connector
-                // creation happens in background thread, not in the HTTP handler)
-                _spDiag('Step 2/3: Sending POST to /api/review/sharepoint-scan-selected...');
-                console.log('[AEGIS SP] Step 2/3: Sending scan request to backend (v6.3.2 — no AbortController)...');
+            // Step 3: Show cinematic dashboard IMMEDIATELY — before any POST
+            // The dashboard polling will get 404s initially and show "Initializing..."
+            // until the backend creates the scan state
+            console.log('%c[AEGIS SP] Step 1: ▶ Launching cinematic dashboard IMMEDIATELY (v6.3.3)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
+            window.showToast?.('Starting SharePoint scan — ' + totalFiles + ' files', 'success');
 
-                // v6.3.2: Removed AbortController — it caused false AbortErrors on
-                // Windows environments. No client-side timeout needed for localhost:
-                // - If server is alive (v6.2.9+): returns in <1 second
-                // - If server is dead: fetch throws TypeError immediately
-                // - If server is running old blocking code: completes in 30-60s
-                const resp = await fetch('/api/review/sharepoint-scan-selected', {
+            // Launch dashboard — don't await, let it run in parallel with the POST
+            var dashboardPromise = _showSpCinematicDashboard(clientScanId, totalFiles, selectedFiles).catch(function(dashErr) {
+                console.error('[AEGIS SP] ❌ Dashboard error:', dashErr);
+                window.showToast?.('Dashboard error: ' + (dashErr.message || 'Unknown'), 'error');
+            });
+
+            // Step 4: Fire POST in background — fire-and-forget
+            // The dashboard is already visible. This POST tells the backend to
+            // start the scan. If it hangs or fails, the dashboard remains visible
+            // and will show appropriate error states via polling.
+            console.log('[AEGIS SP] Step 2: Firing background POST to /api/review/sharepoint-scan-selected (fire-and-forget)');
+            _freshCSRF().then(function(csrf) {
+                console.log('[AEGIS SP] Step 2: CSRF obtained, sending POST...');
+                return fetch('/api/review/sharepoint-scan-selected', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -12946,96 +13011,45 @@ STEPS TO REPRODUCE
                         site_url: ctx.site_url,
                         library_path: ctx.library_path,
                         connector_type: ctx.connector_type,
-                        files: selectedFiles
+                        files: selectedFiles,
+                        scan_id: clientScanId  // v6.3.3: client-provided scan_id
                     })
                 });
-                _spDiag('Step 2/3: Backend responded — HTTP ' + resp.status);
-                console.log('[AEGIS SP] Step 2/3: ✓ Backend responded (status=' + resp.status + ')');
-
-                const json = await resp.json();
-                _spDiag('Step 2/3: JSON parsed — success=' + json.success + ', scan_id=' + (json.data?.scan_id || 'none'));
-                console.log('[AEGIS SP] Step 2/3: ✓ Response parsed, success=' + json.success + ', scan_id=' + (json.data?.scan_id || 'none'));
-
-                if (json.success && json.data?.scan_id) {
-                    const scanId = json.data.scan_id;
-                    const totalFiles = json.data.total_files || selectedFiles.length;
-
-                    _spDiag('Step 3/3: ✓ Scan started! scanId=' + scanId + ', totalFiles=' + totalFiles);
-                    console.log('%c[AEGIS SP] Step 3/3: ✓ Scan started! scanId=' + scanId + ' totalFiles=' + totalFiles, 'color:#22c55e;font-weight:bold;');
-
-                    window.showToast?.('Scan started — ' + totalFiles + ' files (authenticating to SharePoint...)', 'success');
-
-                    // Hide the file selector
-                    selectorEl.classList.add('hidden');
-
-                    // Store scan info on the Scan All button (existing pattern)
-                    if (btnSpScan) {
-                        btnSpScan.dataset.scanId = scanId;
-                        btnSpScan.dataset.totalFiles = totalFiles;
-                        btnSpScan.dataset.discoveryFiles = JSON.stringify(selectedFiles);
-                        btnSpScan.style.display = '';
-                        btnSpScan.disabled = false;
-                    }
-
-                    // v6.3.1: Launch cinematic dashboard — backend is now authenticating
-                    // in the background thread. Dashboard will show 'Connecting to SharePoint...'
-                    // phase while backend creates the connector + authenticates SSO.
-                    _spDiag('Step 3/3: Launching cinematic dashboard...');
-                    console.log('%c[AEGIS SP] Step 3/3: ▶ Launching cinematic dashboard (v6.3.1)', 'color:#D6A84A;font-weight:bold;font-size:13px;');
-                    try {
-                        await _showSpCinematicDashboard(scanId, totalFiles, selectedFiles);
-                    } catch (dashErr) {
-                        _spDiag('FAIL: Dashboard launch error — ' + dashErr.message, true);
-                        console.error('[AEGIS SP] ❌ Dashboard launch failed:', dashErr);
-                        window._aegisLastDashboardError = { message: dashErr.message, stack: dashErr.stack, time: new Date().toISOString(), source: 'caller_catch' };
-                        window.showToast?.('SP scan dashboard error: ' + (dashErr.message || 'Unknown'), 'error');
-                        // Recovery: re-enable all buttons so user can retry
-                        if (btnSpScan) { btnSpScan.disabled = false; btnSpScan.innerHTML = '<i data-lucide="scan-line"></i> Scan All'; }
-                        if (btnSpDiscover) btnSpDiscover.disabled = false;
-                        if (btnSpTest) btnSpTest.disabled = false;
-                        if (btnSpConnectScan) btnSpConnectScan.disabled = false;
-                        var recoverSpSec = document.getElementById('sharepoint-scan-section');
-                        if (recoverSpSec) recoverSpSec.style.display = '';
-                        window._spScanUsingBatchDash = false;
-                        lucide?.createIcons?.();
-                    }
+            }).then(function(resp) {
+                console.log('%c[AEGIS SP] Step 2: ✓ POST completed — HTTP ' + resp.status, 'color:#22c55e;font-weight:bold;');
+                return resp.json();
+            }).then(function(json) {
+                if (json.success) {
+                    console.log('[AEGIS SP] Step 2: ✓ Backend confirmed scan_id=' + (json.data?.scan_id || clientScanId));
                 } else {
-                    const errMsg = json.data?.message || json.error?.message || 'Failed to start scan';
-                    _spDiag('FAIL: Server returned error — ' + errMsg, true);
-                    console.error('[AEGIS SP] ❌ Scan start failed:', errMsg);
-                    window.showToast?.(errMsg, 'error');
-                    // Re-enable scan selected button on failure
-                    if (btnScanSelected) {
-                        btnScanSelected.disabled = false;
-                        btnScanSelected.innerHTML = '<i data-lucide="scan" style="width:14px;height:14px;margin-right:4px;"></i><span>Scan Selected (' + selectedFiles.length + ')</span>';
-                        lucide?.createIcons?.();
-                    }
+                    var errMsg = json.data?.message || json.error?.message || 'Server rejected scan request';
+                    console.error('[AEGIS SP] Step 2: ✗ Backend error: ' + errMsg);
+                    window.showToast?.('Scan error: ' + errMsg, 'error');
                 }
-            } catch (err) {
-                console.error('[AEGIS SP] ❌ Scan selected error:', err.name, err.message, err);
-                _spDiag('FAIL: ' + err.name + ' — ' + err.message, true);
-                var userMsg;
+            }).catch(function(err) {
+                console.error('[AEGIS SP] Step 2: ✗ POST failed:', err.name, err.message);
+                // Don't panic — the dashboard is already showing.
+                // The polling loop will handle the error state after MAX_POLL_FAILURES.
                 if (err.name === 'TypeError' && /fetch|network/i.test(err.message)) {
-                    userMsg = 'Cannot reach AEGIS server. The server may need a restart after updates (AEGIS Manager → Option 7 → Restart).';
-                } else if (err.name === 'AbortError') {
-                    userMsg = 'Request was aborted. The server may need a restart after updates (AEGIS Manager → Option 7 → Restart).';
+                    window.showToast?.('Cannot reach server — restart may be needed (AEGIS Manager → Option 7)', 'error');
                 } else {
-                    userMsg = 'Failed to start scan: ' + (err.message || err.name || 'Unknown error');
+                    window.showToast?.('Scan request failed: ' + (err.message || 'Unknown'), 'error');
                 }
-                window.showToast?.(userMsg, 'error');
-                if (btnScanSelected) {
-                    btnScanSelected.disabled = false;
-                    btnScanSelected.innerHTML = '<i data-lucide="scan" style="width:14px;height:14px;margin-right:4px;"></i><span>Retry Scan</span>';
-                    lucide?.createIcons?.();
-                }
-            } finally {
-                // Re-enable connection buttons
-                if (btnSpConnectScan) btnSpConnectScan.disabled = false;
-                if (btnSpTest) btnSpTest.disabled = false;
-                if (btnSpDiscover) btnSpDiscover.disabled = false;
-                if (btnSpScan && !btnSpScan.dataset.scanId) btnSpScan.disabled = false;
-                lucide?.createIcons?.();
+            });
+
+            // Wait for dashboard to finish (it completes when scan finishes or errors out)
+            try {
+                await dashboardPromise;
+            } catch (_) {
+                // Dashboard errors already handled above
             }
+
+            // Re-enable connection buttons after dashboard exits
+            if (btnSpConnectScan) btnSpConnectScan.disabled = false;
+            if (btnSpTest) btnSpTest.disabled = false;
+            if (btnSpDiscover) btnSpDiscover.disabled = false;
+            if (btnSpScan && !btnSpScan.dataset.scanId) btnSpScan.disabled = false;
+            lucide?.createIcons?.();
         }
 
         // Test Connection button
