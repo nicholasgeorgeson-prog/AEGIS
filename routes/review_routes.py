@@ -3420,10 +3420,26 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
     """
     Background thread wrapper: catches ALL unhandled exceptions to prevent silent daemon death.
     v6.6.1: Wraps _process_sharepoint_scan_inner() with top-level crash protection.
+    v6.6.2: Dual-logger — writes to BOTH routes.log AND sharepoint.log for visibility.
     """
     import traceback
+    import logging as _blog
 
-    # v6.6.1: Diagnostic logging at thread start
+    # v6.6.2: CRITICAL — sharepoint logger writes to sharepoint.log (included in diagnostics).
+    # The routes logger (from _shared.py) writes to routes.log which was INVISIBLE in all
+    # prior diagnostic exports, making background thread crashes completely undetectable.
+    _sp_log = _blog.getLogger('aegis.sharepoint')
+
+    # v6.6.2: Version-stamped alive proof — FIRST thing written to sharepoint.log
+    try:
+        _sp_log.info(f'[BG-THREAD] ═══ v6.6.2 ═══ SP scan {scan_id}: Thread ALIVE '
+                     f'(site_url={site_url}, type={connector_type}, files={len(files)}, '
+                     f'connector={"provided" if connector else "None"}, '
+                     f'repo_available={_REPO_AVAILABLE})')
+    except Exception:
+        pass
+
+    # Also log to routes.log for completeness
     try:
         logger.info(f"SP scan {scan_id}: Background thread started "
                      f"(site_url={site_url}, connector_type={connector_type}, "
@@ -3431,18 +3447,28 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
                      f"connector={'provided' if connector else 'None'}, "
                      f"repo_available={_REPO_AVAILABLE})")
     except Exception:
-        pass  # Don't crash on diagnostic logging
+        pass
 
     try:
         _process_sharepoint_scan_inner(
             scan_id, connector, files, options, flask_app,
-            site_url=site_url, connector_type=connector_type, library_path=library_path
+            site_url=site_url, connector_type=connector_type, library_path=library_path,
+            _sp_log=_sp_log
         )
     except Exception as e:
-        # v6.6.1: Catch-all for unhandled errors — prevents silent daemon death (Lesson 181)
+        # v6.6.1: Catch-all for unhandled errors — prevents silent daemon death
+        tb_str = 'unknown'
         try:
-            logger.error(f"SP scan {scan_id}: FATAL unhandled error in background thread: "
-                         f"{traceback.format_exc()}")
+            tb_str = traceback.format_exc()
+        except Exception:
+            pass
+        # v6.6.2: Log to BOTH loggers
+        try:
+            _sp_log.error(f'[BG-THREAD] SP scan {scan_id}: FATAL ERROR: {tb_str}')
+        except Exception:
+            pass
+        try:
+            logger.error(f"SP scan {scan_id}: FATAL unhandled error in background thread: {tb_str}")
         except Exception:
             pass
         try:
@@ -3458,7 +3484,8 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
 
 
 def _process_sharepoint_scan_inner(scan_id, connector, files, options, flask_app,
-                                    site_url=None, connector_type=None, library_path=None):
+                                    site_url=None, connector_type=None, library_path=None,
+                                    _sp_log=None):
     """
     Background thread: download files from SharePoint and review with AEGIS engine.
 
@@ -3472,6 +3499,9 @@ def _process_sharepoint_scan_inner(scan_id, connector, files, options, flask_app
 
     v6.2.9: If connector is None, creates it HERE (in the background thread) instead
     of blocking the HTTP handler.
+
+    v6.6.2: Added _sp_log for dual-logging to sharepoint.log (visible in diagnostics).
+            Added Flask app context push for entire background thread.
     """
     import gc
     import hashlib
@@ -3479,6 +3509,21 @@ def _process_sharepoint_scan_inner(scan_id, connector, files, options, flask_app
 
     PER_FILE_TIMEOUT = 480  # v5.9.37: 8 minutes per file
     SCAN_PER_FILE_TIMEOUT = 300  # 5 minutes for local scan only (no download)
+
+    # v6.6.2: Ensure _sp_log is available (fallback if not passed from wrapper)
+    if _sp_log is None:
+        import logging as _blog
+        _sp_log = _blog.getLogger('aegis.sharepoint')
+
+    # v6.6.2: Push Flask app context for entire background thread.
+    # Without this, Flask-dependent code (g, current_app, session) in called functions
+    # crashes silently, killing the thread with no visible error.
+    _app_ctx = flask_app.app_context()
+    _app_ctx.push()
+
+    _sp_log.info(f'[BG-INNER] v6.6.2 SP scan {scan_id}: Inner function STARTED '
+                 f'(connector={"provided" if connector else "None"}, '
+                 f'files={len(files)}, repo={_REPO_AVAILABLE})')
 
     # ── v6.2.9: Create connector in background thread if not provided ──
     if connector is None and site_url:
@@ -3513,12 +3558,15 @@ def _process_sharepoint_scan_inner(scan_id, connector, files, options, flask_app
                     if test.get('success'):
                         connector_created = True
                         logger.info(f"SP scan {scan_id}: HeadlessSPConnector authenticated successfully")
+                        _sp_log.info(f'[BG-INNER] SP scan {scan_id}: Strategy 1 HeadlessSP — AUTH SUCCESS')
                     else:
                         logger.warning(f"SP scan {scan_id}: HeadlessSPConnector auth failed: {test.get('message', '')}")
+                        _sp_log.warning(f'[BG-INNER] SP scan {scan_id}: Strategy 1 HeadlessSP — AUTH FAILED: {test.get("message", "")}')
                         connector.close()
                         connector = None
             except Exception as e:
                 logger.error(f"SP scan {scan_id}: HeadlessSPConnector error: {e}")
+                _sp_log.error(f'[BG-INNER] SP scan {scan_id}: Strategy 1 HeadlessSP — EXCEPTION: {e}')
                 if connector:
                     try:
                         connector.close()
@@ -3540,12 +3588,15 @@ def _process_sharepoint_scan_inner(scan_id, connector, files, options, flask_app
                 if test.get('success'):
                     connector_created = True
                     logger.info(f"SP scan {scan_id}: REST connector authenticated successfully")
+                    _sp_log.info(f'[BG-INNER] SP scan {scan_id}: Strategy 2 REST — AUTH SUCCESS')
                 else:
                     logger.warning(f"SP scan {scan_id}: REST connector failed: {test.get('message', '')}")
+                    _sp_log.warning(f'[BG-INNER] SP scan {scan_id}: Strategy 2 REST — AUTH FAILED: {test.get("message", "")}')
                     connector.close()
                     connector = None
             except Exception as e:
                 logger.error(f"SP scan {scan_id}: REST connector error: {e}")
+                _sp_log.error(f'[BG-INNER] SP scan {scan_id}: Strategy 2 REST — EXCEPTION: {e}')
                 if connector:
                     try:
                         connector.close()
@@ -3569,11 +3620,15 @@ def _process_sharepoint_scan_inner(scan_id, connector, files, options, flask_app
                     if test.get('success'):
                         connector_created = True
                         logger.info(f"SP scan {scan_id}: Headless fallback authenticated successfully")
+                        _sp_log.info(f'[BG-INNER] SP scan {scan_id}: Strategy 3 Headless fallback — AUTH SUCCESS')
                     else:
+                        logger.warning(f"SP scan {scan_id}: Headless fallback auth failed")
+                        _sp_log.warning(f'[BG-INNER] SP scan {scan_id}: Strategy 3 Headless fallback — AUTH FAILED')
                         connector.close()
                         connector = None
             except Exception as e:
                 logger.error(f"SP scan {scan_id}: Headless fallback error: {e}")
+                _sp_log.error(f'[BG-INNER] SP scan {scan_id}: Strategy 3 Headless fallback — EXCEPTION: {e}')
                 if connector:
                     try:
                         connector.close()
@@ -3585,6 +3640,7 @@ def _process_sharepoint_scan_inner(scan_id, connector, files, options, flask_app
         if not connector_created or connector is None:
             err_msg = 'Failed to authenticate to SharePoint — all connection strategies exhausted'
             logger.error(f"SP scan {scan_id}: {err_msg}")
+            _sp_log.error(f'[BG-INNER] SP scan {scan_id}: ALL CONNECTOR STRATEGIES FAILED')
             with _folder_scan_state_lock:
                 state = _folder_scan_state.get(scan_id)
                 if state:
@@ -3601,6 +3657,7 @@ def _process_sharepoint_scan_inner(scan_id, connector, files, options, flask_app
                 state['phase'] = 'downloading'
                 state['current_file'] = 'Starting document downloads...'
         logger.info(f"SP scan {scan_id}: Connector ready, transitioning to downloading phase")
+        _sp_log.info(f'[BG-INNER] SP scan {scan_id}: CONNECTOR READY — transitioning to download phase')
 
     # ── v6.6.0: Initialize SP Repository if available ──
     repo = None
@@ -3611,11 +3668,14 @@ def _process_sharepoint_scan_inner(scan_id, connector, files, options, flask_app
             logger.info(f"SP scan {scan_id}: SP Repository available at {repo.repo_dir}")
         except Exception as e:
             logger.warning(f"SP scan {scan_id}: SP Repository init failed: {e} — falling back to temp files")
+            _sp_log.warning(f'[BG-INNER] SP scan {scan_id}: Repository init FAILED ({e}) — temp-file fallback')
             use_repo = False
 
     # ════════════════════════════════════════════════════════════════════
     # PHASE 1: Download files from SharePoint (sequential, max_workers=1)
     # ════════════════════════════════════════════════════════════════════
+    _sp_log.info(f'[BG-INNER] SP scan {scan_id}: PHASE 1 START — downloading {len(files)} files '
+                 f'(repo={use_repo}, connector={"provided" if connector else "None"})')
     with _folder_scan_state_lock:
         state = _folder_scan_state.get(scan_id)
         if state:
@@ -3633,6 +3693,10 @@ def _process_sharepoint_scan_inner(scan_id, connector, files, options, flask_app
         server_rel_url = file_info['server_relative_url']
         sp_modified = file_info.get('modified', '')
         sp_size = file_info.get('size', 0)
+
+        # v6.6.2: Log every 10th file to sharepoint.log for progress visibility
+        if dl_idx % 10 == 0 or dl_idx == 0:
+            _sp_log.info(f'[BG-INNER] SP scan {scan_id}: Downloading file {dl_idx + 1}/{len(files)}: {filename}')
 
         # Update download progress
         with _folder_scan_state_lock:
@@ -3740,15 +3804,20 @@ def _process_sharepoint_scan_inner(scan_id, connector, files, options, flask_app
                 state['download_errors'] = download_errors
 
     # Close SP connector — downloads are done, scans are local
+    _sp_log.info(f'[BG-INNER] SP scan {scan_id}: PHASE 1 COMPLETE — '
+                 f'{len(local_files)} files downloaded, {download_errors} errors. Closing connector.')
     try:
         connector.close()
         logger.info(f"SP scan {scan_id}: Connector closed after downloads. "
                      f"{len(local_files)} files ready for scan, {download_errors} errors")
     except Exception as e:
         logger.warning(f"SP scan {scan_id}: Error closing connector: {e}")
+        _sp_log.warning(f'[BG-INNER] SP scan {scan_id}: Connector close error: {e}')
 
     # If no files to scan, mark complete
     if not local_files:
+        _sp_log.warning(f'[BG-INNER] SP scan {scan_id}: NO LOCAL FILES to scan '
+                        f'(download_errors={download_errors}) — marking {"error" if download_errors else "complete"}')
         with _folder_scan_state_lock:
             state = _folder_scan_state.get(scan_id)
             if state:
@@ -3770,6 +3839,8 @@ def _process_sharepoint_scan_inner(scan_id, connector, files, options, flask_app
             state['current_file'] = f'Scanning {len(local_files)} documents...'
 
     logger.info(f"SP scan {scan_id}: Phase 2 — scanning {len(local_files)} local files with max_workers=3")
+    _sp_log.info(f'[BG-INNER] SP scan {scan_id}: PHASE 2 START — scanning {len(local_files)} local files '
+                 f'(chunks={len(range(0, len(local_files), FOLDER_SCAN_CHUNK_SIZE))}, max_workers=3)')
 
     def _review_local_file(file_info_and_path):
         """Review a local file (already downloaded from SharePoint)."""
@@ -3937,9 +4008,13 @@ def _process_sharepoint_scan_inner(scan_id, connector, files, options, flask_app
 
         logger.info(f"SharePoint scan {scan_id} complete: "
                      f"{state.get('processed', 0)} processed, {state.get('errors', 0)} errors")
+        _sp_log.info(f'[BG-INNER] SP scan {scan_id}: ═══ SCAN COMPLETE ═══ '
+                     f"processed={state.get('processed', 0)}, errors={state.get('errors', 0)}, "
+                     f"elapsed={state.get('elapsed_seconds', 0)}s")
 
     except Exception as e:
         logger.error(f"SharePoint scan {scan_id} fatal error: {e}")
+        _sp_log.error(f'[BG-INNER] SP scan {scan_id}: ═══ FATAL ERROR ═══ {e}')
         with _folder_scan_state_lock:
             state = _folder_scan_state.get(scan_id)
             if state:

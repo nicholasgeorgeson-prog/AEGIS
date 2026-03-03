@@ -1,13 +1,23 @@
 {
-  "version": "6.6.1",
+  "version": "6.6.2",
   "release_date": "2026-03-03",
-  "core_version": "6.6.1",
+  "core_version": "6.6.2",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.6.2",
+      "date": "2026-03-03",
+      "changes": [
+        "FIX: SP scan invisible logging — background thread logged to routes.log (never examined), not sharepoint.log. Added dual-logging via _sp_log at 15+ critical milestones",
+        "FIX: Missing Flask app context — background thread inner function now pushes Flask app context for entire lifetime, preventing silent crashes from Flask-dependent code",
+        "DIAG: _sp_log entries at every connector strategy (HeadlessSP, REST, fallback), phase transitions (download start/complete, scan start/complete), per-file progress (every 10th file), and fatal errors",
+        "DIAG: Version-stamped alive proof in both wrapper and inner function — confirms code reload on Windows"
+      ]
+    },
     {
       "version": "6.6.1",
       "date": "2026-03-03",
