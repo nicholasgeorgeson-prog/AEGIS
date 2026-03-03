@@ -178,6 +178,16 @@ OPTIONAL_PACKAGES = [
     ('proselint', 'proselint', 'Writing Style Checker'),
     ('symspellpy', 'symspellpy', 'Spelling Corrections'),
     ('enchant', 'pyenchant', 'Spell Check Dictionary'),
+    ('python_calamine', 'python-calamine', 'Fast XLSX Reader (Rust)'),
+    ('negspacy', 'negspacy', 'Negation Detection (spaCy)'),
+    ('textdescriptives', 'textdescriptives', 'Text Quality Metrics'),
+    ('spacy_wordnet', 'spacy-wordnet', 'Terminology Consistency'),
+    ('spacytextblob', 'spacytextblob', 'Subjectivity & Tone'),
+    ('lexical_diversity', 'lexical_diversity', 'Lexical Diversity Metrics'),
+    ('yake', 'yake', 'Keyword Extraction'),
+    ('textacy', 'textacy', 'Advanced Text Analysis'),
+    ('sumy', 'sumy', 'Document Summarization'),
+    ('passivepy', 'passivepy', 'Passive Voice Detection'),
 ]
 
 # spaCy dependency chain (install order matters)
@@ -1725,6 +1735,31 @@ class AEGISManager:
 
         # Ensure __init__.py in Python package dirs
         self._ensure_init_files()
+
+        # Auto-install new dependencies if requirements.txt was updated
+        req_updated = any(p == 'requirements.txt' for p in files_to_download)
+        if req_updated:
+            C.info('requirements.txt updated — installing new dependencies...')
+            req_file = os.path.join(self.install_dir, 'requirements.txt')
+            if os.path.isfile(req_file):
+                wheels = self.packages.find_wheels_dirs()
+                cmd = [self.packages._python_exe, '-m', 'pip', 'install',
+                       '-r', req_file, '--no-warn-script-location']
+                for wd in wheels:
+                    cmd.extend(['--find-links', wd])
+                try:
+                    result = subprocess.run(
+                        cmd, capture_output=True, text=True, timeout=600
+                    )
+                    if result.returncode == 0:
+                        C.ok('Dependencies updated successfully')
+                    else:
+                        C.warn('Some packages may need manual install — run Health Check (Option 3)')
+                        C.detail(result.stderr[:300] if result.stderr else '')
+                except subprocess.TimeoutExpired:
+                    C.warn('Package install timed out — run Health Check (Option 3)')
+                except Exception as e:
+                    C.warn(f'Package install error: {e}')
 
         # Auto-restart server if Python files were updated
         python_updated = any(p.endswith('.py') for p in files_to_download)

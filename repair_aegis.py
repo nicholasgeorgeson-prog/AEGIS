@@ -101,6 +101,16 @@ OPTIONAL_PACKAGES = [
     ('requests_ntlm', 'requests-ntlm', 'Windows Domain Auth'),
     ('sspi', 'pywin32', 'SSPI Preemptive Auth (SharePoint Online)'),
     ('msal', 'msal', 'SharePoint Online Auth (OAuth)'),
+    ('python_calamine', 'python-calamine', 'Fast XLSX Reader (Rust)'),
+    ('negspacy', 'negspacy', 'Negation Detection (spaCy)'),
+    ('textdescriptives', 'textdescriptives', 'Text Quality Metrics'),
+    ('spacy_wordnet', 'spacy-wordnet', 'Terminology Consistency'),
+    ('spacytextblob', 'spacytextblob', 'Subjectivity & Tone'),
+    ('lexical_diversity', 'lexical_diversity', 'Lexical Diversity Metrics'),
+    ('yake', 'yake', 'Keyword Extraction'),
+    ('textacy', 'textacy', 'Advanced Text Analysis'),
+    ('sumy', 'sumy', 'Document Summarization'),
+    ('passivepy', 'passivepy', 'Passive Voice Detection'),
 ]
 
 SPACY_CHAIN = ['colorama', 'typer', 'cymem', 'murmurhash', 'preshed', 'blis',
@@ -109,13 +119,17 @@ SPACY_CHAIN = ['colorama', 'typer', 'cymem', 'murmurhash', 'preshed', 'blis',
 
 DIAGNOSTIC_GROUPS = {
     'Core Framework': [('flask',), ('waitress',)],
-    'Document Processing': [('docx',), ('mammoth',), ('lxml',), ('openpyxl',)],
+    'Document Processing': [('docx',), ('mammoth',), ('lxml',), ('openpyxl',),
+                            ('python_calamine',)],
     'PDF Processing': [('fitz',), ('pdfplumber',)],
     'Platform Dependencies': [('pkg_resources',), ('colorama',), ('typer',)],
     'spaCy Dependency Chain': [('cymem',), ('murmurhash',), ('preshed',),
                                 ('blis',), ('srsly',), ('thinc',), ('spacy',)],
     'NLP Libraries': [('sklearn',), ('nltk',), ('textstat',), ('textblob',),
-                      ('rapidfuzz',), ('symspellpy',)],
+                      ('rapidfuzz',), ('symspellpy',), ('negspacy',),
+                      ('textdescriptives',), ('spacy_wordnet',),
+                      ('spacytextblob',), ('lexical_diversity',),
+                      ('yake',), ('textacy',), ('sumy',), ('passivepy',)],
     'Data Libraries': [('pandas',), ('numpy',), ('requests',), ('reportlab',)],
 }
 
