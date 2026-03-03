@@ -12507,13 +12507,39 @@ STEPS TO REPRODUCE
                                 continue;
                             }
 
+                            // v6.6.0: Handle 'downloading' phase — files being downloaded
+                            // from SharePoint to local repository before scanning.
+                            // Progress ring: 0-40% for download phase, 40-100% for scan phase.
+                            if (d.phase === 'downloading') {
+                                var dlTotal = d.download_total || totalFiles;
+                                var dlDone = (d.download_completed || 0) + (d.download_cached || 0) + (d.download_errors || 0);
+                                var dlPct = dlTotal > 0 ? Math.round((dlDone / dlTotal) * 40) : 5;
+                                updateProgress(Math.max(3, dlPct), 'Downloading ' + dlDone + ' of ' + dlTotal + ' files...');
+                                if (queueStatus) {
+                                    var dlMsg = d.current_file || 'Downloading from SharePoint...';
+                                    if (d.download_cached > 0) {
+                                        dlMsg += ' (' + d.download_cached + ' cached)';
+                                    }
+                                    queueStatus.textContent = dlMsg;
+                                }
+                                if (subtitleEl) subtitleEl.textContent = 'Downloading files to local repository for scanning';
+                                if (dlDone > 0 && dlDone % 5 === 0) {
+                                    addActivity('download_progress', 'Downloaded ' + dlDone + '/' + dlTotal + (d.download_cached ? ' (' + d.download_cached + ' cached)' : ''));
+                                }
+                                await new Promise(r => setTimeout(r, pollDelay));
+                                continue;
+                            }
+
                             const totalDone = d.processed + d.errors;
-                            const pct = totalFiles > 0 ? Math.round((totalDone / totalFiles) * 100) : 0;
+                            // v6.6.0: Scan phase progress starts at 40% (download phase was 0-40%)
+                            var scanPctBase = d.download_total > 0 ? 40 : 0;
+                            var scanPctRange = d.download_total > 0 ? 60 : 100;
+                            const pct = totalFiles > 0 ? scanPctBase + Math.round((totalDone / totalFiles) * scanPctRange) : 0;
 
                             updateProgress(pct, 'SharePoint Scan — ' + totalDone + ' of ' + totalFiles);
                             if (docsComplete) docsComplete.textContent = totalDone;
-                            if (subtitleEl && subtitleEl.textContent !== 'Downloading and analyzing documents from SharePoint') {
-                                subtitleEl.textContent = 'Downloading and analyzing documents from SharePoint';
+                            if (subtitleEl && subtitleEl.textContent !== 'Scanning documents from local repository') {
+                                subtitleEl.textContent = d.download_total > 0 ? 'Scanning documents from local repository' : 'Downloading and analyzing documents from SharePoint';
                             }
 
                             if (d.current_chunk && d.total_chunks) {
@@ -13156,6 +13182,142 @@ STEPS TO REPRODUCE
             if (btnSpDiscover) btnSpDiscover.disabled = false;
             if (btnSpScan && !btnSpScan.dataset.scanId) btnSpScan.disabled = false;
             lucide?.createIcons?.();
+        }
+
+        // ====================================================================
+        // v6.6.0: SP Repository — Rescan from local cache
+        // ====================================================================
+        const btnSpRepoStatus = document.getElementById('btn-sp-repo-status');
+        const btnSpRepoRescan = document.getElementById('btn-sp-repo-rescan');
+        const spRepoInfo = document.getElementById('sp-repo-info');
+        const spRepoDetails = document.getElementById('sp-repo-details');
+        const spRepoSection = document.getElementById('sp-repo-section');
+
+        // Check repository status on page load — show section if repo has files
+        (async function _checkRepoStatus() {
+            try {
+                const resp = await fetch('/api/repository/status');
+                const json = await resp.json();
+                if (json.success && json.data && json.data.available && json.data.total_files > 0) {
+                    if (spRepoSection) spRepoSection.classList.remove('hidden');
+                    if (spRepoInfo) spRepoInfo.textContent = json.data.total_files + ' files cached across ' + json.data.library_count + ' libraries (' + json.data.total_size_human + ')';
+                    if (btnSpRepoRescan) btnSpRepoRescan.disabled = false;
+                    // Store library data for rescan
+                    if (spRepoSection) spRepoSection.dataset.repoLibraries = JSON.stringify(json.data.libraries || []);
+                }
+            } catch (e) {
+                console.log('[AEGIS SP] Repository check skipped:', e.message);
+            }
+        })();
+
+        if (btnSpRepoStatus) {
+            btnSpRepoStatus.addEventListener('click', async function() {
+                btnSpRepoStatus.disabled = true;
+                btnSpRepoStatus.innerHTML = '<i data-lucide="loader" class="spin"></i> Checking...';
+                try {
+                    const resp = await fetch('/api/repository/status');
+                    const json = await resp.json();
+                    if (!json.success || !json.data || !json.data.available) {
+                        if (spRepoDetails) {
+                            spRepoDetails.classList.remove('hidden');
+                            spRepoDetails.innerHTML = '<em>SP Repository not available. Scan SharePoint files first to populate the local cache.</em>';
+                        }
+                        window.showToast?.('No cached files in repository', 'info');
+                        return;
+                    }
+                    var d = json.data;
+                    if (spRepoInfo) spRepoInfo.textContent = d.total_files + ' files cached across ' + d.library_count + ' libraries (' + d.total_size_human + ')';
+                    if (spRepoSection) {
+                        spRepoSection.classList.remove('hidden');
+                        spRepoSection.dataset.repoLibraries = JSON.stringify(d.libraries || []);
+                    }
+                    if (btnSpRepoRescan && d.total_files > 0) btnSpRepoRescan.disabled = false;
+
+                    // Render details
+                    if (spRepoDetails && d.libraries && d.libraries.length > 0) {
+                        spRepoDetails.classList.remove('hidden');
+                        var html = '<div style="margin-bottom:6px;font-weight:600;color:var(--text-primary);">' +
+                            '<i data-lucide="database" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px;"></i>' +
+                            'Local Repository — ' + d.total_files + ' files (' + d.total_size_human + ')</div>';
+                        d.libraries.forEach(function(lib) {
+                            html += '<div style="padding:4px 0;border-top:1px solid var(--border-color);">' +
+                                '<strong>' + escapeHtml(lib.library_path) + '</strong> — ' +
+                                lib.file_count + ' files, ' + lib.total_size_human +
+                                (lib.last_sync ? ' <span style="opacity:0.7;font-size:11px;">Last sync: ' + new Date(lib.last_sync).toLocaleDateString() + '</span>' : '') +
+                                '</div>';
+                        });
+                        spRepoDetails.innerHTML = html;
+                        lucide?.createIcons?.({ target: spRepoDetails });
+                    }
+                    window.showToast?.('Repository: ' + d.total_files + ' cached files', 'success');
+                } catch (err) {
+                    console.error('[AEGIS SP] Repo status error:', err);
+                    window.showToast?.('Failed to check repository: ' + err.message, 'error');
+                } finally {
+                    btnSpRepoStatus.disabled = false;
+                    btnSpRepoStatus.innerHTML = '<i data-lucide="database" aria-hidden="true"></i> Repository Status';
+                    lucide?.createIcons?.({ target: btnSpRepoStatus });
+                }
+            });
+        }
+
+        if (btnSpRepoRescan) {
+            btnSpRepoRescan.addEventListener('click', async function() {
+                // Get library data from stored status
+                var libraries = [];
+                try {
+                    libraries = JSON.parse((spRepoSection?.dataset?.repoLibraries) || '[]');
+                } catch (_) {}
+
+                if (!libraries || libraries.length === 0) {
+                    window.showToast?.('No cached libraries found. Run a SharePoint scan first.', 'warning');
+                    return;
+                }
+
+                // If multiple libraries, scan all; if one, scan that one
+                var libraryPath = libraries.length === 1 ? libraries[0].library_path : null;
+                if (libraries.length > 1) {
+                    // Scan the first library for now (future: library picker)
+                    libraryPath = libraries[0].library_path;
+                }
+
+                btnSpRepoRescan.disabled = true;
+                btnSpRepoRescan.innerHTML = '<i data-lucide="loader" class="spin"></i> Starting rescan...';
+                lucide?.createIcons?.({ target: btnSpRepoRescan });
+
+                try {
+                    var csrf = await _freshCSRF();
+                    var resp = await fetch('/api/repository/scan', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': csrf
+                        },
+                        body: JSON.stringify({
+                            library_path: libraryPath,
+                            options: {}
+                        })
+                    });
+                    var json = await resp.json();
+                    if (!json.success) {
+                        window.showToast?.(json.error?.message || 'Rescan failed', 'error');
+                        return;
+                    }
+                    var scanId = json.data.scan_id;
+                    var totalFiles = json.data.total_files;
+                    window.showToast?.('Rescan started — ' + totalFiles + ' files from local repository', 'success');
+
+                    // Launch cinematic dashboard (reuses existing SP dashboard)
+                    await _showSpCinematicDashboard(scanId, totalFiles, []);
+                } catch (err) {
+                    console.error('[AEGIS SP] Repo rescan error:', err);
+                    window.showToast?.('Rescan failed: ' + err.message, 'error');
+                } finally {
+                    btnSpRepoRescan.disabled = false;
+                    btnSpRepoRescan.innerHTML = '<i data-lucide="refresh-cw" aria-hidden="true"></i> Rescan from Repository';
+                    lucide?.createIcons?.({ target: btnSpRepoRescan });
+                }
+            });
         }
 
         // Test Connection button

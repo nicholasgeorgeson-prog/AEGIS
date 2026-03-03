@@ -67,6 +67,14 @@ except ImportError:
     JobStatus = None
     JobPhase = None
 
+# v6.6.0: SP Repository Manager — persistent local copies of SP documents
+try:
+    from sp_repository_manager import SPRepositoryManager, get_repository
+    _REPO_AVAILABLE = True
+except ImportError:
+    _REPO_AVAILABLE = False
+    get_repository = None
+
 
 def get_scan_history_db():
     """Get scan history database instance."""
@@ -170,7 +178,10 @@ def upload():
 @review_bp.route('/api/dev/load-test-file', methods=['GET'])
 @handle_api_errors
 def dev_load_test_file():
-    """Development endpoint to load a predefined test file for testing."""
+    """Development endpoint to load a predefined test file for testing.
+    v6.4.0: Restricted to debug mode only."""
+    if not current_app.debug:
+        return jsonify({'success': False, 'error': {'code': 'NOT_AVAILABLE', 'message': 'Dev endpoints disabled in production'}}), 404
     test_file = config.temp_dir / 'nasa_test.docx'
     if not test_file.exists():
         raise ValidationError('Test file not found', field='file')
@@ -188,7 +199,10 @@ def dev_load_test_file():
 @review_bp.route('/api/dev/temp/<filename>', methods=['GET'])
 @handle_api_errors
 def dev_serve_temp_file(filename):
-    """Serve a file from the temp directory for development testing."""
+    """Serve a file from the temp directory for development testing.
+    v6.4.0: Restricted to debug mode only."""
+    if not current_app.debug:
+        return jsonify({'success': False, 'error': {'code': 'NOT_AVAILABLE', 'message': 'Dev endpoints disabled in production'}}), 404
     from flask import send_from_directory
     safe_filename = Path(filename).name
     temp_path = config.temp_dir / safe_filename
@@ -1157,6 +1171,7 @@ def _update_scan_state_with_result(scan_id, result, options, flask_app):
                     state['roles_found'][role_name]['total_mentions'] += mention_count
 
                 # Record scan in history (needs Flask app context)
+                # v6.6.0: Pass source_url for SP URL tracking
                 scan_record_id = None
                 if _shared.SCAN_HISTORY_AVAILABLE and flask_app:
                     try:
@@ -1166,7 +1181,8 @@ def _update_scan_state_with_result(scan_id, result, options, flask_app):
                                 filename=result['filename'],
                                 filepath=result.get('full_path', result.get('relative_path', result['filename'])),
                                 results=doc_results_full,
-                                options=options
+                                options=options,
+                                source_url=result.get('source_url')
                             )
                             scan_record_id = scan_record.get('scan_id') if scan_record else None
                     except Exception as e:
@@ -3386,21 +3402,23 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
     """
     Background thread: download files from SharePoint and review with AEGIS engine.
 
-    v6.2.9: If connector is None, creates it HERE (in the background thread) instead
-    of blocking the HTTP handler. This is the critical fix for the SP scan dashboard
-    never appearing — the previous synchronous connector creation in the route handler
-    hung forever on Windows when Playwright's second browser launch collided.
+    v6.6.0: Two-phase architecture with SP Repository:
+    - Phase 1 (Download): Sequential download (max_workers=1 for Playwright) to persistent
+      sp_repository/ directory. Files already up-to-date are skipped (cached).
+    - Phase 2 (Scan): Parallel local file scan (max_workers=3) — no SP connection needed.
+      3x throughput improvement over the old coupled download+scan.
 
-    Follows the same pattern as _process_folder_scan_async:
-    - Chunk processing (5 files/chunk, 3 workers)
-    - Per-file timeout (5 min)
-    - State updates after each file
-    - GC between chunks
+    Falls back to the volatile temp-file pattern if sp_repository_manager is unavailable.
+
+    v6.2.9: If connector is None, creates it HERE (in the background thread) instead
+    of blocking the HTTP handler.
     """
     import gc
+    import hashlib
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    PER_FILE_TIMEOUT = 480  # v5.9.37: 8 minutes per file (includes download + review)
+    PER_FILE_TIMEOUT = 480  # v5.9.37: 8 minutes per file
+    SCAN_PER_FILE_TIMEOUT = 300  # 5 minutes for local scan only (no download)
 
     # ── v6.2.9: Create connector in background thread if not provided ──
     if connector is None and site_url:
@@ -3516,54 +3534,205 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
                     state['current_file'] = None
             return  # Exit background thread
 
-        # Connector created successfully — transition to reviewing phase
+        # Connector created successfully — transition to downloading phase
         with _folder_scan_state_lock:
             state = _folder_scan_state.get(scan_id)
             if state:
-                state['phase'] = 'reviewing'
-                state['current_file'] = 'Starting document scan...'
-        logger.info(f"SP scan {scan_id}: Connector ready, transitioning to reviewing phase")
+                state['phase'] = 'downloading'
+                state['current_file'] = 'Starting document downloads...'
+        logger.info(f"SP scan {scan_id}: Connector ready, transitioning to downloading phase")
 
-    def _review_sharepoint_file(file_info):
-        """Download a single file from SharePoint and review it."""
+    # ── v6.6.0: Initialize SP Repository if available ──
+    repo = None
+    use_repo = _REPO_AVAILABLE
+    if use_repo:
+        try:
+            repo = get_repository()
+            logger.info(f"SP scan {scan_id}: SP Repository available at {repo.repo_dir}")
+        except Exception as e:
+            logger.warning(f"SP scan {scan_id}: SP Repository init failed: {e} — falling back to temp files")
+            use_repo = False
+
+    # ════════════════════════════════════════════════════════════════════
+    # PHASE 1: Download files from SharePoint (sequential, max_workers=1)
+    # ════════════════════════════════════════════════════════════════════
+    with _folder_scan_state_lock:
+        state = _folder_scan_state.get(scan_id)
+        if state:
+            state['phase'] = 'downloading'
+            state['download_total'] = len(files)
+            state['download_completed'] = 0
+            state['download_cached'] = 0
+            state['download_errors'] = 0
+
+    local_files = []  # List of (file_info, local_path) tuples ready for scanning
+    download_errors = 0
+
+    for dl_idx, file_info in enumerate(files):
         filename = file_info['filename']
         server_rel_url = file_info['server_relative_url']
+        sp_modified = file_info.get('modified', '')
+        sp_size = file_info.get('size', 0)
+
+        # Update download progress
+        with _folder_scan_state_lock:
+            state = _folder_scan_state.get(scan_id)
+            if state:
+                state['current_file'] = f'Downloading {filename} ({dl_idx + 1}/{len(files)})'
 
         try:
-            # Create temp directory for this file
-            temp_dir = tempfile.mkdtemp(prefix='aegis_sp_')
-            dest_path = os.path.join(temp_dir, filename)
+            if use_repo:
+                # ── Repository path: check if download needed ──
+                local_path = repo.get_local_path(site_url or '', server_rel_url)
+                needs_dl = repo.needs_download(site_url or '', server_rel_url,
+                                                sp_modified=sp_modified, sp_size=sp_size)
 
-            # Download from SharePoint
-            dl_result = connector.download_file(server_rel_url, dest_path)
-            if not dl_result['success']:
-                return {
+                if needs_dl:
+                    # Archive previous version before overwriting
+                    repo.archive_previous_version(site_url or '', server_rel_url)
+
+                    # Download to persistent repository path
+                    dl_result = connector.download_file(server_rel_url, local_path)
+                    if dl_result['success']:
+                        # Compute hash and register in manifest
+                        file_hash = ''
+                        try:
+                            h = hashlib.md5()
+                            with open(local_path, 'rb') as f:
+                                for chunk in iter(lambda: f.read(8192), b''):
+                                    h.update(chunk)
+                            file_hash = h.hexdigest()
+                        except Exception:
+                            pass
+
+                        repo.register_download(
+                            site_url=site_url or '',
+                            server_relative_url=server_rel_url,
+                            local_path=local_path,
+                            file_hash=file_hash,
+                            sp_modified=sp_modified,
+                            size=dl_result.get('size', sp_size)
+                        )
+                        local_files.append((file_info, local_path))
+                        logger.info(f"SP scan {scan_id}: Downloaded {filename} → {local_path}")
+                    else:
+                        download_errors += 1
+                        logger.warning(f"SP scan {scan_id}: Download failed for {filename}: {dl_result.get('message', '')}")
+                        # Record error result
+                        with flask_app.app_context():
+                            _update_scan_state_with_result(scan_id, {
+                                'filename': filename,
+                                'relative_path': server_rel_url,
+                                'folder': file_info.get('folder', ''),
+                                'extension': file_info.get('extension', ''),
+                                'file_size': 0,
+                                'status': 'error',
+                                'error': f'Download failed: {dl_result.get("message", "Unknown error")}',
+                            }, options, flask_app)
+                else:
+                    # Already up-to-date — use cached local copy
+                    local_files.append((file_info, local_path))
+                    logger.info(f"SP scan {scan_id}: Using cached {filename} (up-to-date)")
+
+            else:
+                # ── Fallback: volatile temp file (legacy behavior) ──
+                temp_dir = tempfile.mkdtemp(prefix='aegis_sp_')
+                dest_path = os.path.join(temp_dir, filename)
+                dl_result = connector.download_file(server_rel_url, dest_path)
+                if dl_result['success']:
+                    local_files.append((file_info, dest_path))
+                else:
+                    download_errors += 1
+                    with flask_app.app_context():
+                        _update_scan_state_with_result(scan_id, {
+                            'filename': filename,
+                            'relative_path': server_rel_url,
+                            'folder': file_info.get('folder', ''),
+                            'extension': file_info.get('extension', ''),
+                            'file_size': 0,
+                            'status': 'error',
+                            'error': f'Download failed: {dl_result.get("message", "Unknown error")}',
+                        }, options, flask_app)
+
+        except Exception as e:
+            download_errors += 1
+            logger.error(f"SP scan {scan_id}: Download error for {filename}: {e}")
+            with flask_app.app_context():
+                _update_scan_state_with_result(scan_id, {
                     'filename': filename,
                     'relative_path': server_rel_url,
                     'folder': file_info.get('folder', ''),
                     'extension': file_info.get('extension', ''),
                     'file_size': 0,
                     'status': 'error',
-                    'error': f'Download failed: {dl_result["message"]}',
-                }
+                    'error': f'Download error: {str(e)[:150]}',
+                }, options, flask_app)
 
-            # Review with AEGIS engine
+        # Update download count
+        with _folder_scan_state_lock:
+            state = _folder_scan_state.get(scan_id)
+            if state:
+                state['download_completed'] = dl_idx + 1 - download_errors
+                state['download_cached'] = sum(1 for fi, lp in local_files
+                                                if not fi.get('_was_downloaded'))
+                state['download_errors'] = download_errors
+
+    # Close SP connector — downloads are done, scans are local
+    try:
+        connector.close()
+        logger.info(f"SP scan {scan_id}: Connector closed after downloads. "
+                     f"{len(local_files)} files ready for scan, {download_errors} errors")
+    except Exception as e:
+        logger.warning(f"SP scan {scan_id}: Error closing connector: {e}")
+
+    # If no files to scan, mark complete
+    if not local_files:
+        with _folder_scan_state_lock:
+            state = _folder_scan_state.get(scan_id)
+            if state:
+                state['phase'] = 'complete' if download_errors == 0 else 'error'
+                state['completed_at'] = time.time()
+                state['elapsed_seconds'] = round(time.time() - state['started_at'], 1)
+                state['current_file'] = None
+                if download_errors > 0:
+                    state['error_message'] = f'All {download_errors} downloads failed'
+        return
+
+    # ════════════════════════════════════════════════════════════════════
+    # PHASE 2: Scan local files (parallel, max_workers=3)
+    # ════════════════════════════════════════════════════════════════════
+    with _folder_scan_state_lock:
+        state = _folder_scan_state.get(scan_id)
+        if state:
+            state['phase'] = 'reviewing'
+            state['current_file'] = f'Scanning {len(local_files)} documents...'
+
+    logger.info(f"SP scan {scan_id}: Phase 2 — scanning {len(local_files)} local files with max_workers=3")
+
+    def _review_local_file(file_info_and_path):
+        """Review a local file (already downloaded from SharePoint)."""
+        file_info, local_path = file_info_and_path
+        filename = file_info['filename']
+        server_rel_url = file_info['server_relative_url']
+
+        try:
             if AEGISEngine is None:
                 return {
                     'filename': filename,
                     'relative_path': server_rel_url,
+                    'full_path': local_path,
+                    'source_url': server_rel_url,
                     'folder': file_info.get('folder', ''),
                     'extension': file_info.get('extension', ''),
-                    'file_size': dl_result.get('size', 0),
+                    'file_size': os.path.getsize(local_path) if os.path.exists(local_path) else 0,
                     'status': 'error',
                     'error': 'AEGISEngine not available',
                 }
 
             engine = AEGISEngine()
-            # v5.9.38: Enable batch_mode for SharePoint scans (same as folder scan)
             sp_options = dict(options) if options else {}
             sp_options['batch_mode'] = True
-            doc_results = engine.review_document(dest_path, sp_options)
+            doc_results = engine.review_document(local_path, sp_options)
 
             # Convert ReviewIssue objects to dicts (Lesson #36)
             raw_issues = doc_results.get('issues', [])
@@ -3580,7 +3749,6 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
                         'category': getattr(issue, 'category', 'Unknown'),
                     })
 
-            # Extract roles
             actual_roles = doc_results.get('roles', {})
             if not isinstance(actual_roles, dict):
                 actual_roles = {}
@@ -3588,12 +3756,21 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
             if not isinstance(word_count, (int, float)):
                 word_count = 0
 
+            # v6.6.0: Mark as scanned in repository
+            if use_repo and repo:
+                try:
+                    repo.mark_scanned(site_url or '', server_rel_url)
+                except Exception:
+                    pass
+
             return {
                 'filename': filename,
                 'relative_path': server_rel_url,
+                'full_path': local_path,
+                'source_url': server_rel_url,
                 'folder': file_info.get('folder', ''),
                 'extension': file_info.get('extension', ''),
-                'file_size': dl_result.get('size', 0),
+                'file_size': os.path.getsize(local_path) if os.path.exists(local_path) else 0,
                 'issues': issues,
                 'issue_count': len(issues),
                 'roles': actual_roles,
@@ -3606,57 +3783,50 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
             }
 
         except Exception as e:
-            logger.error(f"SharePoint review error for {filename}: {e}")
+            logger.error(f"SP local review error for {filename}: {e}")
             return {
                 'filename': filename,
                 'relative_path': server_rel_url,
+                'full_path': local_path,
+                'source_url': server_rel_url,
                 'folder': file_info.get('folder', ''),
                 'extension': file_info.get('extension', ''),
                 'file_size': 0,
                 'status': 'error',
                 'error': str(e)[:200],
             }
-        finally:
-            # Clean up temp file
-            try:
-                if 'temp_dir' in dir() and os.path.exists(temp_dir):
-                    import shutil
-                    shutil.rmtree(temp_dir, ignore_errors=True)
-            except Exception:
-                pass
+        # v6.6.0: NO temp cleanup — files persist in sp_repository/
 
     # Process files in chunks (same pattern as folder scan)
-    chunks = []
-    for i in range(0, len(files), FOLDER_SCAN_CHUNK_SIZE):
-        chunks.append(files[i:i + FOLDER_SCAN_CHUNK_SIZE])
+    scan_chunks = []
+    for i in range(0, len(local_files), FOLDER_SCAN_CHUNK_SIZE):
+        scan_chunks.append(local_files[i:i + FOLDER_SCAN_CHUNK_SIZE])
 
     try:
-        for chunk_idx, chunk in enumerate(chunks):
+        for chunk_idx, chunk in enumerate(scan_chunks):
             # Update state with current chunk
             with _folder_scan_state_lock:
                 state = _folder_scan_state.get(scan_id)
                 if state:
                     state['current_chunk'] = chunk_idx + 1
-                    chunk_names = [f['filename'] for f in chunk[:3]]
+                    state['total_chunks'] = len(scan_chunks)
+                    chunk_names = [c[0]['filename'] for c in chunk[:3]]
                     state['current_file'] = ', '.join(chunk_names)
 
-            # Process chunk with ThreadPoolExecutor
-            # v6.1.3: Use max_workers=1 for HeadlessSPConnector — Playwright sync API is
-            # single-threaded, concurrent browser operations would corrupt state
-            _is_headless_sp = hasattr(connector, '_page')  # HeadlessSPConnector has _page attr
-            _workers = 1 if _is_headless_sp else min(FOLDER_SCAN_MAX_WORKERS, len(chunk))
-            with ThreadPoolExecutor(max_workers=_workers) as executor:
+            # v6.6.0: Parallel local scan — max_workers=3 (files are local, no SP connection)
+            with ThreadPoolExecutor(max_workers=min(FOLDER_SCAN_MAX_WORKERS, len(chunk))) as executor:
                 future_to_file = {
-                    executor.submit(_review_sharepoint_file, f): f
-                    for f in chunk
+                    executor.submit(_review_local_file, item): item
+                    for item in chunk
                 }
 
-                chunk_timeout = PER_FILE_TIMEOUT * len(chunk)
+                chunk_timeout = SCAN_PER_FILE_TIMEOUT * len(chunk)
                 try:
                     for future in as_completed(future_to_file, timeout=chunk_timeout):
-                        file_info = future_to_file[future]
+                        item = future_to_file[future]
+                        file_info, local_path = item
                         try:
-                            result = future.result(timeout=PER_FILE_TIMEOUT)
+                            result = future.result(timeout=SCAN_PER_FILE_TIMEOUT)
                         except Exception as e:
                             result = {
                                 'filename': file_info['filename'],
@@ -3677,7 +3847,8 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
                     # Mark remaining files as errors
                     for future in future_to_file:
                         if not future.done():
-                            file_info = future_to_file[future]
+                            item = future_to_file[future]
+                            file_info, _ = item
                             error_result = {
                                 'filename': file_info['filename'],
                                 'relative_path': file_info.get('server_relative_url', ''),
@@ -3703,7 +3874,7 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
                 state['current_file'] = None
 
         logger.info(f"SharePoint scan {scan_id} complete: "
-                     f"{state['processed']} processed, {state['errors']} errors")
+                     f"{state.get('processed', 0)} processed, {state.get('errors', 0)} errors")
 
     except Exception as e:
         logger.error(f"SharePoint scan {scan_id} fatal error: {e}")
@@ -3713,8 +3884,6 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
                 state['phase'] = 'error'
                 state['error_message'] = str(e)[:200]
                 state['completed_at'] = time.time()
-    finally:
-        connector.close()
 
 
 @review_bp.route('/api/review/single', methods=['POST'])
@@ -4758,3 +4927,363 @@ def export_pdf_report():
     response.headers['Content-Disposition'] = f'attachment; filename="{pdf_name}"'
     response.headers['Content-Length'] = len(pdf_bytes)
     return response
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# v6.6.0: SP Repository Endpoints — local cache management
+# ════════════════════════════════════════════════════════════════════════════
+
+@review_bp.route('/api/repository/status', methods=['GET'])
+@handle_api_errors
+def repository_status():
+    """Return summary of the local SP document repository."""
+    if not _REPO_AVAILABLE:
+        return jsonify({'success': True, 'data': {
+            'available': False,
+            'message': 'SP Repository module not available'
+        }})
+
+    try:
+        repo = get_repository()
+        libraries = repo.get_all_libraries()
+        total_files = 0
+        total_size = 0
+        library_summaries = []
+
+        for lib_path, lib_data in libraries.items():
+            files = lib_data.get('files', {})
+            lib_size = sum(f.get('size', 0) for f in files.values())
+            lib_summary = {
+                'library_path': lib_path,
+                'site_url': lib_data.get('site_url', ''),
+                'last_sync': lib_data.get('last_sync', ''),
+                'file_count': len(files),
+                'total_size': lib_size,
+                'total_size_human': _human_size(lib_size),
+            }
+            library_summaries.append(lib_summary)
+            total_files += len(files)
+            total_size += lib_size
+
+        return jsonify({'success': True, 'data': {
+            'available': True,
+            'library_count': len(libraries),
+            'total_files': total_files,
+            'total_size': total_size,
+            'total_size_human': _human_size(total_size),
+            'libraries': library_summaries,
+        }})
+
+    except Exception as e:
+        logger.error(f'Repository status error: {e}')
+        return jsonify({'success': True, 'data': {
+            'available': True,
+            'error': str(e)[:200],
+            'library_count': 0,
+            'total_files': 0,
+            'libraries': [],
+        }})
+
+
+@review_bp.route('/api/repository/files', methods=['GET'])
+@handle_api_errors
+def repository_files():
+    """Return file list for a specific library in the repository."""
+    library_path = request.args.get('library', '')
+    if not library_path:
+        raise ValidationError('library parameter is required')
+
+    if not _REPO_AVAILABLE:
+        return jsonify({'success': True, 'data': {'available': False, 'files': []}})
+
+    try:
+        repo = get_repository()
+        scannable = repo.get_scannable_files(library_path)
+
+        file_list = []
+        for f in scannable:
+            versions = repo.get_file_history(
+                f.get('site_url', ''),
+                f.get('server_relative_url', '')
+            )
+            file_list.append({
+                'filename': f.get('filename', ''),
+                'server_relative_url': f.get('server_relative_url', ''),
+                'local_path': f.get('local_path', ''),
+                'file_hash': f.get('file_hash', ''),
+                'size': f.get('size', 0),
+                'size_human': _human_size(f.get('size', 0)),
+                'sp_modified': f.get('sp_modified', ''),
+                'downloaded_at': f.get('downloaded_at', ''),
+                'last_scanned': f.get('last_scanned', ''),
+                'scan_count': f.get('scan_count', 0),
+                'version_count': len(versions),
+                'exists_locally': os.path.exists(f.get('local_path', '')),
+            })
+
+        return jsonify({'success': True, 'data': {
+            'available': True,
+            'library_path': library_path,
+            'file_count': len(file_list),
+            'files': file_list,
+        }})
+
+    except Exception as e:
+        logger.error(f'Repository files error: {e}')
+        return jsonify({'success': True, 'data': {
+            'available': True,
+            'library_path': library_path,
+            'error': str(e)[:200],
+            'files': [],
+        }})
+
+
+@review_bp.route('/api/repository/scan', methods=['POST'])
+@require_csrf
+@handle_api_errors
+def repository_rescan():
+    """Rescan files from local repository without SP connection.
+
+    Accepts JSON body:
+        library_path (str): Library path to scan
+        files (list, optional): Specific filenames to scan. If omitted, scans all.
+    """
+    if not _REPO_AVAILABLE:
+        raise ValidationError('SP Repository module not available')
+
+    data = request.get_json() or {}
+    library_path = data.get('library_path', '')
+    file_filter = data.get('files')  # optional list of filenames
+
+    if not library_path:
+        raise ValidationError('library_path is required')
+
+    repo = get_repository()
+    scannable = repo.get_scannable_files(library_path)
+
+    if not scannable:
+        raise ValidationError(f'No files found in repository for: {library_path}')
+
+    # Filter to specific files if requested
+    if file_filter and isinstance(file_filter, list):
+        filter_set = set(f.lower() for f in file_filter)
+        scannable = [f for f in scannable if f.get('filename', '').lower() in filter_set]
+        if not scannable:
+            raise ValidationError('None of the specified files found in repository')
+
+    # Verify files exist locally
+    valid_files = []
+    for f in scannable:
+        local_path = f.get('local_path', '')
+        if os.path.exists(local_path):
+            valid_files.append(f)
+        else:
+            logger.warning(f"Repository rescan: missing local file {local_path}")
+
+    if not valid_files:
+        raise ValidationError('No repository files exist locally — download from SharePoint first')
+
+    # Create scan state and spawn background thread
+    scan_id = f"repo_{int(time.time())}_{os.urandom(4).hex()}"
+
+    with _folder_scan_state_lock:
+        _folder_scan_state[scan_id] = {
+            'scan_id': scan_id,
+            'source': f'repository:{library_path}',
+            'phase': 'reviewing',
+            'total': len(valid_files),
+            'processed': 0,
+            'errors': 0,
+            'documents': [],
+            'current_file': f'Scanning {len(valid_files)} cached files...',
+            'current_chunk': 0,
+            'total_chunks': 0,
+            'started_at': time.time(),
+            'completed_at': None,
+        }
+
+    options = data.get('options', {})
+    flask_app = current_app._get_current_object()
+
+    def _process_repository_scan():
+        """Background thread for repository rescan."""
+        # Build local_files list matching the format expected by the scan loop
+        local_files = []
+        for f in valid_files:
+            file_info = {
+                'filename': f.get('filename', ''),
+                'server_relative_url': f.get('server_relative_url', ''),
+                'folder': '',
+                'extension': os.path.splitext(f.get('filename', ''))[1].lower(),
+            }
+            local_files.append((file_info, f['local_path']))
+
+        scan_chunks = []
+        for i in range(0, len(local_files), FOLDER_SCAN_CHUNK_SIZE):
+            scan_chunks.append(local_files[i:i + FOLDER_SCAN_CHUNK_SIZE])
+
+        with _folder_scan_state_lock:
+            state = _folder_scan_state.get(scan_id)
+            if state:
+                state['total_chunks'] = len(scan_chunks)
+
+        try:
+            for chunk_idx, chunk in enumerate(scan_chunks):
+                with _folder_scan_state_lock:
+                    state = _folder_scan_state.get(scan_id)
+                    if state:
+                        state['current_chunk'] = chunk_idx + 1
+                        chunk_names = [c[0]['filename'] for c in chunk[:3]]
+                        state['current_file'] = ', '.join(chunk_names)
+
+                with ThreadPoolExecutor(max_workers=min(FOLDER_SCAN_MAX_WORKERS, len(chunk))) as executor:
+                    future_to_file = {}
+                    for item in chunk:
+                        file_info, local_path = item
+                        future = executor.submit(_review_repo_file, file_info, local_path, options, repo, library_path)
+                        future_to_file[future] = item
+
+                    chunk_timeout = SCAN_PER_FILE_TIMEOUT * len(chunk)
+                    try:
+                        for future in as_completed(future_to_file, timeout=chunk_timeout):
+                            item = future_to_file[future]
+                            file_info, local_path = item
+                            try:
+                                result = future.result(timeout=SCAN_PER_FILE_TIMEOUT)
+                            except Exception as e:
+                                result = {
+                                    'filename': file_info['filename'],
+                                    'relative_path': file_info.get('server_relative_url', ''),
+                                    'folder': file_info.get('folder', ''),
+                                    'extension': file_info.get('extension', ''),
+                                    'file_size': 0,
+                                    'status': 'error',
+                                    'error': f'Processing timeout or error: {str(e)[:100]}',
+                                }
+
+                            with flask_app.app_context():
+                                _update_scan_state_with_result(scan_id, result, options, flask_app)
+
+                    except Exception as e:
+                        logger.error(f"Repository scan chunk {chunk_idx + 1} error: {e}")
+
+                gc.collect()
+
+            # Mark complete
+            with _folder_scan_state_lock:
+                state = _folder_scan_state.get(scan_id)
+                if state:
+                    state['phase'] = 'complete'
+                    state['completed_at'] = time.time()
+                    state['elapsed_seconds'] = round(time.time() - state['started_at'], 1)
+                    state['current_file'] = None
+
+            logger.info(f"Repository scan {scan_id} complete")
+
+        except Exception as e:
+            logger.error(f"Repository scan {scan_id} fatal error: {e}")
+            with _folder_scan_state_lock:
+                state = _folder_scan_state.get(scan_id)
+                if state:
+                    state['phase'] = 'error'
+                    state['error_message'] = str(e)[:200]
+                    state['completed_at'] = time.time()
+
+    def _review_repo_file(file_info, local_path, scan_options, repo_inst, lib_path):
+        """Review a single file from the repository (no SP connection needed)."""
+        filename = file_info['filename']
+        server_rel_url = file_info.get('server_relative_url', '')
+        try:
+            if AEGISEngine is None:
+                return {
+                    'filename': filename,
+                    'relative_path': server_rel_url,
+                    'full_path': local_path,
+                    'source_url': server_rel_url,
+                    'folder': file_info.get('folder', ''),
+                    'extension': file_info.get('extension', ''),
+                    'file_size': os.path.getsize(local_path) if os.path.exists(local_path) else 0,
+                    'status': 'error',
+                    'error': 'AEGISEngine not available',
+                }
+
+            engine = AEGISEngine()
+            sp_options = dict(scan_options) if scan_options else {}
+            sp_options['batch_mode'] = True
+            doc_results = engine.review_document(local_path, sp_options)
+
+            # Convert ReviewIssue objects to dicts (Lesson #36)
+            raw_issues = doc_results.get('issues', [])
+            issues = []
+            for issue in raw_issues:
+                if isinstance(issue, dict):
+                    issues.append(issue)
+                elif hasattr(issue, 'to_dict'):
+                    issues.append(issue.to_dict())
+                else:
+                    issues.append({
+                        'message': getattr(issue, 'message', str(issue)),
+                        'severity': getattr(issue, 'severity', 'Low'),
+                        'category': getattr(issue, 'category', 'Unknown'),
+                    })
+
+            actual_roles = doc_results.get('roles', {})
+            if not isinstance(actual_roles, dict):
+                actual_roles = {}
+            word_count = doc_results.get('word_count', 0)
+            if not isinstance(word_count, (int, float)):
+                word_count = 0
+
+            # Mark as scanned in repository
+            try:
+                repo_inst.mark_scanned('', server_rel_url)
+            except Exception:
+                pass
+
+            return {
+                'filename': filename,
+                'relative_path': server_rel_url,
+                'full_path': local_path,
+                'source_url': server_rel_url,
+                'folder': file_info.get('folder', ''),
+                'extension': file_info.get('extension', ''),
+                'file_size': os.path.getsize(local_path) if os.path.exists(local_path) else 0,
+                'issues': issues,
+                'issue_count': len(issues),
+                'roles': actual_roles,
+                'role_count': len(actual_roles),
+                'word_count': int(word_count),
+                'score': doc_results.get('score', 0),
+                'grade': doc_results.get('grade', 'N/A'),
+                'doc_results': doc_results,
+                'status': 'success',
+            }
+
+        except Exception as e:
+            logger.error(f"Repository file review error for {filename}: {e}")
+            return {
+                'filename': filename,
+                'relative_path': server_rel_url,
+                'full_path': local_path,
+                'source_url': server_rel_url,
+                'folder': file_info.get('folder', ''),
+                'extension': file_info.get('extension', ''),
+                'file_size': 0,
+                'status': 'error',
+                'error': str(e)[:200],
+            }
+
+    # Spawn background thread
+    thread = threading.Thread(
+        target=_process_repository_scan,
+        name=f'repo-scan-{scan_id}',
+        daemon=False
+    )
+    thread.start()
+
+    return jsonify({'success': True, 'data': {
+        'scan_id': scan_id,
+        'total_files': len(valid_files),
+        'library_path': library_path,
+        'message': f'Repository rescan started: {len(valid_files)} files from local cache',
+    }})

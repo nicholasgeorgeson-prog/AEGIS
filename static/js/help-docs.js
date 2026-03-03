@@ -5040,7 +5040,27 @@ HelpDocs.content['batch-overview'] = {
     <li><strong>Local Folders</strong> &mdash; Enter a server path to recursively discover and scan all supported documents</li>
     <li><strong>UNC Paths</strong> &mdash; Windows supports \\\\server\\share paths for network drives</li>
     <li><strong>SharePoint</strong> &mdash; Paste a SharePoint URL to discover and select files with checkboxes before scanning</li>
+    <li><strong>SharePoint Repository</strong> &mdash; After scanning SP files, they are cached locally in the <code>sp_repository/</code> directory. Use &ldquo;Rescan from Repository&rdquo; to re-scan without needing a SharePoint connection</li>
 </ul>
+
+<h2><i data-lucide="database"></i> SharePoint Document Repository (v6.6.0)</h2>
+<p>The SP Document Repository replaces the volatile download-scan-delete pattern with a persistent local cache that mirrors your SharePoint library structure:</p>
+<ul>
+    <li><strong>Automatic local caching</strong> &mdash; When you scan SP files, they are downloaded to <code>sp_repository/</code> and kept for future rescans. No more re-downloading from SharePoint every time</li>
+    <li><strong>Version tracking</strong> &mdash; When a file is updated on SharePoint, the previous version is archived to <code>.versions/</code> with a timestamp. You can track file history over time</li>
+    <li><strong>Smart download detection</strong> &mdash; Files that haven&rsquo;t changed since last download are skipped (based on modified date and file size), saving bandwidth and time</li>
+    <li><strong>Offline rescanning</strong> &mdash; The &ldquo;Rescan from Repository&rdquo; button lets you re-scan cached documents without any SharePoint connection &mdash; useful for offline analysis or when VPN is down</li>
+    <li><strong>Two-phase processing</strong> &mdash; Downloads are sequential (max_workers=1 for browser auth) then scanning runs in parallel (max_workers=3) for 3x throughput improvement</li>
+    <li><strong>Repository Status</strong> &mdash; View cached libraries, file counts, total size, and last sync timestamps</li>
+    <li><strong>Source URL tracking</strong> &mdash; Each scanned document records its original SharePoint URL for traceability</li>
+</ul>
+<div class="help-callout help-callout-info">
+    <i data-lucide="info"></i>
+    <div>
+        <strong>Rollback Safety</strong>
+        <p>The repository feature is guarded by a <code>_REPO_AVAILABLE</code> flag. If the repository module has any issues, the tool automatically falls back to the original temp-file behavior &mdash; zero risk to existing workflows.</p>
+    </div>
+</div>
 
 <h2><i data-lucide="filter"></i> Post-Scan Results &amp; Filtering</h2>
 <p>After scanning, the Batch Results module provides:</p>
@@ -8165,6 +8185,21 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.6.0 <span class="changelog-date">March 3, 2026</span></h3>
+        <p><strong>SharePoint Document Repository &mdash; Persistent Local Cache &amp; Two-Phase Scanning</strong></p>
+        <ul>
+            <li><strong>NEW: SPRepositoryManager</strong> &mdash; persistent <code>sp_repository/</code> directory mirrors SharePoint folder structure with <code>manifest.json</code> tracking file metadata, hashes, download timestamps, and scan history</li>
+            <li><strong>NEW: Two-phase async scanning</strong> &mdash; download phase runs sequentially (max_workers=1 for Playwright) while scan phase runs in parallel (max_workers=3 on local files) for 3&times; throughput improvement</li>
+            <li><strong>NEW: Downloading progress phase</strong> &mdash; cinematic dashboard shows &ldquo;Downloading X/Y files&rdquo; with cached/skipped counts. Progress ring: 0&ndash;40% download, 40&ndash;100% scan</li>
+            <li><strong>NEW: Version archiving</strong> &mdash; when a modified file is re-downloaded, the previous version is moved to <code>.versions/</code> with a timestamp for historical comparison</li>
+            <li><strong>NEW: Rescan from Repository</strong> &mdash; scan locally-cached SharePoint files without any SharePoint connection. Repository Status button shows cached libraries, file counts, and sizes</li>
+            <li><strong>NEW: Repository API endpoints</strong> &mdash; <code>GET /api/repository/status</code>, <code>GET /api/repository/files</code>, <code>POST /api/repository/scan</code> for repository management and offline rescanning</li>
+            <li><strong>ENH: source_url tracking</strong> &mdash; <code>documents</code> table gains <code>source_url</code> column linking scanned files back to their SharePoint origin URL</li>
+            <li><strong>ENH: Smart download skipping</strong> &mdash; <code>needs_download()</code> checks modification dates and file sizes against manifest to skip unchanged files</li>
+            <li><strong>SAFETY: Rollback guard</strong> &mdash; entire feature wrapped in <code>_REPO_AVAILABLE</code> flag; if <code>sp_repository_manager.py</code> is missing or broken, falls back to existing volatile temp-file behavior with zero code path changes</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v6.3.6 <span class="changelog-date">March 2, 2026</span></h3>
         <p><strong>SharePoint Online Fast-Path &mdash; Direct HeadlessSP + Connector Cache</strong></p>
         <ul>

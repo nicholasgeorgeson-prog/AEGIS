@@ -1779,8 +1779,20 @@ If `sharepoint.log` shows "v6.3.15" after update, code WAS reloaded. If it shows
 - IntersectionObserver: `_setupVirtualScrolling()` uses sentinel elements at top/bottom of list, renders only visible rows within viewport ± buffer.
 **Lesson**: When implementing many upgrades, tier them by risk (zero-risk → medium → high). Each tier is independently testable. CSS modernization (`:has()`, nesting, containers) can be done with zero JS changes when the CSS handles state that was previously JS-managed. Backend upgrades should always maintain fallback paths (three-tier pattern).
 
+### 181. SharePoint Document Repository — Persistent Local Cache Pattern (v6.6.0)
+**Problem**: SharePoint Online file scanning was unreliable across 9+ versions (v6.3.3–v6.3.12+) due to corporate DLP/proxy blocking, disabled NTLM, blocked MSAL OAuth. Downloaded files were immediately deleted after scanning (volatile temp pattern), meaning no rescan capability, no offline access, no version tracking, and database `filepath` pointed to deleted temp paths.
+**Solution**: `SPRepositoryManager` class in `sp_repository_manager.py` manages a persistent `sp_repository/` directory that mirrors the SP library folder structure. `manifest.json` at root tracks all downloaded files with metadata (hash, size, SP modified date, download timestamp, scan count, version history).
+**Two-phase async architecture**: Phase 1 (Download) runs sequentially with `max_workers=1` (Playwright constraint). For each file, checks `repo.needs_download()` — if file is new/modified, archives previous version to `.versions/` then downloads to persistent path. If up-to-date, uses cached local copy. Phase 2 (Scan) runs in parallel with `max_workers=3` on local files — 3× throughput vs coupled approach. Connector is closed between phases.
+**Key methods**: `get_local_path()` → deterministic path in `sp_repository/`, `needs_download()` → checks modified date + size against manifest, `register_download()` → updates manifest atomically (write `.tmp` then `os.replace()`), `archive_previous_version()` → moves old file to `.versions/` with timestamp, `get_scannable_files()` → returns all cached files for offline rescan.
+**API endpoints**: `GET /api/repository/status` (manifest summary), `GET /api/repository/files?library=<path>` (file list with status), `POST /api/repository/scan` (rescan from cache, no SP connection needed).
+**Dashboard integration**: New `downloading` phase in cinematic dashboard — progress ring 0–40% for download, 40–100% for scan. Shows per-file download/cached/skipped counts.
+**Rollback safety**: `_REPO_AVAILABLE` flag wraps import in `try/except ImportError`. If `sp_repository_manager.py` is missing/broken, falls back to existing volatile temp-file behavior with zero code path changes.
+**scan_history.py changes**: Added `source_url` TEXT column to `documents` table (ALTER TABLE migration). Extended `record_scan()` with optional `source_url` parameter. New `get_documents_by_source()` method.
+**Files**: `sp_repository_manager.py` (NEW), `routes/review_routes.py`, `scan_history.py`, `static/js/app.js`, `templates/index.html`
+**Lesson**: When remote file access is unreliable (corporate proxy, auth failures, network issues), download files to a persistent local repository and scan from there. The two-phase approach (sequential download, parallel scan) maximizes throughput while respecting connector constraints. Manifest-based tracking with hash comparison enables smart download skipping. Always include rollback safety — the new feature should never break the existing working path.
+
 ### 151 (Updated). Version Management Update
-- **Current version**: 6.5.0
+- **Current version**: 6.6.0
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

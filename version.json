@@ -1,13 +1,32 @@
 {
-  "version": "6.5.0",
+  "version": "6.6.0",
   "release_date": "2026-03-03",
-  "core_version": "6.5.0",
+  "core_version": "6.6.0",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.6.0",
+      "date": "2026-03-03",
+      "changes": [
+        "MAJOR: SharePoint Document Repository — persistent local cache of SP documents for offline rescanning",
+        "NEW: sp_repository_manager.py — SPRepositoryManager class with manifest.json tracking, version archiving, atomic writes",
+        "NEW: Two-phase async SP scan — sequential download (max_workers=1) then parallel local scan (max_workers=3) for 3x throughput",
+        "NEW: 'downloading' phase in cinematic dashboard — progress ring 0-40% download, 40-100% scan with cached file count",
+        "NEW: GET /api/repository/status — manifest summary (libraries, file counts, sizes, last sync times)",
+        "NEW: GET /api/repository/files — file list with local status, scan status, version count per library",
+        "NEW: POST /api/repository/scan — rescan from local cache without SP connection",
+        "NEW: 'Rescan from Repository' button in SP section — scan cached files offline, auto-detected on page load",
+        "NEW: Repository Status button — shows cached libraries with file counts and last sync dates",
+        "DB: source_url TEXT column added to documents table (ALTER TABLE migration) for SP URL tracking",
+        "DB: record_scan() extended with optional source_url parameter",
+        "DB: get_documents_by_source() method for finding documents from a SP library",
+        "SAFETY: _REPO_AVAILABLE flag — falls back to existing temp-file behavior if sp_repository_manager.py is missing"
+      ]
+    },
     {
       "version": "6.5.0",
       "date": "2026-03-03",

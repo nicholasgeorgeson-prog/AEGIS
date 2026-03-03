@@ -1262,6 +1262,27 @@ if (document.documentElement.classList.contains('dark-mode')) {
 
                         </div>
 
+                        <!-- v6.6.0: SP Repository — Rescan from local cache without SP connection -->
+                        <div class="hidden" id="sp-repo-section" style="margin-top:12px;">
+                            <div class="folder-scan-divider">
+                                <span>or rescan from local repository</span>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-sp-repo-status"
+                                        aria-label="Check local repository status" title="Show cached libraries">
+                                    <i data-lucide="database" aria-hidden="true"></i> Repository Status
+                                </button>
+                                <button type="button" class="btn btn-primary btn-sm" id="btn-sp-repo-rescan"
+                                        aria-label="Rescan documents from local repository" title="Scan cached files without SharePoint connection" disabled>
+                                    <i data-lucide="refresh-cw" aria-hidden="true"></i> Rescan from Repository
+                                </button>
+                                <span class="sp-file-count" id="sp-repo-info" style="font-size:11px;color:var(--text-muted);"></span>
+                            </div>
+                            <div id="sp-repo-details" class="hidden" style="margin-top:8px;padding:8px 12px;border-radius:6px;font-size:12px;background:var(--bg-secondary);border:1px solid var(--border-color);">
+                                <!-- Repository status details rendered dynamically -->
+                            </div>
+                        </div>
+
                         <!-- SharePoint Scan Progress Dashboard — MUST be outside sharepoint-scan-section so hiding parent doesn't hide dashboard -->
                         <div class="bpd-dashboard hidden" id="sp-scan-dashboard">
                             <div class="bpd-header">

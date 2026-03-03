@@ -308,6 +308,19 @@ class ScanHistoryDB:
         except Exception as e:
             _log(f'Migration: could not verify/add role_source to roles: {e}', 'warning')
 
+        # v6.6.0: Add source_url column to documents table for SP URL tracking
+        try:
+            with self.connection() as (conn, cursor):
+                cursor.execute("PRAGMA table_info(documents)")
+                columns = [row[1] for row in cursor.fetchall()]
+                if 'source_url' not in columns:
+                    cursor.execute("ALTER TABLE documents ADD COLUMN source_url TEXT")
+                    _log('Migration: added source_url column to documents table')
+                else:
+                    _log('Migration: source_url column already exists in documents table')
+        except Exception as e:
+            _log(f'Migration: could not verify/add source_url to documents: {e}', 'warning')
+
         self._create_table_safe('role_dictionary', '''
                 CREATE TABLE IF NOT EXISTS role_dictionary (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -663,9 +676,16 @@ class ScanHistoryDB:
             _log(f'Could not hash file {filepath}: {e}', 'warning')
             return ""
     
-    def record_scan(self, filename: str, filepath: str, results: Dict, options: Dict) -> Dict:
+    def record_scan(self, filename: str, filepath: str, results: Dict, options: Dict, source_url: str = None) -> Dict:
         """
         Record a document scan and detect changes from previous scans.
+
+        Args:
+            filename: Document filename
+            filepath: Local file path
+            results: Review results dict
+            options: Review options dict
+            source_url: Optional SharePoint/remote URL for the document source
 
         Returns:
             Dict with scan_id, document_id, is_rescan, changes (if rescan)
@@ -698,15 +718,21 @@ class ScanHistoryDB:
                 is_rescan = True
 
                 # Update document record
-                cursor.execute('''
+                update_sql = '''
                     UPDATE documents
                     SET last_scan = CURRENT_TIMESTAMP,
                         scan_count = scan_count + 1,
                         word_count = ?,
                         paragraph_count = ?,
                         file_hash = ?
-                    WHERE id = ?
-                ''', (word_count, paragraph_count, file_hash, document_id))
+                '''
+                update_params = [word_count, paragraph_count, file_hash]
+                if source_url:
+                    update_sql += ', source_url = ?'
+                    update_params.append(source_url)
+                update_sql += ' WHERE id = ?'
+                update_params.append(document_id)
+                cursor.execute(update_sql, update_params)
 
                 # Get previous scan for comparison
                 cursor.execute('''
@@ -729,10 +755,16 @@ class ScanHistoryDB:
                     changes['file_changed'] = (file_hash != old_hash)
             else:
                 # Insert new document
-                cursor.execute('''
-                    INSERT INTO documents (filename, filepath, file_hash, word_count, paragraph_count)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (filename, filepath, file_hash, word_count, paragraph_count))
+                if source_url:
+                    cursor.execute('''
+                        INSERT INTO documents (filename, filepath, file_hash, word_count, paragraph_count, source_url)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ''', (filename, filepath, file_hash, word_count, paragraph_count, source_url))
+                else:
+                    cursor.execute('''
+                        INSERT INTO documents (filename, filepath, file_hash, word_count, paragraph_count)
+                        VALUES (?, ?, ?, ?, ?)
+                    ''', (filename, filepath, file_hash, word_count, paragraph_count))
                 document_id = cursor.lastrowid
 
             # Record the scan
@@ -777,6 +809,38 @@ class ScanHistoryDB:
             'changes': changes
         }
     
+    def get_documents_by_source(self, source_pattern: str) -> List[Dict]:
+        """
+        Find all documents from a SharePoint library by source_url pattern.
+
+        Args:
+            source_pattern: SQL LIKE pattern for source_url (e.g., '%/sites/AS-ENG/PAL/%')
+
+        Returns:
+            List of document dicts with id, filename, filepath, source_url, last_scan, scan_count
+        """
+        try:
+            with self.connection() as (conn, cursor):
+                cursor.execute('''
+                    SELECT id, filename, filepath, file_hash, source_url, last_scan, scan_count
+                    FROM documents
+                    WHERE source_url LIKE ?
+                    ORDER BY last_scan DESC
+                ''', (source_pattern,))
+                rows = cursor.fetchall()
+                return [{
+                    'id': r[0],
+                    'filename': r[1],
+                    'filepath': r[2],
+                    'file_hash': r[3],
+                    'source_url': r[4],
+                    'last_scan': r[5],
+                    'scan_count': r[6]
+                } for r in rows]
+        except Exception as e:
+            _log(f'get_documents_by_source error: {e}', 'warning')
+            return []
+
     def _calculate_changes(self, old_issues: List[Dict], new_issues: List[Dict]) -> Dict:
         """Calculate differences between two issue lists."""
         # Create fingerprints for comparison
