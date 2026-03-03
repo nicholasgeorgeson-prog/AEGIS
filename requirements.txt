@@ -30,7 +30,7 @@ openpyxl>=3.0.0,<4.0.0
 # 10-100x faster than openpyxl for values-only reads.
 # Used as fast-path in proposal parser, docling extractor, SIPOC parser.
 # Raw data only (no hyperlinks/formatting) — openpyxl remains for HV export.
-python-calamine>=0.7.0
+python-calamine>=0.6.0
 
 # =============================================================================
 # PDF EXTRACTION (Multiple backends for maximum compatibility)
