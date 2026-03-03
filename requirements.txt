@@ -10,11 +10,13 @@
 # Web Framework
 Flask>=2.0.0,<3.0.0
 
-# Production WSGI Server
-waitress>=2.0.0,<3.0.0
+# Production WSGI Server (v3.0.2+ patches CVE-2024-49768 recv_bytes race)
+waitress>=3.0.2,<4.0.0
 
 # Document Processing - Word Documents
-python-docx>=0.8.11,<1.0.0
+# v6.5.0: Removed <1.0.0 upper bound — python-docx 1.2+ adds native Comment API
+# used by markup_engine.py as middle-tier between COM and raw lxml.
+python-docx>=0.8.11
 lxml>=4.9.0
 
 # mammoth - DOCX to clean HTML conversion (v4.3.0)
@@ -23,6 +25,12 @@ mammoth>=1.6.0,<2.0.0
 
 # Document Processing - Excel
 openpyxl>=3.0.0,<4.0.0
+
+# python-calamine - Rust-based fast XLSX reader (v6.5.0)
+# 10-100x faster than openpyxl for values-only reads.
+# Used as fast-path in proposal parser, docling extractor, SIPOC parser.
+# Raw data only (no hyperlinks/formatting) — openpyxl remains for HV export.
+python-calamine>=0.7.0
 
 # =============================================================================
 # PDF EXTRACTION (Multiple backends for maximum compatibility)
@@ -145,6 +153,10 @@ bokeh>=3.3.0
 # =============================================================================
 # IBM's open-source document parser with AI models
 # Provides ~95% accuracy on tables vs ~85% without
+#
+# v6.5.0: Supports both V1 (legacy) and V2 API (AcceleratorOptions,
+#          document_timeout, renamed flags). Set use_v2_api in config.json.
+#          V1 is default; V2 opt-in for docling>=2.70.0 with new pipeline API.
 #
 # INSTALLATION: Run setup_docling.bat separately
 # DISK SPACE: ~2.7GB additional (packages + models)

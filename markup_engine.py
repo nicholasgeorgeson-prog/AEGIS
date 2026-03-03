@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
 """
-Markup Engine v6.0.0 (Robust COM-Based)
-=======================================
+Markup Engine v6.5.0 (Three-Tier Fallback)
+==========================================
 Creates marked-up copies of Word documents with comments and tracked changes.
 
+v6.5.0 CHANGES:
+- Three-tier fallback: COM → python-docx 1.2+ → lxml
+- python-docx 1.2+ native Comment API as cross-platform middle tier
+- Runtime detection: PYTHON_DOCX_COMMENTS flag set when docx >= 1.2
+
 v6.0.0 FIXES:
-- Primary method is now COM-based (more reliable on Windows)
+- Primary method is now COM-based (most reliable on Windows)
 - Ensures Track Changes is properly enabled and visible
 - Better comment placement using flagged_text or context
 - Added bulk change capability
 - Fixed "unreadable content" errors
-- Falls back to lxml only when COM unavailable
 
-REQUIRES: pip install pywin32 (for Windows COM)
-          pip install lxml (fallback for non-Windows)
+REQUIRES: pip install pywin32     (Tier 1: Windows COM — Track Changes + comments)
+          pip install python-docx  (Tier 2: native comments, cross-platform, v1.2+)
+          pip install lxml         (Tier 3: raw XML fallback)
 """
 
 import os
@@ -25,7 +30,7 @@ from datetime import datetime
 from typing import List, Dict, Optional, Tuple, Any
 from pathlib import Path
 
-__version__ = "2.9.1"
+__version__ = "3.0.0"
 
 # Backward compatibility alias
 DocumentMarker = None  # Will be set after MarkupEngine is defined
@@ -45,6 +50,16 @@ try:
     LXML_AVAILABLE = True
 except ImportError:
     LXML_AVAILABLE = False
+
+# v6.5.0: Check for python-docx 1.2+ native comment API (middle-tier)
+PYTHON_DOCX_COMMENTS = False
+try:
+    import docx as _docx_mod
+    _pdv = tuple(int(x) for x in _docx_mod.__version__.split('.')[:2])
+    if _pdv >= (1, 2):
+        PYTHON_DOCX_COMMENTS = True
+except (ImportError, AttributeError, ValueError):
+    pass
 
 # OOXML Namespaces
 NAMESPACES = {
@@ -147,37 +162,51 @@ class MarkupEngine:
                 shutil.copy2(source_path, output_path)
             return True
         
-        # v5.9.2: Try COM first, fall back to lxml if COM fails (e.g., Word not installed)
+        # v6.5.0: Fallback chain — COM → python-docx 1.2+ → lxml
+        #   COM:        Best (Track Changes + comments), requires Windows + Word
+        #   python-docx: Good (comments only, cross-platform), requires python-docx >=1.2
+        #   lxml:        Basic (comments via raw XML), requires lxml
+
+        # --- Tier 1: COM (Windows + Word installed) ---
         if WIN32_AVAILABLE:
             try:
                 result = self._create_with_com(source_path, output_path, valid_issues, enable_track_changes)
                 if result:
                     return True
-                # COM returned False — try lxml fallback
-                _log("[MarkupEngine] COM method returned False, falling back to lxml...")
-                self._errors.append("COM export returned False — attempting lxml fallback")
+                _log("[MarkupEngine] COM method returned False, trying next tier...")
+                self._errors.append("COM export returned False — attempting python-docx/lxml fallback")
             except Exception as com_err:
                 _log(f"[MarkupEngine] COM method raised exception: {com_err}")
                 self._errors.append(f"COM export failed: {com_err}")
+            # Fall through to Tier 2
 
-            # Fall through to lxml
-            if LXML_AVAILABLE:
-                _log("[MarkupEngine] Falling back to lxml XML-based comment insertion")
-                return self._create_with_lxml(source_path, output_path, valid_issues)
-            else:
-                _log("[MarkupEngine] ERROR: COM failed and lxml not available")
-                self._errors.append("COM export failed and lxml is not available as fallback")
-                if source_path != output_path:
-                    shutil.copy2(source_path, output_path)
-                return False
-        elif LXML_AVAILABLE:
+        # --- Tier 2: python-docx 1.2+ native comments (cross-platform) ---
+        if PYTHON_DOCX_COMMENTS:
+            try:
+                result = self._create_with_python_docx(source_path, output_path, valid_issues)
+                if result:
+                    return True
+                _log("[MarkupEngine] python-docx method returned False, trying lxml...")
+                self._errors.append("python-docx comment insertion returned False — attempting lxml fallback")
+            except Exception as pdx_err:
+                _log(f"[MarkupEngine] python-docx method raised exception: {pdx_err}")
+                self._errors.append(f"python-docx failed: {pdx_err}")
+            # Fall through to Tier 3
+
+        # --- Tier 3: lxml raw XML (ultimate fallback) ---
+        if LXML_AVAILABLE:
+            _log("[MarkupEngine] Falling back to lxml XML-based comment insertion")
             return self._create_with_lxml(source_path, output_path, valid_issues)
-        else:
-            _log("[MarkupEngine] ERROR: No markup method available")
-            self._errors.append("Neither pywin32 nor lxml is available. Install pywin32 (Windows) or lxml.")
-            if source_path != output_path:
-                shutil.copy2(source_path, output_path)
-            return False
+
+        # --- No method available ---
+        _log("[MarkupEngine] ERROR: No markup method available")
+        self._errors.append(
+            "No markup method available. Install pywin32 (Windows), "
+            "python-docx>=1.2 (cross-platform), or lxml (fallback)."
+        )
+        if source_path != output_path:
+            shutil.copy2(source_path, output_path)
+        return False
     
     def _create_with_com(
         self, 
@@ -1341,6 +1370,142 @@ class MarkupEngine:
                 replaced = True
 
         return replaced
+
+    # ------------------------------------------------------------------
+    # v6.5.0: python-docx 1.2+ native comment API (middle-tier fallback)
+    # ------------------------------------------------------------------
+
+    def _create_with_python_docx(
+        self,
+        source_path: str,
+        output_path: str,
+        issues: List[Dict]
+    ) -> bool:
+        """
+        Add review comments using python-docx 1.2+ native Comment API.
+
+        v6.5.0: Middle-tier between COM (full Track Changes) and lxml (raw XML).
+        Pros:  Cross-platform, clean API, no Word installation needed.
+        Cons:  Cannot enable Track Changes (use COM for that).
+               Comments anchor to whole runs, not arbitrary character offsets.
+
+        The python-docx 1.2+ API:
+            document.add_comment(runs, text, author, initials)
+        anchors a comment to the given run(s) and returns a Comment object.
+        """
+        if not PYTHON_DOCX_COMMENTS:
+            _log("[MarkupEngine] python-docx 1.2+ comment API not available")
+            return False
+
+        try:
+            import docx as _docx
+            from docx import Document as DocxDocument
+
+            _log(f"[MarkupEngine] python-docx {_docx.__version__}: "
+                 f"opening {os.path.basename(source_path)}")
+
+            # Work on a copy so the original is untouched
+            if source_path != output_path:
+                shutil.copy2(source_path, output_path)
+
+            document = DocxDocument(output_path)
+            paragraphs = document.paragraphs
+            total_paras = len(paragraphs)
+
+            comments_added = 0
+            added_texts: set = set()   # dedup by anchor text
+            initials = self.author[:2].upper() if self.author else "AE"
+
+            for issue in issues:
+                search_text = self._get_search_text(issue)
+                comment_text = self._build_comment_text(issue)
+                para_idx = issue.get('paragraph_index', 0)
+
+                if not comment_text:
+                    continue
+
+                # ---- Locate the target paragraph & runs ----
+                target_para = None
+                target_runs = None
+
+                # Strategy 1: paragraph_index if within range
+                if 0 <= para_idx < total_paras:
+                    cand = paragraphs[para_idx]
+                    cand_text = cand.text or ''
+                    # Confirm the anchor text appears in this paragraph
+                    if search_text and search_text.lower() in cand_text.lower():
+                        target_para = cand
+                    elif not search_text:
+                        # No anchor text — use index directly
+                        target_para = cand
+
+                # Strategy 2: scan all paragraphs for the anchor text
+                if target_para is None and search_text:
+                    needle = search_text.lower()
+                    for p in paragraphs:
+                        if needle in (p.text or '').lower():
+                            target_para = p
+                            break
+
+                # Strategy 3: fall back to paragraph_index regardless
+                if target_para is None and 0 <= para_idx < total_paras:
+                    target_para = paragraphs[para_idx]
+
+                if target_para is None:
+                    _log(f"[MarkupEngine] python-docx: no target for issue "
+                         f"(search='{search_text[:40]}', para={para_idx})")
+                    continue
+
+                # Determine which runs to anchor the comment to.
+                # python-docx 1.2+ requires at least one Run.
+                if target_para.runs:
+                    if search_text:
+                        # Try to find runs that contain the anchor text
+                        needle_lower = search_text.lower()
+                        matching_runs = [
+                            r for r in target_para.runs
+                            if r.text and needle_lower in r.text.lower()
+                        ]
+                        target_runs = matching_runs if matching_runs else target_para.runs
+                    else:
+                        target_runs = target_para.runs
+                else:
+                    # Paragraph has no runs (e.g., empty paragraph).
+                    # Add a zero-width space run so we have something to anchor to.
+                    run = target_para.add_run('\u200B')
+                    target_runs = [run]
+
+                # Dedup by (paragraph text hash, search text)
+                dedup_key = (hash(target_para.text), search_text[:60])
+                if dedup_key in added_texts:
+                    continue
+                added_texts.add(dedup_key)
+
+                try:
+                    document.add_comment(
+                        runs=target_runs,
+                        text=comment_text,
+                        author=self.author,
+                        initials=initials
+                    )
+                    comments_added += 1
+                except Exception as ce:
+                    _log(f"[MarkupEngine] python-docx: comment failed: {ce}")
+
+            document.save(output_path)
+
+            self.stats['method'] = 'python-docx'
+            self.stats['comments_added'] = comments_added
+            self.stats['comments_skipped'] = len(issues) - comments_added
+            _log(f"[MarkupEngine] python-docx: {comments_added}/{len(issues)} "
+                 f"comments added → {os.path.basename(output_path)}")
+
+            return comments_added > 0 or len(issues) == 0
+
+        except Exception as e:
+            _log(f"[MarkupEngine] python-docx method failed: {e}")
+            self._errors.append(f"python-docx comment insertion failed: {e}")
+            return False
 
     def _create_with_lxml(self, source_path: str, output_path: str, issues: List[Dict]) -> bool:
         """

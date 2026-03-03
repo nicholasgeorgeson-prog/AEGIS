@@ -34,6 +34,9 @@ def get_connection() -> sqlite3.Connection:
         _local.connection = sqlite3.connect(str(DATABASE_PATH), check_same_thread=False)
         _local.connection.row_factory = sqlite3.Row
         _local.connection.execute("PRAGMA foreign_keys = ON")
+        _local.connection.execute("PRAGMA journal_mode=WAL")
+        _local.connection.execute("PRAGMA synchronous=NORMAL")
+        _local.connection.execute("PRAGMA temp_store=MEMORY")
     return _local.connection
 
 
@@ -169,12 +172,18 @@ def init_database():
             )
         """)
         
-        # Create indexes
+        # Create indexes (v6.4.0: added FK indexes for role_relationships, custom_words, issues)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_doc_hash ON documents(file_hash)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_analysis_doc ON analysis_history(document_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_issues_analysis ON issues(analysis_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_issues_category ON issues(category)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_issues_severity ON issues(severity)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_baseline_doc ON issue_baselines(document_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_baseline_hash ON issue_baselines(issue_hash)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_roles_doc ON roles(document_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_roles_canonical ON roles(canonical_name)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_role_rels_doc ON role_relationships(document_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_custom_words_type ON custom_words(list_type)")
         
         # Set version
         conn.execute("INSERT OR REPLACE INTO configurations (key, value) VALUES (?, ?)",

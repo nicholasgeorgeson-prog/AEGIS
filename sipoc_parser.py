@@ -257,25 +257,41 @@ def parse_sipoc_file(filepath):
     if ext != '.xlsx':
         raise ValueError(f"Expected .xlsx file, got '{ext}'")
 
-    try:
-        import openpyxl
-    except ImportError:
-        raise ImportError(
-            "openpyxl is required for SIPOC parsing. "
-            "Install it with: pip install openpyxl"
-        )
-
     logger.info("Opening SIPOC file: %s", filepath)
 
+    # v6.5.0: Calamine fast-path (Rust-based, 10-100x faster than openpyxl)
+    _raw_data_rows = None
     try:
-        wb = openpyxl.load_workbook(filepath, read_only=True, data_only=True)
-    except Exception as exc:
-        raise ValueError(f"Failed to open Excel file: {exc}")
+        from python_calamine import CalamineWorkbook
+        _cal_wb = CalamineWorkbook.from_path(filepath)
+        _names = _cal_wb.sheet_names
+        if not _names:
+            raise ValueError("Workbook has no sheets")
+        raw_rows = _cal_wb.get_sheet_by_name(_names[0]).to_python()
+        # Skip header row (equivalent to min_row=2)
+        _raw_data_rows = raw_rows[1:] if len(raw_rows) > 1 else []
+    except Exception:
+        _raw_data_rows = None
 
-    ws = wb.active
-    if ws is None:
+    # Fallback: openpyxl
+    if _raw_data_rows is None:
+        try:
+            import openpyxl
+        except ImportError:
+            raise ImportError(
+                "openpyxl is required for SIPOC parsing. "
+                "Install it with: pip install openpyxl"
+            )
+        try:
+            wb = openpyxl.load_workbook(filepath, read_only=True, data_only=True)
+        except Exception as exc:
+            raise ValueError(f"Failed to open Excel file: {exc}")
+        ws = wb.active
+        if ws is None:
+            wb.close()
+            raise ValueError("Workbook has no active sheet")
+        _raw_data_rows = list(ws.iter_rows(min_row=2, values_only=True))
         wb.close()
-        raise ValueError("Workbook has no active sheet")
 
     # ------------------------------------------------------------------
     # Pass 1: Collect all rows, auto-detect Roles Hierarchy map path
@@ -284,14 +300,12 @@ def parse_sipoc_file(filepath):
     all_rows = []
     hierarchy_rows = []
 
-    for row in ws.iter_rows(min_row=2, values_only=True):  # skip header row
+    for row in _raw_data_rows:
         total_rows += 1
         # Ensure row has enough columns
         if len(row) <= COL_MAP_PATH:
             continue
         all_rows.append(row)
-
-    wb.close()
 
     # Check if "Roles Hierarchy" map path exists in any row
     has_hierarchy_filter = any(

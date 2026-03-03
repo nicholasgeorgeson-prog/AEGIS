@@ -176,6 +176,8 @@
     display: none;
     padding: 1.25rem 1.5rem;
     animation: ma-fadeIn 0.2s ease;
+    container-type: inline-size;  /* v6.5.0: Container Queries */
+    container-name: ma-tab;
 }
 
 .ma-tab-content.active {
@@ -1084,6 +1086,31 @@ body.dark-mode .ma-table .ma-hint,
     .ma-tab {
         padding: 0.5rem 0.75rem;
         font-size: 0.75rem;
+    }
+}
+
+/* v6.5.0: Container Queries — respond to .ma-tab-content width, not viewport */
+@container ma-tab (max-width: 800px) {
+    .ma-hero-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .ma-grid-60-40,
+    .ma-grid-50-50,
+    .ma-grid-2col,
+    .ma-grid-3col {
+        grid-template-columns: 1fr;
+    }
+    .ma-mini-stats {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@container ma-tab (max-width: 500px) {
+    .ma-hero-stats {
+        grid-template-columns: 1fr;
+    }
+    .ma-mini-stats {
+        grid-template-columns: repeat(2, 1fr);
     }
 }
 

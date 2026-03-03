@@ -713,8 +713,28 @@ window.BatchResults = (function () {
 
     function _exportCSV(issues) {
         var headers = ['Document', 'Score', 'Grade', 'Severity', 'Category', 'Rule', 'Message', 'Flagged Text', 'Suggestion', 'Paragraph'];
-        var rows = [headers.join(',')];
+        var fields = ['_filename', '_docScore', '_docGrade', 'severity', 'category', 'rule_id', 'message', 'flagged_text', 'suggestion', 'paragraph_index'];
+        var filename = 'batch_results_filtered_' + new Date().toISOString().slice(0, 10) + '.csv';
 
+        // v6.5.0: Off-main-thread CSV via Web Worker with fallback
+        if (typeof exportViaWorker === 'function') {
+            exportViaWorker('generateCSV', { issues: issues, headers: headers, fieldMap: fields }, filename)
+                .then(function(csv) {
+                    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                    var url = URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url; a.download = filename; a.click();
+                    URL.revokeObjectURL(url);
+                    if (window.showToast) window.showToast('Exported ' + issues.length + ' issues to CSV', 'success');
+                })
+                .catch(function() { _exportCSVFallback(issues, headers, fields, filename); });
+        } else {
+            _exportCSVFallback(issues, headers, fields, filename);
+        }
+    }
+
+    function _exportCSVFallback(issues, headers, fields, filename) {
+        var rows = [headers.join(',')];
         issues.forEach(function (i) {
             var row = [
                 '"' + (i._filename || '').replace(/"/g, '""') + '"',
@@ -730,47 +750,60 @@ window.BatchResults = (function () {
             ];
             rows.push(row.join(','));
         });
-
         var csv = rows.join('\n');
         var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         var url = URL.createObjectURL(blob);
         var a = document.createElement('a');
-        a.href = url;
-        a.download = 'batch_results_filtered_' + new Date().toISOString().slice(0, 10) + '.csv';
-        a.click();
+        a.href = url; a.download = filename; a.click();
         URL.revokeObjectURL(url);
         if (window.showToast) window.showToast('Exported ' + issues.length + ' issues to CSV', 'success');
     }
 
     function _exportJSON(issues) {
+        var filename = 'batch_results_filtered_' + new Date().toISOString().slice(0, 10) + '.json';
+        // v6.5.0: Off-main-thread JSON via Web Worker with fallback
+        var slimIssues = issues.map(function (i) {
+            return {
+                document: i._filename, score: i._docScore, grade: i._docGrade,
+                severity: i.severity, category: i.category, rule_id: i.rule_id,
+                message: i.message, flagged_text: i.flagged_text,
+                suggestion: i.suggestion, paragraph_index: i.paragraph_index
+            };
+        });
+
+        if (typeof exportViaWorker === 'function') {
+            exportViaWorker('generateBatchJSON', {
+                issues: slimIssues,
+                documentCount: State.allDocuments ? State.allDocuments.length : 0,
+                exportDate: new Date().toISOString()
+            }, filename)
+                .then(function(json) {
+                    var blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+                    var url = URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url; a.download = filename; a.click();
+                    URL.revokeObjectURL(url);
+                    if (window.showToast) window.showToast('Exported ' + issues.length + ' issues to JSON', 'success');
+                })
+                .catch(function() { _exportJSONFallback(slimIssues, issues, filename); });
+        } else {
+            _exportJSONFallback(slimIssues, issues, filename);
+        }
+    }
+
+    function _exportJSONFallback(slimIssues, issues, filename) {
         var data = {
             export_date: new Date().toISOString(),
             filters: Object.assign({}, State.activeFilters),
             total_issues: State.allIssues.length,
             filtered_issues: issues.length,
-            issues: issues.map(function (i) {
-                return {
-                    document: i._filename,
-                    score: i._docScore,
-                    grade: i._docGrade,
-                    severity: i.severity,
-                    category: i.category,
-                    rule_id: i.rule_id,
-                    message: i.message,
-                    flagged_text: i.flagged_text,
-                    suggestion: i.suggestion,
-                    paragraph_index: i.paragraph_index
-                };
-            })
+            issues: slimIssues
         };
-
         var json = JSON.stringify(data, null, 2);
         var blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
         var url = URL.createObjectURL(blob);
         var a = document.createElement('a');
-        a.href = url;
-        a.download = 'batch_results_filtered_' + new Date().toISOString().slice(0, 10) + '.json';
-        a.click();
+        a.href = url; a.download = filename; a.click();
         URL.revokeObjectURL(url);
         if (window.showToast) window.showToast('Exported ' + issues.length + ' issues to JSON', 'success');
     }

@@ -47,9 +47,13 @@ def _get_db_path():
 
 
 def _get_db_connection():
-    """Get a database connection."""
+    """Get a database connection with WAL mode."""
     db_path = _get_db_path()
-    return sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA temp_store=MEMORY")
+    return conn
 
 
 def _format_timestamp(timestamp_str):

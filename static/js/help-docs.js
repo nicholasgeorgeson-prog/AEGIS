@@ -10,6 +10,8 @@
  * - Technical deep-dive section for advanced users
  * - Smooth navigation and professional typography
  *
+ * v6.5.0  - Major: 14 technology upgrades (SQLite WAL, Waitress CVE fix, CSS :has()/nesting/containers, ES2025 Set, Web Workers, IntersectionObserver, Docling V2, python-docx 1.2+, calamine XLSX, NLTK→spaCy migration)
+ * v6.4.0  - Major: Comprehensive deep-dive audit (security, performance, code quality, accessibility, CSS consolidation, bug fixes, E2E verification, technology research)
  * v6.2.0  - Major: Async Batch Scan, Cinematic Dashboard, Batch Results Module, Document Viewer Quality, Responsive Design, Unified Auth Service
  * v6.1.11 - SharePoint File Selection + SP Link Validation Parity (file picker, shared SP URL validator, discover_only mode)
  * v6.1.7 - HeadlessSP diagnostic logging + URL guard all folder endpoints + scan_history.py deploy (fixes 500 errors)
@@ -64,8 +66,8 @@
 'use strict';
 
 const HelpDocs = {
-    version: '6.1.0',
-    lastUpdated: '2026-02-25',
+    version: '6.5.0',
+    lastUpdated: '2026-03-03',
     
     config: {
         searchEnabled: true,

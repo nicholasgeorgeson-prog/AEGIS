@@ -216,6 +216,8 @@
     display: grid;
     grid-template-columns: 250px 1fr;
     gap: 16px;
+    container-type: inline-size;  /* v6.5.0: Container Queries */
+    container-name: br-content;
 }
 
 .br-chart-col {
@@ -602,4 +604,16 @@ body:not(.dark-mode) .br-doc-row:hover {
     .br-stat-value { font-size: 22px; }
     .br-filter-panel { padding: 10px; }
     .br-doc-name { max-width: 150px; }
+}
+
+/* v6.5.0: Container Queries — respond to .br-content width, not viewport */
+@container br-content (max-width: 700px) {
+    .br-content {
+        grid-template-columns: 1fr;
+    }
+    .br-chart-col {
+        flex-direction: row;
+        align-items: stretch;
+    }
+    .br-chart-card { flex: 1; }
 }

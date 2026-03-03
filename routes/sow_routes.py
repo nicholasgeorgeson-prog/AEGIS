@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, send_file, current_app
 
 from config_logging import get_logger, get_version
+from routes._shared import require_csrf
 
 logger = get_logger('sow_routes')
 
@@ -32,6 +33,16 @@ def _get_db_path():
     """Get path to the scan_history.db file."""
     db = _get_db()
     return db.db_path
+
+
+def _connect_db():
+    """Get a WAL-mode SQLite connection to scan_history.db."""
+    conn = sqlite3.connect(_get_db_path())
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA temp_store=MEMORY")
+    return conn
 
 
 # =============================================================================
@@ -64,8 +75,7 @@ def sow_data():
         # 1. Documents — from documents table
         documents = []
         try:
-            conn = sqlite3.connect(db_path)
-            conn.row_factory = sqlite3.Row
+            conn = _connect_db()
             cursor = conn.cursor()
 
             cursor.execute('''
@@ -84,8 +94,7 @@ def sow_data():
         # 2. Statements — from scan_statements table (latest scan per doc)
         statements = []
         try:
-            conn = sqlite3.connect(db_path)
-            conn.row_factory = sqlite3.Row
+            conn = _connect_db()
             cursor = conn.cursor()
 
             # Get latest scan ID per document
@@ -120,8 +129,7 @@ def sow_data():
         # 4. Function categories
         function_categories = []
         try:
-            conn = sqlite3.connect(db_path)
-            conn.row_factory = sqlite3.Row
+            conn = _connect_db()
             cursor = conn.cursor()
 
             cursor.execute('''
@@ -174,6 +182,7 @@ def sow_data():
 # =============================================================================
 
 @sow_bp.route('/api/sow/generate', methods=['POST'])
+@require_csrf
 def sow_generate():
     """
     Generate a Statement of Work document.
@@ -215,8 +224,7 @@ def sow_generate():
         # Documents
         documents = []
         try:
-            conn = sqlite3.connect(db_path)
-            conn.row_factory = sqlite3.Row
+            conn = _connect_db()
             cursor = conn.cursor()
 
             if doc_ids:
@@ -243,8 +251,7 @@ def sow_generate():
         # Statements (filtered by document_ids if provided)
         statements = []
         try:
-            conn = sqlite3.connect(db_path)
-            conn.row_factory = sqlite3.Row
+            conn = _connect_db()
             cursor = conn.cursor()
 
             if doc_ids:
@@ -291,8 +298,7 @@ def sow_generate():
         # Function categories
         function_categories = []
         try:
-            conn = sqlite3.connect(db_path)
-            conn.row_factory = sqlite3.Row
+            conn = _connect_db()
             cursor = conn.cursor()
             cursor.execute('SELECT code, name, parent_code, color, description FROM function_categories ORDER BY code')
             function_categories = [dict(r) for r in cursor.fetchall()]

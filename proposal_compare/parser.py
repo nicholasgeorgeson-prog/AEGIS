@@ -1097,31 +1097,52 @@ def _auto_calculate_line_items(items: list) -> int:
 
 def parse_excel(filepath: str) -> ProposalData:
     """Parse an Excel file (.xlsx/.xls) for proposal financial data."""
-    import openpyxl
-
     proposal = ProposalData(
         filename=os.path.basename(filepath),
         filepath=filepath,
         file_type='xlsx',
     )
 
+    # v6.5.0: Calamine fast-path (Rust-based, 10-100x faster than openpyxl)
+    _sheet_data = None  # dict: sheet_name -> list of str_rows
+    _sheet_names = []
     try:
-        wb = openpyxl.load_workbook(filepath, data_only=True, read_only=True)
-    except Exception as e:
-        proposal.extraction_notes.append(f'Failed to open Excel file: {e}')
-        return proposal
+        from python_calamine import CalamineWorkbook
+        _cal_wb = CalamineWorkbook.from_path(filepath)
+        _sheet_names = _cal_wb.sheet_names
+        _sheet_data = {}
+        for _sn in _sheet_names:
+            raw_rows = _cal_wb.get_sheet_by_name(_sn).to_python()
+            _sheet_data[_sn] = [
+                [str(cell) if cell is not None else '' for cell in row]
+                for row in raw_rows
+            ]
+    except Exception:
+        _sheet_data = None
+
+    # Fallback: openpyxl (needed if calamine unavailable or file is .xls)
+    if _sheet_data is None:
+        try:
+            import openpyxl
+            _opx_wb = openpyxl.load_workbook(filepath, data_only=True, read_only=True)
+            _sheet_names = list(_opx_wb.sheetnames)
+            _sheet_data = {}
+            for _sn in _sheet_names:
+                ws = _opx_wb[_sn]
+                _sheet_data[_sn] = [
+                    [str(cell) if cell is not None else '' for cell in row]
+                    for row in ws.iter_rows(values_only=True)
+                ]
+            _opx_wb.close()
+        except Exception as e:
+            proposal.extraction_notes.append(f'Failed to open Excel file: {e}')
+            return proposal
 
     all_text_parts = []
 
-    for sheet_idx, sheet_name in enumerate(wb.sheetnames):
-        ws = wb[sheet_name]
-
-        # Read all rows
-        all_rows = []
-        for row in ws.iter_rows(values_only=True):
-            str_row = [str(cell) if cell is not None else '' for cell in row]
-            all_rows.append(str_row)
-            all_text_parts.append(' '.join(str_row))
+    for sheet_idx, sheet_name in enumerate(_sheet_names):
+        all_rows = _sheet_data[sheet_name]
+        all_text_parts.extend(' '.join(row) for row in all_rows)
 
         if not all_rows:
             continue
@@ -1168,8 +1189,6 @@ def parse_excel(filepath: str) -> ProposalData:
                 proposal.total_amount = total_amount
                 proposal.total_raw = f'${total_amount:,.2f}'
 
-    wb.close()
-
     # Extract company name and date from all text
     full_text = '\n'.join(all_text_parts)
     if not proposal.company_name:
@@ -1178,7 +1197,7 @@ def parse_excel(filepath: str) -> ProposalData:
         proposal.date = extract_dates_from_text(full_text)
 
     # Contract term detection (from text + sheet tab names)
-    proposal.contract_term = extract_contract_term(full_text, sheet_names=list(wb.sheetnames), filename=os.path.basename(filepath))
+    proposal.contract_term = extract_contract_term(full_text, sheet_names=_sheet_names, filename=os.path.basename(filepath))
     if proposal.contract_term:
         proposal.extraction_notes.append(f'Contract term: {proposal.contract_term}')
 

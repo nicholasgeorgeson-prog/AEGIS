@@ -1293,17 +1293,7 @@ window.ProposalCompare = (function() {
                 _autoRecalcRow(this.closest('.pc-li-row'));
             });
         });
-        // Wire expandable descriptions
-        tbody.querySelectorAll('.pc-li-desc').forEach(function(input) {
-            if (input._pcExpandWired) return;
-            input._pcExpandWired = true;
-            input.addEventListener('focus', function() {
-                this.closest('.pc-li-row')?.classList.add('pc-li-expanded');
-            });
-            input.addEventListener('blur', function() {
-                this.closest('.pc-li-row')?.classList.remove('pc-li-expanded');
-            });
-        });
+        // v6.5.0: Expandable descriptions handled by CSS :has(.pc-li-desc:focus) — no JS needed
     }
 
     // ──────────────────────────────────────────

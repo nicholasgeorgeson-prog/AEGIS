@@ -1753,8 +1753,34 @@ _sp_diag.info('[ROUTE] ═══ review_routes.py v6.3.15 ═══ sharepoint_c
 If `sharepoint.log` shows "v6.3.15" after update, code WAS reloaded. If it shows an older version or no entry, code was NOT reloaded and server must be manually restarted.
 **Lesson**: NEVER trust `/api/version` or Manager's version check to confirm Python code was reloaded — it only proves `version.json` was updated on disk. To verify code reload: (1) add version-stamped log entries to the code itself, (2) check those log entries after update. When a client-side flag (`discover_only`) gates server behavior, and the server is supposed to ignore that flag, ALSO remove the flag from the client — belt-and-suspenders. If old server code is still in memory, the removed flag defaults to the desired value (`False`), making the feature work regardless of which code version is loaded.
 
+### 179. Comprehensive Deep-Dive Audit Pattern (v6.4.0)
+**Context**: Full codebase audit covering security, performance, code quality, accessibility, CSS consolidation, bug fixes, E2E verification, and technology research across 25 sessions.
+**Batches implemented**:
+- **Batch 1 (Security)**: Timing-safe hash comparison in config_logging.py, CSRF improvements
+- **Batch 2 (Performance)**: Scoped lucide.createIcons(), gc.collect per file verification, MutationObserver dark mode cache for 60fps particles
+- **Batch 3 (Code Quality)**: Lazy checker imports in core.py, write-time dedup for responsibilities_json, config.json schema validation, shared _human_size() utility, global escapeHtml(), standardized logging, handleFetchError() utility
+- **Batch 4 (CSS/Accessibility)**: 38 :focus-visible companion rules across 12 files, z-index stratification via CSS custom properties, dark mode selector consolidation, 48 unnecessary !important removed
+- **Bug fixes**: Duplicate SOW routes, Statement Forge NoneType, severity capitalization (31 locations), diagnostics route dedup (222 lines dead code removed)
+- **E2E**: Full verification of 50+ API endpoints, 30 static assets, all feature modules
+- **Research**: Technology assessment for future improvements (SQLite WAL, Ruff, pip-audit, CSS :has(), ES2025 Set methods, python-docx 1.2, Docling V2, etc.)
+**Lesson**: The 4-batch pattern (zero-risk cleanup → performance → structural → visual) ordered from lowest to highest risk works well for comprehensive audits. Always verify items from audit findings before implementing — many are already fixed. E2E testing AFTER implementation catches real bugs the audit missed. Background research agents for technology assessment can run in parallel with implementation work.
+
+### 180. Technology Upgrade Batch Pattern — 14 Upgrades in v6.5.0
+**Context**: Implemented ALL 14 technology research findings from v6.4.0 audit in a single version bump.
+**Tier 1 (Quick Wins, zero runtime risk)**: SQLite WAL mode PRAGMAs (5 files), Waitress version bump (CVE fix), Ruff linter config, pip-audit dev dependency.
+**Tier 2 (Medium, CSS/JS modernization)**: CSS `:has()` selectors (replaced JS parent toggling), CSS nesting (3 largest files), ES2025 Set methods (dedup patterns), CSS Container Queries (5 modal split-pane files), Web Workers (export-worker.js for off-main-thread), IntersectionObserver (virtual scrolling issues table).
+**Tier 3 (Long-Term, backend)**: Docling V2 API (opt-in via config.json), python-docx 1.2+ native Comments API (three-tier fallback), python-calamine/FastExcel (Rust-based 10-100x faster XLSX), NLTK→spaCy migration in text_statistics.py (three-tier fallback: spaCy→NLTK→regex).
+**Key patterns**:
+- python-calamine: `CalamineWorkbook.from_path()` → `.sheet_names` → `.get_sheet_by_name()` → `.to_python()` returns `list[list[...]]`. Values-only (no hyperlinks/formatting) — openpyxl remains for HV export.
+- Docling V2: `AcceleratorOptions`, `document_timeout`, renamed pipeline flags. Set `use_v2_api: true` in config.json. V1 remains default.
+- NLTK→spaCy: `nlp.tokenizer(text)` for fast word tokenization (no pipeline), `_get_spacy_doc()` cache for sentence segmentation, `STOP_WORDS` from `spacy.lang.en.stop_words`. All three-tier: spaCy→NLTK→regex/hardcoded.
+- python-docx 1.2+: `docx.oxml.comments` module with `CT_Comment`, `CT_Comments`. Native API → lxml fallback → COM fallback.
+- Web Worker: `new Worker('/static/js/workers/export-worker.js')` with `postMessage({type, issues, options})` / `onmessage` pattern.
+- IntersectionObserver: `_setupVirtualScrolling()` uses sentinel elements at top/bottom of list, renders only visible rows within viewport ± buffer.
+**Lesson**: When implementing many upgrades, tier them by risk (zero-risk → medium → high). Each tier is independently testable. CSS modernization (`:has()`, nesting, containers) can be done with zero JS changes when the CSS handles state that was previously JS-managed. Backend upgrades should always maintain fallback paths (three-tier pattern).
+
 ### 151 (Updated). Version Management Update
-- **Current version**: 6.3.15
+- **Current version**: 6.5.0
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

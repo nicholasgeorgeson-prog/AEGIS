@@ -6128,7 +6128,7 @@ TWR.Roles = (function() {
                 visibleNodeIds = connectedToThis;
             } else {
                 // Intersect with previous
-                visibleNodeIds = new Set([...visibleNodeIds].filter(id => connectedToThis.has(id)));
+                visibleNodeIds = visibleNodeIds.intersection(connectedToThis); // v6.5.0: ES2025 Set method
                 // Always keep the filter nodes themselves visible
                 visibleNodeIds.add(filter.id);
             }

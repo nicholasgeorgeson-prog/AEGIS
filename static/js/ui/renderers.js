@@ -39,6 +39,11 @@ TWR.Renderers = (function() {
     
     // Keyboard navigation state for issue list
     let keyboardSelectedIndex = -1;
+
+    // v6.5.0: IntersectionObserver progressive rendering state
+    let _issuesObserver = null;
+    let _renderedCount = 0;
+    const _PROGRESSIVE_BATCH = 50;
     
     // ========================================
     // HELPER REFERENCES
@@ -289,12 +294,124 @@ TWR.Renderers = (function() {
     // ========================================
     
     /**
+     * v6.5.0: Generate HTML for a single issue row.
+     * Extracted from renderIssuesList for reuse in progressive rendering.
+     * @param {Object} issue - Issue object
+     * @param {number} globalIdx - Index into State.filteredIssues
+     * @returns {string} HTML string
+     */
+    function _buildIssueRowHTML(issue, globalIdx) {
+        const isSelected = isIssueSelected(globalIdx);
+        const sevClass = issue.severity?.toLowerCase() || 'info';
+        const hasExpandableContent = issue.flagged_text || issue.context || issue.suggestion;
+        const isValidated = issue.source?.is_validated === true;
+        const validationIndicator = isValidated
+            ? `<span class="validation-indicator" title="Verified in original document" style="color: rgb(139, 92, 246); margin-left: 4px;"><i data-lucide="badge-check" style="width:12px;height:12px;"></i></span>`
+            : '';
+
+        return `
+            <div class="issue-row ${isSelected ? 'selected' : ''}" data-index="${globalIdx}" data-issue-id="${issue.issue_id || ''}"
+                 tabindex="0" role="listitem" aria-label="${escapeHtml(issue.category)}: ${escapeHtml(issue.message)}">
+                <div class="col-expand">
+                    ${hasExpandableContent ? `
+                        <button class="btn btn-ghost btn-xs expand-btn" onclick="toggleIssueExpand(${globalIdx}, event)"
+                                title="Expand issue details" aria-label="Expand issue details" aria-expanded="false">
+                            <i data-lucide="chevron-right"></i>
+                        </button>
+                    ` : ''}
+                </div>
+                <div class="col-check">
+                    <input type="checkbox" ${isSelected ? 'checked' : ''}
+                           onchange="toggleIssueSelection(${globalIdx})" aria-label="Select issue">
+                </div>
+                <div class="col-severity">
+                    <span class="severity-badge ${sevClass}">${issue.severity || 'Info'}</span>
+                </div>
+                <div class="col-category">${escapeHtml(issue.category || '')}${validationIndicator}</div>
+                <div class="col-message">
+                    <div class="message-text">${escapeHtml(issue.message || '')}</div>
+                </div>
+                <div class="col-actions">
+                    <button class="btn btn-ghost btn-xs" onclick="toggleBaseline(${globalIdx})" title="Add to baseline" aria-label="Add to baseline">
+                        <i data-lucide="eye-off"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * v6.5.0: Tear down the progressive rendering observer.
+     */
+    function _cleanupIssuesObserver() {
+        if (_issuesObserver) {
+            _issuesObserver.disconnect();
+            _issuesObserver = null;
+        }
+        var sentinel = document.getElementById('issues-scroll-sentinel');
+        if (sentinel) sentinel.remove();
+    }
+
+    /**
+     * v6.5.0: Append the next batch of issues (progressive "Show All" mode).
+     * Called by IntersectionObserver when the sentinel becomes visible.
+     */
+    function _appendNextBatch() {
+        var State = getState();
+        var container = document.getElementById('issues-list');
+        if (!container) return;
+
+        var total = State.filteredIssues.length;
+        if (_renderedCount >= total) {
+            _cleanupIssuesObserver();
+            return;
+        }
+
+        var end = Math.min(_renderedCount + _PROGRESSIVE_BATCH, total);
+        var fragment = document.createDocumentFragment();
+
+        for (var i = _renderedCount; i < end; i++) {
+            var tmp = document.createElement('div');
+            tmp.innerHTML = _buildIssueRowHTML(State.filteredIssues[i], i);
+            if (tmp.firstElementChild) fragment.appendChild(tmp.firstElementChild);
+        }
+
+        // Remove sentinel before appending, then re-add after
+        var sentinel = document.getElementById('issues-scroll-sentinel');
+        if (sentinel) sentinel.remove();
+
+        container.appendChild(fragment);
+        _renderedCount = end;
+
+        // Hydrate Lucide icons only in the newly added rows
+        refreshIcons(container);
+
+        // Update pagination display
+        updatePagination(1, _renderedCount, total);
+
+        // Re-add sentinel if more rows remain
+        if (_renderedCount < total) {
+            var newSentinel = document.createElement('div');
+            newSentinel.id = 'issues-scroll-sentinel';
+            newSentinel.setAttribute('aria-hidden', 'true');
+            newSentinel.style.height = '1px';
+            container.appendChild(newSentinel);
+            if (_issuesObserver) _issuesObserver.observe(newSentinel);
+        }
+    }
+
+    /**
      * Render the issues list with pagination.
+     * v6.5.0: Uses IntersectionObserver progressive rendering for "Show All" mode
+     *         when there are more issues than _PROGRESSIVE_BATCH (50).
      */
     function renderIssuesList() {
         const State = getState();
         const container = document.getElementById('issues-list');
         if (!container) return;
+
+        // v6.5.0: Always clean up previous progressive observer
+        _cleanupIssuesObserver();
 
         const pageSize = State.settings.pageSize === 'all' ? State.filteredIssues.length : State.settings.pageSize;
         const start = (State.currentPage - 1) * pageSize;
@@ -332,64 +449,59 @@ TWR.Renderers = (function() {
             return;
         }
 
+        // v6.5.0: Progressive rendering for "Show All" with many issues
+        if (State.settings.pageSize === 'all' && pageIssues.length > _PROGRESSIVE_BATCH
+                && typeof IntersectionObserver !== 'undefined') {
+
+            // Render first batch immediately
+            var firstBatch = pageIssues.slice(0, _PROGRESSIVE_BATCH);
+            container.innerHTML = firstBatch.map(function(issue, idx) {
+                return _buildIssueRowHTML(issue, idx);
+            }).join('');
+
+            _renderedCount = _PROGRESSIVE_BATCH;
+
+            // Add sentinel element
+            var sentinel = document.createElement('div');
+            sentinel.id = 'issues-scroll-sentinel';
+            sentinel.setAttribute('aria-hidden', 'true');
+            sentinel.style.height = '1px';
+            container.appendChild(sentinel);
+
+            // Create observer — fires _appendNextBatch when sentinel enters the scrollport
+            var scrollRoot = container.parentElement; // #issues-container (overflow:auto)
+            _issuesObserver = new IntersectionObserver(function(entries) {
+                for (var e = 0; e < entries.length; e++) {
+                    if (entries[e].isIntersecting) {
+                        _appendNextBatch();
+                    }
+                }
+            }, { root: scrollRoot, rootMargin: '0px 0px 200px 0px' });
+
+            _issuesObserver.observe(sentinel);
+
+            refreshIcons();
+            updatePagination(1, _renderedCount, State.filteredIssues.length);
+
+            var filteredTotal = document.getElementById('filtered-total');
+            if (filteredTotal) filteredTotal.textContent = State.filteredIssues.length;
+            keyboardSelectedIndex = -1;
+            return;
+        }
+
+        // Standard paginated rendering (non-progressive)
         // SAFE: category, message escaped via escapeHtml()
-        container.innerHTML = pageIssues.map((issue, idx) => {
-            const globalIdx = start + idx;
-            const isSelected = isIssueSelected(globalIdx);
-            const sevClass = issue.severity?.toLowerCase() || 'info';
-            
-            // Create inline preview (first 50 chars of flagged text)
-            const preview = issue.flagged_text 
-                ? truncate(issue.flagged_text, 50) 
-                : (issue.context ? truncate(issue.context, 50) : '');
-            
-            // Check if has expandable content
-            const hasExpandableContent = issue.flagged_text || issue.context || issue.suggestion;
-            
-            // Check if issue has been validated via provenance tracking (v3.0.24)
-            const isValidated = issue.source?.is_validated === true;
-            const validationIndicator = isValidated 
-                ? `<span class="validation-indicator" title="Verified in original document" style="color: rgb(139, 92, 246); margin-left: 4px;"><i data-lucide="badge-check" style="width:12px;height:12px;"></i></span>`
-                : '';
-            
-            return `
-                <div class="issue-row ${isSelected ? 'selected' : ''}" data-index="${globalIdx}" data-issue-id="${issue.issue_id || ''}"
-                     tabindex="0" role="listitem" aria-label="${escapeHtml(issue.category)}: ${escapeHtml(issue.message)}">
-                    <div class="col-expand">
-                        ${hasExpandableContent ? `
-                            <button class="btn btn-ghost btn-xs expand-btn" onclick="toggleIssueExpand(${globalIdx}, event)" 
-                                    title="Expand issue details" aria-label="Expand issue details" aria-expanded="false">
-                                <i data-lucide="chevron-right"></i>
-                            </button>
-                        ` : ''}
-                    </div>
-                    <div class="col-check">
-                        <input type="checkbox" ${isSelected ? 'checked' : ''} 
-                               onchange="toggleIssueSelection(${globalIdx})" aria-label="Select issue">
-                    </div>
-                    <div class="col-severity">
-                        <span class="severity-badge ${sevClass}">${issue.severity || 'Info'}</span>
-                    </div>
-                    <div class="col-category">${escapeHtml(issue.category || '')}${validationIndicator}</div>
-                    <div class="col-message">
-                        <div class="message-text">${escapeHtml(issue.message || '')}</div>
-                    </div>
-                    <div class="col-actions">
-                        <button class="btn btn-ghost btn-xs" onclick="toggleBaseline(${globalIdx})" title="Add to baseline" aria-label="Add to baseline">
-                            <i data-lucide="eye-off"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
+        container.innerHTML = pageIssues.map(function(issue, idx) {
+            return _buildIssueRowHTML(issue, start + idx);
         }).join('');
 
         refreshIcons();
         updatePagination(start + 1, end, State.filteredIssues.length);
-        
+
         // Update filtered total for selection dropdown
         const filteredTotal = document.getElementById('filtered-total');
         if (filteredTotal) filteredTotal.textContent = State.filteredIssues.length;
-        
+
         // Reset keyboard selection
         keyboardSelectedIndex = -1;
     }

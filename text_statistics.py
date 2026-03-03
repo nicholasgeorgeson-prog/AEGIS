@@ -67,7 +67,7 @@ class TextStatistics:
     Comprehensive text statistics and analysis.
     """
 
-    VERSION = '1.0.0'
+    VERSION = '1.1.0'
 
     # Dale-Chall easy word list (subset - full list has ~3000 words)
     EASY_WORDS = {
@@ -118,6 +118,9 @@ class TextStatistics:
         """
         self.nlp = None
         self.stopwords = set()
+        # v6.5.0: Doc cache for sentence segmentation (avoids re-running pipeline)
+        self._cached_text = None
+        self._cached_doc = None
 
         # Initialize spaCy
         if use_spacy and SPACY_AVAILABLE:
@@ -126,8 +129,16 @@ class TextStatistics:
             except OSError:
                 pass
 
-        # Initialize stopwords
-        if NLTK_AVAILABLE:
+        # v6.5.0: Prefer spaCy stopwords (already loaded, no NLTK download needed)
+        if self.nlp:
+            try:
+                from spacy.lang.en.stop_words import STOP_WORDS
+                self.stopwords = set(STOP_WORDS)
+            except Exception:
+                pass
+
+        # Fallback: NLTK stopwords
+        if not self.stopwords and NLTK_AVAILABLE:
             try:
                 self.stopwords = set(stopwords.words('english'))
             except LookupError:
@@ -140,7 +151,7 @@ class TextStatistics:
                 except Exception:
                     pass  # Fallback stopwords will be used below
 
-        # Fallback stopwords if NLTK not available
+        # Fallback: hardcoded stopwords if neither spaCy nor NLTK available
         if not self.stopwords:
             self.stopwords = {
                 'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to',
@@ -866,12 +877,37 @@ class TextStatistics:
     # UTILITY METHODS
     # ==========================================================================
 
+    def _get_spacy_doc(self, text: str):
+        """Get cached spaCy doc (avoids re-running pipeline on same text).
+
+        v6.5.0: Caches the full spaCy pipeline result so sentence segmentation
+        and other doc-level features don't re-process the same text.
+        """
+        if self.nlp is None:
+            return None
+        if self._cached_text != text:
+            try:
+                self._cached_doc = self.nlp(text)
+                self._cached_text = text
+            except Exception:
+                self._cached_doc = None
+                self._cached_text = None
+        return self._cached_doc
+
     def _tokenize_words(self, text: str) -> List[str]:
         """Tokenize text into words."""
+        # v6.5.0: Prefer spaCy tokenizer (fast, no pipeline overhead)
+        if self.nlp:
+            try:
+                return [t.text for t in self.nlp.tokenizer(text) if t.is_alpha]
+            except Exception:
+                pass
+
+        # Fallback: NLTK tokenizer
         if NLTK_AVAILABLE:
             try:
                 return word_tokenize(text)
-            except:
+            except Exception:
                 pass
 
         # Fallback: simple tokenization
@@ -880,10 +916,20 @@ class TextStatistics:
 
     def _tokenize_sentences(self, text: str) -> List[str]:
         """Tokenize text into sentences."""
+        # v6.5.0: Prefer spaCy sentence segmentation (uses dependency parser)
+        if self.nlp:
+            try:
+                doc = self._get_spacy_doc(text)
+                if doc is not None:
+                    return [sent.text.strip() for sent in doc.sents if sent.text.strip()]
+            except Exception:
+                pass
+
+        # Fallback: NLTK sentence tokenizer
         if NLTK_AVAILABLE:
             try:
                 return sent_tokenize(text)
-            except:
+            except Exception:
                 pass
 
         # Fallback: simple sentence splitting

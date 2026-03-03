@@ -793,7 +793,7 @@ async function checkCapabilities() {
 }
 
 // v6.3.11: Hardcoded JS version — compared against server version to detect stale cache
-var _AEGIS_JS_VERSION = '6.3.11';
+var _AEGIS_JS_VERSION = '6.4.0';
 
 async function loadVersionLabel() {
     // v4.9.9: Use /api/version as primary (reads fresh from root version.json via get_version())
@@ -3202,6 +3202,45 @@ function downloadCSV(csvContent, filename) {
     URL.revokeObjectURL(url);
 }
 
+// v6.5.0: Web Worker for off-main-thread export generation
+let _exportWorker = null;
+function _getExportWorker() {
+    if (!_exportWorker && typeof Worker !== 'undefined') {
+        try {
+            _exportWorker = new Worker('/static/js/workers/export-worker.js');
+        } catch (e) {
+            console.warn('[TWR Export] Worker init failed, using main thread:', e);
+        }
+    }
+    return _exportWorker;
+}
+
+/**
+ * Send work to the export worker and return a Promise.
+ * Falls back to main-thread generation if Worker unavailable.
+ * @param {string} type - Message type (generateJSON, generateCSV, etc.)
+ * @param {Object} data - Data payload
+ * @param {string} [filename] - Optional filename hint
+ * @returns {Promise<string>} Generated content string
+ */
+function exportViaWorker(type, data, filename) {
+    var worker = _getExportWorker();
+    if (!worker) return Promise.reject(new Error('Worker unavailable'));
+    return new Promise(function(resolve, reject) {
+        var handler = function(e) {
+            if (e.data.type !== type) return; // ignore unrelated messages
+            worker.removeEventListener('message', handler);
+            if (e.data.success) {
+                resolve(e.data.content);
+            } else {
+                reject(new Error(e.data.error || 'Worker error'));
+            }
+        };
+        worker.addEventListener('message', handler);
+        worker.postMessage({ type: type, data: data, filename: filename });
+    });
+}
+
 function getTimestamp() {
     if (window.TWR?.Roles?.getTimestamp) {
         return TWR.Roles.getTimestamp();
@@ -3237,7 +3276,7 @@ function showExportModal() {
         // v5.9.4: Default to PDF Report for PDF source files
         if (pdfReportRadio) pdfReportRadio.checked = true;
         if (pdfNotice) pdfNotice.style.display = 'block';
-        if (applyFixesGroup) applyFixesGroup.style.display = 'none';
+        // v6.5.0: apply-fixes-group visibility handled by CSS :has(input[value="docx"]:checked)
     } else {
         // Enable all options for DOCX files
         if (docxCard) {
@@ -3249,7 +3288,7 @@ function showExportModal() {
             docxRadio.checked = true;
         }
         if (pdfNotice) pdfNotice.style.display = 'none';
-        if (applyFixesGroup) applyFixesGroup.style.display = 'block';
+        // v6.5.0: apply-fixes-group visibility handled by CSS :has(input[value="docx"]:checked)
 
         // v3.0.96: Initialize Fix Assistant
         if (window.FixAssistant) {
@@ -3334,13 +3373,7 @@ function openExportReview() {
 window.openExportReview = openExportReview;
 
 function updateExportOptions() {
-    const format = document.querySelector('input[name="export-format"]:checked')?.value || 'docx';
-    const applyFixesGroup = document.getElementById('apply-fixes-group');
-
-    // Hide apply fixes for non-docx formats
-    if (applyFixesGroup) {
-        applyFixesGroup.style.display = format === 'docx' ? 'block' : 'none';
-    }
+    // v6.5.0: apply-fixes-group visibility handled by CSS :has(input[value="docx"]:checked)
 
     // Update fixable preview with checkboxes
     populateFixPreview();
@@ -3430,20 +3463,34 @@ async function executeExport() {
                 break;
             }
             case 'json': {
-                // v5.0.2: Client-side JSON export (no backend endpoint needed)
-                const jsonData = JSON.stringify({
-                    filename: State.filename,
-                    exported: new Date().toISOString(),
-                    score: State.reviewResults?.score,
-                    grade: State.reviewResults?.grade,
-                    issue_count: issuesToExport.length,
-                    document_info: State.reviewResults?.document_info,
-                    issues: issuesToExport,
-                    filters_applied: (exportFilters.severities.length > 0 || exportFilters.categories.length > 0) ? exportFilters : null
-                }, null, 2);
-                const jsonBlob = new Blob([jsonData], { type: 'application/json' });
-                downloadBlob(jsonBlob, `${State.filename}_review.json`);
-                toast('success', `Exported ${issuesToExport.length} issues to JSON`);
+                // v6.5.0: Off-main-thread JSON export via Web Worker
+                const _jsonFilters = (exportFilters.severities.length > 0 || exportFilters.categories.length > 0) ? exportFilters : null;
+                const _jsonFilename = `${State.filename}_review.json`;
+                const _jsonCount = issuesToExport.length;
+                try {
+                    const jsonStr = await exportViaWorker('generateJSON', {
+                        issues: issuesToExport,
+                        filename: State.filename,
+                        score: State.reviewResults?.score,
+                        grade: State.reviewResults?.grade,
+                        documentInfo: State.reviewResults?.document_info,
+                        filtersApplied: _jsonFilters
+                    }, _jsonFilename);
+                    const jsonBlob = new Blob([jsonStr], { type: 'application/json' });
+                    downloadBlob(jsonBlob, _jsonFilename);
+                } catch (_wErr) {
+                    // Fallback: main-thread generation
+                    console.warn('[TWR Export] Worker fallback for JSON:', _wErr);
+                    const jsonData = JSON.stringify({
+                        filename: State.filename, exported: new Date().toISOString(),
+                        score: State.reviewResults?.score, grade: State.reviewResults?.grade,
+                        issue_count: _jsonCount, document_info: State.reviewResults?.document_info,
+                        issues: issuesToExport, filters_applied: _jsonFilters
+                    }, null, 2);
+                    const jsonBlob = new Blob([jsonData], { type: 'application/json' });
+                    downloadBlob(jsonBlob, _jsonFilename);
+                }
+                toast('success', `Exported ${_jsonCount} issues to JSON`);
                 _hideExportProgress();
                 return;
             }
@@ -8501,29 +8548,38 @@ function showReviewLog() {
 /**
  * Export review log as CSV
  */
-function exportReviewLog() {
+async function exportReviewLog() {
     if (State.workflow.reviewLog.length === 0) {
         toast('warning', 'No review decisions to export');
         return;
     }
-    
-    const headers = ['Timestamp', 'Issue ID', 'Action', 'Message', 'Category', 'Severity', 'Note', 'Reviewer'];
-    const rows = State.workflow.reviewLog.map(entry => {
+
+    const logEntries = State.workflow.reviewLog.map(entry => {
         const issue = State.issues.find(i => i.issue_id === entry.issue_id) || {};
-        return [
-            entry.timestamp,
-            entry.issue_id,
-            entry.action,
-            `"${(issue.message || '').replace(/"/g, '""')}"`,
-            issue.category || '',
-            issue.severity || '',
-            `"${(entry.note || '').replace(/"/g, '""')}"`,
-            entry.reviewer
-        ].join(',');
+        return {
+            timestamp: entry.timestamp, issueId: entry.issue_id, action: entry.action,
+            message: issue.message || '', category: issue.category || '',
+            severity: issue.severity || '', note: entry.note || '', reviewer: entry.reviewer
+        };
     });
-    
-    const csv = [headers.join(','), ...rows].join('\n');
-    downloadCSV(csv, `review_log_${State.filename || 'document'}_${new Date().toISOString().slice(0,10)}.csv`);
+    const filename = `review_log_${State.filename || 'document'}_${new Date().toISOString().slice(0,10)}.csv`;
+
+    try {
+        // v6.5.0: Off-main-thread CSV via Web Worker
+        const csv = await exportViaWorker('generateReviewLogCSV', { logEntries }, filename);
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        downloadBlob(blob, filename);
+    } catch (_wErr) {
+        // Fallback: main-thread generation
+        console.warn('[TWR Export] Worker fallback for review log:', _wErr);
+        const headers = ['Timestamp', 'Issue ID', 'Action', 'Message', 'Category', 'Severity', 'Note', 'Reviewer'];
+        const rows = logEntries.map(e => [
+            e.timestamp, e.issueId, e.action,
+            `"${(e.message).replace(/"/g, '""')}"`, e.category, e.severity,
+            `"${(e.note).replace(/"/g, '""')}"`, e.reviewer
+        ].join(','));
+        downloadCSV([headers.join(','), ...rows].join('\n'), filename);
+    }
     toast('success', `Exported ${State.workflow.reviewLog.length} review decisions`);
 }
 

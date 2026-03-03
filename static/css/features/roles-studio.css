@@ -300,42 +300,43 @@ body[data-theme="dark"] .graph-export-option:hover {
     margin-bottom: var(--space-5);
 }
 
+/* v6.5.0: Refactored with CSS native nesting */
 .roles-summary-card {
     background: var(--bg-elevated);
     border-radius: var(--radius-lg);
     padding: var(--space-4);
     text-align: center;
     border: 1px solid var(--border-default);
-}
 
-.roles-summary-card .summary-icon {
-    width: 40px;
-    height: 40px;
-    margin: 0 auto var(--space-2);
-    background: var(--accent-subtle);
-    border-radius: var(--radius-full);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
+    & .summary-icon {
+        width: 40px;
+        height: 40px;
+        margin: 0 auto var(--space-2);
+        background: var(--accent-subtle);
+        border-radius: var(--radius-full);
+        display: flex;
+        align-items: center;
+        justify-content: center;
 
-.roles-summary-card .summary-icon svg {
-    width: 20px;
-    height: 20px;
-    color: var(--accent);
-}
+        & svg {
+            width: 20px;
+            height: 20px;
+            color: var(--accent);
+        }
+    }
 
-.roles-summary-card .summary-value {
-    font-size: 28px;
-    font-weight: 700;
-    color: var(--text-primary);
-    line-height: 1;
-}
+    & .summary-value {
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--text-primary);
+        line-height: 1;
+    }
 
-.roles-summary-card .summary-label {
-    font-size: 12px;
-    color: var(--text-secondary);
-    margin-top: var(--space-1);
+    & .summary-label {
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-top: var(--space-1);
+    }
 }
 
 /* v3.0.12: Entity Audit Bar */
@@ -704,6 +705,12 @@ body[data-theme="dark"] .graph-export-option:hover {
 .adj-item-edit .form-select:focus {
     border-color: var(--primary);
     box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
+}
+
+.adj-item-edit .form-input:focus-visible,
+.adj-item-edit .form-select:focus-visible {
+    outline: 2px solid var(--accent-primary, #D6A84A);
+    outline-offset: 2px;
 }
 
 .adj-edit-actions {
@@ -1246,6 +1253,11 @@ body[data-theme="dark"] .graph-export-option:hover {
     outline: none;
 }
 .adj-tag-search-input:focus { border-color: var(--accent); }
+.adj-tag-search-input:focus-visible {
+    outline: 2px solid var(--accent-primary, #D6A84A);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px rgba(155, 123, 28, 0.15);
+}
 .adj-tag-dropdown-list {
     max-height: 320px;
     overflow-y: auto;
@@ -1587,7 +1599,7 @@ body[data-theme="dark"] .graph-export-option:hover {
 .adj-auto-overlay {
     position: fixed;
     inset: 0;
-    z-index: 50000;  /* v5.9.22: Bumped from 10000 to open ABOVE parent modal */
+    z-index: var(--z-modal-top);  /* v5.9.22: Above parent modal; uses modal-top tier */
     background: rgba(0,0,0,0.6);
     display: flex;
     align-items: center;
@@ -3031,6 +3043,7 @@ body[data-theme="dark"] .graph-export-option:hover {
 }
 
 /* Graph Tooltip */
+/* v6.5.0: Refactored with CSS native nesting */
 .graph-tooltip {
     position: absolute;
     padding: var(--space-2) var(--space-3);
@@ -3042,48 +3055,48 @@ body[data-theme="dark"] .graph-export-option:hover {
     pointer-events: none;
     z-index: 100;
     max-width: 250px;
-}
 
-.graph-tooltip .tooltip-title {
-    font-weight: 600;
-    margin-bottom: var(--space-1);
-}
+    & .tooltip-title {
+        font-weight: 600;
+        margin-bottom: var(--space-1);
+    }
 
-.graph-tooltip .tooltip-type {
-    font-size: 11px;
-    color: var(--text-muted);
-    text-transform: uppercase;
-}
+    & .tooltip-type {
+        font-size: 11px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+    }
 
-.graph-tooltip .tooltip-stats {
-    margin-top: var(--space-1);
-    font-size: 11px;
-    color: var(--text-secondary);
-}
+    & .tooltip-stats {
+        margin-top: var(--space-1);
+        font-size: 11px;
+        color: var(--text-secondary);
+    }
 
-/* v2.9.3 B17: Edge tooltip connection display */
-.graph-tooltip .tooltip-connection {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-2) 0;
-    margin: var(--space-1) 0;
-    border-top: 1px solid var(--border-subtle);
-    border-bottom: 1px solid var(--border-subtle);
-}
+    /* v2.9.3 B17: Edge tooltip connection display */
+    & .tooltip-connection {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: var(--space-2) 0;
+        margin: var(--space-1) 0;
+        border-top: 1px solid var(--border-subtle);
+        border-bottom: 1px solid var(--border-subtle);
+    }
 
-.graph-tooltip .tooltip-role {
-    font-weight: 500;
-    color: var(--accent);
-    max-width: 80px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
+    & .tooltip-role {
+        font-weight: 500;
+        color: var(--accent);
+        max-width: 80px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
 
-.graph-tooltip .tooltip-arrow {
-    color: var(--text-muted);
-    font-size: 14px;
+    & .tooltip-arrow {
+        color: var(--text-muted);
+        font-size: 14px;
+    }
 }
 
 
@@ -4704,6 +4717,12 @@ body:not([data-theme="dark"]) .heb-edge {
     border-color: var(--accent);
 }
 
+.roles-search-input:focus-visible {
+    outline: 2px solid var(--accent-primary, #D6A84A);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px rgba(155, 123, 28, 0.15);
+}
+
 /* v4.5.1: SmartSearch dropdown for global search */
 .roles-search-container .smart-search-wrapper {
     position: relative;
@@ -4751,6 +4770,12 @@ body:not([data-theme="dark"]) .heb-edge {
 .roles-document-filter select:focus {
     outline: none;
     border-color: var(--accent);
+}
+
+.roles-document-filter select:focus-visible {
+    outline: 2px solid var(--accent-primary, #D6A84A);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px rgba(155, 123, 28, 0.15);
 }
 
 .roles-document-filter select:hover {
@@ -7006,6 +7031,7 @@ body:not([data-theme="dark"]) .heb-edge {
 }
 
 /* v5.1.2: Minimap context panel with role names */
+/* v6.5.0: Refactored with CSS native nesting */
 .minimap-context-panel {
     padding: 6px 8px;
     font-size: 11px;
@@ -7014,72 +7040,78 @@ body:not([data-theme="dark"]) .heb-edge {
     overflow-y: auto;
     border-bottom: 1px solid rgba(0,0,0,0.08);
     margin-bottom: 2px;
-}
-.minimap-context-panel .mcp-selected {
-    font-weight: 600;
-    color: #b8860b;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-size: 11.5px;
-}
-.minimap-context-panel .mcp-dot {
-    font-size: 10px;
-    margin-right: 2px;
-}
-.minimap-context-panel .mcp-gold { color: #d4a017; }
-.minimap-context-panel .mcp-blue { color: #4A90D9; }
-.minimap-context-panel .mcp-divider {
-    height: 1px;
-    background: rgba(0,0,0,0.1);
-    margin: 4px 0;
-}
-.minimap-context-panel .mcp-connected-header {
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #888;
-    margin-bottom: 2px;
-}
-.minimap-context-panel .mcp-connected {
-    color: #4A6FA5;
-    font-size: 10.5px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    padding: 1px 0;
-}
-.minimap-context-panel .mcp-more {
-    color: #999;
-    font-size: 9.5px;
-    font-style: italic;
-    margin-top: 2px;
-}
 
-/* Dark mode context panel */
-[data-theme="dark"] .minimap-context-panel,
-[data-theme="dark"] .minimap-context-panel {
-    border-bottom-color: rgba(255,255,255,0.1);
-}
-[data-theme="dark"] .minimap-context-panel .mcp-selected,
-[data-theme="dark"] .minimap-context-panel .mcp-selected {
-    color: #ffd700;
-}
-[data-theme="dark"] .minimap-context-panel .mcp-divider,
-[data-theme="dark"] .minimap-context-panel .mcp-divider {
-    background: rgba(255,255,255,0.15);
-}
-[data-theme="dark"] .minimap-context-panel .mcp-connected-header,
-[data-theme="dark"] .minimap-context-panel .mcp-connected-header {
-    color: rgba(255,255,255,0.5);
-}
-[data-theme="dark"] .minimap-context-panel .mcp-connected,
-[data-theme="dark"] .minimap-context-panel .mcp-connected {
-    color: #8bb8e8;
-}
-[data-theme="dark"] .minimap-context-panel .mcp-more,
-[data-theme="dark"] .minimap-context-panel .mcp-more {
-    color: rgba(255,255,255,0.4);
+    & .mcp-selected {
+        font-weight: 600;
+        color: #b8860b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 11.5px;
+    }
+
+    & .mcp-dot {
+        font-size: 10px;
+        margin-right: 2px;
+    }
+
+    & .mcp-gold { color: #d4a017; }
+    & .mcp-blue { color: #4A90D9; }
+
+    & .mcp-divider {
+        height: 1px;
+        background: rgba(0,0,0,0.1);
+        margin: 4px 0;
+    }
+
+    & .mcp-connected-header {
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #888;
+        margin-bottom: 2px;
+    }
+
+    & .mcp-connected {
+        color: #4A6FA5;
+        font-size: 10.5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding: 1px 0;
+    }
+
+    & .mcp-more {
+        color: #999;
+        font-size: 9.5px;
+        font-style: italic;
+        margin-top: 2px;
+    }
+
+    /* Dark mode context panel */
+    [data-theme="dark"] & {
+        border-bottom-color: rgba(255,255,255,0.1);
+
+        & .mcp-selected {
+            color: #ffd700;
+        }
+
+        & .mcp-divider {
+            background: rgba(255,255,255,0.15);
+        }
+
+        & .mcp-connected-header {
+            color: rgba(255,255,255,0.5);
+        }
+
+        & .mcp-connected {
+            color: #8bb8e8;
+        }
+
+        & .mcp-more {
+            color: rgba(255,255,255,0.4);
+        }
+    }
 }
 
 /* Dark mode minimap */
@@ -7628,7 +7660,7 @@ body:not([data-theme="dark"]) .heb-edge {
     bottom: 0;
     background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(4px);
-    z-index: 100000;
+    z-index: var(--z-modal-top);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -9239,56 +9271,57 @@ body:not([data-theme="dark"]) .heb-edge {
 }
 
 /* Category Form */
+/* v6.5.0: Refactored with CSS native nesting */
 .category-form {
     background: var(--bg-secondary, #f1f5f9);
     border-radius: 12px;
     padding: 20px;
     margin-bottom: 16px;
-}
 
-.category-form h4 {
-    margin: 0 0 16px 0;
-    font-size: 16px;
-    font-weight: 600;
-}
+    & h4 {
+        margin: 0 0 16px 0;
+        font-size: 16px;
+        font-weight: 600;
+    }
 
-.category-form .form-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
-}
+    & .form-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
 
-.category-form .form-row label {
-    width: 100px;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-secondary, #64748b);
-}
+        & label {
+            width: 100px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary, #64748b);
+        }
 
-.category-form .form-row input[type="text"],
-.category-form .form-row input[type="color"] {
-    flex: 1;
-    padding: 8px 12px;
-    border: 1px solid var(--border-default, #cfc7b8);
-    border-radius: 6px;
-    font-size: 14px;
-}
+        & input[type="text"],
+        & input[type="color"] {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid var(--border-default, #cfc7b8);
+            border-radius: 6px;
+            font-size: 14px;
+        }
 
-.category-form .form-row input[type="color"] {
-    width: 60px;
-    height: 36px;
-    padding: 4px;
-    cursor: pointer;
-}
+        & input[type="color"] {
+            width: 60px;
+            height: 36px;
+            padding: 4px;
+            cursor: pointer;
+        }
+    }
 
-.category-form .form-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border-default, #cfc7b8);
+    & .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border-default, #cfc7b8);
+    }
 }
 
 /* Role Required Actions */
@@ -9500,7 +9533,7 @@ body:not([data-theme="dark"]) .heb-edge {
     border: 1px solid var(--border-default, #cfc7b8);
     border-radius: 8px;
     box-shadow: 0 8px 24px var(--shadow, rgba(0,0,0,0.12));
-    z-index: 199999;
+    z-index: var(--z-toast);
     max-height: 340px;
     display: flex;
     flex-direction: column;
@@ -9523,6 +9556,10 @@ body:not([data-theme="dark"]) .heb-edge {
 .rpt-func-search:focus {
     border-color: var(--accent, #9b7b1c);
     box-shadow: 0 0 0 2px rgba(155,123,28,0.15);
+}
+.rpt-func-search:focus-visible {
+    outline: 2px solid var(--accent-primary, #D6A84A);
+    outline-offset: 2px;
 }
 .rpt-func-tree {
     overflow-y: auto;
@@ -9685,6 +9722,10 @@ body:not([data-theme="dark"]) .heb-edge {
 .rpt-owner-input:focus {
     border-color: var(--accent, #9b7b1c);
     box-shadow: 0 0 0 2px rgba(155,123,28,0.15);
+}
+.rpt-owner-input:focus-visible {
+    outline: 2px solid var(--accent-primary, #D6A84A);
+    outline-offset: 2px;
 }
 .rpt-owner-dropdown {
     position: absolute;
@@ -9936,6 +9977,12 @@ body:not([data-theme="dark"]) .heb-edge {
     outline: none;
     border-color: var(--accent, #9b7b1c);
     box-shadow: 0 0 0 3px rgba(155, 123, 28, 0.1);
+}
+
+.doc-tag-fields select:focus-visible,
+.doc-tag-fields input:focus-visible {
+    outline: 2px solid var(--accent-primary, #D6A84A);
+    outline-offset: 2px;
 }
 
 .doc-tag-function {
@@ -10546,6 +10593,11 @@ select option {
     outline: none;
     border-color: var(--accent, #4a90d9);
     box-shadow: 0 0 0 4px rgba(74, 144, 217, 0.1);
+}
+
+.rd-search-input:focus-visible {
+    outline: 2px solid var(--accent-primary, #D6A84A);
+    outline-offset: 2px;
 }
 
 .rd-search-input::placeholder {
@@ -11512,45 +11564,46 @@ select option {
     white-space: nowrap;
 }
 
+/* v6.5.0: Refactored with CSS native nesting */
 .import-diff-actions {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
     padding: 12px 20px;
     border-top: 1px solid var(--border-default, #cfc7b8);
-}
 
-.import-diff-actions .btn {
-    padding: 8px 16px;
-    font-size: 13px;
-    border-radius: 6px;
-    cursor: pointer;
-}
+    & .btn {
+        padding: 8px 16px;
+        font-size: 13px;
+        border-radius: 6px;
+        cursor: pointer;
+    }
 
-.import-diff-actions .btn-ghost {
-    background: none;
-    border: 1px solid var(--border-default, #cfc7b8);
-    color: var(--text-primary, #1f2937);
-}
+    & .btn-ghost {
+        background: none;
+        border: 1px solid var(--border-default, #cfc7b8);
+        color: var(--text-primary, #1f2937);
 
-.import-diff-actions .btn-ghost:hover {
-    background: var(--bg-hover, #d4cdc0);
-}
+        &:hover {
+            background: var(--bg-hover, #d4cdc0);
+        }
+    }
 
-.import-diff-actions .btn-primary {
-    background: #D6A84A;
-    border: none;
-    color: #fff;
-    font-weight: 500;
-}
+    & .btn-primary {
+        background: #D6A84A;
+        border: none;
+        color: #fff;
+        font-weight: 500;
 
-.import-diff-actions .btn-primary:hover {
-    background: #B8743A;
-}
+        &:hover {
+            background: #B8743A;
+        }
 
-.import-diff-actions .btn-primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+        &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    }
 }
 
 /* Dark mode overrides for diff modal */
@@ -12995,6 +13048,10 @@ select option {
     background: var(--bg-primary, #f5f1ea);
     box-shadow: 0 0 0 3px rgba(214,168,74,0.15);
 }
+.rd-editable:focus-visible {
+    outline: 2px solid var(--accent-primary, #D6A84A);
+    outline-offset: 2px;
+}
 select.rd-editable {
     appearance: auto;
     cursor: pointer;
@@ -13109,6 +13166,10 @@ textarea.rd-editable {
 .rd-tag-dd-search:focus {
     border-color: #D6A84A;
     box-shadow: 0 0 0 2px rgba(214,168,74,0.15);
+}
+.rd-tag-dd-search:focus-visible {
+    outline: 2px solid var(--accent-primary, #D6A84A);
+    outline-offset: 2px;
 }
 .rd-tag-dd-list {
     max-height: 270px;
@@ -13313,6 +13374,10 @@ textarea.rd-editable {
 .rd-inherit-search:focus {
     border-color: #D6A84A;
     box-shadow: 0 0 0 2px rgba(214,168,74,0.15);
+}
+.rd-inherit-search:focus-visible {
+    outline: 2px solid var(--accent-primary, #D6A84A);
+    outline-offset: 2px;
 }
 .rd-inherit-direction {
     padding: 4px 8px;

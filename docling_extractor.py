@@ -92,6 +92,32 @@ def _log(message: str, level: str = 'info', **kwargs):
     getattr(_logger, level)(message)
 
 
+def _load_docling_config() -> Dict[str, Any]:
+    """
+    Load docling_settings from config.json.
+
+    v6.5.0: Reads use_v2_api flag and other docling settings.
+    Returns defaults if config.json is missing or malformed.
+    """
+    defaults = {
+        'use_v2_api': False,
+        'table_mode': 'accurate',
+        'enable_ocr': False,
+        'ocr_engine': 'easyocr',
+    }
+    try:
+        config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
+        if os.path.isfile(config_path):
+            with open(config_path, 'r', encoding='utf-8') as f:
+                cfg = json.load(f)
+            docling_cfg = cfg.get('docling_settings', {})
+            if isinstance(docling_cfg, dict):
+                defaults.update(docling_cfg)
+    except Exception as e:
+        _log(f"Could not read docling_settings from config.json: {e}", level='warning')
+    return defaults
+
+
 # ============================================================================
 # DATA CLASSES
 # ============================================================================
@@ -330,39 +356,85 @@ class DoclingExtractor:
         self._docling_version = ""
         self._converter = None
         self._pdf_pipeline_options = None
-        
+        self._api_version = 1  # v6.5.0: 1=legacy, 2=V2 with AcceleratorOptions
+        self._docling_config = _load_docling_config()
+
         self._init_docling()
     
     def _init_docling(self):
-        """Initialize Docling with air-gapped configuration."""
+        """
+        Initialize Docling with air-gapped configuration.
+
+        v6.5.0: Supports both V1 and V2 Docling APIs.
+        V2 adds AcceleratorOptions for CPU/GPU device selection and
+        renamed fields (do_picture_classification vs do_picture_classifier).
+        Opt-in via config.json: docling_settings.use_v2_api = true
+        """
         try:
-            # Import Docling components
+            # Import Docling components (stable across V1/V2)
             from docling.document_converter import DocumentConverter, PdfFormatOption
             from docling.datamodel.base_models import InputFormat
             from docling.datamodel.pipeline_options import (
                 PdfPipelineOptions,
                 TableFormerMode,
             )
-            
+
             # Get Docling version
             try:
                 import docling
                 self._docling_version = getattr(docling, '__version__', 'unknown')
-            except:
+            except Exception:
                 self._docling_version = 'unknown'
-            
+
+            # v6.5.0: Detect V2 API availability when opted in
+            _use_v2 = self._docling_config.get('use_v2_api', False)
+            _AcceleratorOptions = None
+            _AcceleratorDevice = None
+
+            if _use_v2:
+                try:
+                    from docling.datamodel.pipeline_options import (
+                        AcceleratorOptions,
+                        AcceleratorDevice,
+                    )
+                    _AcceleratorOptions = AcceleratorOptions
+                    _AcceleratorDevice = AcceleratorDevice
+                    self._api_version = 2
+                    _log("Docling V2 API detected (AcceleratorOptions available)")
+                except ImportError:
+                    _log("Docling V2 API requested but AcceleratorOptions not found "
+                         "— falling back to V1 API", level='warning')
+                    self._api_version = 1
+
             # Configure PDF pipeline with air-gap optimizations
             pipeline_options = PdfPipelineOptions()
-            
+
+            # v6.5.0: V2 AcceleratorOptions — CPU mode, thread control
+            if self._api_version == 2 and _AcceleratorOptions is not None:
+                try:
+                    accel = _AcceleratorOptions(
+                        num_threads=4,
+                        device=_AcceleratorDevice.CPU,
+                    )
+                    pipeline_options.accelerator_options = accel
+                    _log("Docling V2: AcceleratorOptions set (CPU, 4 threads)")
+                except Exception as e:
+                    _log(f"Docling V2: AcceleratorOptions failed: {e} — using defaults",
+                         level='warning')
+
+            # v6.5.0: V2 document_timeout for long-running PDFs
+            if self._api_version == 2 and hasattr(pipeline_options, 'document_timeout'):
+                pipeline_options.document_timeout = 300  # 5 min per document
+
             # === CRITICAL: Air-gapped configuration ===
             if self.artifacts_path:
                 pipeline_options.artifacts_path = self.artifacts_path
                 _log(f"Docling using local models: {self.artifacts_path}")
-            
+
             # Disable remote services (no network access)
             if hasattr(pipeline_options, 'enable_remote_services'):
                 pipeline_options.enable_remote_services = False
-            
+
             # === Table extraction (enabled - this is a key feature) ===
             pipeline_options.do_table_structure = True
             if hasattr(pipeline_options, 'table_structure_options'):
@@ -372,38 +444,45 @@ class DoclingExtractor:
                     pipeline_options.table_structure_options.mode = TableFormerMode.FAST
                 # Use text cells from PDF when available (better accuracy)
                 pipeline_options.table_structure_options.do_cell_matching = True
-            
+
             # === Memory optimization: Disable image processing ===
-            if hasattr(pipeline_options, 'do_picture_classifier'):
-                pipeline_options.do_picture_classifier = False
-            if hasattr(pipeline_options, 'do_picture_description'):
-                pipeline_options.do_picture_description = False
-            if hasattr(pipeline_options, 'generate_page_images'):
-                pipeline_options.generate_page_images = False
-            if hasattr(pipeline_options, 'generate_picture_images'):
-                pipeline_options.generate_picture_images = False
+            # V2 renamed do_picture_classifier → do_picture_classification
+            for attr in ('do_picture_classification', 'do_picture_classifier'):
+                if hasattr(pipeline_options, attr):
+                    setattr(pipeline_options, attr, False)
+            for attr in ('do_picture_description', 'generate_page_images',
+                         'generate_picture_images'):
+                if hasattr(pipeline_options, attr):
+                    setattr(pipeline_options, attr, False)
             if hasattr(pipeline_options, 'images_scale'):
                 pipeline_options.images_scale = 1.0  # Minimum if images were processed
-            
+
+            # v6.5.0: V2 additional memory-saving flags
+            for attr in ('do_code_enrichment', 'do_formula_enrichment',
+                         'do_chart_extraction'):
+                if hasattr(pipeline_options, attr):
+                    setattr(pipeline_options, attr, False)
+
             # === OCR configuration (optional) ===
             pipeline_options.do_ocr = self.enable_ocr
             if self.enable_ocr:
                 self._configure_ocr(pipeline_options)
-            
+
             # Store pipeline options for reference
             self._pdf_pipeline_options = pipeline_options
-            
+
             # Create the converter
             self._converter = DocumentConverter(
                 format_options={
                     InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
                 }
             )
-            
+
             self._docling_available = True
-            _log(f"Docling {self._docling_version} initialized (offline mode, "
+            _api_tag = f"V{self._api_version}" if self._api_version > 1 else "V1"
+            _log(f"Docling {self._docling_version} initialized ({_api_tag}, offline mode, "
                  f"table_mode={self.table_mode}, ocr={self.enable_ocr})")
-            
+
         except ImportError as e:
             _log(f"Docling not available: {e}", level='warning')
             self._docling_available = False
@@ -412,7 +491,12 @@ class DoclingExtractor:
             self._docling_available = False
 
     def _rebuild_converter(self, table_mode='accurate'):
-        """Rebuild the Docling converter with different table mode settings."""
+        """
+        Rebuild the Docling converter with different table mode settings.
+
+        v6.5.0: V2-aware — preserves AcceleratorOptions and V2-specific
+        flags when rebuilding.
+        """
         try:
             from docling.document_converter import DocumentConverter, PdfFormatOption
             from docling.datamodel.base_models import InputFormat
@@ -420,6 +504,21 @@ class DoclingExtractor:
 
             self.table_mode = table_mode
             pipeline_options = PdfPipelineOptions()
+
+            # v6.5.0: Preserve V2 AcceleratorOptions on rebuild
+            if self._api_version == 2:
+                try:
+                    from docling.datamodel.pipeline_options import (
+                        AcceleratorOptions, AcceleratorDevice,
+                    )
+                    pipeline_options.accelerator_options = AcceleratorOptions(
+                        num_threads=4,
+                        device=AcceleratorDevice.CPU,
+                    )
+                except ImportError:
+                    pass
+                if hasattr(pipeline_options, 'document_timeout'):
+                    pipeline_options.document_timeout = 300
 
             if self.artifacts_path:
                 pipeline_options.artifacts_path = self.artifacts_path
@@ -435,12 +534,20 @@ class DoclingExtractor:
                     pipeline_options.table_structure_options.mode = TableFormerMode.ACCURATE
                     pipeline_options.table_structure_options.do_cell_matching = True
 
-            # Disable image processing
-            for attr in ('do_picture_classifier', 'do_picture_description', 'generate_page_images', 'generate_picture_images'):
+            # Disable image processing — V2 renamed do_picture_classifier
+            for attr in ('do_picture_classification', 'do_picture_classifier',
+                         'do_picture_description', 'generate_page_images',
+                         'generate_picture_images'):
                 if hasattr(pipeline_options, attr):
                     setattr(pipeline_options, attr, False)
             if hasattr(pipeline_options, 'images_scale'):
                 pipeline_options.images_scale = 1.0
+
+            # v6.5.0: V2 additional memory-saving flags
+            for attr in ('do_code_enrichment', 'do_formula_enrichment',
+                         'do_chart_extraction'):
+                if hasattr(pipeline_options, attr):
+                    setattr(pipeline_options, attr, False)
 
             pipeline_options.do_ocr = self.enable_ocr
             if self.enable_ocr:
@@ -499,11 +606,14 @@ class DoclingExtractor:
         return self._docling_version
     
     def get_status(self) -> Dict[str, Any]:
-        """Get detailed status of the extractor."""
+        """Get detailed status of the extractor.
+        v6.5.0: Added api_version field (1=legacy, 2=V2 AcceleratorOptions).
+        """
         return {
             'available': self._docling_available,
             'backend': self.backend_name,
             'version': self._docling_version,
+            'api_version': self._api_version,  # v6.5.0: 1=legacy, 2=V2
             'artifacts_path': self.artifacts_path,
             'ocr_enabled': self.enable_ocr,
             'ocr_engine': self.ocr_engine if self.enable_ocr else None,
@@ -1005,26 +1115,52 @@ class DoclingExtractor:
         return result
     
     def _extract_xlsx_legacy(self, filepath: str, result: DocumentExtractionResult) -> DocumentExtractionResult:
-        """Extract XLSX using openpyxl."""
+        """Extract XLSX using openpyxl (with calamine fast-path)."""
+        # v6.5.0: Calamine fast-path (Rust-based, 10-100x faster than openpyxl)
+        _sheet_data = None  # dict: sheet_name -> list of non-empty str_rows
+        _sheet_names = []
         try:
-            from openpyxl import load_workbook
-        except ImportError:
-            result.warnings.append("openpyxl not available for XLSX extraction")
-            return result
-        
-        wb = load_workbook(filepath, data_only=True)
+            from python_calamine import CalamineWorkbook
+            _cal_wb = CalamineWorkbook.from_path(filepath)
+            _sheet_names = _cal_wb.sheet_names
+            _sheet_data = {}
+            for _sn in _sheet_names:
+                raw_rows = _cal_wb.get_sheet_by_name(_sn).to_python()
+                sheet_rows = []
+                for row in raw_rows:
+                    row_data = [str(cell) if cell is not None else '' for cell in row]
+                    if any(cell.strip() for cell in row_data):
+                        sheet_rows.append(row_data)
+                _sheet_data[_sn] = sheet_rows
+        except Exception:
+            _sheet_data = None
+
+        # Fallback: openpyxl
+        if _sheet_data is None:
+            try:
+                from openpyxl import load_workbook
+            except ImportError:
+                result.warnings.append("openpyxl not available for XLSX extraction")
+                return result
+            wb = load_workbook(filepath, data_only=True, read_only=True)
+            _sheet_names = list(wb.sheetnames)
+            _sheet_data = {}
+            for _sn in _sheet_names:
+                ws = wb[_sn]
+                sheet_rows = []
+                for row in ws.iter_rows(values_only=True):
+                    row_data = [str(cell) if cell is not None else '' for cell in row]
+                    if any(cell.strip() for cell in row_data):
+                        sheet_rows.append(row_data)
+                _sheet_data[_sn] = sheet_rows
+            wb.close()
+
         all_text = []
         para_num = 0
-        
-        for sheet_num, sheet_name in enumerate(wb.sheetnames, 1):
-            sheet = wb[sheet_name]
-            rows = []
-            
-            for row in sheet.iter_rows(values_only=True):
-                row_data = [str(cell) if cell is not None else '' for cell in row]
-                if any(cell.strip() for cell in row_data):
-                    rows.append(row_data)
-            
+
+        for sheet_num, sheet_name in enumerate(_sheet_names, 1):
+            rows = _sheet_data[sheet_name]
+
             if rows:
                 result.tables.append(ExtractedTable(
                     table_id=sheet_num,
@@ -1033,7 +1169,7 @@ class DoclingExtractor:
                     rows=rows[1:] if len(rows) > 1 else [],
                     caption=sheet_name
                 ))
-                
+
                 # Add cells to paragraphs
                 for row_idx, row in enumerate(rows):
                     for col_idx, cell in enumerate(row):
@@ -1046,9 +1182,9 @@ class DoclingExtractor:
                                 page_number=sheet_num,
                                 paragraph_type="table_cell"
                             ))
-        
+
         result.full_text = "\n".join(all_text)
-        result.page_count = len(wb.sheetnames)
+        result.page_count = len(_sheet_names)
         return result
     
     def _extract_html_legacy(self, filepath: str, result: DocumentExtractionResult) -> DocumentExtractionResult:

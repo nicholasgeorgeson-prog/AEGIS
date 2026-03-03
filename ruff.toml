@@ -1,0 +1,35 @@
+# AEGIS Ruff Linter Configuration
+# https://docs.astral.sh/ruff/
+
+target-version = "py310"
+line-length = 120
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort (import ordering)
+    "S",   # flake8-bandit (security)
+    "B",   # flake8-bugbear (common bugs)
+    "UP",  # pyupgrade (Python 3.10+ idioms)
+]
+
+ignore = [
+    "E501",  # line too long — handled by line-length setting
+    "S101",  # assert usage — acceptable in tests
+    "S603",  # subprocess without shell=True — intentional in AEGIS
+    "S607",  # partial executable path — acceptable for local tools
+    "B905",  # zip without strict= — Python 3.10 compat
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["S101"]          # allow assert in tests
+"apply_v*.py" = ["S603"]     # apply scripts use subprocess
+"archive/*" = ["ALL"]        # skip archived files entirely
+
+[lint.isort]
+known-first-party = [
+    "core", "database", "scan_history", "config_logging",
+    "auth_service", "sharepoint_connector",
+]

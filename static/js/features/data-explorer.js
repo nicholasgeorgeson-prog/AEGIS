@@ -3430,7 +3430,7 @@ TWR.DataExplorer = (function() {
                 const role2Docs = new Set(Object.keys(matrixData.connections[role2Id] || {}));
 
                 // Find intersection
-                const sharedDocs = [...role1Docs].filter(d => role2Docs.has(d));
+                const sharedDocs = [...role1Docs.intersection(role2Docs)]; // v6.5.0: ES2025 Set method
 
                 if (sharedDocs.length > 0) {
                     rolePairs.push({
@@ -3587,7 +3587,7 @@ TWR.DataExplorer = (function() {
             });
 
             // Find shared documents
-            const sharedDocs = [...connectedDocIds].filter(docId => otherDocIds.has(docId));
+            const sharedDocs = [...connectedDocIds.intersection(otherDocIds)]; // v6.5.0: ES2025 Set method
             if (sharedDocs.length > 0) {
                 // Get document names
                 const sharedDocNames = sharedDocs.map(docId => {

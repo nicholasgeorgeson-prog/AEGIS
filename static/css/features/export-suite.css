@@ -4,6 +4,23 @@
  */
 
 /* ============================================================
+   v6.5.0: Apply Fixes group — visible only when DOCX format selected
+   Uses CSS :has() to react to radio :checked state — no JS needed
+   ============================================================ */
+#apply-fixes-group {
+    display: none;
+}
+body:has(input[name="export-format"][value="docx"]:checked) #apply-fixes-group {
+    display: block;
+}
+
+/* v6.5.0: Container Queries for export modal content */
+#modal-export .modal-content {
+    container-type: inline-size;
+    container-name: export-modal;
+}
+
+/* ============================================================
    Export Format Grid — 5 cards in a row
    ============================================================ */
 .export-format-group {
@@ -237,7 +254,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 100000;
+    z-index: var(--z-modal-top);
     backdrop-filter: blur(4px);
     opacity: 0;
     pointer-events: none;
@@ -385,6 +402,22 @@
 @media (max-width: 640px) {
     .export-format-group {
         grid-template-columns: 1fr 1fr;
+    }
+    .export-filter-row {
+        flex-direction: column;
+    }
+}
+
+/* v6.5.0: Container Queries — respond to modal width, not viewport */
+@container export-modal (max-width: 800px) {
+    .export-format-group {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@container export-modal (max-width: 550px) {
+    .export-format-group {
+        grid-template-columns: repeat(2, 1fr);
     }
     .export-filter-row {
         flex-direction: column;

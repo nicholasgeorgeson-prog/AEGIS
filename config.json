@@ -1,0 +1,38 @@
+{
+  "hyperlink_settings": {
+    "validation_mode": "validator"
+  },
+  "reviewer_name": "AEGIS",
+  "default_checks": {
+    "check_acronyms": true,
+    "check_passive_voice": true,
+    "check_weak_language": true,
+    "check_wordy_phrases": true,
+    "check_nominalization": true,
+    "check_jargon": true,
+    "check_ambiguous_pronouns": true,
+    "check_requirements_language": true,
+    "check_gender_language": true,
+    "check_punctuation": true,
+    "check_sentence_length": true,
+    "check_repeated_words": true,
+    "check_capitalization": true,
+    "check_contractions": true,
+    "check_references": true,
+    "check_document_structure": true,
+    "check_tables_figures": true,
+    "check_track_changes": true,
+    "check_consistency": true,
+    "check_lists": true
+  },
+  "acronym_settings": {
+    "ignore_common_acronyms": false
+  },
+  "learningEnabled": true,
+  "docling_settings": {
+    "use_v2_api": false,
+    "table_mode": "accurate",
+    "enable_ocr": false,
+    "ocr_engine": "easyocr"
+  }
+}

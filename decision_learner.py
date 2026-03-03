@@ -69,8 +69,11 @@ class DecisionLearner:
                 timeout=30.0
             )
             self._local.connection.row_factory = sqlite3.Row
+            self._local.connection.execute("PRAGMA journal_mode=WAL")
+            self._local.connection.execute("PRAGMA synchronous=NORMAL")
+            self._local.connection.execute("PRAGMA temp_store=MEMORY")
         return self._local.connection
-    
+
     @contextmanager
     def _db_cursor(self):
         """Thread-safe cursor context manager."""
