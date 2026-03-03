@@ -13284,7 +13284,12 @@ STEPS TO REPRODUCE
                             library_path: spLibraryPath?.value?.trim() || '',
                             recursive: spRecursive?.checked ?? true,
                             max_files: 500,
-                            discover_only: true,  // v6.1.11: Return file list for user selection
+                            // v6.3.15: discover_only REMOVED. When absent, backend defaults to False,
+                            // which makes ALL backend versions (old and new) start the scan immediately
+                            // and return scan_id. The v6.3.13 backend ignores this flag anyway, but
+                            // removing it ensures it works even if old code is in memory after a
+                            // failed server restart. Combined with the scan_id check at line 13340,
+                            // this gives end-to-end auto-scan without any second request.
                         })
                     });
                     const json = await resp.json();
@@ -13315,8 +13320,8 @@ STEPS TO REPRODUCE
                         }
 
                         const disc = d.discovery;
-                        console.log('%c[AEGIS SP] Connect & Scan response received', 'color:#22c55e;font-weight:bold;font-size:13px;');
-                        console.log('[AEGIS SP] discovery:', disc ? ('supported_files=' + disc.supported_files + ' files_count=' + (disc.files||[]).length) : 'null');
+                        console.log('%c[AEGIS SP] ═══ app.js v6.3.15 ═══ discover_only REMOVED — auto-scan active', 'color:#D6A84A;font-weight:bold;font-size:14px;background:#1B2838;padding:2px 8px;border-radius:4px;');
+                        console.log('[AEGIS SP] response scan_id:', d.scan_id || '(none)', '| discovery:', disc ? ('supported_files=' + disc.supported_files + ' files_count=' + (disc.files||[]).length) : 'null');
                         if (disc && disc.supported_files > 0) {
                             // Show file preview stats
                             let html = `<div class="folder-scan-stats">`;

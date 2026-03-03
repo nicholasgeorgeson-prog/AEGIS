@@ -2644,17 +2644,26 @@ def sharepoint_test():
 def sharepoint_connect_and_scan():
     """
     v5.9.38: Combined Connect + Discover + Scan endpoint.
-    Replaces the multi-step Test → Preview → Scan flow with a single call.
+    v6.3.15: discover_only flag removed from JS. All paths auto-start scan.
 
     Steps:
     1. Parse URL to extract site_url and optional library path
     2. Connect and test authentication
     3. Auto-detect library path if not provided
     4. Discover files in the library
-    5. Start async scan of discovered files
+    5. Start async scan of discovered files (ALWAYS — v6.3.13+)
 
     Returns scan_id + discovery results immediately, scan runs in background.
     """
+    # v6.3.15: Write to sharepoint logger for deployment verification
+    # (sharepoint.log is confirmed captured in diagnostics)
+    try:
+        import logging as _logging
+        _sp_diag = _logging.getLogger('aegis.sharepoint')
+        _sp_diag.info('[ROUTE] ═══ review_routes.py v6.3.15 ═══ sharepoint_connect_and_scan ENTRY — auto-scan always active')
+    except Exception:
+        pass
+
     SPConnector, sp_parse_url = _get_sharepoint_connector()
     if SPConnector is None:
         return jsonify({
@@ -2877,20 +2886,17 @@ def sharepoint_connect_and_scan():
         f['size_human'] = _human_size(f.get('size', 0))
 
     # v6.3.13: IGNORE discover_only — always start scan immediately.
-    #
-    # The discover_only flag was designed for a two-request flow (discover → select
-    # files → trigger scan). Corporate DLP/proxy blocks ALL second requests, so the
-    # trigger never arrives. Instead of returning a file list and waiting for a scan
-    # trigger, we ALWAYS start scanning immediately. The response format matches the
-    # normal "scan started" path — no discover_only flag — so the cached browser JS
-    # enters its "scan started" code path and shows the progress dashboard.
-    #
-    # Combined with the progress endpoint fallback (v6.3.12), this gives end-to-end
-    # visibility: discovery → auto-scan → dashboard → progress polling → results.
-    # Zero new JavaScript required. Works with any cached JS version.
+    # v6.3.15: Frontend no longer sends discover_only at all, so this is
+    # belt-and-suspenders. Both old and new code paths converge here.
 
     # Generate scan_id and start the scan
     scan_id = uuid.uuid4().hex[:12]
+    try:
+        import logging as _logging
+        _sp_diag2 = _logging.getLogger('aegis.sharepoint')
+        _sp_diag2.info(f'[ROUTE] ═══ SCAN STARTING ═══ scan_id={scan_id}, files={len(files)}, discover_only={discover_only}')
+    except Exception:
+        pass
 
     with _folder_scan_state_lock:
         _cleanup_old_scans()

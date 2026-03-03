@@ -1,13 +1,23 @@
 {
-  "version": "6.3.14",
+  "version": "6.3.15",
   "release_date": "2026-03-02",
-  "core_version": "6.3.14",
+  "core_version": "6.3.15",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.3.15",
+      "date": "2026-03-02",
+      "changes": [
+        "FIX: Root cause found — discover_only:true in JS caused old backend code to return files without scan_id (server restart didn't reload Python)",
+        "FIX: Removed discover_only:true from JS POST body — backend defaults to False, making ALL backend versions (old+new) auto-start scan",
+        "DIAG: Added v6.3.15 version markers to sharepoint.log at both endpoint entry and scan start — confirms which code is loaded",
+        "DIAG: Frontend console logs version banner with gold AEGIS branding — confirms which app.js is running"
+      ]
+    },
     {
       "version": "6.3.14",
       "date": "2026-03-02",
