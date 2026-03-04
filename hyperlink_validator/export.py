@@ -1081,7 +1081,7 @@ def export_highlighted_excel_multicolor(
             ca = getattr(r, 'cell_address', '') or ''
             if sn and ca:
                 # Extract row number from cell_address like "C5" → 5
-                                row_match = re.search(r'(\d+)$', ca)
+                row_match = re.search(r'(\d+)$', ca)
                 if row_match:
                     row_num = int(row_match.group(1))
                     key = (sn, row_num)

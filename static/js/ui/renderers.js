@@ -483,7 +483,7 @@ TWR.Renderers = (function() {
             refreshIcons();
             updatePagination(1, _renderedCount, State.filteredIssues.length);
 
-            var filteredTotal = document.getElementById('filtered-total');
+            let filteredTotal = document.getElementById('filtered-total');
             if (filteredTotal) filteredTotal.textContent = State.filteredIssues.length;
             keyboardSelectedIndex = -1;
             return;

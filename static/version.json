@@ -1,13 +1,28 @@
 {
-  "version": "6.6.2",
-  "release_date": "2026-03-03",
-  "core_version": "6.6.2",
+  "version": "6.6.3",
+  "release_date": "2026-03-04",
+  "core_version": "6.6.3",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.6.3",
+      "date": "2026-03-04",
+      "changes": [
+        "CRITICAL FIX: SP scan hang — zero-import thread wrapper. Background daemon thread died before executing ANY code due to RecursionError from scikit-learn/nltk/sentence-transformers corrupting Python import machinery. Fix: all module references pre-bound as default arguments at function DEFINITION time, bypassing import machinery entirely at thread runtime",
+        "FIX: Zombie module cleanup — raises recursion limit to 5000 during sp_repository_manager import, cleans zombie modules from sys.modules after RecursionError (sklearn, nltk, sentence_transformers, torch, transformers, huggingface_hub, tokenizers)",
+        "FIX: daemon=True → daemon=False at 3 SPO thread spawn sites — prevents Python from silently killing scan threads on shutdown",
+        "FIX: Proof-of-life marker file (logs/sp_thread_alive_<scan_id>.marker) written as absolute first action using raw OS I/O with zero dependencies",
+        "FIX: BaseException catch with raw OS file crash reporter (logs/sp_thread_crash_<scan_id>.log) for diagnosing future thread deaths",
+        "FIX: export.py IndentationError at line 1084 — row_match regex had 40-space indent instead of 16, caused 500 error on Export Highlighted Excel",
+        "FIX: renderers.js SyntaxError — duplicate filteredTotal declaration (var at line 486 conflicted with const at line 502), changed var to let",
+        "FIX: landing-dashboard.css MIME type error — missing link tag in index.html caused 404 fallback to JSON response",
+        "FIX: logo.svg 404 — file added to GitHub repository"
+      ]
+    },
     {
       "version": "6.6.2",
       "date": "2026-03-03",

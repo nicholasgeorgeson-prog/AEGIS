@@ -10,6 +10,7 @@ import json
 import tempfile
 import time
 import signal
+import logging
 from datetime import datetime
 from pathlib import Path
 from routes._shared import (
@@ -68,16 +69,36 @@ except ImportError:
     JobPhase = None
 
 # v6.6.0: SP Repository Manager — persistent local copies of SP documents
+# v6.6.3: Raise recursion limit before import — scikit-learn/nltk/sentence-transformers
+# on Windows fail with "maximum recursion depth exceeded in comparison" which corrupts
+# Python's import machinery, leaving zombie modules in sys.modules (Lesson 182).
+_orig_recursion_limit = sys.getrecursionlimit()
 try:
+    sys.setrecursionlimit(max(5000, _orig_recursion_limit))
     from sp_repository_manager import SPRepositoryManager, get_repository
     _REPO_AVAILABLE = True
 except Exception as _repo_err:
     # Catch ALL exceptions (not just ImportError) — scikit-learn/nltk recursion errors
-    # on Windows can propagate through import chains (Lesson 181)
+    # on Windows can propagate through import chains (Lesson 182)
     _REPO_AVAILABLE = False
     get_repository = None
     import logging as _rl
     _rl.getLogger('aegis').warning(f'SP Repository Manager unavailable: {_repo_err}')
+    # v6.6.3: Clean zombie modules left by RecursionError — partially-initialized modules
+    # stay in sys.modules and block future imports or cause deadlocks in threads
+    _zombie_prefixes = ('sklearn', 'nltk', 'sentence_transformers', 'torch',
+                        'transformers', 'huggingface_hub', 'tokenizers')
+    _zombies = [k for k in sys.modules if any(k == p or k.startswith(p + '.') for p in _zombie_prefixes)
+                and getattr(sys.modules[k], '__spec__', 'MISSING') == 'MISSING']
+    for _zk in _zombies:
+        try:
+            del sys.modules[_zk]
+        except Exception:
+            pass
+    if _zombies:
+        _rl.getLogger('aegis').warning(f'Cleaned {len(_zombies)} zombie modules from sys.modules')
+finally:
+    sys.setrecursionlimit(_orig_recursion_limit)
 
 
 def get_scan_history_db():
@@ -2978,7 +2999,7 @@ def sharepoint_connect_and_scan():
         target=_process_sharepoint_scan_async,
         args=(scan_id, None, files, options, flask_app),
         kwargs={'site_url': actual_site_url, 'connector_type': connector_type, 'library_path': library_path},
-        daemon=True,
+        daemon=False,
         name=f'sp-scan-{scan_id}',
     )
     thread.start()
@@ -3161,7 +3182,7 @@ def sharepoint_scan_selected():
             'connector_type': connector_type,
             'library_path': library_path,
         },
-        daemon=True,
+        daemon=False,
         name=f'sp-scan-selected-{scan_id}',
     )
     thread.start()
@@ -3409,7 +3430,7 @@ def sharepoint_scan_start():
         target=_process_sharepoint_scan_async,
         args=(scan_id, connector, files, options, flask_app),
         kwargs={'site_url': actual_site_url, 'connector_type': 'rest', 'library_path': library_path},
-        daemon=True,
+        daemon=False,
         name=f'sp-scan-{scan_id}',
     )
     thread.start()
@@ -3435,32 +3456,51 @@ def sharepoint_scan_start():
 
 
 def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app,
-                                    site_url=None, connector_type=None, library_path=None):
+                                    site_url=None, connector_type=None, library_path=None,
+                                    # v6.6.3: PRE-BOUND module refs — evaluated at function DEFINITION
+                                    # time (during healthy module load), NOT at thread execution time.
+                                    # This avoids ALL import machinery in the thread, which deadlocks
+                                    # when RecursionError from scikit-learn/nltk leaves zombie modules
+                                    # and unreleased import locks in sys.modules.
+                                    _traceback=traceback, _logging=logging, _os=os,
+                                    _time=time, _logger=logger,
+                                    _state_lock=_folder_scan_state_lock,
+                                    _state_dict=_folder_scan_state):
     """
-    Background thread wrapper: catches ALL unhandled exceptions to prevent silent daemon death.
+    Background thread wrapper: catches ALL unhandled exceptions to prevent silent thread death.
     v6.6.1: Wraps _process_sharepoint_scan_inner() with top-level crash protection.
     v6.6.2: Dual-logger — writes to BOTH routes.log AND sharepoint.log for visibility.
+    v6.6.3: ZERO import statements in function body. All module references pre-bound as
+            default arguments to bypass Python's import machinery entirely. Catches BaseException.
+            Writes proof-of-life marker file as absolute first action using raw OS I/O.
     """
-    import traceback
-    import logging as _blog
-
-    # v6.6.2: CRITICAL — sharepoint logger writes to sharepoint.log (included in diagnostics).
-    # The routes logger (from _shared.py) writes to routes.log which was INVISIBLE in all
-    # prior diagnostic exports, making background thread crashes completely undetectable.
-    _sp_log = _blog.getLogger('aegis.sharepoint')
-
-    # v6.6.2: Version-stamped alive proof — FIRST thing written to sharepoint.log
+    # ──── PROOF OF LIFE — absolute first action, raw OS I/O, zero dependencies ────
+    _marker_path = None
     try:
-        _sp_log.info(f'[BG-THREAD] ═══ v6.6.2 ═══ SP scan {scan_id}: Thread ALIVE '
+        _base = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+        _logs_dir = _os.path.join(_base, 'logs')
+        if not _os.path.isdir(_logs_dir):
+            _os.makedirs(_logs_dir, exist_ok=True)
+        _marker_path = _os.path.join(_logs_dir, f'sp_thread_alive_{scan_id}.marker')
+        _fd = _os.open(_marker_path, _os.O_WRONLY | _os.O_CREAT | _os.O_TRUNC)
+        _os.write(_fd, f'ALIVE {scan_id} t={_time.time()}\n'.encode())
+        _os.close(_fd)
+    except Exception:
+        pass  # If even raw I/O fails, continue — logging below may still work
+
+    # ──── Loggers — NO import statements, use pre-bound _logging ────
+    _sp_log = _logging.getLogger('aegis.sharepoint')
+
+    try:
+        _sp_log.info(f'[BG-THREAD] ═══ v6.6.3 ═══ SP scan {scan_id}: Thread ALIVE '
                      f'(site_url={site_url}, type={connector_type}, files={len(files)}, '
                      f'connector={"provided" if connector else "None"}, '
                      f'repo_available={_REPO_AVAILABLE})')
     except Exception:
         pass
 
-    # Also log to routes.log for completeness
     try:
-        logger.info(f"SP scan {scan_id}: Background thread started "
+        _logger.info(f"SP scan {scan_id}: Background thread started "
                      f"(site_url={site_url}, connector_type={connector_type}, "
                      f"library_path={library_path}, files={len(files)}, "
                      f"connector={'provided' if connector else 'None'}, "
@@ -3468,35 +3508,55 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
     except Exception:
         pass
 
+    # ──── Call inner function — accessed via LOAD_GLOBAL (dict lookup, not import) ────
     try:
         _process_sharepoint_scan_inner(
             scan_id, connector, files, options, flask_app,
             site_url=site_url, connector_type=connector_type, library_path=library_path,
             _sp_log=_sp_log
         )
-    except Exception as e:
-        # v6.6.1: Catch-all for unhandled errors — prevents silent daemon death
+    except BaseException as e:
+        # v6.6.3: Catch BaseException (not just Exception) — catches SystemExit,
+        # KeyboardInterrupt, RecursionError, and any other fatal error
         tb_str = 'unknown'
         try:
-            tb_str = traceback.format_exc()
+            tb_str = _traceback.format_exc()
         except Exception:
-            pass
-        # v6.6.2: Log to BOTH loggers
+            try:
+                tb_str = f'{type(e).__name__}: {e}'
+            except Exception:
+                tb_str = 'unknown (traceback unavailable)'
+
+        # Log to BOTH loggers
         try:
             _sp_log.error(f'[BG-THREAD] SP scan {scan_id}: FATAL ERROR: {tb_str}')
         except Exception:
             pass
         try:
-            logger.error(f"SP scan {scan_id}: FATAL unhandled error in background thread: {tb_str}")
+            _logger.error(f"SP scan {scan_id}: FATAL unhandled error in background thread: {tb_str}")
         except Exception:
             pass
+
+        # Last-resort: write crash info to file using raw OS I/O
         try:
-            with _folder_scan_state_lock:
-                state = _folder_scan_state.get(scan_id)
+            _crash_path = _os.path.join(
+                _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
+                'logs', f'sp_thread_crash_{scan_id}.log'
+            )
+            _cfd = _os.open(_crash_path, _os.O_WRONLY | _os.O_CREAT | _os.O_TRUNC)
+            _os.write(_cfd, f'CRASH {scan_id} t={_time.time()}\n{tb_str}\n'.encode())
+            _os.close(_cfd)
+        except Exception:
+            pass
+
+        # Update scan state to error
+        try:
+            with _state_lock:
+                state = _state_dict.get(scan_id)
                 if state and state.get('phase') not in ('complete', 'error'):
                     state['phase'] = 'error'
                     state['error_message'] = f'Fatal error: {str(e)[:200]}'
-                    state['completed_at'] = time.time()
+                    state['completed_at'] = _time.time()
                     state['current_file'] = None
         except Exception:
             pass
