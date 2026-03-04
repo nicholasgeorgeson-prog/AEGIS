@@ -2954,10 +2954,29 @@ def sharepoint_connect_and_scan():
         }
 
     # Phase 2: Spawn background thread
+    # v6.6.2: CRITICAL FIX — Close the discovery connector before passing to thread.
+    # Playwright sync API is single-threaded: browser objects created in the request
+    # thread CANNOT be used from a background thread (silent segfault/crash).
+    # Pass connector=None so the background thread creates its OWN HeadlessSPConnector
+    # via the v6.2.9 safe path (line ~3529), which works correctly because Playwright
+    # is initialized on the same thread that uses it.
+    if connector is not None:
+        try:
+            _sp_diag2 = logging.getLogger('aegis.sharepoint')
+            _sp_diag2.info(f'[ROUTE] Closing discovery connector before thread spawn '
+                           f'(type={type(connector).__name__}) — BG thread will create its own')
+        except Exception:
+            pass
+        try:
+            connector.close()
+        except Exception:
+            pass
+        connector = None
+
     flask_app = current_app._get_current_object()
     thread = threading.Thread(
         target=_process_sharepoint_scan_async,
-        args=(scan_id, connector, files, options, flask_app),
+        args=(scan_id, None, files, options, flask_app),
         kwargs={'site_url': actual_site_url, 'connector_type': connector_type, 'library_path': library_path},
         daemon=True,
         name=f'sp-scan-{scan_id}',

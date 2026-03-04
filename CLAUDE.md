@@ -1808,8 +1808,31 @@ If `sharepoint.log` shows "v6.3.15" after update, code WAS reloaded. If it shows
 **Files**: `routes/review_routes.py`
 **Lesson**: Background threads (especially daemon threads) MUST have a top-level catch-all exception handler that logs the error and updates shared state. Without it, the thread dies silently and any polling-based UI will show a frozen state forever. When passing kwargs to `threading.Thread`, use the `kwargs=` parameter explicitly — positional `args=` does NOT deliver keyword arguments. When guarding imports with `try/except ImportError`, use `except Exception` instead if the imported module has transitive dependencies that can raise non-ImportError exceptions (RecursionError from circular imports, OSError from file access, etc.).
 
+### 183. Playwright Cross-Thread Silent Crash — Close Discovery Connector Before Thread Spawn (v6.6.2)
+**Problem**: SharePoint batch scan hung immediately after "SCAN STARTING" log entry. Background thread produced ZERO log entries despite crash protection wrapper code — thread died before executing its first instruction.
+**Root Cause**: `HeadlessSPConnector` was created in the Flask **request handler thread** (line 2741) during discovery. The live connector (containing Playwright `_page`, `_context`, `_playwright` handles) was passed directly to a **daemon background thread** via `threading.Thread(args=(scan_id, connector, ...))`. HeadlessSPConnector's docstring explicitly warns: "Playwright sync API is single-threaded. All browser operations must happen on the same thread." When the background thread attempted ANY Playwright operation (`self._page.evaluate()`, `self._page.goto()`), it triggered a silent segfault/crash that killed the daemon thread instantly — before even the crash protection wrapper's first `try:` block could execute.
+**Evidence chain**: (1) sharepoint.log showed 3 scan attempts, ALL with successful discovery → "SCAN STARTING" → ZERO `[BG-THREAD]` entries. (2) The v6.2.9 safe path (line ~3529) already existed to create a HeadlessSPConnector in the background thread when `connector is None` — but this path was BYPASSED because connector was non-None. (3) HeadlessSPConnector's own docstring: "All browser operations must happen on the same thread."
+**Fix**: Close the discovery connector before thread spawn, pass `connector=None`:
+```python
+if connector is not None:
+    try:
+        connector.close()
+    except Exception:
+        pass
+    connector = None
+thread = threading.Thread(
+    target=_process_sharepoint_scan_async,
+    args=(scan_id, None, files, options, flask_app),  # None forces v6.2.9 safe path
+    ...
+)
+```
+The background thread now hits the `connector is None` branch and creates its OWN HeadlessSPConnector on the correct thread via the existing v6.2.9 safe path.
+**Why crash protection didn't help**: Playwright segfaults happen at the C/FFI level (Playwright communicates with the browser process via IPC). A C-level segfault kills the thread immediately without raising a Python exception — `try/except Exception` cannot catch it. The only fix is to prevent the cross-thread access entirely.
+**Files**: `routes/review_routes.py` (lines ~2956-2989)
+**Lesson**: NEVER pass a Playwright browser/page/context object across thread boundaries. Playwright sync API objects are bound to the thread that created them. If a background thread needs Playwright, it MUST create its own instance. The pattern is: (1) discovery thread creates connector → uses it → closes it, (2) background thread creates a FRESH connector on its own thread. This applies to ANY Playwright-based connector (HeadlessSPConnector, HeadlessValidator, etc.). Silent segfaults from cross-thread Playwright access produce ZERO Python-level evidence — no exception, no traceback, no log entry. The only diagnostic clue is the ABSENCE of expected log entries from the background thread.
+
 ### 151 (Updated). Version Management Update
-- **Current version**: 6.6.1
+- **Current version**: 6.6.2
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

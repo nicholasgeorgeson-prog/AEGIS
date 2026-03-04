@@ -12,6 +12,7 @@
       "version": "6.6.2",
       "date": "2026-03-03",
       "changes": [
+        "CRITICAL FIX: SP scan hang — Playwright cross-thread crash. Discovery connector created in Flask request thread was passed to daemon background thread; Playwright sync API is single-threaded and silently segfaults when used from wrong thread. Fix: close discovery connector before thread spawn, pass connector=None so background thread creates its own via v6.2.9 safe path",
         "FIX: SP scan invisible logging — background thread logged to routes.log (never examined), not sharepoint.log. Added dual-logging via _sp_log at 15+ critical milestones",
         "FIX: Missing Flask app context — background thread inner function now pushes Flask app context for entire lifetime, preventing silent crashes from Flask-dependent code",
         "DIAG: _sp_log entries at every connector strategy (HeadlessSP, REST, fallback), phase transitions (download start/complete, scan start/complete), per-file progress (every 10th file), and fatal errors",
