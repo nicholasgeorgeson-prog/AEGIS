@@ -52,7 +52,7 @@ from urllib.parse import parse_qs, urlparse
 # CONSTANTS & CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════
 
-MANAGER_VERSION = "2.3.2"
+MANAGER_VERSION = "2.3.3"
 
 # GitHub
 REPO_OWNER = "nicholasgeorgeson-prog"
@@ -1281,16 +1281,25 @@ class PackageManager:
             return
 
         C.warn('pkg_resources missing (setuptools v82+ removed it)')
-        C.info('Attempting to install setuptools<81...')
+        C.info('Attempting to install setuptools 80.10.2...')
 
-        # Try wheel directories first
+        # Try wheel directories first — filter OUT v82+ (broken)
         wheels_dirs = self.find_wheels_dirs()
         if wheels_dirs:
             for wd in wheels_dirs:
-                whls = glob.glob(os.path.join(wd, 'setuptools-8*.whl'))
-                whls.extend(glob.glob(os.path.join(wd, 'setuptools-7*.whl')))
-                whls.extend(glob.glob(os.path.join(wd, 'setuptools-6*.whl')))
-                for whl in sorted(whls, reverse=True):
+                whls = glob.glob(os.path.join(wd, 'setuptools-*.whl'))
+                # Filter out v82+ which removed pkg_resources
+                safe_whls = []
+                for w in whls:
+                    bn = os.path.basename(w).lower()
+                    # Extract version: setuptools-80.10.2-py3-none-any.whl → 80
+                    try:
+                        major = int(bn.split('-')[1].split('.')[0])
+                        if major < 82:
+                            safe_whls.append(w)
+                    except (IndexError, ValueError):
+                        pass
+                for whl in sorted(safe_whls, reverse=True):
                     whl_name = os.path.basename(whl)
                     cmd = [self._python_exe, '-m', 'pip', 'install',
                            '--force-reinstall', '--no-warn-script-location', whl]
@@ -1301,8 +1310,8 @@ class PackageManager:
                             C.ok('setuptools fixed from wheel')
                             return
 
-        # Online fallback
-        success, method = self.pip_install(['setuptools<81'], force=True)
+        # Online fallback — pin exact version (not open constraint)
+        success, method = self.pip_install(['setuptools==80.10.2'], force=True)
         if success:
             ok2, _ = self.check_import('pkg_resources')
             if ok2:
@@ -1461,9 +1470,9 @@ class PackageManager:
         C.header(f'[Phase 3] Repairing {len(failed) + len(optional_failed)} package(s)')
         failed_names = [n for n, _ in failed]
 
-        # Step 3a: setuptools
+        # Step 3a: setuptools (pin to 80.10.2 — v82+ removed pkg_resources)
         if 'setuptools' in failed_names:
-            self.pip_install(['setuptools<81'], force=True)
+            self.pip_install(['setuptools==80.10.2'], force=True)
 
         # Step 3b: Priority deps (colorama, typer)
         priority = [n for n in ['colorama', 'typer'] if n in failed_names]
