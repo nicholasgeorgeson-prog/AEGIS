@@ -2,6 +2,8 @@ from flask import Blueprint, request, jsonify, g, send_file, make_response, curr
 import io
 import os
 import sys
+import gc
+import hashlib
 import traceback
 import threading
 import multiprocessing
@@ -11,6 +13,7 @@ import tempfile
 import time
 import signal
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 from routes._shared import (
@@ -2701,7 +2704,7 @@ def sharepoint_connect_and_scan():
     try:
         import logging as _logging
         _sp_diag = _logging.getLogger('aegis.sharepoint')
-        _sp_diag.info('[ROUTE] ═══ review_routes.py v6.3.15 ═══ sharepoint_connect_and_scan ENTRY — auto-scan always active')
+        _sp_diag.info('[ROUTE] ═══ review_routes.py v6.6.4 ═══ sharepoint_connect_and_scan ENTRY — auto-scan always active')
     except Exception:
         pass
 
@@ -3003,6 +3006,19 @@ def sharepoint_connect_and_scan():
         name=f'sp-scan-{scan_id}',
     )
     thread.start()
+
+    # v6.6.4: Verify thread actually started — detect instant death
+    time.sleep(0.3)
+    if not thread.is_alive():
+        _sp_diag = logging.getLogger('aegis.sharepoint')
+        _sp_diag.error(f'[ROUTE] *** THREAD DEAD ON ARRIVAL *** scan_id={scan_id} — '
+                       f'thread {thread.name} died within 300ms of start')
+        # Update scan state so dashboard shows error instead of hanging
+        with _folder_scan_state_lock:
+            st = _folder_scan_state.get(scan_id)
+            if st:
+                st['phase'] = 'error'
+                st['error_message'] = 'Background scan thread died immediately — check sharepoint.log'
 
     logger.info(f"SharePoint connect-and-scan {scan_id}: {len(files)} files from {library_path} "
                 f"(site_url={actual_site_url}, connector_type={connector_type})")
@@ -3465,7 +3481,15 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
                                     _traceback=traceback, _logging=logging, _os=os,
                                     _time=time, _logger=logger,
                                     _state_lock=_folder_scan_state_lock,
-                                    _state_dict=_folder_scan_state):
+                                    _state_dict=_folder_scan_state,
+                                    # v6.6.4: Pre-bind sys + stdlib modules needed by inner function.
+                                    # The recursion limit resets to default (~1000) at module-level
+                                    # line 101 BEFORE any thread runs. Inner function's import
+                                    # statements (gc, hashlib, concurrent.futures, sharepoint_connector)
+                                    # can trigger RecursionError at that low limit. Pre-bind everything.
+                                    _sys=sys, _gc=gc, _hashlib=hashlib,
+                                    _ThreadPoolExecutor=ThreadPoolExecutor,
+                                    _as_completed=as_completed):
     """
     Background thread wrapper: catches ALL unhandled exceptions to prevent silent thread death.
     v6.6.1: Wraps _process_sharepoint_scan_inner() with top-level crash protection.
@@ -3473,8 +3497,21 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
     v6.6.3: ZERO import statements in function body. All module references pre-bound as
             default arguments to bypass Python's import machinery entirely. Catches BaseException.
             Writes proof-of-life marker file as absolute first action using raw OS I/O.
+    v6.6.4: Pre-bind sys + gc + hashlib + ThreadPoolExecutor + as_completed as defaults.
+            Set recursion limit to 5000 as absolute first action (before proof-of-life marker).
+            Inner function receives pre-bound modules — ZERO import statements anywhere.
     """
-    # ──── PROOF OF LIFE — absolute first action, raw OS I/O, zero dependencies ────
+    # ──── RECURSION LIMIT — absolute first action, single C-call, zero import risk ────
+    # Module-level line 101 resets recursion limit to default (~1000) after the temporary
+    # raise for sp_repository_manager import. Background threads inherit this default.
+    # Broken packages (scikit-learn, nltk, sentence-transformers) trigger deep import chains
+    # that overflow at 1000 recursion depth. Setting to 5000 gives import machinery headroom.
+    try:
+        _sys.setrecursionlimit(5000)
+    except Exception:
+        pass
+
+    # ──── PROOF OF LIFE — raw OS I/O, zero dependencies ────
     _marker_path = None
     try:
         _base = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
@@ -3492,7 +3529,7 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
     _sp_log = _logging.getLogger('aegis.sharepoint')
 
     try:
-        _sp_log.info(f'[BG-THREAD] ═══ v6.6.3 ═══ SP scan {scan_id}: Thread ALIVE '
+        _sp_log.info(f'[BG-THREAD] ═══ v6.6.4 ═══ SP scan {scan_id}: Thread ALIVE '
                      f'(site_url={site_url}, type={connector_type}, files={len(files)}, '
                      f'connector={"provided" if connector else "None"}, '
                      f'repo_available={_REPO_AVAILABLE})')
@@ -3513,7 +3550,9 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
         _process_sharepoint_scan_inner(
             scan_id, connector, files, options, flask_app,
             site_url=site_url, connector_type=connector_type, library_path=library_path,
-            _sp_log=_sp_log
+            _sp_log=_sp_log,
+            _gc=_gc, _hashlib=_hashlib,
+            _ThreadPoolExecutor=_ThreadPoolExecutor, _as_completed=_as_completed
         )
     except BaseException as e:
         # v6.6.3: Catch BaseException (not just Exception) — catches SystemExit,
@@ -3564,7 +3603,9 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
 
 def _process_sharepoint_scan_inner(scan_id, connector, files, options, flask_app,
                                     site_url=None, connector_type=None, library_path=None,
-                                    _sp_log=None):
+                                    _sp_log=None,
+                                    _gc=None, _hashlib=None,
+                                    _ThreadPoolExecutor=None, _as_completed=None):
     """
     Background thread: download files from SharePoint and review with AEGIS engine.
 
@@ -3581,10 +3622,18 @@ def _process_sharepoint_scan_inner(scan_id, connector, files, options, flask_app
 
     v6.6.2: Added _sp_log for dual-logging to sharepoint.log (visible in diagnostics).
             Added Flask app context push for entire background thread.
+
+    v6.6.4: Accepts pre-bound stdlib modules from wrapper to avoid import-lock deadlocks
+            and RecursionError from broken packages.  Falls back to direct import if not
+            provided (backward compat).
     """
-    import gc
-    import hashlib
-    from concurrent.futures import ThreadPoolExecutor, as_completed
+    # v6.6.4: Use pre-bound modules if provided, else import locally (backward compat)
+    if _gc is None:
+        import gc as _gc
+    if _hashlib is None:
+        import hashlib as _hashlib
+    if _ThreadPoolExecutor is None or _as_completed is None:
+        from concurrent.futures import ThreadPoolExecutor as _ThreadPoolExecutor, as_completed as _as_completed
 
     PER_FILE_TIMEOUT = 480  # v5.9.37: 8 minutes per file
     SCAN_PER_FILE_TIMEOUT = 300  # 5 minutes for local scan only (no download)
@@ -3600,7 +3649,7 @@ def _process_sharepoint_scan_inner(scan_id, connector, files, options, flask_app
     _app_ctx = flask_app.app_context()
     _app_ctx.push()
 
-    _sp_log.info(f'[BG-INNER] v6.6.2 SP scan {scan_id}: Inner function STARTED '
+    _sp_log.info(f'[BG-INNER] v6.6.4 SP scan {scan_id}: Inner function STARTED '
                  f'(connector={"provided" if connector else "None"}, '
                  f'files={len(files)}, repo={_REPO_AVAILABLE})')
 
@@ -3800,7 +3849,7 @@ def _process_sharepoint_scan_inner(scan_id, connector, files, options, flask_app
                         # Compute hash and register in manifest
                         file_hash = ''
                         try:
-                            h = hashlib.md5()
+                            h = _hashlib.md5()
                             with open(local_path, 'rb') as f:
                                 for chunk in iter(lambda: f.read(8192), b''):
                                     h.update(chunk)
@@ -4026,7 +4075,7 @@ def _process_sharepoint_scan_inner(scan_id, connector, files, options, flask_app
                     state['current_file'] = ', '.join(chunk_names)
 
             # v6.6.0: Parallel local scan — max_workers=3 (files are local, no SP connection)
-            with ThreadPoolExecutor(max_workers=min(FOLDER_SCAN_MAX_WORKERS, len(chunk))) as executor:
+            with _ThreadPoolExecutor(max_workers=min(FOLDER_SCAN_MAX_WORKERS, len(chunk))) as executor:
                 future_to_file = {
                     executor.submit(_review_local_file, item): item
                     for item in chunk
@@ -4034,7 +4083,7 @@ def _process_sharepoint_scan_inner(scan_id, connector, files, options, flask_app
 
                 chunk_timeout = SCAN_PER_FILE_TIMEOUT * len(chunk)
                 try:
-                    for future in as_completed(future_to_file, timeout=chunk_timeout):
+                    for future in _as_completed(future_to_file, timeout=chunk_timeout):
                         item = future_to_file[future]
                         file_info, local_path = item
                         try:
@@ -4074,7 +4123,7 @@ def _process_sharepoint_scan_inner(scan_id, connector, files, options, flask_app
                                 _update_scan_state_with_result(scan_id, error_result, options, flask_app)
 
             # GC between chunks
-            gc.collect()
+            _gc.collect()
 
         # Mark scan as complete
         with _folder_scan_state_lock:

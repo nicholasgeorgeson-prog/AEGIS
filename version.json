@@ -1,13 +1,24 @@
 {
-  "version": "6.6.3",
+  "version": "6.6.4",
   "release_date": "2026-03-04",
-  "core_version": "6.6.3",
+  "core_version": "6.6.4",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.6.4",
+      "date": "2026-03-04",
+      "changes": [
+        "CRITICAL FIX: SP scan background thread — pre-bind stdlib modules (gc, hashlib, ThreadPoolExecutor, as_completed) as default arguments to avoid import-lock deadlocks and RecursionError from broken packages (scikit-learn, nltk, sentence-transformers) in background threads",
+        "FIX: Background thread sets sys.setrecursionlimit(5000) as absolute first action — prevents RecursionError cascade when inner function triggers any import",
+        "FIX: Inner function accepts pre-bound _gc, _hashlib, _ThreadPoolExecutor, _as_completed with fallback imports for backward compat — all 4 bare references replaced with pre-bound versions",
+        "FIX: Thread-alive verification — 300ms after thread.start(), checks thread.is_alive() and logs THREAD DEAD ON ARRIVAL with scan state update if thread died immediately",
+        "DIAG: Dead-on-arrival detection updates scan state to phase=error with message, preventing infinite dashboard polling on instant thread death"
+      ]
+    },
     {
       "version": "6.6.3",
       "date": "2026-03-04",

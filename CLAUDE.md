@@ -1831,8 +1831,23 @@ The background thread now hits the `connector is None` branch and creates its OW
 **Files**: `routes/review_routes.py` (lines ~2956-2989)
 **Lesson**: NEVER pass a Playwright browser/page/context object across thread boundaries. Playwright sync API objects are bound to the thread that created them. If a background thread needs Playwright, it MUST create its own instance. The pattern is: (1) discovery thread creates connector → uses it → closes it, (2) background thread creates a FRESH connector on its own thread. This applies to ANY Playwright-based connector (HeadlessSPConnector, HeadlessValidator, etc.). Silent segfaults from cross-thread Playwright access produce ZERO Python-level evidence — no exception, no traceback, no log entry. The only diagnostic clue is the ABSENCE of expected log entries from the background thread.
 
+### 184. Background Thread Import Poisoning — Pre-Bind Stdlib Modules (v6.6.4)
+**Problem**: SharePoint batch scan background thread died silently — Zero [BG-THREAD] or [BG-INNER] log entries across 5 scan attempts despite crash protection wrapper. The thread's FIRST instruction (a logger call) never executed.
+**Root Cause**: THREE compounding issues, all in `review_routes.py`:
+1. **Recursion limit reset**: Module-level `finally` block (line 101) resets `sys.setrecursionlimit()` back to default (~1000) after temporarily raising to 5000 for `sp_repository_manager` import. Background thread inherits this default.
+2. **Import-lock deadlock + RecursionError**: Inner function (`_process_sharepoint_scan_inner`) used bare `import gc`, `import hashlib`, `from concurrent.futures import ThreadPoolExecutor, as_completed` in its fallback path. On Windows, scikit-learn/nltk/sentence-transformers are broken (RecursionError at ~1000 depth). Any import in the background thread could trigger these broken packages through transitive dependency chains, causing RecursionError that kills the thread before even the crash protection wrapper's `try:` block catches it.
+3. **No dead-on-arrival detection**: After `thread.start()`, no check verified the thread was actually alive. If it died in microseconds (before any Python-level exception handler ran), the dashboard polled forever.
+**Fix**: Five-part:
+1. **Module-level imports**: Added `import gc`, `import hashlib`, `from concurrent.futures import ThreadPoolExecutor, as_completed` at the top of the file (lines 4-16), where recursion limit is still high.
+2. **Pre-bind as default args**: Wrapper function `_process_sharepoint_scan_async()` accepts `_sys=sys, _gc=gc, _hashlib=hashlib, _ThreadPoolExecutor=ThreadPoolExecutor, _as_completed=as_completed` as default arguments — evaluated at DEFINITION time (module load), not at call time (thread runtime).
+3. **Recursion limit first**: Wrapper sets `_sys.setrecursionlimit(5000)` as absolute first action, before any other code.
+4. **Inner function pre-bound**: Accepts `_gc`, `_hashlib`, `_ThreadPoolExecutor`, `_as_completed` with fallback imports for backward compat. All 4 bare references in function body replaced with `_`-prefixed versions.
+5. **Thread-alive verification**: 300ms after `thread.start()`, checks `thread.is_alive()`. If dead, logs `THREAD DEAD ON ARRIVAL` and sets scan state to `phase='error'`.
+**Files**: `routes/review_routes.py` (10 edits across module imports, wrapper, inner function, thread spawn)
+**Lesson**: When a background thread imports ANY module, it can trigger transitive imports of broken packages that overflow the recursion limit. The fix is: (1) import all needed stdlib modules at module level (before recursion limit is lowered), (2) pre-bind them as default arguments (evaluated at definition time, not call time), (3) set recursion limit as the thread's absolute first action. Never rely on `try/except` in the thread body to catch RecursionError from imports — the error can occur INSIDE the import machinery before the thread's Python-level code even starts executing. Always add dead-on-arrival detection after `thread.start()`.
+
 ### 151 (Updated). Version Management Update
-- **Current version**: 6.6.2
+- **Current version**: 6.6.4
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
