@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-AEGIS Manager v2.0.0
-====================
+AEGIS Manager
+=============
 One-stop install, update, repair, backup, and packaging tool for AEGIS.
 
 Launches a web-based GUI in the default browser with clickable buttons
@@ -15,7 +15,6 @@ Features:
   • Auto diagnostic email          • Self-update from GitHub
 
 Web UI runs on http://localhost:5051 (separate from AEGIS on :5050).
-Offline-only repair — uses bundled wheels exclusively, no internet needed.
 Zero external dependencies — Python standard library only.
 
 Created by Nicholas Georgeson for AEGIS deployment at NGC.
@@ -53,7 +52,7 @@ from urllib.parse import parse_qs, urlparse
 # CONSTANTS & CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════
 
-MANAGER_VERSION = "2.2.3"
+MANAGER_VERSION = "2.3.0"
 
 # GitHub
 REPO_OWNER = "nicholasgeorgeson-prog"
@@ -224,6 +223,28 @@ _current_operation = {           # Track background operation state
     'started': 0,
 }
 _current_operation_lock = threading.Lock()
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# MODULE-LEVEL UTILITIES
+# ═══════════════════════════════════════════════════════════════════════
+
+def _find_python(install_dir):
+    """Find the correct Python executable for the given install directory.
+
+    Checks for embedded Python (OneClick installer layout: python/python.exe)
+    first, falls back to the current interpreter.
+
+    Args:
+        install_dir: Path to the AEGIS installation root directory.
+
+    Returns:
+        Path string to the Python executable.
+    """
+    embedded = os.path.join(install_dir, 'python', 'python.exe')
+    if os.path.isfile(embedded):
+        return embedded
+    return sys.executable
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -458,16 +479,31 @@ class GitHubClient:
             # Final fallback: try subprocess curl (available on most systems)
             try:
                 curl_cmd = ['curl', '-sL', '--max-time', str(timeout)]
-                if self._pat:
-                    curl_cmd += ['-H', f'Authorization: token {self._pat}']
+                _curl_cfg = None
+                if PAT:
+                    # Write auth header to curl config file to avoid PAT exposure in process args
+                    import tempfile as _tf
+                    _curl_cfg = _tf.NamedTemporaryFile(mode='w', suffix='.cfg',
+                                                       prefix='aegis_curl_', delete=False)
+                    _curl_cfg.write(f'header = "Authorization: token {PAT}"\n')
+                    _curl_cfg.close()
+                    curl_cmd += ['-K', _curl_cfg.name]
                 if accept:
                     curl_cmd += ['-H', f'Accept: {accept}']
-                curl_cmd += ['-H', 'User-Agent: AEGIS-Manager/2.0']
+                curl_cmd += ['-H', f'User-Agent: AEGIS-Manager/{MANAGER_VERSION}']
                 if method == 'GET':
                     curl_cmd.append(url)
-                    result = subprocess.run(curl_cmd, capture_output=True, timeout=timeout + 5)
-                    if result.returncode == 0 and result.stdout:
-                        return result.stdout
+                    try:
+                        result = subprocess.run(curl_cmd, capture_output=True, timeout=timeout + 5)
+                        if result.returncode == 0 and result.stdout:
+                            return result.stdout
+                    finally:
+                        # Clean up temp curl config file
+                        if _curl_cfg:
+                            try:
+                                os.unlink(_curl_cfg.name)
+                            except Exception:
+                                pass
             except Exception:
                 pass
 
@@ -906,7 +942,7 @@ class ServerManager:
     def start(self):
         """Start the AEGIS server."""
         # Find the right Python executable
-        python_exe = self._find_python()
+        python_exe = _find_python(self.install_dir)
         if not python_exe:
             C.fail('Could not find Python executable')
             return False
@@ -1017,15 +1053,7 @@ class ServerManager:
         C.warn(f'Server did not respond after {timeout}s. It may still be starting.')
         return False
 
-    def _find_python(self):
-        """Find the correct Python executable."""
-        # Check for embedded Python (OneClick installer)
-        embedded = os.path.join(self.install_dir, 'python', 'python.exe')
-        if os.path.isfile(embedded):
-            return embedded
-
-        # Use current interpreter
-        return sys.executable
+    # ─── _find_python delegated to module-level _find_python(install_dir) ───
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -1037,14 +1065,7 @@ class PackageManager:
 
     def __init__(self, install_dir):
         self.install_dir = install_dir
-        self._python_exe = self._find_python()
-
-    def _find_python(self):
-        """Find the correct Python executable."""
-        embedded = os.path.join(self.install_dir, 'python', 'python.exe')
-        if os.path.isfile(embedded):
-            return embedded
-        return sys.executable
+        self._python_exe = _find_python(install_dir)
 
     def find_wheels_dirs(self):
         """Find all wheel directories."""
@@ -1074,6 +1095,9 @@ class PackageManager:
         if isinstance(packages, str):
             packages = [packages]
 
+        # Scale timeout based on number of packages (min 120s, 60s per package, max 900s)
+        pip_timeout = min(900, max(120, len(packages) * 60))
+
         wheels_dirs = self.find_wheels_dirs()
 
         # Strategy 1: Offline from bundled wheels
@@ -1088,7 +1112,7 @@ class PackageManager:
 
             try:
                 result = subprocess.run(
-                    cmd, capture_output=True, text=True, timeout=300
+                    cmd, capture_output=True, text=True, timeout=pip_timeout
                 )
                 if result.returncode == 0:
                     return True, 'offline'
@@ -1107,14 +1131,14 @@ class PackageManager:
 
             try:
                 result = subprocess.run(
-                    cmd, capture_output=True, text=True, timeout=300
+                    cmd, capture_output=True, text=True, timeout=pip_timeout
                 )
                 if result.returncode == 0:
                     return True, 'online'
                 err_msg = result.stderr[:200] if result.stderr else 'unknown error'
                 return False, f'install failed: {err_msg}'
             except subprocess.TimeoutExpired:
-                return False, 'timeout (300s)'
+                return False, f'timeout ({pip_timeout}s)'
             except Exception as e:
                 return False, str(e)[:200]
 
@@ -1623,6 +1647,22 @@ class AEGISManager:
             return
         C.ok(f'Connected (API calls remaining: {info.get("remaining", "?")})')
 
+        # Check if the manager itself needs updating first
+        try:
+            remote_mgr = self.github.download_file('aegis_manager.py')
+            if remote_mgr:
+                remote_mgr_text = remote_mgr.decode('utf-8', errors='replace')
+                import re as _re
+                m = _re.search(r'MANAGER_VERSION\s*=\s*["\']([^"\']+)["\']', remote_mgr_text)
+                if m and m.group(1) != MANAGER_VERSION:
+                    C.warn(f'Manager update available: v{MANAGER_VERSION} → v{m.group(1)}')
+                    C.info('  Run Option 11 (Self-Update) first for the latest update logic.')
+                    inp = C.prompt('  Continue with current manager? (y/N): ')
+                    if inp.lower() != 'y':
+                        return
+        except Exception:
+            pass  # Non-blocking — proceed with update if check fails
+
         # Get remote version
         C.info('Fetching remote version...')
         remote_ver = self.github.get_remote_version()
@@ -1755,7 +1795,7 @@ class AEGISManager:
                         C.ok('Dependencies updated successfully')
                     else:
                         C.warn('Some packages may need manual install — run Health Check (Option 3)')
-                        C.detail(result.stderr[:300] if result.stderr else '')
+                        C.info(result.stderr[:300] if result.stderr else '')
                 except subprocess.TimeoutExpired:
                     C.warn('Package install timed out — run Health Check (Option 3)')
                 except Exception as e:
@@ -2508,6 +2548,7 @@ GitHub: {'Reachable' if ok else 'Not reachable'}
         sent_via_com = False
         eml_path = None
 
+        att_dir = os.path.join(self.install_dir, 'temp_diag')
         if sys.platform == 'win32':
             try:
                 import win32com.client
@@ -2519,7 +2560,6 @@ GitHub: {'Reachable' if ok else 'Not reachable'}
                 mail.Body = body
 
                 # Attach diagnostic files
-                att_dir = os.path.join(self.install_dir, 'temp_diag')
                 os.makedirs(att_dir, exist_ok=True)
 
                 # Save diag JSON as file for attachment
@@ -2549,17 +2589,16 @@ GitHub: {'Reachable' if ok else 'Not reachable'}
                     except Exception:
                         pass
 
-                # Cleanup temp dir
-                try:
-                    import shutil as _sh
-                    _sh.rmtree(att_dir, ignore_errors=True)
-                except Exception:
-                    pass
-
             except ImportError:
                 C.warn('win32com not available — falling back to .eml')
             except Exception as com_err:
                 C.warn(f'Outlook COM failed: {com_err} — falling back to .eml')
+            finally:
+                # Always cleanup temp_diag directory (regardless of COM success/failure)
+                try:
+                    shutil.rmtree(att_dir, ignore_errors=True)
+                except Exception:
+                    pass
 
         # Step 4: .eml fallback (if COM didn't work)
         if not sent_via_com:
@@ -3529,7 +3568,7 @@ def main():
 
         # Start web server
         try:
-            server = ThreadedHTTPServer(('0.0.0.0', MANAGER_WEB_PORT), ManagerHTTPHandler)
+            server = ThreadedHTTPServer(('127.0.0.1', MANAGER_WEB_PORT), ManagerHTTPHandler)
         except OSError as e:
             if 'Address already in use' in str(e) or '10048' in str(e):
                 print(f'\n  Port {MANAGER_WEB_PORT} is already in use.')
