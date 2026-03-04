@@ -52,7 +52,7 @@ from urllib.parse import parse_qs, urlparse
 # CONSTANTS & CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════
 
-MANAGER_VERSION = "2.3.1"
+MANAGER_VERSION = "2.3.2"
 
 # GitHub
 REPO_OWNER = "nicholasgeorgeson-prog"
@@ -1084,6 +1084,9 @@ class PackageManager:
     def pip_install(self, packages, force=False, offline_only=False):
         """Install packages — tries offline first, falls back to online.
 
+        Uses live streaming output with spinner so user sees progress
+        instead of staring at a frozen screen.
+
         Args:
             packages: string or list of package specs
             force: use --force-reinstall
@@ -1095,11 +1098,12 @@ class PackageManager:
         if isinstance(packages, str):
             packages = [packages]
 
-        # Scale timeout based on number of packages (min 300s, 60s per package, max 900s)
-        # Large compiled packages (scikit-learn, sentence-transformers) need 3-5 min on OneDrive paths
-        pip_timeout = min(900, max(300, len(packages) * 60))
+        # Generous timeout: 600s per package, max 1800s (30 min)
+        # Large compiled packages on OneDrive paths need extra time
+        pip_timeout = min(1800, max(600, len(packages) * 300))
 
         wheels_dirs = self.find_wheels_dirs()
+        pkg_label = ', '.join(packages) if len(packages) <= 3 else f'{len(packages)} packages'
 
         # Strategy 1: Offline from bundled wheels
         if wheels_dirs:
@@ -1111,16 +1115,9 @@ class PackageManager:
                 cmd.append('--force-reinstall')
             cmd.extend(packages)
 
-            try:
-                result = subprocess.run(
-                    cmd, capture_output=True, text=True, timeout=pip_timeout
-                )
-                if result.returncode == 0:
-                    return True, 'offline'
-            except subprocess.TimeoutExpired:
-                pass
-            except Exception:
-                pass
+            ok = self._run_pip_with_progress(cmd, pip_timeout, pkg_label, 'offline')
+            if ok:
+                return True, 'offline'
 
         # Strategy 2: Online fallback (if not air-gapped)
         if not offline_only:
@@ -1130,21 +1127,99 @@ class PackageManager:
                 cmd.append('--force-reinstall')
             cmd.extend(packages)
 
-            try:
-                result = subprocess.run(
-                    cmd, capture_output=True, text=True, timeout=pip_timeout
-                )
-                if result.returncode == 0:
-                    return True, 'online'
-                err_msg = result.stderr[:200] if result.stderr else 'unknown error'
-                return False, f'install failed: {err_msg}'
-            except subprocess.TimeoutExpired:
-                return False, f'timeout ({pip_timeout}s)'
-            except Exception as e:
-                return False, str(e)[:200]
+            ok = self._run_pip_with_progress(cmd, pip_timeout, pkg_label, 'online')
+            if ok:
+                return True, 'online'
+            return False, 'install failed'
 
         # Offline-only mode and offline install failed
         return False, 'offline install failed (no wheels found or incompatible)'
+
+    def _run_pip_with_progress(self, cmd, timeout, label, method):
+        """Run a pip command with live spinner and elapsed time display.
+
+        Shows a spinning animation with elapsed time so the user knows
+        the install is still working — not frozen. Uses a background
+        thread to read pip output (cross-platform — works on Windows
+        where select() doesn't support pipes).
+
+        Returns True on success, False on failure.
+        """
+        spinner_chars = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+        status_keywords = ('Collecting', 'Installing', 'Using cached', 'Building',
+                           'Downloading', 'Processing', 'Successfully',
+                           'Requirement already', 'Using legacy')
+        start = time.time()
+
+        # Shared state for the reader thread
+        last_status = ['']  # mutable container for thread access
+
+        def _reader_thread(pipe, status_ref):
+            """Read pip stdout in background, extract status keywords."""
+            try:
+                for raw_line in pipe:
+                    line = raw_line.strip() if isinstance(raw_line, str) else raw_line.decode('utf-8', errors='replace').strip()
+                    if line:
+                        for kw in status_keywords:
+                            if kw in line:
+                                status_ref[0] = line[:55]
+                                break
+            except Exception:
+                pass
+
+        try:
+            proc = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                text=True, bufsize=1
+            )
+
+            # Start background reader for live status extraction
+            reader = threading.Thread(target=_reader_thread,
+                                      args=(proc.stdout, last_status),
+                                      daemon=True)
+            reader.start()
+
+            spinner_idx = 0
+            while proc.poll() is None:
+                elapsed = time.time() - start
+                if elapsed > timeout:
+                    proc.kill()
+                    proc.wait(timeout=5)
+                    print(f'\r    {C.RED}✗ {label}: timed out after {int(elapsed)}s{C.RESET}' + ' ' * 40)
+                    return False
+
+                spin = spinner_chars[spinner_idx % len(spinner_chars)]
+                spinner_idx += 1
+
+                # Format elapsed as M:SS for longer installs
+                mins, secs = divmod(int(elapsed), 60)
+                elapsed_str = f'{mins}:{secs:02d}' if mins > 0 else f'{secs}s'
+
+                status = f' — {last_status[0]}' if last_status[0] else ''
+                print(f'\r    {C.GOLD}{spin}{C.RESET} {label} ({method}) [{elapsed_str}]{status}',
+                      end=' ' * 10 + '\r' if not status else '\r', flush=True)
+                time.sleep(0.25)
+
+            # Process finished — wait for reader thread
+            reader.join(timeout=2)
+            elapsed = time.time() - start
+            remaining_err = proc.stderr.read() if proc.stderr else ''
+
+            mins, secs = divmod(int(elapsed), 60)
+            elapsed_str = f'{mins}:{secs:02d}' if mins > 0 else f'{secs}s'
+
+            if proc.returncode == 0:
+                print(f'\r    {C.GREEN}✓ {label} ({method}) [{elapsed_str}]{C.RESET}' + ' ' * 40)
+                return True
+            else:
+                err_snippet = remaining_err.strip().split('\n')[-1][:60] if remaining_err else 'unknown error'
+                print(f'\r    {C.RED}✗ {label}: {err_snippet}{C.RESET}' + ' ' * 40)
+                return False
+
+        except Exception as e:
+            elapsed = time.time() - start
+            print(f'\r    {C.RED}✗ {label}: {str(e)[:60]}{C.RESET}' + ' ' * 40)
+            return False
 
     def check_import(self, module_name):
         """Test if a module can be imported.
@@ -1216,20 +1291,15 @@ class PackageManager:
                 whls.extend(glob.glob(os.path.join(wd, 'setuptools-7*.whl')))
                 whls.extend(glob.glob(os.path.join(wd, 'setuptools-6*.whl')))
                 for whl in sorted(whls, reverse=True):
-                    C.info(f'Trying wheel: {os.path.basename(whl)}')
-                    try:
-                        result = subprocess.run(
-                            [self._python_exe, '-m', 'pip', 'install',
-                             '--force-reinstall', '--no-warn-script-location', whl],
-                            capture_output=True, text=True, timeout=300
-                        )
-                        if result.returncode == 0:
-                            ok2, _ = self.check_import('pkg_resources')
-                            if ok2:
-                                C.ok('setuptools fixed from wheel')
-                                return
-                    except Exception:
-                        pass
+                    whl_name = os.path.basename(whl)
+                    cmd = [self._python_exe, '-m', 'pip', 'install',
+                           '--force-reinstall', '--no-warn-script-location', whl]
+                    ok = self._run_pip_with_progress(cmd, 600, whl_name, 'wheel')
+                    if ok:
+                        ok2, _ = self.check_import('pkg_resources')
+                        if ok2:
+                            C.ok('setuptools fixed from wheel')
+                            return
 
         # Online fallback
         success, method = self.pip_install(['setuptools<81'], force=True)
@@ -1435,13 +1505,8 @@ class PackageManager:
                 if installed:
                     break
             if not installed:
-                try:
-                    subprocess.run(
-                        [self._python_exe, '-m', 'spacy', 'download', 'en_core_web_sm'],
-                        capture_output=True, text=True, timeout=300
-                    )
-                except Exception:
-                    pass
+                cmd = [self._python_exe, '-m', 'spacy', 'download', 'en_core_web_sm']
+                self._run_pip_with_progress(cmd, 600, 'en_core_web_sm', 'download')
 
         # Step 3f: Optional packages
         if optional_failed:
