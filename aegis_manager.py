@@ -52,7 +52,7 @@ from urllib.parse import parse_qs, urlparse
 # CONSTANTS & CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════
 
-MANAGER_VERSION = "2.3.3"
+MANAGER_VERSION = "2.3.4"
 
 # GitHub
 REPO_OWNER = "nicholasgeorgeson-prog"
@@ -160,12 +160,12 @@ CRITICAL_PACKAGES = [
     ('dotenv', 'python-dotenv', 'Env File Loader'),
     ('flask_cors', 'flask-cors', 'CORS Support'),
     ('chardet', 'chardet', 'Encoding Detection'),
-    ('sentence_transformers', 'sentence-transformers', 'Semantic Similarity'),
 ]
 
 # Optional packages
 OPTIONAL_PACKAGES = [
     ('torch', 'torch', 'AI/Deep Learning'),
+    ('sentence_transformers', 'sentence-transformers', 'Semantic Similarity'),
     ('docling', 'docling', 'AI Document Extraction'),
     ('requests_negotiate_sspi', 'requests-negotiate-sspi', 'Windows SSO'),
     ('requests_ntlm', 'requests-ntlm', 'Windows Domain Auth'),
@@ -1520,7 +1520,7 @@ class PackageManager:
         # Step 3f: Optional packages
         if optional_failed:
             C.info('Installing optional packages...')
-            # sspilib before Windows auth
+            # Priority deps before their dependents
             opt_names = {n for n, _ in optional_failed}
             if 'requests-ntlm' in opt_names or 'requests-negotiate-sspi' in opt_names:
                 self.pip_install('sspilib')
@@ -1529,7 +1529,28 @@ class PackageManager:
             if 'msal' in opt_names:
                 self.pip_install('PyJWT')
 
+            # Install torch first if needed (sentence-transformers depends on it)
+            torch_available = False
+            if 'torch' in opt_names:
+                ok, method = self.pip_install('torch', force=True)
+                if ok:
+                    C.ok(f'torch ({method})')
+                    torch_available = True
+                else:
+                    C.warn('torch — not available (sentence-transformers will be skipped)')
+            else:
+                # torch might already be installed
+                t_ok, _ = self.check_import('torch')
+                torch_available = t_ok
+
             for pip_name, _ in optional_failed:
+                # Skip deps already handled above
+                if pip_name in ('torch', 'sspilib', 'pywin32', 'PyJWT'):
+                    continue
+                # sentence-transformers requires torch — skip if torch unavailable
+                if pip_name == 'sentence-transformers' and not torch_available:
+                    C.warn(f'{pip_name} — skipped (requires torch)')
+                    continue
                 ok, method = self.pip_install(pip_name, force=True)
                 if ok:
                     C.ok(f'{pip_name} ({method})')
