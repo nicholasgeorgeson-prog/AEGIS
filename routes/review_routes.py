@@ -71,9 +71,13 @@ except ImportError:
 try:
     from sp_repository_manager import SPRepositoryManager, get_repository
     _REPO_AVAILABLE = True
-except ImportError:
+except Exception as _repo_err:
+    # Catch ALL exceptions (not just ImportError) — scikit-learn/nltk recursion errors
+    # on Windows can propagate through import chains (Lesson 181)
     _REPO_AVAILABLE = False
     get_repository = None
+    import logging as _rl
+    _rl.getLogger('aegis').warning(f'SP Repository Manager unavailable: {_repo_err}')
 
 
 def get_scan_history_db():
@@ -2917,7 +2921,7 @@ def sharepoint_connect_and_scan():
     with _folder_scan_state_lock:
         _cleanup_old_scans()
         _folder_scan_state[scan_id] = {
-            'phase': 'reviewing',
+            'phase': 'downloading',  # v6.6.0: starts in download phase, not reviewing
             'total_files': len(files),
             'processed': 0,
             'errors': 0,
@@ -2942,6 +2946,11 @@ def sharepoint_connect_and_scan():
             'estimated_remaining': None,
             'folder_path': f'SharePoint: {library_path}',
             'source': 'sharepoint',
+            # v6.6.0: Download phase tracking
+            'download_total': len(files),
+            'download_completed': 0,
+            'download_cached': 0,
+            'download_errors': 0,
         }
 
     # Phase 2: Spawn background thread
@@ -2949,12 +2958,14 @@ def sharepoint_connect_and_scan():
     thread = threading.Thread(
         target=_process_sharepoint_scan_async,
         args=(scan_id, connector, files, options, flask_app),
+        kwargs={'site_url': actual_site_url, 'connector_type': connector_type, 'library_path': library_path},
         daemon=True,
         name=f'sp-scan-{scan_id}',
     )
     thread.start()
 
-    logger.info(f"SharePoint connect-and-scan {scan_id}: {len(files)} files from {library_path}")
+    logger.info(f"SharePoint connect-and-scan {scan_id}: {len(files)} files from {library_path} "
+                f"(site_url={actual_site_url}, connector_type={connector_type})")
 
     return jsonify({
         'success': True,
@@ -3341,7 +3352,7 @@ def sharepoint_scan_start():
     with _folder_scan_state_lock:
         _cleanup_old_scans()
         _folder_scan_state[scan_id] = {
-            'phase': 'reviewing',
+            'phase': 'downloading',  # v6.6.0: starts in download phase, not reviewing
             'total_files': len(files),
             'processed': 0,
             'errors': 0,
@@ -3366,6 +3377,11 @@ def sharepoint_scan_start():
             'estimated_remaining': None,
             'folder_path': f'SharePoint: {library_path}',
             'source': 'sharepoint',
+            # v6.6.0: Download phase tracking
+            'download_total': len(files),
+            'download_completed': 0,
+            'download_cached': 0,
+            'download_errors': 0,
         }
 
     # Phase 2: Spawn background thread for download + review
@@ -3373,12 +3389,14 @@ def sharepoint_scan_start():
     thread = threading.Thread(
         target=_process_sharepoint_scan_async,
         args=(scan_id, connector, files, options, flask_app),
+        kwargs={'site_url': actual_site_url, 'connector_type': 'rest', 'library_path': library_path},
         daemon=True,
         name=f'sp-scan-{scan_id}',
     )
     thread.start()
 
-    logger.info(f"SharePoint scan {scan_id} started: {len(files)} files from {library_path}")
+    logger.info(f"SharePoint scan {scan_id} started: {len(files)} files from {library_path} "
+                f"(site_url={actual_site_url}, library_path={library_path})")
 
     return jsonify({
         'success': True,
@@ -3398,6 +3416,48 @@ def sharepoint_scan_start():
 
 
 def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app,
+                                    site_url=None, connector_type=None, library_path=None):
+    """
+    Background thread wrapper: catches ALL unhandled exceptions to prevent silent daemon death.
+    v6.6.1: Wraps _process_sharepoint_scan_inner() with top-level crash protection.
+    """
+    import traceback
+
+    # v6.6.1: Diagnostic logging at thread start
+    try:
+        logger.info(f"SP scan {scan_id}: Background thread started "
+                     f"(site_url={site_url}, connector_type={connector_type}, "
+                     f"library_path={library_path}, files={len(files)}, "
+                     f"connector={'provided' if connector else 'None'}, "
+                     f"repo_available={_REPO_AVAILABLE})")
+    except Exception:
+        pass  # Don't crash on diagnostic logging
+
+    try:
+        _process_sharepoint_scan_inner(
+            scan_id, connector, files, options, flask_app,
+            site_url=site_url, connector_type=connector_type, library_path=library_path
+        )
+    except Exception as e:
+        # v6.6.1: Catch-all for unhandled errors — prevents silent daemon death (Lesson 181)
+        try:
+            logger.error(f"SP scan {scan_id}: FATAL unhandled error in background thread: "
+                         f"{traceback.format_exc()}")
+        except Exception:
+            pass
+        try:
+            with _folder_scan_state_lock:
+                state = _folder_scan_state.get(scan_id)
+                if state and state.get('phase') not in ('complete', 'error'):
+                    state['phase'] = 'error'
+                    state['error_message'] = f'Fatal error: {str(e)[:200]}'
+                    state['completed_at'] = time.time()
+                    state['current_file'] = None
+        except Exception:
+            pass
+
+
+def _process_sharepoint_scan_inner(scan_id, connector, files, options, flask_app,
                                     site_url=None, connector_type=None, library_path=None):
     """
     Background thread: download files from SharePoint and review with AEGIS engine.
@@ -3613,6 +3673,7 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
                             sp_modified=sp_modified,
                             size=dl_result.get('size', sp_size)
                         )
+                        file_info['_was_downloaded'] = True  # v6.6.1: Track for cached counter
                         local_files.append((file_info, local_path))
                         logger.info(f"SP scan {scan_id}: Downloaded {filename} → {local_path}")
                     else:
@@ -3640,6 +3701,7 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
                 dest_path = os.path.join(temp_dir, filename)
                 dl_result = connector.download_file(server_rel_url, dest_path)
                 if dl_result['success']:
+                    file_info['_was_downloaded'] = True  # v6.6.1: Track for cached counter
                     local_files.append((file_info, dest_path))
                 else:
                     download_errors += 1

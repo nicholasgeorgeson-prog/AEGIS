@@ -8185,6 +8185,18 @@ HelpDocs.content['version-history'] = {
     html: `
 <div class="help-changelog">
     <div class="changelog-version changelog-current">
+        <h3>v6.6.1 <span class="changelog-date">March 3, 2026</span></h3>
+        <p><strong>SP Scan Hang Fix &mdash; Background Thread Crash Protection</strong></p>
+        <ul>
+            <li><strong>FIX: Silent daemon death</strong> &mdash; background scan thread now wrapped in catch-all exception handler that logs the traceback and sets scan state to &ldquo;error&rdquo; instead of dying silently</li>
+            <li><strong>FIX: Missing thread kwargs</strong> &mdash; <code>site_url</code>, <code>connector_type</code>, and <code>library_path</code> are now correctly passed to background threads via <code>kwargs=</code> parameter</li>
+            <li><strong>FIX: Import guard widened</strong> &mdash; <code>sp_repository_manager</code> import catches all exceptions (not just ImportError), preventing scikit-learn/nltk RecursionError on Windows from crashing the import chain</li>
+            <li><strong>FIX: Download counter</strong> &mdash; <code>_was_downloaded</code> flag correctly tracks which files were newly downloaded vs served from cache</li>
+            <li><strong>FIX: Initial scan phase</strong> &mdash; scan state now correctly starts in &ldquo;downloading&rdquo; phase instead of &ldquo;reviewing&rdquo; for accurate cinematic dashboard display</li>
+            <li><strong>DIAG: Version-stamped log entries</strong> &mdash; background thread logs version markers to <code>sharepoint.log</code> for confirming code reload after updates on Windows</li>
+        </ul>
+    </div>
+    <div class="changelog-version">
         <h3>v6.6.0 <span class="changelog-date">March 3, 2026</span></h3>
         <p><strong>SharePoint Document Repository &mdash; Persistent Local Cache &amp; Two-Phase Scanning</strong></p>
         <ul>

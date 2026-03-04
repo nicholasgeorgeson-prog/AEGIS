@@ -1,13 +1,25 @@
 {
-  "version": "6.6.0",
+  "version": "6.6.1",
   "release_date": "2026-03-03",
-  "core_version": "6.6.0",
+  "core_version": "6.6.1",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.6.1",
+      "date": "2026-03-03",
+      "changes": [
+        "FIX: SP scan hang — background thread crash protection via wrapper function pattern (prevents silent daemon death)",
+        "FIX: Thread spawn kwargs missing — site_url, connector_type, library_path now passed correctly to background threads",
+        "FIX: Import guard widened from except ImportError to except Exception — catches RecursionError from scikit-learn/nltk on Windows",
+        "FIX: Download counter (_was_downloaded flag) — correctly tracks downloaded vs cached files in progress dashboard",
+        "FIX: Initial scan state phase set to 'downloading' instead of 'reviewing' for accurate progress display",
+        "DIAG: Version-stamped log entries in background thread for confirming code reload on Windows"
+      ]
+    },
     {
       "version": "6.6.0",
       "date": "2026-03-03",

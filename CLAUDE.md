@@ -1791,8 +1791,25 @@ If `sharepoint.log` shows "v6.3.15" after update, code WAS reloaded. If it shows
 **Files**: `sp_repository_manager.py` (NEW), `routes/review_routes.py`, `scan_history.py`, `static/js/app.js`, `templates/index.html`
 **Lesson**: When remote file access is unreliable (corporate proxy, auth failures, network issues), download files to a persistent local repository and scan from there. The two-phase approach (sequential download, parallel scan) maximizes throughput while respecting connector constraints. Manifest-based tracking with hash comparison enables smart download skipping. Always include rollback safety — the new feature should never break the existing working path.
 
+### 182. Silent Daemon Death + Import Chain RecursionError on Windows (v6.6.1)
+**Problem**: SharePoint scan on Windows hung at "Almost there... processing results..." for 280+ seconds. The background thread that processes SP scans died silently with no error logged, leaving scan state stuck in 'downloading' phase forever.
+**Root Cause**: FIVE compounding issues, all must be fixed together:
+1. **No top-level exception handler**: `_process_sharepoint_scan_async()` had inner try/except blocks for Phase 2 (scan) but NO catch-all wrapper around the entire function. Any unhandled exception in Phase 1 (download/setup) killed the daemon thread silently — Python daemon threads die without trace when they throw unhandled exceptions.
+2. **Missing kwargs at 2 thread spawn sites**: Both `threading.Thread()` calls passed `args=(scan_id, connector, files, options, flask_app)` but NOT `kwargs={'site_url': ..., 'connector_type': ..., 'library_path': ...}`. In the background thread, `site_url=None` → `get_local_path('')` → hostname `'unknown_host'` → incorrect repository paths.
+3. **Import guard too narrow**: `sp_repository_manager.py` import was wrapped in `except ImportError`. On the Windows machine, scikit-learn, nltk, and sentence-transformers all fail with `RecursionError: maximum recursion depth exceeded in comparison` (not ImportError). These RecursionErrors propagate through import chains, causing `from sp_repository_manager import ...` to raise RecursionError instead of ImportError. The guard didn't catch it, so `_REPO_AVAILABLE` was never set to `False` — it just crashed.
+4. **`_was_downloaded` flag never set**: Download success paths never set `file_info['_was_downloaded'] = True`, so the cached counter `sum(1 for fi, lp in local_files if not fi.get('_was_downloaded'))` counted ALL files as "cached" regardless of whether they were just downloaded.
+5. **Initial scan phase wrong**: Scan state was initialized with `phase='reviewing'` instead of `phase='downloading'`, so the cinematic dashboard showed the wrong phase indicator.
+**Fix**: Five-part:
+1. **Wrapper function pattern**: Renamed implementation to `_process_sharepoint_scan_inner()`. New thin `_process_sharepoint_scan_async()` wrapper catches ALL exceptions, logs traceback to `sharepoint.log`, and sets scan state to `phase='error'` with error message. This avoids re-indenting 450+ lines of function body.
+2. **Added `kwargs=` parameter** to both `Thread()` calls with `site_url`, `connector_type`, `library_path`.
+3. **Widened import guard** from `except ImportError` to `except Exception as _repo_err` with warning log.
+4. **Set `_was_downloaded = True`** after successful downloads in both repository and legacy temp-file code paths.
+5. **Changed initial phase** from `'reviewing'` to `'downloading'` and added download tracking keys (`download_total`, `download_completed`, `download_cached`, `download_errors`).
+**Files**: `routes/review_routes.py`
+**Lesson**: Background threads (especially daemon threads) MUST have a top-level catch-all exception handler that logs the error and updates shared state. Without it, the thread dies silently and any polling-based UI will show a frozen state forever. When passing kwargs to `threading.Thread`, use the `kwargs=` parameter explicitly — positional `args=` does NOT deliver keyword arguments. When guarding imports with `try/except ImportError`, use `except Exception` instead if the imported module has transitive dependencies that can raise non-ImportError exceptions (RecursionError from circular imports, OSError from file access, etc.).
+
 ### 151 (Updated). Version Management Update
-- **Current version**: 6.6.0
+- **Current version**: 6.6.1
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:
