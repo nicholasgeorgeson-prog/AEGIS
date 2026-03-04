@@ -52,7 +52,7 @@ from urllib.parse import parse_qs, urlparse
 # CONSTANTS & CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════
 
-MANAGER_VERSION = "2.3.0"
+MANAGER_VERSION = "2.3.1"
 
 # GitHub
 REPO_OWNER = "nicholasgeorgeson-prog"
@@ -1095,8 +1095,9 @@ class PackageManager:
         if isinstance(packages, str):
             packages = [packages]
 
-        # Scale timeout based on number of packages (min 120s, 60s per package, max 900s)
-        pip_timeout = min(900, max(120, len(packages) * 60))
+        # Scale timeout based on number of packages (min 300s, 60s per package, max 900s)
+        # Large compiled packages (scikit-learn, sentence-transformers) need 3-5 min on OneDrive paths
+        pip_timeout = min(900, max(300, len(packages) * 60))
 
         wheels_dirs = self.find_wheels_dirs()
 
@@ -1220,7 +1221,7 @@ class PackageManager:
                         result = subprocess.run(
                             [self._python_exe, '-m', 'pip', 'install',
                              '--force-reinstall', '--no-warn-script-location', whl],
-                            capture_output=True, text=True, timeout=120
+                            capture_output=True, text=True, timeout=300
                         )
                         if result.returncode == 0:
                             ok2, _ = self.check_import('pkg_resources')
@@ -1437,7 +1438,7 @@ class PackageManager:
                 try:
                     subprocess.run(
                         [self._python_exe, '-m', 'spacy', 'download', 'en_core_web_sm'],
-                        capture_output=True, text=True, timeout=120
+                        capture_output=True, text=True, timeout=300
                     )
                 except Exception:
                     pass
