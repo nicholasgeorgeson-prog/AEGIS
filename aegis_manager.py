@@ -1954,8 +1954,9 @@ class AEGISManager:
         if os.path.isfile(os.path.join(script_dir, 'app.py')) and os.path.isdir(os.path.join(script_dir, 'static')):
             return script_dir
 
-        # Check known locations
+        # Check known locations (C:\AEGIS first — preferred non-OneDrive location)
         known = [
+            r"C:\AEGIS",
             r"C:\Users\M26402\OneDrive - NGC\Desktop\Doc Review\AEGIS",
             os.path.expanduser("~/Desktop/Work_Tools/TechWriterReview"),
         ]
