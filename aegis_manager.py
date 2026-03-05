@@ -1355,7 +1355,7 @@ class PackageManager:
 
         # Try downloading from GitHub Release
         release_url = (f'https://github.com/{REPO}/releases/download/'
-                       f'v5.1.0-wheels/torch-2.10.0-cp310-cp310-win_amd64.whl')
+                       f'v5.1.0-wheels/torch-2.10.0+cpu-cp310-cp310-win_amd64.whl')
         dest_dir = os.path.join(self.install_dir, 'packaging', 'wheels')
         os.makedirs(dest_dir, exist_ok=True)
         dest = os.path.join(dest_dir, 'torch-2.10.0+cpu-cp310-cp310-win_amd64.whl')

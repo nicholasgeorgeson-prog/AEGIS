@@ -34,11 +34,18 @@ window.checkForUpdates = async function() {
     try {
         console.log('[TWR] Calling /api/updates/check...');
         // v6.7.0: 30-second timeout (GitHub API may take 10-20s for tree comparison)
+        // Use fetch() directly because api() 4th param is boolean _retried, not options
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000);
         let result;
         try {
-            result = await api('/updates/check', 'GET', null, { signal: controller.signal });
+            const response = await fetch('/api/updates/check', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                signal: controller.signal
+            });
+            result = await response.json();
         } finally {
             clearTimeout(timeoutId);
         }
@@ -107,7 +114,7 @@ window.checkForUpdates = async function() {
                     noUpdatesDiv.style.display = 'flex';
                     // v6.7.0: Show source and timestamp
                     const noUpdateSource = data.source || 'local';
-                    const pEl = noUpdatesDiv.querySelector('p:first-of-type');
+                    const pEl = noUpdatesDiv.querySelector('.update-message span');
                     if (pEl) pEl.textContent = noUpdateSource === 'github'
                         ? 'Up to date with GitHub'
                         : 'No updates available';
@@ -135,7 +142,7 @@ window.checkForUpdates = async function() {
             
             if (noUpdatesDiv) {
                 noUpdatesDiv.style.display = 'flex';
-                const pEl = noUpdatesDiv.querySelector('p:first-of-type');
+                const pEl = noUpdatesDiv.querySelector('.update-message span');
                 if (pEl) pEl.textContent = 'Could not check for updates';
             }
             
@@ -159,7 +166,7 @@ window.checkForUpdates = async function() {
 
         if (noUpdatesDiv) {
             noUpdatesDiv.style.display = 'flex';
-            const pEl = noUpdatesDiv.querySelector('p:first-of-type');
+            const pEl = noUpdatesDiv.querySelector('.update-message span');
             if (pEl) pEl.textContent = msg;
         }
 

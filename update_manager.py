@@ -1599,17 +1599,9 @@ class UpdateManager:
         else:
             logger.debug(f"Downloading new file from GitHub: {dest.name}")
 
-        # Download file content from GitHub
-        content = self.github.download_raw_file(github_path)
-        if content is None:
-            raise IOError(f"Failed to download {github_path} from GitHub")
-
-        # Write to destination
-        try:
-            with open(dest, 'wb') as f:
-                f.write(content)
-        except Exception as e:
-            raise IOError(f"Failed to write {dest.name}: {e}")
+        # Download file from GitHub directly to destination
+        # download_raw_file(remote_path, dest_path) writes to disk and returns True or raises
+        self.github.download_raw_file(github_path, str(dest))
 
         # Verify write
         if not dest.exists():

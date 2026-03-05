@@ -183,7 +183,7 @@ def _collect_manager_diagnostics():
         try:
             result = subprocess.run(
                 [python, '-c', f'import {import_name}; v=getattr({import_name},"__version__","installed"); print("OK|"+str(v))'],
-                capture_output=True, text=True, timeout=30
+                capture_output=True, text=True, timeout=10
             )
             if result.returncode == 0 and 'OK|' in result.stdout:
                 ver = result.stdout.strip().split('OK|', 1)[1]
@@ -236,39 +236,42 @@ def _collect_manager_diagnostics():
     }
 
     # --- 5. Wheels inventory ---
-    wheels_dirs = _find_wheels_dirs()
-    wheels_info = {}
-    torch_wheel_found = False
-    total_wheel_count = 0
-    for wd in wheels_dirs:
-        whl_files = glob.glob(os.path.join(wd, '*.whl'))
-        total_wheel_count += len(whl_files)
-        total_size = sum(os.path.getsize(f) for f in whl_files)
-        wheels_info[wd] = {
-            'count': len(whl_files),
-            'total_size_mb': round(total_size / (1024 * 1024), 1),
-        }
-        # Check for torch wheel
-        for whl in whl_files:
-            if 'torch' in os.path.basename(whl).lower():
-                torch_wheel_found = True
-                wheels_info['torch_wheel'] = {
-                    'path': whl,
-                    'size_mb': round(os.path.getsize(whl) / (1024 * 1024), 1),
-                }
-                break
-    # Also check torch_split
-    split_dir = os.path.join(app_dir, 'packaging', 'wheels', 'torch_split')
-    if not torch_wheel_found and os.path.isdir(split_dir):
-        parts = glob.glob(os.path.join(split_dir, 'torch_part_*'))
-        if parts:
-            wheels_info['torch_split_parts'] = len(parts)
+    try:
+        wheels_dirs = _find_wheels_dirs()
+        wheels_info = {}
+        torch_wheel_found = False
+        total_wheel_count = 0
+        for wd in wheels_dirs:
+            whl_files = glob.glob(os.path.join(wd, '*.whl'))
+            total_wheel_count += len(whl_files)
+            total_size = sum(os.path.getsize(f) for f in whl_files)
+            wheels_info[wd] = {
+                'count': len(whl_files),
+                'total_size_mb': round(total_size / (1024 * 1024), 1),
+            }
+            # Check for torch wheel
+            for whl in whl_files:
+                if 'torch' in os.path.basename(whl).lower():
+                    torch_wheel_found = True
+                    wheels_info['torch_wheel'] = {
+                        'path': whl,
+                        'size_mb': round(os.path.getsize(whl) / (1024 * 1024), 1),
+                    }
+                    break
+        # Also check torch_split
+        split_dir = os.path.join(app_dir, 'packaging', 'wheels', 'torch_split')
+        if not torch_wheel_found and os.path.isdir(split_dir):
+            parts = glob.glob(os.path.join(split_dir, 'torch_part_*'))
+            if parts:
+                wheels_info['torch_split_parts'] = len(parts)
 
-    diag['wheels'] = {
-        'directories': wheels_info,
-        'total_wheels': total_wheel_count,
-        'torch_wheel_found': torch_wheel_found,
-    }
+        diag['wheels'] = {
+            'directories': wheels_info,
+            'total_wheels': total_wheel_count,
+            'torch_wheel_found': torch_wheel_found,
+        }
+    except Exception as e:
+        diag['wheels'] = {'error': str(e)[:80]}
 
     # --- 6. Server process info ---
     diag['server'] = {
