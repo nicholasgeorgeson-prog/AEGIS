@@ -1,13 +1,33 @@
 {
-  "version": "6.6.5",
+  "version": "6.7.0",
   "release_date": "2026-03-04",
-  "core_version": "6.6.5",
+  "core_version": "6.7.0",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.7.0",
+      "date": "2026-03-04",
+      "changes": [
+        "NEW: GitHub-based Web UI updates — Settings > Updates now checks GitHub via Git Trees API instead of scanning a local updates/ folder",
+        "NEW: GitHubUpdater class in update_manager.py — PAT auth, 3-tier SSL fallback, blob SHA comparison, raw.githubusercontent.com downloads",
+        "NEW: PAT auto-detection — reads from aegis_pat.txt (project root) with AEGIS_GITHUB_PAT / AEGIS_PAT env var fallback",
+        "NEW: Dual update source — GitHub primary with local folder fallback, source indicator (GitHub/Local) shown in update list UI",
+        "NEW: Manager diagnostics in diagnostic email — package health, pip list, disk space, Python details, wheels inventory, torch wheel status, server uptime",
+        "NEW: _collect_manager_diagnostics() in core_routes.py — subprocess-based package import testing, shutil.disk_usage, aegis_manager.log attachment",
+        "FIX: Package breaking cycle — ordered sequential installs replace batch pip_install() in aegis_manager.py repair Phase 3d",
+        "FIX: Subprocess verification after each package install — prevents false passes from in-process importlib reimport",
+        "FIX: SUBPROCESS_CHECK expanded — sklearn, nltk, scipy, numpy, pandas now tested via subprocess (was only torch, requests_negotiate_sspi)",
+        "FIX: NO_WHEEL_PACKAGES skip set — passivepy, negspacy, coreferee skipped during repair to prevent confusing setuptools/build failures",
+        "FIX: Same ordered-install + subprocess-verification applied to web UI repair in core_routes.py",
+        "FIX: Update check timeout increased 10s → 30s for GitHub API tree comparison",
+        "FIX: Apply Updates button visibility — now explicitly toggled visible/hidden when updates found/not found",
+        "FIX: Update list shows source indicator (GitHub icon / folder icon), file count, and total size"
+      ]
+    },
     {
       "version": "6.6.5",
       "date": "2026-03-04",

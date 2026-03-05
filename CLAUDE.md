@@ -1927,8 +1927,53 @@ Plus two special-case categories:
 **Files**: `routes/core_routes.py` (endpoints + repair engine), `templates/index.html` (button + progress UI), `static/js/app.js` (click handler + polling loop)
 **Lesson**: When building web UI for background operations: (1) return a UUID immediately, don't block the HTTP response, (2) poll via GET every 1-2s with the UUID, (3) show strategy-level detail (not just "repairing..."), (4) auto-trigger verification after completion, (5) auto-show/hide the action button based on current state.
 
+### 192. GitHub-Based Web UI Updates via Git Trees API (v6.7.0)
+**Problem**: Settings > Updates "Check for Updates" only scanned a local `updates/` folder — useless for receiving code updates. Users had to use the CLI-based AEGIS Manager (Option 1) or apply scripts for real updates.
+**Solution**: Ported the Manager's `GitHubClient` Git Trees API logic into `update_manager.py` as a new `GitHubUpdater` class. The web UI now compares local files against GitHub HEAD using blob SHA1 hashes and downloads changed files directly from `raw.githubusercontent.com`.
+**Architecture**: `GitHubUpdater` class in `update_manager.py`:
+- `__init__(pat, repo, branch)` — reads PAT from `aegis_pat.txt` (env var `AEGIS_GITHUB_PAT`/`AEGIS_PAT` fallback)
+- `_api_request(url)` — urllib.request with PAT auth header, 3-tier SSL fallback (certifi → system → CERT_NONE), curl subprocess fallback
+- `get_head_sha()` — GET `/repos/{REPO}/commits/{branch}` → extracts commit SHA
+- `get_file_tree(sha)` — GET `/repos/{REPO}/git/trees/{sha}?recursive=1` → full recursive file listing
+- `compute_local_sha(filepath)` — git blob SHA1: `sha1(f"blob {size}\0" + content)` — matches GitHub's hashing
+- `get_changed_files(tree)` — compares each remote blob SHA against local SHA, filters source files, preserves user data
+- `download_raw_file(path)` — GET from `raw.githubusercontent.com/{repo}/{branch}/{path}`
+- `_is_source_file(path)` — filter: .py, .js, .css, .html, .json, .bat, .sh, .md
+- `_should_preserve(path)` — protect user data: config.json, *.db, logs/, *_patterns.json, aegis_pat.txt, etc.
+**Rewritten check_for_updates()**: Dispatcher that tries `_check_github_updates()` first (GitHub → PAT → tree diff), falls back to `_check_local_updates()` (legacy folder scan). Response includes `source: 'github'|'local'` field consumed by frontend.
+**Rewritten apply_updates()**: Detects GitHub-sourced updates via `getattr(u, '_github_path', None)`. GitHub updates → `_apply_github_update()` downloads from raw.githubusercontent.com. Local updates → existing file-copy logic.
+**Frontend changes**: `update-functions.js` increased timeout 10s→30s, shows source indicator (GitHub/folder icon with file count and total size), source-aware status messages.
+**PAT storage**: `aegis_pat.txt` in project root (one line token), already in `.gitignore`.
+**Error handling**: GitHub unreachable → graceful error with "check your internet connection". PAT missing → "GitHub access token not configured". SSL issues → 3-tier fallback. Per-file download failure → skip, continue, report.
+**Files**: `update_manager.py` (GitHubUpdater class + rewritten check/apply), `static/js/update-functions.js` (timeout, source display, messages)
+**Lesson**: When porting Git Trees API logic between modules, the key components are: blob SHA1 for file comparison (zero downloads needed to detect changes), recursive tree for full file listing, and raw.githubusercontent.com for individual file downloads. Always include a `_should_preserve()` filter to protect user data files from being overwritten.
+
+### 193. Ordered Package Install with Subprocess Verification (Manager v2.4.0 + v6.6.5)
+**Problem**: Batch `pip_install(remaining_critical, force=True)` installed multiple packages in one pip call. pip exits 0 if SOME succeed but individual failures are hidden. In-process `importlib.import_module()` can pass when transitive deps are partially loaded in memory but fail on next health check with clean interpreter.
+**Fix**: Ordered sequential installs with subprocess verification:
+1. Install each package individually in dependency order (numpy → scipy → scikit-learn → nltk → spaCy)
+2. After each install, test via `subprocess.run([sys.executable, '-c', f'import {module}'])` — clean interpreter catches real failures
+3. Expanded `SUBPROCESS_CHECK` set from `{'torch', 'requests_negotiate_sspi'}` to include `{'sklearn', 'nltk', 'scipy', 'numpy', 'pandas'}`
+4. Skip packages without wheels (`NO_WHEEL_PACKAGES = {'passivepy', 'negspacy', 'coreferee'}`) to prevent confusing "failed to build" errors
+Applied to both Manager CLI (`aegis_manager.py`) and web UI repair (`core_routes.py`).
+**Lesson**: For offline package repair: (1) install ONE package at a time in dependency order, (2) verify each install via subprocess (not in-process importlib), (3) skip known no-wheel packages with clear messages. The subprocess test is the only reliable way to detect real import failures — in-process testing can give false positives from partially-loaded modules.
+
+### 194. Manager Diagnostics in Diagnostic Email (v6.7.0)
+**Problem**: AEGIS diagnostic email lacked Manager-level information (package health, pip list, disk space, wheels inventory), making remote troubleshooting harder.
+**Solution**: Added `_collect_manager_diagnostics()` function in `core_routes.py` that collects:
+- **Package health**: Subprocess import test for each critical package (version + pass/fail)
+- **pip list**: `subprocess.run([sys.executable, '-m', 'pip', 'list', '--format=json'])`
+- **Disk space**: `shutil.disk_usage(base_dir)` → free/total GB
+- **Python details**: `sys.executable`, `sys.version`, `sys.prefix`
+- **Wheels inventory**: List `.whl` files in `wheels/` and `packaging/wheels/` with sizes, flags torch wheel existence
+- **Server process**: PID, uptime from `time.time() - server_start_time`
+- **Manager version**: Grep from `aegis_manager.py` if present
+Integrated into `send_diagnostic_email()`: results added to `export_data['manager_diagnostics']`, summary section added to email body, `aegis_manager.log` attached if exists.
+**Files**: `routes/core_routes.py`
+**Lesson**: Diagnostic emails should include ALL system-level information a remote troubleshooter needs. Use subprocess for package health checks (same pattern as repair), `shutil.disk_usage()` for disk space, and grep-from-file for version detection of external tools. Always attach relevant log files.
+
 ### 151 (Updated). Version Management Update
-- **Current version**: 6.6.5
+- **Current version**: 6.7.0
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

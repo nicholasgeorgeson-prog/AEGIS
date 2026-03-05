@@ -5939,51 +5939,46 @@ HelpDocs.content['settings-sharing'] = {
 // ============================================================================
 HelpDocs.content['settings-updates'] = {
     title: 'Updates',
-    subtitle: 'Apply patches without full reinstall',
+    subtitle: 'Check GitHub for updates and apply with one click (v6.7.0)',
     html: `
-<h2><i data-lucide="refresh-cw"></i> Built-in Update System</h2>
-<p>AEGIS includes a built-in update system for applying patches and fixes without reinstalling the entire application.</p>
+<h2><i data-lucide="github"></i> GitHub-Based Updates (v6.7.0)</h2>
+<p>AEGIS checks for updates directly from GitHub using the Git Trees API. Changed files are detected automatically by comparing SHA hashes — only modified files are downloaded and applied.</p>
 
-<h2><i data-lucide="download"></i> Applying Updates</h2>
+<h2><i data-lucide="download"></i> How to Update</h2>
 <ol>
-    <li>Place update files in the <code>updates/</code> folder (inside the AEGIS directory)</li>
     <li>Open <strong>Settings</strong> → <strong>Updates</strong> tab</li>
-    <li>Click <strong>"Check for Updates"</strong> to scan for pending files</li>
-    <li>Review the list of files that will be updated</li>
-    <li>Click <strong>"Apply Updates"</strong> to install them</li>
-    <li>Wait for automatic restart and browser refresh</li>
+    <li>Click <strong>"Check for Updates"</strong> — AEGIS compares your local files against the latest GitHub commit</li>
+    <li>Review the list of changed files (shows source, file count, and total size)</li>
+    <li>Optionally check <strong>"Create backup before updating"</strong> (recommended)</li>
+    <li>Click <strong>"Apply Updates"</strong> to download and install the changed files</li>
+    <li>Wait for automatic server restart and browser refresh</li>
 </ol>
 
-<h2><i data-lucide="folder"></i> Update File Formats</h2>
-<p>The update system supports three methods:</p>
+<div class="help-callout help-callout-info">
+    <i data-lucide="github"></i>
+    <div>
+        <strong>GitHub Access Token</strong>
+        <p>Updates require a GitHub Personal Access Token (PAT). Place your token in a file called <code>aegis_pat.txt</code> in the AEGIS root directory (one line, just the token). Alternatively, set the <code>AEGIS_GITHUB_PAT</code> or <code>AEGIS_PAT</code> environment variable. The token is never exposed in logs or API responses.</p>
+    </div>
+</div>
 
-<h3>1. Directory Structure (Recommended)</h3>
-<p>Mirror the app's folder structure inside updates/:</p>
+<h2><i data-lucide="shield"></i> How It Works</h2>
+<ul>
+    <li><strong>Git Trees API</strong> — Fetches the full file tree from the latest GitHub commit and computes SHA hashes of your local files to find differences</li>
+    <li><strong>Smart filtering</strong> — Only source files (.py, .js, .css, .html, .json, .bat, .sh, .md) are compared; binary files, databases, and user data are ignored</li>
+    <li><strong>User data preserved</strong> — config.json, scan_history.db, pattern files, logs, and aegis_pat.txt are never overwritten</li>
+    <li><strong>Automatic backups</strong> — A timestamped backup is created before applying changes (when enabled)</li>
+    <li><strong>Server auto-restart</strong> — After updates are applied, the server restarts and your browser refreshes automatically</li>
+    <li><strong>3-tier SSL fallback</strong> — Works on corporate networks: certifi → system certs → unverified (with warning)</li>
+</ul>
+
+<h2><i data-lucide="folder"></i> Local Folder Updates (Legacy)</h2>
+<p>If GitHub is unavailable, AEGIS falls back to scanning the local <code>updates/</code> folder for update files. Place files mirroring the app's directory structure:</p>
 <pre>updates/
 ├── static/js/features/roles.js
 ├── templates/index.html
 └── role_extractor_v3.py</pre>
-
-<h3>2. Flat Files with Prefixes</h3>
-<p>Use naming prefixes to specify destinations:</p>
-<table class="help-table">
-    <tr><td><code>static_js_features_</code></td><td>→ static/js/features/</td></tr>
-    <tr><td><code>static_js_ui_</code></td><td>→ static/js/ui/</td></tr>
-    <tr><td><code>static_css_</code></td><td>→ static/css/</td></tr>
-    <tr><td><code>templates_</code></td><td>→ templates/</td></tr>
-    <tr><td><code>statement_forge_</code></td><td>→ statement_forge/</td></tr>
-</table>
-
-<h3>3. Roles Package (.aegis-roles)</h3>
-<p>Drop a <code>.aegis-roles</code> file in the updates/ folder to auto-import role dictionaries from team members. These are detected and imported on the next update check — no manual intervention needed. See <a href="#" onclick="HelpContent.navigateTo('role-sharing');return false;">Sharing Roles</a> for details.</p>
-
-<h2><i data-lucide="shield"></i> How It Works</h2>
-<ul>
-    <li>Update files are automatically routed to their correct locations</li>
-    <li>Backups are created before applying any changes</li>
-    <li>The server restarts automatically after successful updates</li>
-    <li>Your browser refreshes when the server is ready</li>
-</ul>
+<p>This method is fully offline — no internet connection needed.</p>
 
 <h2><i data-lucide="undo-2"></i> Rollback (v6.2.3)</h2>
 <p>If an update causes issues, you can restore the previous version:</p>
@@ -6003,20 +5998,21 @@ HelpDocs.content['settings-updates'] = {
     </div>
 </div>
 
-<h2><i data-lucide="file-down"></i> Direct Apply Scripts</h2>
-<p>For major version jumps, use a direct apply script (e.g., <code>apply_v6.2.3.py</code>):</p>
-<ol>
-    <li>Download the script from <a href="https://github.com/nicholasgeorgeson-prog/AEGIS" target="_blank">GitHub</a></li>
-    <li>Place it in the AEGIS root directory</li>
-    <li>Run: <code>python apply_v6.2.3.py</code></li>
-    <li>The script downloads all files, creates backups, installs dependencies, and verifies</li>
-</ol>
+<h2><i data-lucide="terminal"></i> AEGIS Manager (Recommended)</h2>
+<p>For the most robust update experience, use the <strong>AEGIS Manager</strong> CLI tool:</p>
+<ul>
+    <li><strong>Option 1: Update AEGIS</strong> — Same Git Trees API comparison, with automatic server restart</li>
+    <li><strong>Option 3: Health Check</strong> — Verifies all packages and dependencies</li>
+    <li><strong>Option 4: Repair</strong> — Fixes broken packages with ordered installs and subprocess verification</li>
+    <li><strong>Option 11: Self-Update</strong> — Updates the Manager tool itself</li>
+</ul>
+<p>The Manager handles everything the web UI does, plus package repair and health checks.</p>
 
 <div class="help-callout help-callout-info">
-    <i data-lucide="info"></i>
+    <i data-lucide="wifi-off"></i>
     <div>
-        <strong>Air-Gapped Friendly</strong>
-        <p>The built-in update system applies from local files — no internet connection required. Direct apply scripts need internet access to download from GitHub. See <code>updates/UPDATE_README.md</code> for detailed documentation.</p>
+        <strong>Air-Gapped / Offline Support</strong>
+        <p>On air-gapped networks without internet, use the local <code>updates/</code> folder method. The AEGIS Manager also supports offline updates via <strong>Option 2: Full Sync</strong> when paired with a USB transfer of updated files.</p>
     </div>
 </div>
 `

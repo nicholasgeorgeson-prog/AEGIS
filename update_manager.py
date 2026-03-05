@@ -102,9 +102,15 @@ Update File Formats:
 import os
 import sys
 import json
+import ssl
 import shutil
 import hashlib
 import logging
+import struct
+import subprocess
+import tempfile
+import urllib.request
+import urllib.error
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple, Any
@@ -145,6 +151,401 @@ EXCLUDE_FROM_UPDATE = [
     '.env',
     '.env.local',
 ]
+
+
+# ============================================================
+# GITHUB UPDATE CONFIGURATION (v6.7.0)
+# ============================================================
+
+REPO_OWNER = "nicholasgeorgeson-prog"
+REPO_NAME = "AEGIS"
+REPO = f"{REPO_OWNER}/{REPO_NAME}"
+BRANCH = "main"
+BASE_RAW_URL = f"https://raw.githubusercontent.com/{REPO}/{BRANCH}"
+API_BASE = f"https://api.github.com/repos/{REPO}"
+
+# File extensions considered source files for updates
+SOURCE_EXTENSIONS = {
+    '.py', '.js', '.css', '.html', '.json', '.md', '.bat', '.ps1', '.sh',
+    '.txt', '.cfg', '.ini', '.toml', '.yml', '.yaml', '.mjs',
+}
+
+# User data files — NEVER overwrite during updates
+USER_DATA_PRESERVE = {
+    'scan_history.db', 'config.json', 'user_settings.json',
+    'review_patterns.json', 'roles_patterns.json',
+    'statement_forge/statement_patterns.json',
+    'hyperlink_validator/hv_patterns.json',
+    'proposal_compare/parser_patterns.json',
+    'hyperlink_exclusions.db',
+}
+
+# Directories to skip entirely during updates
+PRESERVE_DIRS = {
+    'wheels', 'packaging/wheels', 'temp', 'backups', 'updates', 'logs',
+    'static/audio', 'static/img', 'static/images', 'test_docs',
+    'test_documents', '__pycache__', '.git', 'docling_models',
+    'nltk_data', 'nlp_offline', 'learner_data', 'custom_dictionaries',
+    'node_modules', '.venv', 'venv', 'archive',
+}
+
+
+def _load_pat():
+    """Load GitHub Personal Access Token from file or env var."""
+    _base = os.path.dirname(os.path.abspath(__file__))
+    for pat_file in [
+        os.path.join(_base, 'aegis_pat.txt'),
+        'aegis_pat.txt',
+    ]:
+        try:
+            with open(pat_file, 'r', encoding='utf-8') as f:
+                token = f.read().strip()
+                if token and token.startswith('ghp_'):
+                    return token
+        except (OSError, IOError):
+            pass
+    token = os.environ.get('AEGIS_GITHUB_PAT', os.environ.get('AEGIS_PAT', '')).strip()
+    if token and token.startswith('ghp_'):
+        return token
+    return None
+
+
+GITHUB_PAT = _load_pat()
+
+
+# ============================================================
+# GITHUB UPDATER CLASS (v6.7.0)
+# ============================================================
+
+class GitHubUpdater:
+    """
+    Connects to GitHub via Git Trees API to compare local files
+    against the remote repository and download changed files.
+
+    Ported from aegis_manager.py GitHubClient for web UI use.
+    """
+
+    def __init__(self, base_dir: str = None):
+        self.pat = GITHUB_PAT
+        self.base_dir = base_dir or os.path.dirname(os.path.abspath(__file__))
+        self._ssl_ctx = None
+        self._rate_remaining = None
+        self._rate_reset = None
+
+    def _get_ssl_ctx(self):
+        """Get SSL context with 3-tier fallback (certifi → system → no-verify)."""
+        if self._ssl_ctx is not None:
+            return self._ssl_ctx
+
+        # Tier 1: Try certifi
+        try:
+            import certifi
+            ctx = ssl.create_default_context(cafile=certifi.where())
+            self._ssl_ctx = ctx
+            return ctx
+        except (ImportError, Exception):
+            pass
+
+        # Tier 2: System certs
+        try:
+            ctx = ssl.create_default_context()
+            self._ssl_ctx = ctx
+            return ctx
+        except Exception:
+            pass
+
+        # Tier 3: No verification (last resort)
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        self._ssl_ctx = ctx
+        return ctx
+
+    def _request(self, url, method='GET'):
+        """
+        Make an HTTP request with PAT auth and SSL fallback.
+        Returns (data_bytes, status_code) or raises on failure.
+        """
+        headers = {
+            'User-Agent': 'AEGIS-UpdateManager/6.7.0',
+            'Accept': 'application/vnd.github.v3+json',
+        }
+        if self.pat:
+            headers['Authorization'] = f'token {self.pat}'
+
+        req = urllib.request.Request(url, headers=headers, method=method)
+
+        # Try with SSL context
+        for attempt in range(3):
+            try:
+                ctx = self._get_ssl_ctx()
+                with urllib.request.urlopen(req, context=ctx, timeout=30) as resp:
+                    # Track rate limits
+                    self._rate_remaining = resp.headers.get('X-RateLimit-Remaining')
+                    self._rate_reset = resp.headers.get('X-RateLimit-Reset')
+                    return resp.read(), resp.status
+            except ssl.SSLError:
+                # Reset SSL context to try next tier
+                self._ssl_ctx = None
+                if attempt < 2:
+                    logger.warning(f"SSL error on attempt {attempt + 1}, retrying with fallback")
+                    continue
+            except urllib.error.HTTPError as e:
+                body = e.read() if hasattr(e, 'read') else b''
+                logger.error(f"HTTP {e.code} from {url}: {body[:200]}")
+                raise
+            except urllib.error.URLError as e:
+                if attempt < 2:
+                    logger.warning(f"URL error on attempt {attempt + 1}: {e.reason}")
+                    self._ssl_ctx = None
+                    continue
+                raise
+
+        # Fallback: try curl subprocess
+        try:
+            return self._curl_request(url)
+        except Exception as curl_e:
+            raise ConnectionError(f"All request methods failed for {url}: {curl_e}")
+
+    def _curl_request(self, url):
+        """Fallback HTTP request using curl subprocess."""
+        cmd = ['curl', '-s', '-S', '-L', '--max-time', '30']
+        if self.pat:
+            cmd.extend(['-H', f'Authorization: token {self.pat}'])
+        cmd.extend(['-H', 'Accept: application/vnd.github.v3+json'])
+        cmd.extend(['-w', '\n%{http_code}'])
+        cmd.append(url)
+
+        result = subprocess.run(cmd, capture_output=True, timeout=45)
+        if result.returncode != 0:
+            raise ConnectionError(f"curl failed: {result.stderr.decode('utf-8', errors='replace')[:200]}")
+
+        output = result.stdout
+        # Last line is the HTTP status code
+        lines = output.rsplit(b'\n', 1)
+        if len(lines) == 2:
+            data, status_line = lines
+            status = int(status_line.strip())
+        else:
+            data = output
+            status = 200
+
+        if status >= 400:
+            raise ConnectionError(f"curl HTTP {status}: {data[:200]}")
+
+        return data, status
+
+    def _api_get(self, endpoint):
+        """GET from GitHub API, return parsed JSON."""
+        url = f"{API_BASE}{endpoint}" if endpoint.startswith('/') else endpoint
+        data, status = self._request(url)
+        return json.loads(data)
+
+    def get_head_sha(self):
+        """Get the HEAD commit SHA for the main branch."""
+        result = self._api_get(f"/git/refs/heads/{BRANCH}")
+        return result['object']['sha']
+
+    def get_file_tree(self, head_sha=None):
+        """
+        Get the full recursive file tree from GitHub.
+
+        Returns list of {path, size, sha} for all blobs (files).
+        """
+        if head_sha is None:
+            head_sha = self.get_head_sha()
+
+        # Get the commit to find the tree SHA
+        commit = self._api_get(f"/git/commits/{head_sha}")
+        tree_sha = commit['tree']['sha']
+
+        # Get recursive tree
+        tree = self._api_get(f"/git/trees/{tree_sha}?recursive=1")
+
+        # Filter to blobs (files) only
+        files = []
+        for item in tree.get('tree', []):
+            if item['type'] == 'blob':
+                files.append({
+                    'path': item['path'],
+                    'size': item.get('size', 0),
+                    'sha': item['sha'],
+                })
+
+        return files
+
+    def compute_local_sha(self, filepath):
+        """
+        Compute git blob SHA1 for a local file.
+        Git blob hash = sha1("blob {size}\0" + content)
+        """
+        try:
+            with open(filepath, 'rb') as f:
+                content = f.read()
+            header = f"blob {len(content)}\0".encode('utf-8')
+            return hashlib.sha1(header + content).hexdigest()
+        except (OSError, IOError):
+            return None
+
+    def get_changed_files(self, remote_tree):
+        """
+        Compare remote file tree against local files.
+
+        Returns list of dicts with keys:
+            path, size, sha, local_sha, status ('changed', 'new', 'unchanged')
+
+        Filters to source files only, excludes user data and preserved dirs.
+        """
+        changed = []
+
+        for remote_file in remote_tree:
+            path = remote_file['path']
+
+            # Filter: source files only
+            if not self._is_source_file(path):
+                continue
+
+            # Filter: skip preserved user data
+            if self._should_preserve(path):
+                continue
+
+            local_path = os.path.join(self.base_dir, path)
+            local_sha = self.compute_local_sha(local_path)
+
+            if local_sha is None:
+                # File doesn't exist locally → new file
+                changed.append({
+                    'path': path,
+                    'size': remote_file['size'],
+                    'sha': remote_file['sha'],
+                    'local_sha': None,
+                    'status': 'new',
+                })
+            elif local_sha != remote_file['sha']:
+                # File exists but different → changed
+                try:
+                    local_size = os.path.getsize(local_path)
+                except OSError:
+                    local_size = 0
+                changed.append({
+                    'path': path,
+                    'size': remote_file['size'],
+                    'sha': remote_file['sha'],
+                    'local_sha': local_sha,
+                    'local_size': local_size,
+                    'status': 'changed',
+                })
+            # else: unchanged, skip
+
+        return changed
+
+    def download_raw_file(self, remote_path, dest_path):
+        """
+        Download a file from raw.githubusercontent.com to a local path.
+
+        Args:
+            remote_path: Relative path in repo (e.g. 'routes/core_routes.py')
+            dest_path: Absolute local path to write to
+
+        Returns:
+            True on success, raises on failure
+        """
+        url = f"{BASE_RAW_URL}/{remote_path}"
+
+        headers = {
+            'User-Agent': 'AEGIS-UpdateManager/6.7.0',
+        }
+        if self.pat:
+            headers['Authorization'] = f'token {self.pat}'
+
+        req = urllib.request.Request(url, headers=headers)
+
+        try:
+            ctx = self._get_ssl_ctx()
+            with urllib.request.urlopen(req, context=ctx, timeout=30) as resp:
+                content = resp.read()
+        except Exception:
+            # Fallback: curl
+            cmd = ['curl', '-s', '-S', '-L', '--max-time', '30', '-o', dest_path]
+            if self.pat:
+                cmd.extend(['-H', f'Authorization: token {self.pat}'])
+            cmd.append(url)
+            result = subprocess.run(cmd, capture_output=True, timeout=45)
+            if result.returncode != 0:
+                raise ConnectionError(f"Failed to download {remote_path}: {result.stderr.decode('utf-8', errors='replace')[:200]}")
+            return True
+
+        # Write to destination
+        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+        with open(dest_path, 'wb') as f:
+            f.write(content)
+
+        return True
+
+    def get_remote_version(self):
+        """Download and parse remote version.json."""
+        try:
+            url = f"{BASE_RAW_URL}/version.json"
+            data, status = self._request(url)
+            return json.loads(data)
+        except Exception as e:
+            logger.warning(f"Could not fetch remote version: {e}")
+            return None
+
+    def _is_source_file(self, path):
+        """Check if a path is a source file (by extension)."""
+        _, ext = os.path.splitext(path)
+        return ext.lower() in SOURCE_EXTENSIONS
+
+    def _should_preserve(self, rel_path):
+        """Check if a file should be preserved (user data, wheels, etc.)."""
+        norm = rel_path.replace('\\', '/')
+
+        # Exact file match
+        if norm in USER_DATA_PRESERVE:
+            return True
+
+        # Directory prefix match
+        for pdir in PRESERVE_DIRS:
+            if norm.startswith(pdir + '/') or norm == pdir:
+                return True
+
+        return False
+
+    def _categorize_file(self, path):
+        """Categorize a file by its path for UI display."""
+        norm = path.replace('\\', '/')
+        if norm.startswith('static/js/'):
+            return 'javascript'
+        elif norm.startswith('static/css/'):
+            return 'css'
+        elif norm.startswith('templates/'):
+            return 'templates'
+        elif norm.startswith('routes/'):
+            return 'routes'
+        elif norm.startswith('proposal_compare/'):
+            return 'proposal_compare'
+        elif norm.startswith('hyperlink_validator/'):
+            return 'hyperlink_validator'
+        elif norm.startswith('statement_forge/'):
+            return 'statement_forge'
+        elif norm.endswith('.py'):
+            return 'python'
+        elif norm.endswith('.json'):
+            return 'config'
+        elif norm.endswith('.bat') or norm.endswith('.sh'):
+            return 'scripts'
+        else:
+            return 'app'
+
+    def check_connectivity(self):
+        """Quick connectivity check — returns True if GitHub API is reachable."""
+        try:
+            result = self._api_get('/rate_limit')
+            return True
+        except Exception:
+            return False
+
 
 # ============================================================
 # CONFIGURATION
@@ -700,8 +1101,17 @@ class UpdateManager:
         self.config = UpdateConfig(base_dir, app_dir)
         self.router = FileRouter(self.config.app_dir, self.config.updates_dir)
         self._pending_updates: List[UpdateFile] = []
-        
-        logger.info(f"UpdateManager initialized: {self.config.to_dict()}")
+
+        # v6.7.0: Create GitHubUpdater for GitHub-based updates
+        try:
+            self.github = GitHubUpdater(str(self.config.app_dir))
+            self._github_available = self.github.pat is not None
+        except Exception as e:
+            logger.warning(f"GitHubUpdater init failed: {e}")
+            self.github = None
+            self._github_available = False
+
+        logger.info(f"UpdateManager initialized: {self.config.to_dict()}, github={'available' if self._github_available else 'unavailable'}")
     
     # --------------------------------------------------------
     # CHECK FOR UPDATES
@@ -709,12 +1119,12 @@ class UpdateManager:
     
     def check_for_updates(self) -> Dict[str, Any]:
         """
-        Check the updates folder for pending updates.
-        
-        Supports both:
-        - Flat .txt files in updates folder root
-        - Directory-structured files (e.g., static/js/ui/renderers.js.txt)
-        
+        Check for pending updates.
+
+        v6.7.0: Primary method uses GitHub Git Trees API to compare
+        local files against the remote repository. Falls back to
+        local updates folder scanning if GitHub is unavailable.
+
         Returns:
             Dict with update information:
             {
@@ -722,62 +1132,141 @@ class UpdateManager:
                 'count': int,
                 'updates': List[UpdateFile],
                 'by_category': Dict[str, int],
-                'total_size': int
+                'total_size': int,
+                'source': 'github' | 'local',
+                'current_version': str,
+                'latest_version': str
             }
         """
         self._pending_updates = []
-        
+
+        # v6.7.0: Try GitHub-based check first
+        if self._github_available:
+            try:
+                return self._check_github_updates()
+            except Exception as e:
+                logger.warning(f"GitHub update check failed, falling back to local: {e}")
+
+        # Fallback: local folder scan (legacy behavior)
+        return self._check_local_updates()
+
+    def _check_github_updates(self) -> Dict[str, Any]:
+        """Check for updates via GitHub Git Trees API."""
+        logger.info("Checking for updates via GitHub...")
+
+        # Get current and remote versions
+        current_version = self._get_current_version_string()
+        remote_version = current_version
+        try:
+            rv = self.github.get_remote_version()
+            if rv:
+                remote_version = rv.get('version', current_version)
+        except Exception:
+            pass
+
+        # Get HEAD SHA and file tree
+        head_sha = self.github.get_head_sha()
+        if not head_sha:
+            raise RuntimeError("Could not get HEAD commit SHA from GitHub")
+
+        remote_tree = self.github.get_file_tree(head_sha)
+        if not remote_tree:
+            raise RuntimeError("Could not get file tree from GitHub")
+
+        # Compare against local files
+        changed_files = self.github.get_changed_files(remote_tree)
+        logger.info(f"GitHub comparison: {len(changed_files)} changed/new file(s) found")
+
+        by_category = {}
+        total_size = 0
+
+        for cf in changed_files:
+            remote_path = cf['path']
+            remote_size = cf.get('size', 0)
+            local_path = os.path.join(self.github.base_dir, remote_path)
+            is_new = not os.path.exists(local_path)
+            old_size = os.path.getsize(local_path) if os.path.exists(local_path) else 0
+            category = self.github._categorize_file(remote_path)
+
+            # Use the filename for dest_name
+            dest_name = os.path.basename(remote_path)
+
+            update = UpdateFile(
+                source_name=remote_path,
+                source_path=remote_path,  # GitHub relative path
+                dest_path=local_path,
+                dest_name=dest_name,
+                category=category,
+                is_new=is_new,
+                size=remote_size,
+                old_size=old_size,
+                hash=cf.get('sha', '')
+            )
+            # v6.7.0: Tag as GitHub-sourced for apply_updates()
+            update._github_path = remote_path
+
+            self._pending_updates.append(update)
+            by_category[category] = by_category.get(category, 0) + 1
+            total_size += remote_size
+
+        return {
+            'has_updates': len(self._pending_updates) > 0,
+            'count': len(self._pending_updates),
+            'updates': [u.to_dict() for u in self._pending_updates],
+            'by_category': by_category,
+            'total_size': total_size,
+            'source': 'github',
+            'current_version': current_version,
+            'latest_version': remote_version
+        }
+
+    def _check_local_updates(self) -> Dict[str, Any]:
+        """Legacy local folder scan for updates."""
         if not self.config.updates_dir.exists():
             return {
                 'has_updates': False,
                 'count': 0,
                 'updates': [],
                 'by_category': {},
-                'total_size': 0
+                'total_size': 0,
+                'source': 'local'
             }
-        
-        # Scan for update files recursively (supports both .txt and native extensions)
-        # Native extensions: .py, .js, .css, .html, .json, .ps1, .md, .ico
-        # Legacy .txt extension still supported for backward compatibility
+
+        # Scan for update files recursively
         supported_extensions = ['*.txt', '*.py', '*.js', '*.css', '*.html', '*.json', '*.ps1', '*.md', '*.ico', '*.aegis-roles']
         update_files = []
         for ext in supported_extensions:
             update_files.extend(self.config.updates_dir.rglob(ext))
-        
-        # Filter out README, manifest, and other non-update files
+
+        # Filter out non-update files
         skip_names = ['README.txt', 'README.md', 'manifest.json', 'UPDATE_README.txt', '__pycache__']
         skip_patterns = ['INSTALL', 'UPDATE_README']
         update_files = [
-            f for f in update_files 
-            if f.name not in skip_names 
+            f for f in update_files
+            if f.name not in skip_names
             and not any(pattern in f.name for pattern in skip_patterns)
             and '__pycache__' not in str(f)
         ]
-        
+
         by_category = {}
         total_size = 0
-        
+
         for file_path in update_files:
-            # Get relative path from updates dir for directory-structured routing
             try:
                 relative_path = str(file_path.relative_to(self.config.updates_dir))
             except ValueError:
                 relative_path = file_path.name
-            
-            # Pass relative path for proper routing of directory-structured files
+
             routing = self.router.get_destination(file_path.name, relative_path)
-            
             if not routing:
                 continue
-            
+
             dest_path = Path(routing['path'])
             is_new = not dest_path.exists()
             old_size = dest_path.stat().st_size if dest_path.exists() else 0
             new_size = file_path.stat().st_size
-            
-            # Calculate hash
             file_hash = self._calculate_hash(file_path)
-            
+
             update = UpdateFile(
                 source_name=file_path.name,
                 source_path=str(file_path),
@@ -789,20 +1278,19 @@ class UpdateManager:
                 old_size=old_size,
                 hash=file_hash
             )
-            
+
             self._pending_updates.append(update)
-            
-            # Track by category
             cat = routing['category']
             by_category[cat] = by_category.get(cat, 0) + 1
             total_size += new_size
-        
+
         return {
             'has_updates': len(self._pending_updates) > 0,
             'count': len(self._pending_updates),
             'updates': [u.to_dict() for u in self._pending_updates],
             'by_category': by_category,
-            'total_size': total_size
+            'total_size': total_size,
+            'source': 'local'
         }
     
     def _calculate_hash(self, file_path: Path) -> str:
@@ -901,6 +1389,7 @@ class UpdateManager:
     def apply_updates(self, create_backup: bool = True) -> UpdateResult:
         """
         Apply all pending updates with detailed logging.
+        v6.7.0: Supports both GitHub-sourced and local-sourced updates.
 
         Args:
             create_backup: Whether to create a backup first (default: True)
@@ -916,11 +1405,17 @@ class UpdateManager:
             logger.info("No pending updates to apply")
             return UpdateResult(success=True, applied=0)
 
+        # v6.7.0: Detect if updates are from GitHub
+        is_github = any(
+            getattr(u, '_github_path', None) for u in self._pending_updates
+        )
+
         result = UpdateResult(success=True)
 
         # Log update start with summary
         logger.info(
             "Update session started",
+            source='github' if is_github else 'local',
             total_updates=len(self._pending_updates),
             total_size_bytes=sum(u.size for u in self._pending_updates),
             update_categories={
@@ -958,7 +1453,8 @@ class UpdateManager:
                     category=update.category,
                     is_new_file=update.is_new,
                     file_size=update.size,
-                    previous_size=update.old_size
+                    previous_size=update.old_size,
+                    source='github' if getattr(update, '_github_path', None) else 'local'
                 )
 
                 success = self._apply_single_update(update)
@@ -989,8 +1485,8 @@ class UpdateManager:
                     exc_info=True
                 )
 
-        # Clear updates folder on success
-        if result.failed == 0:
+        # Clear updates folder on success (local updates only)
+        if result.failed == 0 and not is_github:
             self._clear_updates_folder()
 
         result.success = result.failed == 0
@@ -998,6 +1494,7 @@ class UpdateManager:
         # Log final summary
         logger.info(
             "Update session completed",
+            source='github' if is_github else 'local',
             total_applied=result.applied,
             total_failed=result.failed,
             backup_path=result.backup_path,
@@ -1006,9 +1503,19 @@ class UpdateManager:
         )
 
         return result
-    
+
     def _apply_single_update(self, update: UpdateFile) -> bool:
-        """Apply a single update file with detailed logging."""
+        """
+        Apply a single update file with detailed logging.
+        v6.7.0: Supports GitHub-sourced updates (downloads from raw.githubusercontent.com).
+        """
+        # v6.7.0: Check if this is a GitHub-sourced update
+        github_path = getattr(update, '_github_path', None)
+
+        if github_path:
+            return self._apply_github_update(update, github_path)
+
+        # --- Local file update path (original logic) ---
         src = Path(update.source_path)
 
         # v4.1.0: Handle adjudication decisions JSON imports
@@ -1060,6 +1567,68 @@ class UpdateManager:
             category=update.category,
             new_file=update.is_new,
             size_bytes=new_size
+        )
+        return True
+
+    def _apply_github_update(self, update: UpdateFile, github_path: str) -> bool:
+        """
+        v6.7.0: Apply a single update by downloading from GitHub.
+
+        Args:
+            update: The UpdateFile object
+            github_path: Relative path in the GitHub repo (e.g., 'routes/core_routes.py')
+
+        Returns:
+            True if successful
+        """
+        if not self.github:
+            raise RuntimeError("GitHubUpdater not available for GitHub update")
+
+        dest = Path(update.dest_path)
+
+        # Create destination directory if needed
+        try:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            raise IOError(f"Failed to create destination directory {dest.parent}: {e}")
+
+        # Log pre-download state
+        if dest.exists():
+            old_size = dest.stat().st_size
+            logger.debug(f"Downloading from GitHub to overwrite: {dest.name} (old size: {old_size} bytes)")
+        else:
+            logger.debug(f"Downloading new file from GitHub: {dest.name}")
+
+        # Download file content from GitHub
+        content = self.github.download_raw_file(github_path)
+        if content is None:
+            raise IOError(f"Failed to download {github_path} from GitHub")
+
+        # Write to destination
+        try:
+            with open(dest, 'wb') as f:
+                f.write(content)
+        except Exception as e:
+            raise IOError(f"Failed to write {dest.name}: {e}")
+
+        # Verify write
+        if not dest.exists():
+            raise IOError(f"Failed to write file to {dest}")
+
+        # Verify size matches what GitHub reported
+        new_size = dest.stat().st_size
+        if update.size > 0 and abs(new_size - update.size) > 100:
+            # Allow small variance (line ending conversion etc.)
+            logger.warning(
+                f"Size mismatch for {dest.name}: expected ~{update.size}, got {new_size}"
+            )
+
+        logger.info(
+            f"Applied from GitHub: {update.dest_name}",
+            category=update.category,
+            new_file=update.is_new,
+            size_bytes=new_size,
+            github_path=github_path
         )
         return True
     

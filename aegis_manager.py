@@ -52,7 +52,7 @@ from urllib.parse import parse_qs, urlparse
 # CONSTANTS & CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════
 
-MANAGER_VERSION = "2.3.7"
+MANAGER_VERSION = "2.4.0"
 
 # GitHub
 REPO_OWNER = "nicholasgeorgeson-prog"
@@ -196,7 +196,29 @@ SPACY_CHAIN = [
 ]
 
 # Packages that need subprocess-based import testing
-SUBPROCESS_CHECK = {'torch', 'requests_negotiate_sspi'}
+# In-process importlib.import_module() can give false passes when transitive deps
+# are partially loaded in memory from a previous health check. Subprocess testing
+# uses a clean interpreter and catches real failures.
+SUBPROCESS_CHECK = {
+    'torch', 'requests_negotiate_sspi',
+    'sklearn', 'nltk', 'scipy', 'numpy', 'pandas',
+}
+
+# Ordered install sequence for critical packages (dependency order)
+# Foundation packages first, then packages that depend on them.
+CRITICAL_INSTALL_ORDER = [
+    # Foundation (no deps on other AEGIS packages)
+    ('numpy', 'numpy'),
+    ('pandas', 'pandas'),
+    # Depends on numpy
+    ('scipy', 'scipy'),
+    # Depends on scipy + numpy
+    ('sklearn', 'scikit-learn'),
+    # Standalone NLP
+    ('nltk', 'nltk'),
+    # Already handled in Step 3c but safety net
+    ('spacy', 'spacy'),
+]
 
 # Packages known to be incompatible with current spaCy version (3.8+)
 # These have regex/fallback implementations in AEGIS — not a workaround,
@@ -204,10 +226,14 @@ SUBPROCESS_CHECK = {'torch', 'requests_negotiate_sspi'}
 INCOMPATIBLE_PACKAGES = {
     'negspacy': 'Incompatible with spaCy 3.6+ (last release June 2023). '
                 'Regex-based negation detection active as built-in replacement.',
+    'coreferee': 'Incompatible with spaCy 3.6+ (last release June 2023). '
+                 'Pattern-based coreference fallback active in AEGIS.',
+    'passivepy': 'No pre-built wheel available. Rule-based passive voice '
+                 'detection active as built-in replacement in AEGIS.',
 }
 
 # Packages that need --only-binary=:all: (no C compiler on target)
-BINARY_ONLY_PACKAGES = {'passivepy', 'textacy'}
+BINARY_ONLY_PACKAGES = {'textacy'}
 
 # NLTK datasets
 NLTK_DATASETS = [
@@ -1291,6 +1317,89 @@ class PackageManager:
         except Exception as e:
             return False, str(e)[:200]
 
+    def _ensure_torch_wheel(self):
+        """Ensure torch wheel exists before attempting install.
+
+        Torch is 113MB — too large for git tree. It's distributed via:
+        1. OneClick installer's GitHub Release download
+        2. Split parts in packaging/wheels/torch_split/
+        3. GitHub Release v5.1.0-wheels as fallback download
+
+        Returns the path to the wheel if found, or None.
+        """
+        # Check all wheels directories for any torch wheel
+        for wd in self.find_wheels_dirs():
+            for whl in glob.glob(os.path.join(wd, 'torch-*.whl')):
+                C.info(f'Found torch wheel: {os.path.basename(whl)}')
+                return whl
+
+        # Check for split parts to reassemble
+        split_dir = os.path.join(self.install_dir, 'packaging', 'wheels', 'torch_split')
+        if os.path.isdir(split_dir):
+            parts = sorted(glob.glob(os.path.join(split_dir, 'torch_part_*')))
+            if len(parts) >= 3:
+                C.info(f'Reassembling torch wheel from {len(parts)} split parts...')
+                dest_dir = os.path.join(self.install_dir, 'packaging', 'wheels')
+                os.makedirs(dest_dir, exist_ok=True)
+                dest = os.path.join(dest_dir, 'torch-2.10.0+cpu-cp310-cp310-win_amd64.whl')
+                try:
+                    with open(dest, 'wb') as out:
+                        for part in parts:
+                            with open(part, 'rb') as inp:
+                                out.write(inp.read())
+                    size_mb = os.path.getsize(dest) / (1024 * 1024)
+                    C.ok(f'Reassembled torch wheel ({size_mb:.1f} MB)')
+                    return dest
+                except Exception as e:
+                    C.warn(f'Failed to reassemble torch: {e}')
+
+        # Try downloading from GitHub Release
+        release_url = (f'https://github.com/{REPO}/releases/download/'
+                       f'v5.1.0-wheels/torch-2.10.0-cp310-cp310-win_amd64.whl')
+        dest_dir = os.path.join(self.install_dir, 'packaging', 'wheels')
+        os.makedirs(dest_dir, exist_ok=True)
+        dest = os.path.join(dest_dir, 'torch-2.10.0+cpu-cp310-cp310-win_amd64.whl')
+
+        C.info('Attempting to download torch wheel from GitHub Release...')
+        try:
+            import urllib.request
+            import ssl
+            # 3-tier SSL fallback (same as GitHubClient pattern)
+            for ssl_ctx in [None, ssl.create_default_context(), ssl._create_unverified_context()]:
+                try:
+                    req = urllib.request.Request(release_url)
+                    if ssl_ctx:
+                        resp = urllib.request.urlopen(req, context=ssl_ctx, timeout=120)
+                    else:
+                        resp = urllib.request.urlopen(req, timeout=120)
+                    data = resp.read()
+                    with open(dest, 'wb') as f:
+                        f.write(data)
+                    size_mb = len(data) / (1024 * 1024)
+                    C.ok(f'Downloaded torch wheel ({size_mb:.1f} MB)')
+                    return dest
+                except Exception:
+                    continue
+
+            # curl subprocess fallback
+            try:
+                result = subprocess.run(
+                    ['curl', '-L', '-o', dest, '-s', release_url],
+                    capture_output=True, timeout=300
+                )
+                if result.returncode == 0 and os.path.isfile(dest) and os.path.getsize(dest) > 10_000_000:
+                    size_mb = os.path.getsize(dest) / (1024 * 1024)
+                    C.ok(f'Downloaded torch wheel via curl ({size_mb:.1f} MB)')
+                    return dest
+            except Exception:
+                pass
+
+        except Exception as e:
+            C.warn(f'Could not download torch wheel: {e}')
+
+        C.warn('Torch wheel not found — torch and sentence-transformers will be unavailable')
+        return None
+
     def check_spacy_model(self):
         """Check if spaCy en_core_web_sm model is available."""
         try:
@@ -1554,36 +1663,68 @@ class PackageManager:
             C.info('Reinstalling spaCy + all C dependencies...')
             self.pip_install(SPACY_CHAIN, force=True)
 
-        # Step 3d: Remaining critical — BATCH install (much faster than one-by-one)
+        # Step 3d: Remaining critical — ORDERED sequential installs
+        # Install in dependency order so each package has its deps ready.
+        # Use subprocess verification (clean interpreter) to catch real failures
+        # instead of in-process importlib which can give false passes.
         skip = {'setuptools', 'colorama', 'typer', 'spacy', 'cymem',
                 'murmurhash', 'preshed', 'blis', 'srsly', 'thinc', 'en_core_web_sm'}
-        remaining_critical = [n for n, _ in failed if n.lower() not in skip]
-        if remaining_critical:
-            C.info(f'Batch installing {len(remaining_critical)} critical package(s): '
-                   f'{", ".join(remaining_critical[:5])}{"..." if len(remaining_critical) > 5 else ""}')
-            self.pip_install(remaining_critical, force=True)
-            # Re-check which ones still fail and retry individually
-            still_broken = []
-            for pip_name in remaining_critical:
-                # Find the import name for this pip package
-                imp_name = pip_name.replace('-', '_')
-                for imp, pn, _ in CRITICAL_PACKAGES:
-                    if pn == pip_name:
-                        imp_name = imp
-                        break
-                ok, err = self.check_import(imp_name)
-                if ok:
-                    C.ok(f'{pip_name}')
-                else:
-                    still_broken.append(pip_name)
-            # Individual retry for any that failed the batch
-            for pip_name in still_broken:
-                C.info(f'Retrying {pip_name} individually...')
-                ok, method = self.pip_install(pip_name, force=True)
-                if ok:
-                    C.ok(f'{pip_name} ({method})')
-                else:
-                    C.fail(f'{pip_name}: {method}')
+        remaining_critical_set = {n.lower() for n, _ in failed if n.lower() not in skip}
+
+        if remaining_critical_set:
+            C.info(f'Installing {len(remaining_critical_set)} critical package(s) in dependency order...')
+
+            # Phase 1: Install in defined dependency order
+            installed_ordered = set()
+            for import_name, pip_name in CRITICAL_INSTALL_ORDER:
+                if pip_name.lower() in remaining_critical_set:
+                    ok, method = self.pip_install(pip_name, force=True)
+                    if ok:
+                        # Subprocess verification — clean interpreter
+                        v_ok, v_err = self._check_import_subprocess(import_name)
+                        if v_ok:
+                            C.ok(f'{pip_name} (verified in subprocess)')
+                            installed_ordered.add(pip_name.lower())
+                        else:
+                            C.warn(f'{pip_name}: install OK but import fails — {v_err}')
+                            # Retry once individually
+                            C.info(f'  Retrying {pip_name} with --force-reinstall...')
+                            self.pip_install(pip_name, force=True)
+                            v_ok2, v_err2 = self._check_import_subprocess(import_name)
+                            if v_ok2:
+                                C.ok(f'{pip_name} (verified on retry)')
+                                installed_ordered.add(pip_name.lower())
+                            else:
+                                C.fail(f'{pip_name}: still broken after retry — {v_err2}')
+                    else:
+                        C.fail(f'{pip_name}: install failed ({method})')
+
+            # Phase 2: Any remaining critical packages not in the ordered list
+            remaining_unordered = []
+            ordered_pip_names = {pn.lower() for _, pn in CRITICAL_INSTALL_ORDER}
+            for pip_name, _ in failed:
+                if (pip_name.lower() not in skip and
+                        pip_name.lower() not in ordered_pip_names and
+                        pip_name.lower() not in installed_ordered):
+                    remaining_unordered.append(pip_name)
+
+            if remaining_unordered:
+                C.info(f'Installing {len(remaining_unordered)} additional critical package(s)...')
+                for pip_name in remaining_unordered:
+                    ok, method = self.pip_install(pip_name, force=True)
+                    if ok:
+                        imp_name = pip_name.replace('-', '_')
+                        for imp, pn, _ in CRITICAL_PACKAGES:
+                            if pn == pip_name:
+                                imp_name = imp
+                                break
+                        v_ok, _ = self._check_import_subprocess(imp_name)
+                        if v_ok:
+                            C.ok(f'{pip_name} (verified)')
+                        else:
+                            C.warn(f'{pip_name}: install OK but import still fails')
+                    else:
+                        C.fail(f'{pip_name}: {method}')
 
         # Step 3e: spaCy model
         if 'en_core_web_sm' in failed_names:
@@ -1616,15 +1757,25 @@ class PackageManager:
             # Install torch first if needed (sentence-transformers depends on it)
             torch_available = False
             if 'torch' in opt_names:
-                ok, method = self.pip_install('torch', force=True)
-                if ok:
-                    C.ok(f'torch ({method})')
-                    torch_available = True
+                # Ensure wheel exists before attempting install
+                wheel_path = self._ensure_torch_wheel()
+                if wheel_path:
+                    # Install from the specific wheel file
+                    ok, method = self.pip_install(wheel_path, force=True)
+                    if ok:
+                        v_ok, _ = self._check_import_subprocess('torch')
+                        if v_ok:
+                            C.ok(f'torch (verified in subprocess)')
+                            torch_available = True
+                        else:
+                            C.warn('torch: install OK but import fails in clean subprocess')
+                    else:
+                        C.warn('torch — install failed')
                 else:
-                    C.warn('torch — not available (sentence-transformers will be skipped)')
+                    C.warn('torch — no wheel available (sentence-transformers will be skipped)')
             else:
                 # torch might already be installed
-                t_ok, _ = self.check_import('torch')
+                t_ok, _ = self._check_import_subprocess('torch')
                 torch_available = t_ok
 
             # Collect remaining optional packages for BATCH install
@@ -1642,54 +1793,84 @@ class PackageManager:
                 batch_optional.append(pip_name)
 
             if batch_optional:
-                C.info(f'Batch installing {len(batch_optional)} optional package(s): '
-                       f'{", ".join(batch_optional[:5])}{"..." if len(batch_optional) > 5 else ""}')
-                self.pip_install(batch_optional, force=False)
-
-                # Re-check which ones still fail
-                still_broken_opt = []
+                # Pre-check: skip packages with no wheel available
+                # These would fail with "no matching distribution for setuptools"
+                # because building from source requires build deps that --no-index blocks
+                installable = []
+                wheels_dirs = self.find_wheels_dirs()
                 for pip_name in batch_optional:
-                    imp_name = pip_name.replace('-', '_')
-                    for imp, pn, _ in OPTIONAL_PACKAGES:
-                        if pn == pip_name:
-                            imp_name = imp
+                    has_wheel = False
+                    for wd in wheels_dirs:
+                        # Check for wheel file matching this package
+                        safe_name = pip_name.replace('-', '_').replace('.', '_').lower()
+                        for whl in glob.glob(os.path.join(wd, '*.whl')):
+                            whl_base = os.path.basename(whl).lower().replace('-', '_')
+                            if whl_base.startswith(safe_name):
+                                has_wheel = True
+                                break
+                        if has_wheel:
                             break
-                    ok, _ = self.check_import(imp_name)
-                    if ok:
-                        C.ok(f'{pip_name}')
+                    if has_wheel:
+                        installable.append(pip_name)
                     else:
-                        still_broken_opt.append(pip_name)
+                        C.info(f'{pip_name}: no pre-built wheel found — skipping (AEGIS has built-in fallback)')
 
-                # Individual retry with smart 3-strategy cascade
-                for pip_name in still_broken_opt:
-                    installed = False
-                    # Strategy 1: Force reinstall
-                    C.info(f'Retrying {pip_name} with --force-reinstall...')
-                    ok, method = self.pip_install(pip_name, force=True)
-                    if ok:
-                        C.ok(f'{pip_name} ({method})')
-                        installed = True
-                    # Strategy 2: Binary-only
-                    if not installed and pip_name in BINARY_ONLY_PACKAGES:
-                        C.info(f'  Retrying {pip_name} with --only-binary=:all:...')
-                        ok = self._pip_install_binary_only(pip_name)
+                if installable:
+                    C.info(f'Batch installing {len(installable)} optional package(s): '
+                           f'{", ".join(installable[:5])}{"..." if len(installable) > 5 else ""}')
+                    self.pip_install(installable, force=False)
+
+                    # Re-check which ones still fail (using subprocess for accuracy)
+                    still_broken_opt = []
+                    for pip_name in installable:
+                        imp_name = pip_name.replace('-', '_')
+                        for imp, pn, _ in OPTIONAL_PACKAGES:
+                            if pn == pip_name:
+                                imp_name = imp
+                                break
+                        ok, _ = self._check_import_subprocess(imp_name)
                         if ok:
-                            C.ok(f'{pip_name} (binary-only)')
-                            installed = True
-                    if not installed:
-                        C.warn(f'{pip_name} — could not install (check logs)')
+                            C.ok(f'{pip_name}')
+                        else:
+                            still_broken_opt.append(pip_name)
+
+                    # Individual retry with smart 3-strategy cascade
+                    for pip_name in still_broken_opt:
+                        installed = False
+                        # Strategy 1: Force reinstall
+                        C.info(f'Retrying {pip_name} with --force-reinstall...')
+                        ok, method = self.pip_install(pip_name, force=True)
+                        if ok:
+                            v_ok, _ = self._check_import_subprocess(
+                                pip_name.replace('-', '_'))
+                            if v_ok:
+                                C.ok(f'{pip_name} ({method}, verified)')
+                                installed = True
+                            else:
+                                C.warn(f'{pip_name}: install OK but import fails')
+                        # Strategy 2: Binary-only
+                        if not installed and pip_name in BINARY_ONLY_PACKAGES:
+                            C.info(f'  Retrying {pip_name} with --only-binary=:all:...')
+                            ok = self._pip_install_binary_only(pip_name)
+                            if ok:
+                                C.ok(f'{pip_name} (binary-only)')
+                                installed = True
+                        if not installed:
+                            C.warn(f'{pip_name} — could not install (check logs)')
 
         C.header('[Phase 4] NLTK Data')
         self.check_nltk_data()
 
-        C.header('[Phase 5] Final Verification')
+        C.header('[Phase 5] Final Verification (subprocess-based)')
+        C.info('Testing all critical packages in clean subprocess...')
         final_fail = 0
         for imp, pip_name, desc in CRITICAL_PACKAGES:
-            ok, err = self.check_import(imp)
+            # Use subprocess for all packages — catches real failures
+            ok, err = self._check_import_subprocess(imp)
             if ok:
                 C.ok(desc)
             else:
-                C.fail(f'{desc} — STILL BROKEN')
+                C.fail(f'{desc} — STILL BROKEN ({err})')
                 final_fail += 1
 
         m_ok, m_info = self.check_spacy_model()
@@ -1698,6 +1879,11 @@ class PackageManager:
         else:
             C.fail('en_core_web_sm — STILL BROKEN')
             final_fail += 1
+
+        if final_fail == 0:
+            C.ok('All critical packages verified in clean subprocess!')
+        else:
+            C.warn(f'{final_fail} package(s) still broken after repair')
 
         return final_fail
 

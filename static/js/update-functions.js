@@ -4,7 +4,7 @@
  * These functions replace the broken update functions in app.js
  * They use the correct element IDs from index.html
  * 
- * Version: 3.0.52
+ * Version: 6.7.0
  */
 
 // Override the broken checkForUpdates function
@@ -33,9 +33,9 @@ window.checkForUpdates = async function() {
 
     try {
         console.log('[TWR] Calling /api/updates/check...');
-        // v4.9.9: Add 10-second timeout to prevent infinite spinner
+        // v6.7.0: 30-second timeout (GitHub API may take 10-20s for tree comparison)
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
         let result;
         try {
             result = await api('/updates/check', 'GET', null, { signal: controller.signal });
@@ -53,19 +53,26 @@ window.checkForUpdates = async function() {
             
             if (data.has_updates && data.updates && data.updates.length > 0) {
                 // Updates available
-                console.log('[TWR] Updates found:', data.updates.length);
+                const fileCount = data.count || data.updates.length;
+                const updateSource = data.source || 'local';
+                const totalSize = data.updates.reduce((sum, u) => sum + (u.size || 0), 0);
+                console.log('[TWR] Updates found:', fileCount, 'from', updateSource, 'total size:', totalSize);
 
                 if (noUpdatesDiv) noUpdatesDiv.style.display = 'none';
                 if (updatesAvailableDiv) updatesAvailableDiv.style.display = 'block';
-                if (updateCountSpan) updateCountSpan.textContent = data.count || data.updates.length;
+                if (updateCountSpan) updateCountSpan.textContent = fileCount;
 
                 // v5.9.40: Show the Apply Updates button
                 const applyBtn = document.getElementById('btn-apply-updates');
                 if (applyBtn) applyBtn.style.display = 'inline-flex';
-                
-                // Populate update list
+
+                // v6.7.0: Populate update list with source indicator and total size
                 if (updateListDiv) {
-                    updateListDiv.innerHTML = data.updates.map(u => `
+                    const sourceLabel = updateSource === 'github'
+                        ? '<div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px; padding: 6px 10px; background: var(--bg-secondary); border-radius: var(--radius-md); font-size: 12px;"><i data-lucide="github" style="width: 14px; height: 14px;"></i> <span>Source: GitHub &middot; ' + fileCount + ' file(s) &middot; ' + formatBytes(totalSize) + '</span></div>'
+                        : '<div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px; padding: 6px 10px; background: var(--bg-secondary); border-radius: var(--radius-md); font-size: 12px;"><i data-lucide="folder" style="width: 14px; height: 14px;"></i> <span>Source: Local &middot; ' + fileCount + ' file(s) &middot; ' + formatBytes(totalSize) + '</span></div>';
+
+                    updateListDiv.innerHTML = sourceLabel + data.updates.map(u => `
                         <div class="update-item" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--bg-surface); border-radius: var(--radius-md); margin-bottom: 4px;">
                             <div>
                                 <strong style="font-size: 13px;">${u.dest_name || u.source_name}</strong>
@@ -75,20 +82,22 @@ window.checkForUpdates = async function() {
                             <span class="help-text">${formatBytes(u.size || 0)}</span>
                         </div>
                     `).join('');
+
+                    if (typeof lucide !== 'undefined') lucide.createIcons({target: updateListDiv});
                 }
-                
+
                 // Legacy support
                 if (legacyStatusDiv) {
                     legacyStatusDiv.innerHTML = `
                         <div class="update-available" style="padding: 12px; background: var(--success-emphasis); border-radius: 8px; color: white;">
-                            <strong>${data.count || data.updates.length} update(s) available</strong>
+                            <strong>${fileCount} update(s) available from ${updateSource === 'github' ? 'GitHub' : 'local folder'}</strong>
                             <button class="btn btn-sm" onclick="applyUpdates()" style="margin-left: 12px;">Apply Updates</button>
                         </div>
                     `;
                 }
-                
+
                 if (typeof toast === 'function') {
-                    toast('info', `${data.count || data.updates.length} update(s) found!`);
+                    toast('info', `${fileCount} file update(s) found from ${updateSource === 'github' ? 'GitHub' : 'local folder'}!`);
                 }
             } else {
                 // No updates
@@ -96,9 +105,12 @@ window.checkForUpdates = async function() {
 
                 if (noUpdatesDiv) {
                     noUpdatesDiv.style.display = 'flex';
-                    // Update the text to show last checked time
+                    // v6.7.0: Show source and timestamp
+                    const noUpdateSource = data.source || 'local';
                     const pEl = noUpdatesDiv.querySelector('p:first-of-type');
-                    if (pEl) pEl.textContent = 'No updates available';
+                    if (pEl) pEl.textContent = noUpdateSource === 'github'
+                        ? 'Up to date with GitHub'
+                        : 'No updates available';
                 }
                 if (updatesAvailableDiv) updatesAvailableDiv.style.display = 'none';
 
@@ -142,7 +154,7 @@ window.checkForUpdates = async function() {
 
         const isTimeout = e.name === 'AbortError';
         const msg = isTimeout
-            ? 'Update check timed out. The updates folder may be large or unreachable.'
+            ? 'Update check timed out. GitHub may be unreachable — check your internet connection.'
             : 'Could not check for updates.';
 
         if (noUpdatesDiv) {
@@ -396,4 +408,4 @@ window.showRollbackConfirm = async function() {
     }
 };
 
-console.log('[TWR] Update functions loaded (fixed version)');
+console.log('[TWR] Update functions loaded (v6.7.0 — GitHub + local support)');

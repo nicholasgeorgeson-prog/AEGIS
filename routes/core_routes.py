@@ -155,6 +155,178 @@ def diagnostics_errors():
 
 
 
+def _collect_manager_diagnostics():
+    """
+    Collect Manager-level diagnostics directly from the running AEGIS process.
+    Includes: package health (subprocess imports), pip list, disk space,
+    Python details, wheels inventory, torch wheel status, server info,
+    Manager version.  All via stdlib — no Manager import needed.
+    """
+    import shutil
+    import time as _time
+
+    diag = {}
+    app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    python = _find_python_exe()
+
+    # --- 1. Package health (subprocess imports) ---
+    CRITICAL_PACKAGES = [
+        ('flask', 'Flask'), ('numpy', 'numpy'), ('pandas', 'pandas'),
+        ('scipy', 'scipy'), ('sklearn', 'scikit-learn'), ('nltk', 'NLTK'),
+        ('spacy', 'spaCy'), ('docx', 'python-docx'), ('openpyxl', 'openpyxl'),
+        ('requests', 'requests'), ('waitress', 'Waitress'), ('mammoth', 'mammoth'),
+        ('textstat', 'textstat'), ('torch', 'torch'),
+        ('sentence_transformers', 'sentence-transformers'),
+    ]
+    pkg_health = {}
+    for import_name, label in CRITICAL_PACKAGES:
+        try:
+            result = subprocess.run(
+                [python, '-c', f'import {import_name}; v=getattr({import_name},"__version__","installed"); print("OK|"+str(v))'],
+                capture_output=True, text=True, timeout=30
+            )
+            if result.returncode == 0 and 'OK|' in result.stdout:
+                ver = result.stdout.strip().split('OK|', 1)[1]
+                pkg_health[label] = {'status': 'ok', 'version': ver}
+            else:
+                err = (result.stderr or result.stdout or 'unknown error').strip()[:120]
+                pkg_health[label] = {'status': 'fail', 'error': err}
+        except subprocess.TimeoutExpired:
+            pkg_health[label] = {'status': 'timeout'}
+        except Exception as e:
+            pkg_health[label] = {'status': 'error', 'error': str(e)[:80]}
+    diag['package_health'] = pkg_health
+
+    # --- 2. pip list ---
+    try:
+        import json as _json
+        result = subprocess.run(
+            [python, '-m', 'pip', 'list', '--format=json'],
+            capture_output=True, text=True, timeout=30
+        )
+        if result.returncode == 0:
+            pip_pkgs = _json.loads(result.stdout)
+            diag['pip_packages'] = {p['name']: p['version'] for p in pip_pkgs}
+            diag['pip_package_count'] = len(pip_pkgs)
+        else:
+            diag['pip_packages'] = None
+            diag['pip_error'] = (result.stderr or 'unknown')[:200]
+    except Exception as e:
+        diag['pip_packages'] = None
+        diag['pip_error'] = str(e)[:120]
+
+    # --- 3. Disk space ---
+    try:
+        usage = shutil.disk_usage(app_dir)
+        diag['disk_space'] = {
+            'total_gb': round(usage.total / (1024 ** 3), 1),
+            'free_gb': round(usage.free / (1024 ** 3), 1),
+            'used_gb': round(usage.used / (1024 ** 3), 1),
+            'free_pct': round(100 * usage.free / usage.total, 1),
+        }
+    except Exception as e:
+        diag['disk_space'] = {'error': str(e)[:80]}
+
+    # --- 4. Python details ---
+    diag['python'] = {
+        'executable': sys.executable,
+        'version': sys.version,
+        'prefix': sys.prefix,
+        'platform': sys.platform,
+    }
+
+    # --- 5. Wheels inventory ---
+    wheels_dirs = _find_wheels_dirs()
+    wheels_info = {}
+    torch_wheel_found = False
+    total_wheel_count = 0
+    for wd in wheels_dirs:
+        whl_files = glob.glob(os.path.join(wd, '*.whl'))
+        total_wheel_count += len(whl_files)
+        total_size = sum(os.path.getsize(f) for f in whl_files)
+        wheels_info[wd] = {
+            'count': len(whl_files),
+            'total_size_mb': round(total_size / (1024 * 1024), 1),
+        }
+        # Check for torch wheel
+        for whl in whl_files:
+            if 'torch' in os.path.basename(whl).lower():
+                torch_wheel_found = True
+                wheels_info['torch_wheel'] = {
+                    'path': whl,
+                    'size_mb': round(os.path.getsize(whl) / (1024 * 1024), 1),
+                }
+                break
+    # Also check torch_split
+    split_dir = os.path.join(app_dir, 'packaging', 'wheels', 'torch_split')
+    if not torch_wheel_found and os.path.isdir(split_dir):
+        parts = glob.glob(os.path.join(split_dir, 'torch_part_*'))
+        if parts:
+            wheels_info['torch_split_parts'] = len(parts)
+
+    diag['wheels'] = {
+        'directories': wheels_info,
+        'total_wheels': total_wheel_count,
+        'torch_wheel_found': torch_wheel_found,
+    }
+
+    # --- 6. Server process info ---
+    diag['server'] = {
+        'pid': os.getpid(),
+        'python_exe': python,
+    }
+    # Try to get server start time from /proc or psutil
+    try:
+        import psutil
+        proc = psutil.Process(os.getpid())
+        start_time = proc.create_time()
+        uptime_secs = _time.time() - start_time
+        hours, rem = divmod(int(uptime_secs), 3600)
+        mins, secs = divmod(rem, 60)
+        diag['server']['uptime'] = f'{hours}h {mins}m {secs}s'
+        diag['server']['started_at'] = datetime.fromtimestamp(start_time).isoformat()
+    except ImportError:
+        # No psutil — use a rough estimate from module load time
+        pass
+    except Exception:
+        pass
+
+    # --- 7. Manager version ---
+    manager_path = os.path.join(app_dir, 'aegis_manager.py')
+    if os.path.exists(manager_path):
+        try:
+            with open(manager_path, 'r', encoding='utf-8', errors='replace') as f:
+                for line in f:
+                    if 'MANAGER_VERSION' in line and '=' in line:
+                        # Extract version from line like:  MANAGER_VERSION = "2.4.0"
+                        parts = line.split('=', 1)
+                        if len(parts) == 2:
+                            ver = parts[1].strip().strip('"').strip("'")
+                            diag['manager_version'] = ver
+                        break
+        except Exception:
+            diag['manager_version'] = 'unknown'
+    else:
+        diag['manager_version'] = 'not installed'
+
+    # --- 8. aegis_manager.log info ---
+    manager_log = os.path.join(app_dir, 'aegis_manager.log')
+    if os.path.exists(manager_log):
+        try:
+            stat = os.stat(manager_log)
+            diag['manager_log'] = {
+                'exists': True,
+                'size_kb': round(stat.st_size / 1024, 1),
+                'modified': datetime.fromtimestamp(stat.st_mtime).isoformat(),
+            }
+        except Exception:
+            diag['manager_log'] = {'exists': True}
+    else:
+        diag['manager_log'] = {'exists': False}
+
+    return diag
+
+
 @core_bp.route('/api/diagnostics/email', methods=['POST'])
 @require_csrf
 @handle_api_errors
@@ -362,6 +534,15 @@ def diagnostics_email():
         except Exception as diag_e:
             export_data['sharepoint_diagnostics'] = {'error': str(diag_e)}
 
+        # --- v6.7.0: Collect Manager-level diagnostics ---
+        try:
+            manager_diag = _collect_manager_diagnostics()
+            export_data['manager_diagnostics'] = manager_diag
+        except Exception as mgr_e:
+            logger.warning(f'Could not collect manager diagnostics: {mgr_e}')
+            export_data['manager_diagnostics'] = {'error': str(mgr_e)}
+            manager_diag = {}
+
         # --- Build email body text ---
         version_str = get_version()
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -412,6 +593,87 @@ def diagnostics_email():
             body_lines.append(f"  Installed: {len(installed)} | Missing: {len(missing)}")
             if missing:
                 body_lines.append(f"  Missing: {', '.join(missing)}")
+            body_lines.append('')
+
+        # Manager-level diagnostics (v6.7.0)
+        if manager_diag:
+            body_lines.append('MANAGER-LEVEL DIAGNOSTICS')
+            body_lines.append('=' * 50)
+
+            # Manager version
+            mgr_ver = manager_diag.get('manager_version', 'unknown')
+            body_lines.append(f'  Manager Version: {mgr_ver}')
+
+            # Python
+            py_info = manager_diag.get('python', {})
+            if py_info:
+                py_ver = py_info.get('version', '').split()[0] if py_info.get('version') else '?'
+                py_exe = py_info.get('executable', '?')
+                body_lines.append(f'  Python: {py_ver} ({py_exe})')
+
+            # Disk space
+            disk = manager_diag.get('disk_space', {})
+            if disk and 'error' not in disk:
+                body_lines.append(f"  Disk: {disk.get('free_gb', '?')} GB free / {disk.get('total_gb', '?')} GB total")
+
+            # Server info
+            srv = manager_diag.get('server', {})
+            if srv:
+                uptime = srv.get('uptime', 'unknown')
+                body_lines.append(f"  Server PID: {srv.get('pid', '?')}, Uptime: {uptime}")
+
+            body_lines.append('')
+
+            # Package health (critical)
+            pkg_h = manager_diag.get('package_health', {})
+            if pkg_h:
+                body_lines.append('  Package Health (Critical):')
+                # Build compact 3-per-line display
+                items = []
+                for label, info in pkg_h.items():
+                    if info.get('status') == 'ok':
+                        items.append(f"\u2713 {label} {info.get('version', '')}")
+                    elif info.get('status') == 'fail':
+                        err_short = info.get('error', 'ImportError')
+                        # Extract just the error type
+                        if 'Error' in err_short:
+                            err_short = err_short.split('Error')[0] + 'Error'
+                        items.append(f"\u2717 {label} ({err_short})")
+                    elif info.get('status') == 'timeout':
+                        items.append(f"\u2717 {label} (timeout)")
+                    else:
+                        items.append(f"? {label}")
+                # Print items 3 per line
+                for i in range(0, len(items), 3):
+                    chunk = items[i:i + 3]
+                    body_lines.append('    ' + '  '.join(chunk))
+                body_lines.append('')
+
+            # Torch wheel status
+            wheels = manager_diag.get('wheels', {})
+            if wheels:
+                torch_found = wheels.get('torch_wheel_found', False)
+                torch_status = '\u2713 FOUND' if torch_found else '\u2717 NOT FOUND'
+                body_lines.append(f'  Torch Wheel: {torch_status}')
+                total_whl = wheels.get('total_wheels', 0)
+                dirs_info = wheels.get('directories', {})
+                dir_parts = []
+                for dpath, dinfo in dirs_info.items():
+                    if isinstance(dinfo, dict) and dinfo.get('count', 0) > 0:
+                        dir_name = os.path.basename(dpath) or dpath
+                        dir_parts.append(f"{dinfo['count']} files in {dir_name}")
+                if dir_parts:
+                    body_lines.append(f"  Wheels: {', '.join(dir_parts)}")
+                else:
+                    body_lines.append(f'  Wheels: {total_whl} total')
+
+            # Manager log info
+            mgr_log = manager_diag.get('manager_log', {})
+            if mgr_log.get('exists'):
+                body_lines.append(f"  Manager log: {mgr_log.get('size_kb', '?')} KB, modified {mgr_log.get('modified', '?')}")
+            else:
+                body_lines.append('  Manager log: not found')
+
             body_lines.append('')
 
         # SharePoint / Auth diagnostics (v6.2.10)
@@ -677,6 +939,23 @@ def diagnostics_email():
             except Exception as fe_err:
                 logger.warning(f'Could not attach console_logs.json: {fe_err}')
 
+        # Attachment 5: aegis_manager.log (v6.7.0 — in project root, not log_dir)
+        try:
+            _mgr_app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            mgr_log_path = Path(os.path.join(_mgr_app_dir, 'aegis_manager.log'))
+            if mgr_log_path.exists() and mgr_log_path.stat().st_size > 0:
+                mgr_log_content = mgr_log_path.read_bytes()
+                # Cap at 3MB
+                if len(mgr_log_content) > 3 * 1024 * 1024:
+                    mgr_log_content = mgr_log_content[-3 * 1024 * 1024:]
+                mgr_att = MIMEBase('text', 'plain')
+                mgr_att.set_payload(mgr_log_content)
+                encoders.encode_base64(mgr_att)
+                mgr_att.add_header('Content-Disposition', 'attachment', filename='aegis_manager.log')
+                msg.attach(mgr_att)
+        except Exception:
+            pass
+
         # --- Try Outlook COM auto-send first (Windows), then .eml fallback ---
         import subprocess
         import tempfile
@@ -767,6 +1046,20 @@ def diagnostics_email():
                         att_paths.append(str(att_fe_path))
                     except Exception:
                         pass
+
+                # Attachment 5: aegis_manager.log (v6.7.0)
+                try:
+                    _mgr_app_dir2 = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    mgr_log_p = Path(os.path.join(_mgr_app_dir2, 'aegis_manager.log'))
+                    if mgr_log_p.exists() and mgr_log_p.stat().st_size > 0:
+                        mgr_content = mgr_log_p.read_bytes()
+                        if len(mgr_content) > 3 * 1024 * 1024:
+                            mgr_content = mgr_content[-3 * 1024 * 1024:]
+                        att_mgr_path = eml_dir / 'aegis_manager.log'
+                        att_mgr_path.write_bytes(mgr_content)
+                        att_paths.append(str(att_mgr_path))
+                except Exception:
+                    pass
 
                 # Add all attachment files to the Outlook mail item
                 for att_p in att_paths:
@@ -989,17 +1282,38 @@ def diagnostics_health():
 
 
 # ─────────────────────────────────────────────────────────────────
-# Package Repair — v6.6.5
+# Package Repair — v6.7.0
 # Background thread repairs broken packages via pip reinstall
+# Uses ordered sequential installs + subprocess verification
+# to prevent the "pass then break" cycle (Lesson 188)
 # ─────────────────────────────────────────────────────────────────
 import threading
 import subprocess
 import sys
 import time
 import uuid
+import glob
 
 _repair_state = {}  # {repair_id: {phase, progress, message, packages, started_at, ...}}
 _repair_state_lock = threading.Lock()
+
+# Packages that are known incompatible — skip them entirely
+INCOMPATIBLE_PACKAGES = {
+    'coreferee': 'Incompatible with spaCy 3.6+ (pattern-based fallback active)',
+    'negspacy': 'Incompatible with spaCy 3.6+ (regex fallback active)',
+    'passivepy': 'No pre-built wheel available (rule-based fallback active)',
+}
+
+# Install critical packages in dependency order so downstream
+# packages find their deps already available
+CRITICAL_INSTALL_ORDER = [
+    ('numpy', 'numpy'),
+    ('pandas', 'pandas'),
+    ('scipy', 'scipy'),
+    ('sklearn', 'scikit-learn'),
+    ('nltk', 'nltk'),
+    ('spacy', 'spacy'),
+]
 
 
 def _find_python_exe():
@@ -1072,21 +1386,74 @@ def _pip_install_online(packages, force=False, timeout=300):
 
 
 def _check_import(module_name):
-    """Check if a module can be imported in a subprocess (clean slate)."""
+    """Check if a module can be imported in a subprocess (clean slate).
+
+    Always uses subprocess to avoid false passes from in-process
+    importlib (Lesson 188: packages can appear OK in-process but
+    fail in a clean interpreter).
+    """
     python = _find_python_exe()
     try:
         result = subprocess.run(
-            [python, '-c', f'import {module_name}'],
+            [python, '-c', f'import {module_name}; print("OK")'],
             capture_output=True, text=True, timeout=30
         )
-        return result.returncode == 0
+        return result.returncode == 0 and 'OK' in result.stdout
     except Exception:
         return False
 
 
+def _check_wheel_exists(pip_name, wheels_dirs):
+    """Check if a wheel file exists for the given package in any wheels dir."""
+    # Normalize pip name for wheel file matching (PEP 427: - and _ are equivalent)
+    normalized = pip_name.lower().replace('-', '_').replace('.', '_')
+    for wd in wheels_dirs:
+        for whl in glob.glob(os.path.join(wd, '*.whl')):
+            whl_base = os.path.basename(whl).lower().replace('-', '_')
+            if whl_base.startswith(normalized):
+                return True
+    return False
+
+
+def _ensure_torch_wheel():
+    """Check if torch wheel exists. Try to reassemble from split parts if needed.
+
+    Returns the wheel path if found/reassembled, None otherwise.
+    """
+    app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    wheels_dirs = _find_wheels_dirs()
+
+    # Check existing wheels
+    for wd in wheels_dirs:
+        for whl in glob.glob(os.path.join(wd, 'torch-*.whl')):
+            return whl
+
+    # Check split parts
+    split_dir = os.path.join(app_dir, 'packaging', 'wheels', 'torch_split')
+    if os.path.isdir(split_dir):
+        parts = sorted(glob.glob(os.path.join(split_dir, 'torch_part_*')))
+        if len(parts) >= 3:
+            dest_dir = os.path.join(app_dir, 'packaging', 'wheels')
+            os.makedirs(dest_dir, exist_ok=True)
+            dest = os.path.join(dest_dir, 'torch-2.10.0+cpu-cp310-cp310-win_amd64.whl')
+            try:
+                with open(dest, 'wb') as out:
+                    for part in parts:
+                        with open(part, 'rb') as inp:
+                            out.write(inp.read())
+                return dest
+            except Exception:
+                pass
+
+    return None
+
+
 def _run_repair(repair_id):
-    """Background thread: repair broken packages."""
-    import importlib
+    """Background thread: repair broken packages.
+
+    v6.7.0: Uses ordered sequential installs + subprocess verification
+    to prevent the "pass then break" cycle (Lesson 188).
+    """
     started_at = time.time()
 
     def _update(phase, progress, message, **extra):
@@ -1102,9 +1469,10 @@ def _run_repair(repair_id):
             _repair_state[repair_id] = state
 
     try:
-        _update('checking', 5, 'Running health check...')
+        _update('checking', 5, 'Running health check (subprocess)...')
 
-        # 1. Identify broken packages
+        # 1. Identify broken packages using subprocess (not importlib)
+        #    Subprocess catches real failures that in-process testing misses
         packages_to_check = [
             ('flask', 'Flask', False),
             ('werkzeug', 'Werkzeug', False),
@@ -1134,9 +1502,18 @@ def _run_repair(repair_id):
 
         broken = []
         for mod_name, display_name, is_optional in packages_to_check:
-            try:
-                importlib.import_module(mod_name)
-            except Exception:
+            # Skip known incompatible packages
+            pip_name_map = {
+                'docx': 'python-docx', 'sklearn': 'scikit-learn',
+                'yaml': 'PyYAML', 'PIL': 'Pillow',
+                'bs4': 'beautifulsoup4', 'cv2': 'opencv-python',
+            }
+            pip_name = pip_name_map.get(mod_name, display_name.lower().replace(' ', '-'))
+            if pip_name in INCOMPATIBLE_PACKAGES:
+                continue
+
+            # Use subprocess for ALL imports — catches real failures
+            if not _check_import(mod_name):
                 broken.append((mod_name, display_name, is_optional))
 
         if not broken:
@@ -1165,32 +1542,87 @@ def _run_repair(repair_id):
         except Exception:
             pass
 
-        # 3. Repair each broken package
-        total = len(broken)
-        for i, (mod_name, display_name, is_optional) in enumerate(broken):
-            pct = 20 + int(70 * (i / total))
-            _update('repairing', pct, f'Repairing {display_name} ({i+1}/{total})...',
+        # 3. Install packages in dependency order (Lesson 188)
+        #    Foundation packages first, then dependents
+        pip_name_map = {
+            'docx': 'python-docx', 'sklearn': 'scikit-learn',
+            'yaml': 'PyYAML', 'PIL': 'Pillow',
+            'bs4': 'beautifulsoup4', 'cv2': 'opencv-python',
+        }
+        broken_mods = {b[0] for b in broken}  # set of broken module names
+
+        # Phase 3a: Install ordered critical packages first
+        ordered_installed = set()
+        for order_idx, (import_name, pip_name) in enumerate(CRITICAL_INSTALL_ORDER):
+            if import_name not in broken_mods:
+                continue
+
+            display = next((b[1] for b in broken if b[0] == import_name), pip_name)
+            pct = 20 + int(30 * (order_idx / len(CRITICAL_INSTALL_ORDER)))
+            _update('repairing', pct, f'Installing {display} (ordered {order_idx+1}/{len(CRITICAL_INSTALL_ORDER)})...',
+                    current_package=display, current_strategy='ordered install')
+
+            # Check if torch — ensure wheel exists first
+            if import_name == 'torch':
+                torch_whl = _ensure_torch_wheel()
+                if not torch_whl:
+                    _update('repairing', pct, f'No torch wheel available, skipping...',
+                            current_package=display, current_strategy='skipped (no wheel)')
+                    continue
+
+            # Check wheel existence for packages without wheels
+            if not _check_wheel_exists(pip_name, wheels_dirs):
+                if pip_name in INCOMPATIBLE_PACKAGES:
+                    ordered_installed.add(import_name)
+                    continue
+
+            # Strategy 1: offline install
+            ok, output = _pip_install([pip_name], wheels_dirs, force=True, timeout=600)
+
+            # Strategy 2: online fallback
+            if not ok:
+                ok, output = _pip_install_online([pip_name], force=True, timeout=600)
+
+            # Verify with subprocess
+            if ok and _check_import(import_name):
+                repaired.append(display)
+                ordered_installed.add(import_name)
+            else:
+                # One retry with force
+                ok2, _ = _pip_install([pip_name], wheels_dirs, force=True, timeout=600)
+                if ok2 and _check_import(import_name):
+                    repaired.append(display)
+                    ordered_installed.add(import_name)
+                else:
+                    failed.append(display)
+                    ordered_installed.add(import_name)  # Don't retry below
+
+        # Phase 3b: Install remaining broken packages not in the ordered list
+        remaining = [(m, d, o) for m, d, o in broken if m not in ordered_installed]
+        total_remaining = len(remaining)
+        for i, (mod_name, display_name, is_optional) in enumerate(remaining):
+            pct = 55 + int(35 * (i / max(total_remaining, 1)))
+            _update('repairing', pct, f'Repairing {display_name} ({i+1}/{total_remaining})...',
                     current_package=display_name)
 
-            # pip package name mapping
-            pip_name_map = {
-                'docx': 'python-docx',
-                'sklearn': 'scikit-learn',
-                'yaml': 'PyYAML',
-                'PIL': 'Pillow',
-                'bs4': 'beautifulsoup4',
-                'cv2': 'opencv-python',
-            }
             pip_name = pip_name_map.get(mod_name, display_name.lower().replace(' ', '-'))
 
+            # Skip packages without wheels (prevents setuptools BUILD dep error)
+            if pip_name in INCOMPATIBLE_PACKAGES:
+                continue
+            if is_optional and not _check_wheel_exists(pip_name, wheels_dirs):
+                _update('repairing', pct, f'Skipping {display_name} (no wheel available)...',
+                        current_package=display_name, current_strategy='skipped')
+                continue
+
             # Strategy 1: offline install from wheels
-            _update('repairing', pct, f'Repairing {display_name} ({i+1}/{total})...',
+            _update('repairing', pct, f'Repairing {display_name}...',
                     current_package=display_name, current_strategy='offline install')
             ok, output = _pip_install([pip_name], wheels_dirs, force=False, timeout=300)
 
             # Strategy 2: offline with force-reinstall
             if not ok:
-                _update('repairing', pct, f'Repairing {display_name} ({i+1}/{total})...',
+                _update('repairing', pct, f'Force reinstalling {display_name}...',
                         current_package=display_name, current_strategy='force reinstall')
                 ok, output = _pip_install([pip_name], wheels_dirs, force=True, timeout=300)
 
@@ -1200,12 +1632,11 @@ def _run_repair(repair_id):
                         current_package=display_name, current_strategy='online fallback')
                 ok, output = _pip_install_online([pip_name], force=False, timeout=300)
 
-            # Verify import
+            # Verify import with subprocess
             if ok:
                 if _check_import(mod_name):
                     repaired.append(display_name)
                 else:
-                    # Installed but import still fails — try force
                     ok2, _ = _pip_install([pip_name], wheels_dirs, force=True, timeout=300)
                     if ok2 and _check_import(mod_name):
                         repaired.append(display_name)
