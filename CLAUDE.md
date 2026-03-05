@@ -1846,8 +1846,89 @@ The background thread now hits the `connector is None` branch and creates its OW
 **Files**: `routes/review_routes.py` (10 edits across module imports, wrapper, inner function, thread spawn)
 **Lesson**: When a background thread imports ANY module, it can trigger transitive imports of broken packages that overflow the recursion limit. The fix is: (1) import all needed stdlib modules at module level (before recursion limit is lowered), (2) pre-bind them as default arguments (evaluated at definition time, not call time), (3) set recursion limit as the thread's absolute first action. Never rely on `try/except` in the thread body to catch RecursionError from imports — the error can occur INSIDE the import machinery before the thread's Python-level code even starts executing. Always add dead-on-arrival detection after `thread.start()`.
 
+### 185. Fix Broken Packages Directly — NEVER Build Workarounds (Mandatory Rule)
+**Problem**: SharePoint batch scan background thread died silently. Root cause was 4 broken pip packages (scikit-learn, nltk, sentence-transformers, setuptools v82) that threw RecursionError or missing module errors on import. Instead of fixing the packages, 8 days (Feb 24 – Mar 4, 2026) and 5+ versions (v6.6.1–v6.6.4) were spent building increasingly complex workarounds: crash protection wrappers, pre-bound module defaults, thread-level recursion limits, import guards, etc.
+**Root Cause**: The broken packages were identified on Feb 24 but treated as immutable constraints. Each session built another layer of defense instead of running `pip install --force-reinstall` from the wheels directory.
+**Correct Fix**: `python\python.exe -m pip install --force-reinstall --no-index --find-links=wheels/ scikit-learn nltk sentence-transformers "setuptools<81"` — one command, done in minutes.
+**MANDATORY RULE — Fix Packages First, Workaround Never**:
+1. When a Python package is broken (ImportError, RecursionError, missing modules), the FIRST action is ALWAYS `pip install --force-reinstall` from wheels
+2. NEVER build code workarounds for broken package imports — fix the package itself
+3. If the correct wheel isn't available, push it to GitHub and pull it down via Manager
+4. If offline reinstall fails, try online: `pip install --force-reinstall <package>`
+5. Only after confirming the package genuinely cannot be fixed should workarounds be considered
+6. The AEGIS Manager Health Check (Option 3) + Repair (Option 4) should be the first-line fix, not Claude code changes
+**Time wasted**: 8 days, 5+ version bumps, ~500 lines of workaround code, 3 lessons learned entries (182, 183, 184) — all for a problem solvable with one pip command.
+**Lesson**: "Instead of overcomplicating by creating workarounds for broken packages, address those head on." — User directive, committed to memory.
+
+### 186. Cross-Platform pip Progress with Threading (Manager v2.3.2)
+**Problem**: (1) scikit-learn and sentence-transformers force-reinstall failed with 120-second timeout during Manager repair. (2) User stared at a frozen screen during long pip installs with zero progress feedback. (3) The `select` module approach for reading pip stdout didn't work on Windows (select doesn't support pipes on Windows).
+**Root Cause**: `select.select([proc.stdout], [], [], 0.3)` raises an exception on Windows because `select()` only works with sockets, not pipes. The fallback was `time.sleep(0.3)` with no live status extraction — user saw nothing during 5+ minute installs.
+**Fix**: Three-part rewrite of `_run_pip_with_progress()` in `aegis_manager.py`:
+1. **Threading-based reader**: Daemon `threading.Thread` reads `proc.stdout` line-by-line in background, extracts pip status keywords (`Collecting`, `Installing`, `Building`, `Downloading`, etc.) into a shared mutable list `last_status = ['']`. Main thread reads this list for display without blocking.
+2. **Spinner + elapsed time**: `⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏` spinner characters with `M:SS` elapsed time format. Status keyword shown inline. Updates every 250ms.
+3. **Generous timeouts**: 600s per package (max 1800s for multi-package installs). Covers scikit-learn, scipy, torch, spaCy on OneDrive-backed paths.
+**Also updated**: `preflight_setuptools()` and spaCy model download — both replaced raw `subprocess.run()` with `_run_pip_with_progress()`.
+**Pattern**: The thread-based approach works on ALL platforms:
+```python
+last_status = ['']  # mutable container for thread access
+def _reader_thread(pipe, status_ref):
+    for raw_line in pipe:
+        line = raw_line.strip()
+        for kw in status_keywords:
+            if kw in line:
+                status_ref[0] = line[:55]
+                break
+reader = threading.Thread(target=_reader_thread, args=(proc.stdout, last_status), daemon=True)
+reader.start()
+# Main thread reads last_status[0] for display
+```
+**Files**: `aegis_manager.py` (MANAGER_VERSION 2.3.2)
+**Lesson**: On Windows, `select.select()` does NOT work with subprocess pipes — it only supports sockets. Use a daemon `threading.Thread` to read from the pipe in the background and share state via a mutable container (list). The thread-safe pattern is: reader thread WRITES to `status_ref[0]`, main thread READS `status_ref[0]` — single-writer/single-reader on a mutable container is safe without locks in CPython due to the GIL. Always use `daemon=True` so the reader thread dies automatically if the main thread exits.
+
+### 187. negspacy Is Expected Unavailable — No Action Needed
+**Problem**: Manager health check shows negspacy as unavailable.
+**Root Cause**: negspacy 1.0.4 (last release June 2023) is incompatible with spaCy 3.6+. AEGIS uses spaCy 3.8.x. This is the same issue documented in Lesson 74 (coreferee).
+**Status**: Expected and harmless. `NegationDetectionChecker` in `negation_checker.py` has a full regex-based fallback (lines 99-100: `_double_neg_patterns`, `_ambiguous_patterns`). When negspacy import fails at line 109, `self.negex_available = False` and all checks use regex patterns instead. Zero loss of functionality.
+**No action**: Do NOT try to fix, install, or bundle negspacy. The Manager correctly shows it as a warning (optional), not a critical failure.
+
+### 188. setuptools Version Pinning — Exact Match for Offline Installs (Manager v2.3.3)
+**Problem**: `setuptools<81` failed with "no matching distribution" during Manager repair. The wheel glob `setuptools-8*.whl` matched BOTH `setuptools-80.10.2` (good) and `setuptools-82.0.0` (broken, removes pkg_resources).
+**Root Cause**: Two issues: (1) Open-ended version constraint `setuptools<81` can't be resolved by pip with `--no-index --find-links=wheels/` because pip doesn't have the full index to resolve constraints. (2) The wheel glob `setuptools-8*.whl` matched both v80 and v82 wheels — v82 was tried first due to filename sort order.
+**Fix**: (1) Pin to exact version `setuptools==80.10.2` instead of `setuptools<81`. (2) Added smart wheel filtering: parse major version from wheel filename, exclude v82+ from candidates. (3) Applied to both `preflight_setuptools()` (line ~1305) and `full_repair()` (line ~1466).
+**Lesson**: For offline installs with `--no-index`, ALWAYS use exact version pins (`==`) instead of range constraints (`<`, `>=`). pip can't resolve open-ended constraints without access to PyPI's full package index. When globbing for wheels, filter by parsed version number — don't trust filename patterns alone.
+
+### 189. sentence-transformers Depends on torch — Install Order Matters (Manager v2.3.4)
+**Problem**: `sentence-transformers` install failed with "No matching distribution found for torch>=1.11.0" during Manager repair.
+**Root Cause**: `sentence-transformers` was in CRITICAL_PACKAGES and installed with `--force-reinstall --no-index`. The `--force-reinstall` flag makes pip require ALL dependencies in the local wheels dir — but torch (139MB) is only available via GitHub Release, not in the wheels/ directory. Even though torch was already installed in site-packages, `--force-reinstall` ignores installed packages.
+**Fix**: (1) Moved `sentence-transformers` from CRITICAL_PACKAGES to OPTIONAL_PACKAGES (it's required for semantic similarity features but AEGIS functions without it). (2) Added torch-first install logic — install torch before sentence-transformers. (3) Skip sentence-transformers entirely if torch isn't available. (4) In v2.3.5, added smart install strategy: try WITHOUT `--force-reinstall` first (pip sees installed torch), then try WITH `--force-reinstall` only if first attempt fails.
+**Lesson**: When using `--force-reinstall --no-index`, pip requires ALL transitive dependencies to be available locally — not just the package itself. For packages with heavy dependencies (sentence-transformers→torch, spacy→thinc), try normal install first (sees installed deps) and only force-reinstall as a fallback. Always install dependencies before dependents in the install order.
+
+### 190. Smart Install Strategy for Package Repair (Manager v2.3.5)
+**Problem**: Manager repair used one-size-fits-all `--force-reinstall --no-index` for all packages. This failed for: (1) packages with large deps not in wheels/ (sentence-transformers→torch), (2) packages needing C compiler (passivepy, textacy), (3) genuinely incompatible packages (negspacy).
+**Fix**: Three-strategy cascade per package:
+- **Strategy 1**: Normal install (no `--force-reinstall`) — pip uses already-installed deps from site-packages
+- **Strategy 2**: Force reinstall — for corrupted packages where Strategy 1 succeeds but import still fails
+- **Strategy 3**: Binary-only (`--only-binary=:all:`) — for packages that need C extensions but no compiler is available
+Plus two special-case categories:
+- **INCOMPATIBLE_PACKAGES** dict: packages genuinely incompatible with current stack (negspacy). Shows clear explanation, skips install.
+- **BINARY_ONLY_PACKAGES** set: packages that always need `--only-binary=:all:` (passivepy, textacy). Routes directly to Strategy 3 after Strategy 1/2 fail.
+**Also added**: NLTK `check_nltk_data()` recursion limit safety — elevates `sys.setrecursionlimit(5000)` at start, catches `RecursionError` on import and `nltk.data.find()`, restores limit in `finally` block.
+**Files**: `aegis_manager.py` (MANAGER_VERSION 2.3.4 → 2.3.5)
+**Lesson**: Package repair should use escalating strategies, not a single aggressive approach. The order (normal → force → binary-only) matches the principle of least disruption. Known-incompatible packages should be clearly documented and skipped with explanation, not retried endlessly.
+
+### 191. Web UI Package Repair — Background Thread with Progress Polling (v6.6.5)
+**Problem**: Package health check and repair was only available via the CLI-based AEGIS Manager. User explicitly stated: "can you add the loading animation to the web interface not the back end? I am trying to work exclusively from that."
+**Solution**: Full web-based repair workflow in Settings > Diagnostics:
+1. **Backend**: `POST /api/diagnostics/repair` spawns background `threading.Thread` running `_run_repair()`. Returns `repair_id` (UUID) immediately. `GET /api/diagnostics/repair-progress/<repair_id>` returns current state from module-level `_repair_state` dict protected by `threading.Lock`.
+2. **Repair engine**: `_run_repair()` checks 24 packages via `_check_import()` (subprocess-based import test), then fixes broken ones via 3-strategy cascade: `_pip_install()` (offline no-force) → `_pip_install()` (offline force-reinstall) → `_pip_install_online()` (online fallback). Fixes setuptools v82→80.10.2 first.
+3. **Frontend**: Repair button auto-shown when health check detects failures (`allHealthy === false`), hidden when all healthy. Click handler POSTs to start repair, then polls every 1.5s. Progress bar, phase text, elapsed timer, current package/strategy detail. On completion shows fixed/still_broken counts. Auto-triggers health check re-run.
+**Key utilities**: `_find_python_exe()` detects embedded Python at `app_dir/python/python.exe`. `_find_wheels_dirs()` searches `wheels/` and `packaging/wheels/`. `_check_import()` uses `subprocess.run([python, '-c', f'import {module}'])` for clean import tests (avoids reimport issues per Lesson 72).
+**State fields**: `phase` (checking/repairing/complete/error), `progress` (0-100), `message`, `current_package`, `current_strategy` (offline install/force reinstall/online fallback), `total_packages`, `checked`, `broken`, `fixed`, `still_broken`, `failed_packages`, `elapsed`.
+**Files**: `routes/core_routes.py` (endpoints + repair engine), `templates/index.html` (button + progress UI), `static/js/app.js` (click handler + polling loop)
+**Lesson**: When building web UI for background operations: (1) return a UUID immediately, don't block the HTTP response, (2) poll via GET every 1-2s with the UUID, (3) show strategy-level detail (not just "repairing..."), (4) auto-trigger verification after completion, (5) auto-show/hide the action button based on current state.
+
 ### 151 (Updated). Version Management Update
-- **Current version**: 6.6.4
+- **Current version**: 6.6.5
 
 ## MANDATORY: Documentation with Every Deliverable
 **RULE**: Every code change delivered to the user MUST include:

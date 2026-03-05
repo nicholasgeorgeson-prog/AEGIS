@@ -1,13 +1,27 @@
 {
-  "version": "6.6.4",
+  "version": "6.6.5",
   "release_date": "2026-03-04",
-  "core_version": "6.6.4",
+  "core_version": "6.6.5",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.6.5",
+      "date": "2026-03-04",
+      "changes": [
+        "NEW: Web UI package health check and repair — full repair workflow accessible from Settings > Diagnostics without CLI",
+        "NEW: POST /api/diagnostics/repair endpoint — spawns background thread with 3-strategy cascade per broken package (offline → force-reinstall → online)",
+        "NEW: GET /api/diagnostics/repair-progress/<repair_id> endpoint — UUID-based progress polling with phase, progress %, elapsed time, current package/strategy",
+        "NEW: Repair button in Settings > Diagnostics — auto-shown when health check detects broken packages, hidden when all healthy",
+        "NEW: Cinematic repair progress UI — animated progress bar, phase text, elapsed timer, strategy detail, spinner animation",
+        "FIX: Auto-triggers health check re-run after repair completes to verify fixes",
+        "FIX: Backend repair state includes fixed/still_broken/failed_packages fields matching frontend expectations",
+        "FIX: Repair progress shows current_strategy (offline install, force reinstall, online fallback) for better UX"
+      ]
+    },
     {
       "version": "6.6.4",
       "date": "2026-03-04",

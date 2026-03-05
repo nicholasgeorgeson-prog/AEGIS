@@ -988,6 +988,283 @@ def diagnostics_health():
         return (jsonify({'success': False, 'error': {'code': 'HEALTH_CHECK_ERROR', 'message': str(e)}}), 500)
 
 
+# ─────────────────────────────────────────────────────────────────
+# Package Repair — v6.6.5
+# Background thread repairs broken packages via pip reinstall
+# ─────────────────────────────────────────────────────────────────
+import threading
+import subprocess
+import sys
+import time
+import uuid
+
+_repair_state = {}  # {repair_id: {phase, progress, message, packages, started_at, ...}}
+_repair_state_lock = threading.Lock()
+
+
+def _find_python_exe():
+    """Find the correct Python executable (embedded or system)."""
+    app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # Embedded Python (Windows OneClick installer)
+    embedded = os.path.join(app_dir, 'python', 'python.exe')
+    if os.path.exists(embedded):
+        return embedded
+    return sys.executable
+
+
+def _find_wheels_dirs():
+    """Find all wheels directories."""
+    app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    dirs = []
+    for candidate in ['wheels', os.path.join('packaging', 'wheels')]:
+        full = os.path.join(app_dir, candidate)
+        if os.path.isdir(full):
+            dirs.append(full)
+    return dirs
+
+
+def _pip_install(packages, wheels_dirs, force=False, timeout=300):
+    """Install packages via pip. Returns (success, output)."""
+    python = _find_python_exe()
+    cmd = [python, '-m', 'pip', 'install']
+    if force:
+        cmd.append('--force-reinstall')
+    if wheels_dirs:
+        cmd.append('--no-index')
+        for d in wheels_dirs:
+            cmd.extend(['--find-links', d])
+    cmd.append('--no-warn-script-location')
+    if isinstance(packages, str):
+        packages = [packages]
+    cmd.extend(packages)
+
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=timeout
+        )
+        return result.returncode == 0, result.stdout + result.stderr
+    except subprocess.TimeoutExpired:
+        return False, 'Installation timed out'
+    except Exception as e:
+        return False, str(e)
+
+
+def _pip_install_online(packages, force=False, timeout=300):
+    """Fallback: install packages from PyPI (online)."""
+    python = _find_python_exe()
+    cmd = [python, '-m', 'pip', 'install']
+    if force:
+        cmd.append('--force-reinstall')
+    cmd.append('--no-warn-script-location')
+    if isinstance(packages, str):
+        packages = [packages]
+    cmd.extend(packages)
+
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=timeout
+        )
+        return result.returncode == 0, result.stdout + result.stderr
+    except subprocess.TimeoutExpired:
+        return False, 'Installation timed out'
+    except Exception as e:
+        return False, str(e)
+
+
+def _check_import(module_name):
+    """Check if a module can be imported in a subprocess (clean slate)."""
+    python = _find_python_exe()
+    try:
+        result = subprocess.run(
+            [python, '-c', f'import {module_name}'],
+            capture_output=True, text=True, timeout=30
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def _run_repair(repair_id):
+    """Background thread: repair broken packages."""
+    import importlib
+    started_at = time.time()
+
+    def _update(phase, progress, message, **extra):
+        with _repair_state_lock:
+            state = _repair_state.get(repair_id, {})
+            state.update({
+                'phase': phase,
+                'progress': progress,
+                'message': message,
+                'elapsed_seconds': round(time.time() - started_at, 1),
+            })
+            state.update(extra)
+            _repair_state[repair_id] = state
+
+    try:
+        _update('checking', 5, 'Running health check...')
+
+        # 1. Identify broken packages
+        packages_to_check = [
+            ('flask', 'Flask', False),
+            ('werkzeug', 'Werkzeug', False),
+            ('waitress', 'Waitress', False),
+            ('docx', 'python-docx', False),
+            ('mammoth', 'mammoth', False),
+            ('openpyxl', 'openpyxl', False),
+            ('reportlab', 'reportlab', False),
+            ('nltk', 'NLTK', False),
+            ('spacy', 'spaCy', False),
+            ('numpy', 'NumPy', False),
+            ('pandas', 'pandas', False),
+            ('scipy', 'SciPy', False),
+            ('sklearn', 'scikit-learn', True),
+            ('torch', 'PyTorch', True),
+            ('requests', 'requests', False),
+            ('lxml', 'lxml', False),
+            ('yaml', 'PyYAML', False),
+            ('PIL', 'Pillow', False),
+            ('textstat', 'textstat', True),
+            ('proselint', 'proselint', True),
+            ('symspellpy', 'symspellpy', True),
+            ('chardet', 'chardet', False),
+            ('bs4', 'BeautifulSoup4', False),
+            ('pymupdf4llm', 'pymupdf4llm', True),
+        ]
+
+        broken = []
+        for mod_name, display_name, is_optional in packages_to_check:
+            try:
+                importlib.import_module(mod_name)
+            except Exception:
+                broken.append((mod_name, display_name, is_optional))
+
+        if not broken:
+            _update('complete', 100, 'All packages are healthy — no repair needed.',
+                    repaired=[], failed=[], already_ok=True)
+            return
+
+        _update('checking', 10, f'Found {len(broken)} broken package(s). Starting repair...',
+                broken_count=len(broken), broken_names=[b[1] for b in broken])
+
+        wheels_dirs = _find_wheels_dirs()
+        repaired = []
+        failed = []
+
+        # 2. Fix setuptools first (Lesson 70)
+        _update('repairing', 15, 'Checking setuptools version...')
+        try:
+            import setuptools
+            sv = getattr(setuptools, '__version__', '0')
+            major = int(sv.split('.')[0]) if sv else 0
+            if major >= 81:
+                _update('repairing', 18, 'Downgrading setuptools (v82 broke pkg_resources)...')
+                ok, _ = _pip_install(['setuptools<81'], wheels_dirs, force=True, timeout=120)
+                if not ok:
+                    ok, _ = _pip_install_online(['setuptools<81'], force=True, timeout=120)
+        except Exception:
+            pass
+
+        # 3. Repair each broken package
+        total = len(broken)
+        for i, (mod_name, display_name, is_optional) in enumerate(broken):
+            pct = 20 + int(70 * (i / total))
+            _update('repairing', pct, f'Repairing {display_name} ({i+1}/{total})...',
+                    current_package=display_name)
+
+            # pip package name mapping
+            pip_name_map = {
+                'docx': 'python-docx',
+                'sklearn': 'scikit-learn',
+                'yaml': 'PyYAML',
+                'PIL': 'Pillow',
+                'bs4': 'beautifulsoup4',
+                'cv2': 'opencv-python',
+            }
+            pip_name = pip_name_map.get(mod_name, display_name.lower().replace(' ', '-'))
+
+            # Strategy 1: offline install from wheels
+            _update('repairing', pct, f'Repairing {display_name} ({i+1}/{total})...',
+                    current_package=display_name, current_strategy='offline install')
+            ok, output = _pip_install([pip_name], wheels_dirs, force=False, timeout=300)
+
+            # Strategy 2: offline with force-reinstall
+            if not ok:
+                _update('repairing', pct, f'Repairing {display_name} ({i+1}/{total})...',
+                        current_package=display_name, current_strategy='force reinstall')
+                ok, output = _pip_install([pip_name], wheels_dirs, force=True, timeout=300)
+
+            # Strategy 3: online fallback
+            if not ok:
+                _update('repairing', pct, f'Trying online install for {display_name}...',
+                        current_package=display_name, current_strategy='online fallback')
+                ok, output = _pip_install_online([pip_name], force=False, timeout=300)
+
+            # Verify import
+            if ok:
+                if _check_import(mod_name):
+                    repaired.append(display_name)
+                else:
+                    # Installed but import still fails — try force
+                    ok2, _ = _pip_install([pip_name], wheels_dirs, force=True, timeout=300)
+                    if ok2 and _check_import(mod_name):
+                        repaired.append(display_name)
+                    else:
+                        failed.append(display_name)
+            else:
+                failed.append(display_name)
+
+        # 4. Summary
+        if failed:
+            msg = f'Repaired {len(repaired)} package(s). {len(failed)} still broken: {", ".join(failed)}'
+            _update('complete', 100, msg, repaired=repaired, failed_packages=failed,
+                    fixed=len(repaired), still_broken=len(failed), already_ok=False)
+        else:
+            msg = f'Successfully repaired {len(repaired)} package(s)!'
+            _update('complete', 100, msg, repaired=repaired, failed_packages=failed,
+                    fixed=len(repaired), still_broken=0, already_ok=False)
+
+    except Exception as e:
+        logger.exception(f'Repair thread error: {e}')
+        _update('error', 0, f'Repair failed: {str(e)}')
+
+
+@core_bp.route('/api/diagnostics/repair', methods=['POST'])
+@handle_api_errors
+def diagnostics_repair():
+    """Start a background package repair. Returns repair_id for progress polling."""
+    repair_id = uuid.uuid4().hex[:12]
+    with _repair_state_lock:
+        _repair_state[repair_id] = {
+            'phase': 'starting',
+            'progress': 0,
+            'message': 'Initializing repair...',
+            'started_at': time.time(),
+            'elapsed_seconds': 0,
+        }
+
+    thread = threading.Thread(target=_run_repair, args=(repair_id,), daemon=True)
+    thread.start()
+
+    return jsonify({'success': True, 'data': {'repair_id': repair_id}})
+
+
+@core_bp.route('/api/diagnostics/repair-progress/<repair_id>', methods=['GET'])
+@handle_api_errors
+def diagnostics_repair_progress(repair_id):
+    """Poll repair progress."""
+    with _repair_state_lock:
+        state = _repair_state.get(repair_id)
+    if not state:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Repair not found'}}), 404
+
+    # Compute live elapsed
+    started = state.get('started_at', time.time())
+    state['elapsed_seconds'] = round(time.time() - started, 1)
+
+    return jsonify({'success': True, 'data': state})
+
+
 # Demo endpoints
 @core_bp.route('/loader-demo')
 def loader_demo():

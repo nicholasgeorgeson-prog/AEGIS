@@ -3445,9 +3445,26 @@ if (document.documentElement.classList.contains('dark-mode')) {
                     <button class="btn btn-secondary" id="btn-diag-health-check" title="Check dependencies">
                         <i data-lucide="heart-pulse"></i> Run Health Check
                     </button>
+                    <button class="btn btn-primary" id="btn-diag-repair" style="display:none;" title="Repair broken packages">
+                        <i data-lucide="wrench"></i> Repair Packages
+                    </button>
                 </div>
                 <div class="settings-health-results" id="health-check-results">
                     <div id="health-check-content"></div>
+                </div>
+                <!-- Repair progress overlay -->
+                <div id="repair-progress-container" style="display:none;">
+                    <div style="padding:16px;background:var(--bg-secondary);border-radius:var(--radius-lg);border:1px solid var(--border-color);margin-top:8px;">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                            <i data-lucide="loader" class="spin" id="repair-spinner" style="color:var(--aegis-gold);"></i>
+                            <strong id="repair-phase-text">Initializing repair...</strong>
+                            <span class="help-text" id="repair-elapsed" style="margin-left:auto;">0s</span>
+                        </div>
+                        <div style="width:100%;height:8px;background:var(--bg-deep);border-radius:4px;overflow:hidden;margin-bottom:8px;">
+                            <div id="repair-progress-bar" style="width:0%;height:100%;background:var(--aegis-gold);border-radius:4px;transition:width 0.4s ease;"></div>
+                        </div>
+                        <p class="help-text" id="repair-detail" style="margin:0;font-size:12px;">Starting package repair...</p>
+                    </div>
                 </div>
             </div>
 

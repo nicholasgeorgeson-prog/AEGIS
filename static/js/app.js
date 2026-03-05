@@ -19117,6 +19117,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     html += '</div></div>';
 
                     contentDiv.innerHTML = html;
+
+                    // v6.6.5: Show/hide repair button based on health status
+                    const repairBtn = document.getElementById('btn-diag-repair');
+                    if (repairBtn) {
+                        repairBtn.style.display = allHealthy ? 'none' : 'inline-flex';
+                    }
                 } else {
                     contentDiv.innerHTML = `<span style="color:var(--error);">Health check failed: ${json.error?.message || 'Unknown error'}</span>`;
                 }
@@ -19124,6 +19130,145 @@ document.addEventListener('DOMContentLoaded', function() {
                 contentDiv.innerHTML = `<span style="color:var(--error);">Health check error: ${e.message}</span>`;
             }
             if (typeof lucide !== 'undefined') lucide.createIcons();
+        });
+    }
+
+    // v6.6.5: Package Repair handler
+    const repairBtn = document.getElementById('btn-diag-repair');
+    if (repairBtn) {
+        repairBtn.addEventListener('click', async () => {
+            const progressContainer = document.getElementById('repair-progress-container');
+            const progressBar = document.getElementById('repair-progress-bar');
+            const phaseText = document.getElementById('repair-phase-text');
+            const elapsedSpan = document.getElementById('repair-elapsed');
+            const detailText = document.getElementById('repair-detail');
+            const spinner = document.getElementById('repair-spinner');
+
+            if (!progressContainer) return;
+
+            // Disable repair button during operation
+            repairBtn.disabled = true;
+            repairBtn.style.opacity = '0.5';
+            progressContainer.style.display = 'block';
+            if (progressBar) progressBar.style.width = '0%';
+            if (phaseText) phaseText.textContent = 'Initializing repair...';
+            if (detailText) detailText.textContent = 'Starting package repair...';
+            if (elapsedSpan) elapsedSpan.textContent = '0s';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            try {
+                // Start repair
+                const startResp = await fetch('/api/diagnostics/repair', { method: 'POST' });
+                const startJson = await startResp.json();
+
+                if (!startJson.success || !startJson.data?.repair_id) {
+                    throw new Error(startJson.error?.message || 'Failed to start repair');
+                }
+
+                const repairId = startJson.data.repair_id;
+                console.log('[TWR] Repair started, id:', repairId);
+
+                // Poll for progress
+                let done = false;
+                while (!done) {
+                    await new Promise(r => setTimeout(r, 1500)); // Poll every 1.5s
+
+                    try {
+                        const progResp = await fetch(`/api/diagnostics/repair-progress/${repairId}`);
+                        const progJson = await progResp.json();
+
+                        if (!progJson.success) {
+                            console.warn('[TWR] Repair progress fetch failed:', progJson);
+                            continue;
+                        }
+
+                        const state = progJson.data;
+                        const pct = Math.round(state.progress || 0);
+                        const elapsed = Math.round(state.elapsed_seconds || 0);
+                        const mins = Math.floor(elapsed / 60);
+                        const secs = elapsed % 60;
+                        const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+
+                        if (progressBar) progressBar.style.width = pct + '%';
+                        if (phaseText) phaseText.textContent = state.message || 'Repairing...';
+                        if (elapsedSpan) elapsedSpan.textContent = timeStr;
+
+                        // Show current package detail
+                        if (state.current_package && detailText) {
+                            const strategy = state.current_strategy || '';
+                            detailText.textContent = `${state.current_package}${strategy ? ' — ' + strategy : ''}`;
+                        }
+
+                        // Check for completion
+                        if (state.phase === 'complete' || state.phase === 'error') {
+                            done = true;
+
+                            if (spinner) spinner.style.display = 'none';
+
+                            if (state.phase === 'complete') {
+                                const fixed = state.fixed || 0;
+                                const failed = state.still_broken || 0;
+
+                                if (progressBar) progressBar.style.width = '100%';
+                                if (phaseText) {
+                                    if (failed === 0) {
+                                        phaseText.innerHTML = '<i data-lucide="check-circle" style="width:16px;height:16px;color:var(--success);"></i> Repair complete — all packages fixed!';
+                                    } else {
+                                        phaseText.innerHTML = `<i data-lucide="alert-triangle" style="width:16px;height:16px;color:var(--warning);"></i> Repair complete — ${fixed} fixed, ${failed} still broken`;
+                                    }
+                                }
+                                if (detailText) {
+                                    let detail = `${fixed} package(s) repaired`;
+                                    if (state.failed_packages && state.failed_packages.length > 0) {
+                                        detail += `. Still broken: ${state.failed_packages.join(', ')}`;
+                                    }
+                                    detailText.textContent = detail;
+                                }
+                                if (progressBar) progressBar.style.background = failed === 0 ? 'var(--success)' : 'var(--warning)';
+
+                                if (typeof toast === 'function') {
+                                    toast(failed === 0 ? 'success' : 'warning',
+                                        failed === 0 ? 'All packages repaired!' : `${fixed} fixed, ${failed} still need attention`);
+                                }
+
+                                // Auto-refresh health check after repair
+                                setTimeout(() => {
+                                    const hcBtn = document.getElementById('btn-diag-health-check');
+                                    if (hcBtn) hcBtn.click();
+                                }, 1500);
+                            } else {
+                                // Error phase
+                                if (progressBar) progressBar.style.background = 'var(--error)';
+                                if (phaseText) phaseText.innerHTML = '<i data-lucide="x-circle" style="width:16px;height:16px;color:var(--error);"></i> Repair failed';
+                                if (detailText) detailText.textContent = state.error || 'Unknown error occurred';
+
+                                if (typeof toast === 'function') {
+                                    toast('error', 'Package repair failed: ' + (state.error || 'Unknown error'));
+                                }
+                            }
+
+                            if (typeof lucide !== 'undefined') lucide.createIcons();
+                        }
+                    } catch (pollErr) {
+                        console.warn('[TWR] Repair poll error:', pollErr);
+                        // Continue polling — transient errors are expected
+                    }
+                }
+            } catch (e) {
+                console.error('[TWR] Repair error:', e);
+                if (phaseText) phaseText.innerHTML = '<i data-lucide="x-circle" style="width:16px;height:16px;color:var(--error);"></i> Repair failed to start';
+                if (detailText) detailText.textContent = e.message;
+                if (spinner) spinner.style.display = 'none';
+                if (progressBar) progressBar.style.background = 'var(--error)';
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                if (typeof toast === 'function') {
+                    toast('error', 'Failed to start repair: ' + e.message);
+                }
+            } finally {
+                // Re-enable repair button
+                repairBtn.disabled = false;
+                repairBtn.style.opacity = '1';
+            }
         });
     }
 
