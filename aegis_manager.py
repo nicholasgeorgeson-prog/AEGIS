@@ -52,7 +52,7 @@ from urllib.parse import parse_qs, urlparse
 # CONSTANTS & CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════
 
-MANAGER_VERSION = "2.4.0"
+MANAGER_VERSION = "2.4.1"
 
 # GitHub
 REPO_OWNER = "nicholasgeorgeson-prog"
@@ -1472,36 +1472,72 @@ class PackageManager:
 
         C.fail('Could not fix pkg_resources. spaCy model loading will fail.')
 
-    def health_check(self):
+    def health_check(self, verbose=True):
         """Quick health check of all packages.
+
+        Args:
+            verbose: If True, print per-package progress (default True).
 
         Returns (critical_pass, critical_fail, optional_pass, optional_fail, details)
         """
         details = {'critical': [], 'optional': [], 'model': None, 'nltk': None}
 
+        total_pkgs = len(CRITICAL_PACKAGES) + len(OPTIONAL_PACKAGES) + 1  # +1 for spaCy model
+        checked = 0
+
         c_pass = c_fail = 0
+        if verbose:
+            C._write(f'\n    Checking {len(CRITICAL_PACKAGES)} critical packages...')
         for imp, pip_name, desc in CRITICAL_PACKAGES:
+            checked += 1
+            if verbose:
+                is_sub = imp in SUBPROCESS_CHECK
+                method = ' (subprocess)' if is_sub else ''
+                C._write(f'      [{checked}/{total_pkgs}] {desc}{method}...', end='')
             ok, err = self.check_import(imp)
             status = 'ok' if ok else 'fail'
             details['critical'].append((desc, pip_name, status, err))
             if ok:
                 c_pass += 1
+                if verbose:
+                    C._write(f' {C.GREEN}OK{C.RESET}')
             else:
                 c_fail += 1
+                if verbose:
+                    C._write(f' {C.RED}FAIL{C.RESET}')
 
         o_pass = o_fail = 0
+        if verbose:
+            C._write(f'    Checking {len(OPTIONAL_PACKAGES)} optional packages...')
         for imp, pip_name, desc in OPTIONAL_PACKAGES:
+            checked += 1
+            if verbose:
+                is_sub = imp in SUBPROCESS_CHECK
+                method = ' (subprocess)' if is_sub else ''
+                C._write(f'      [{checked}/{total_pkgs}] {desc}{method}...', end='')
             ok, err = self.check_import(imp)
             status = 'ok' if ok else 'missing'
             details['optional'].append((desc, pip_name, status, err))
             if ok:
                 o_pass += 1
+                if verbose:
+                    C._write(f' {C.GREEN}OK{C.RESET}')
             else:
                 o_fail += 1
+                if verbose:
+                    C._write(f' {C.YELLOW}SKIP{C.RESET}')
 
         # spaCy model
+        checked += 1
+        if verbose:
+            C._write(f'      [{checked}/{total_pkgs}] spaCy model...', end='')
         m_ok, m_info = self.check_spacy_model()
         details['model'] = ('ok' if m_ok else 'fail', m_info)
+        if verbose:
+            if m_ok:
+                C._write(f' {C.GREEN}OK{C.RESET}')
+            else:
+                C._write(f' {C.RED}FAIL{C.RESET}')
 
         return c_pass, c_fail, o_pass, o_fail, details
 
@@ -2282,8 +2318,10 @@ class AEGISManager:
         """Quick health check."""
         C.banner('Health Check', 'Verify packages & dependencies')
 
+        C.info('Scanning all packages — this may take 1-2 minutes...')
         c_pass, c_fail, o_pass, o_fail, details = self.packages.health_check()
 
+        C._write('')
         C.header('Critical Packages')
         for desc, pip_name, status, err in details['critical']:
             if status == 'ok':
@@ -2337,8 +2375,7 @@ class AEGISManager:
                 self.packages.full_repair()
                 C._write('')
                 C._write(f'  {C.GREEN}{C.BOLD}Auto-repair complete. Re-checking...{C.RESET}')
-                C._write('')
-                c2_pass, c2_fail, _, _, _ = self.packages.health_check()
+                c2_pass, c2_fail, _, _, _ = self.packages.health_check(verbose=True)
                 if c2_fail == 0:
                     C._write(f'  {C.GREEN}{C.BOLD}✓ All {c2_pass} critical packages now working!{C.RESET}')
                 else:
