@@ -1,13 +1,25 @@
 {
-  "version": "6.7.0",
-  "release_date": "2026-03-04",
-  "core_version": "6.7.0",
+  "version": "6.7.1",
+  "release_date": "2026-03-05",
+  "core_version": "6.7.1",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.7.1",
+      "date": "2026-03-05",
+      "changes": [
+        "FIX: SharePoint batch scan OneDrive I/O hang — background thread marker files, logging, and crash files now write to %TEMP% instead of OneDrive-synced logs/ directory",
+        "FIX: RotatingFileHandler lock cascade — timeout-wrapped logging (5s) prevents OneDrive file writes from hanging the scan thread",
+        "FIX: Handler sanitization — detects and removes FileHandlers with stuck locks before inner function executes, adds stderr fallback",
+        "FIX: Scan state updated in-memory immediately on thread entry (Step 0) — dashboard shows thread started even if all file I/O hangs",
+        "FIX: Crash handler writes to %TEMP% first, OneDrive logs/ secondary with 3-second timeout — crash evidence always available",
+        "FIX: stderr diagnostic output on thread entry — bypasses all file handlers for guaranteed visibility"
+      ]
+    },
     {
       "version": "6.7.0",
       "date": "2026-03-04",

@@ -3500,48 +3500,154 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
     v6.6.4: Pre-bind sys + gc + hashlib + ThreadPoolExecutor + as_completed as defaults.
             Set recursion limit to 5000 as absolute first action (before proof-of-life marker).
             Inner function receives pre-bound modules — ZERO import statements anywhere.
+    v6.7.1: Fix OneDrive I/O hang — marker files written to %TEMP% (not OneDrive-synced logs/).
+            Update scan state IMMEDIATELY on thread entry (pure in-memory, no I/O).
+            Wrap ALL file I/O in timeout threads to prevent indefinite hangs.
+            Add stderr fallback for diagnostics when file I/O is blocked.
     """
-    # ──── RECURSION LIMIT — absolute first action, single C-call, zero import risk ────
-    # Module-level line 101 resets recursion limit to default (~1000) after the temporary
-    # raise for sp_repository_manager import. Background threads inherit this default.
-    # Broken packages (scikit-learn, nltk, sentence-transformers) trigger deep import chains
-    # that overflow at 1000 recursion depth. Setting to 5000 gives import machinery headroom.
+    # ──── STEP 0: UPDATE SCAN STATE — pure in-memory, zero I/O, cannot hang ────
+    # This MUST happen before ANY file I/O so the dashboard shows "thread started"
+    # even if OneDrive blocks all subsequent file operations.
+    try:
+        with _state_lock:
+            _st = _state_dict.get(scan_id)
+            if _st:
+                _st['thread_started'] = True
+                _st['thread_started_at'] = _time.time()
+    except Exception:
+        pass
+
+    # ──── STEP 1: RECURSION LIMIT — pure C-call, zero I/O risk ────
     try:
         _sys.setrecursionlimit(5000)
     except Exception:
         pass
 
-    # ──── PROOF OF LIFE — raw OS I/O, zero dependencies ────
+    # ──── STEP 2: STDERR DIAGNOSTIC — bypasses ALL file handlers and OneDrive ────
+    # sys.stderr writes to the console/process handle, NOT to OneDrive files.
+    # This is the ONLY guaranteed output mechanism on OneDrive-blocked systems.
+    try:
+        _sys.stderr.write(f'[AEGIS-SP-THREAD] scan={scan_id} ALIVE t={_time.time()}\n')
+        _sys.stderr.flush()
+    except Exception:
+        pass
+
+    # ──── STEP 3: PROOF OF LIFE — write to %TEMP%, NOT OneDrive ────
+    # v6.7.1: OneDrive virtual filesystem can hang indefinitely on file creation.
+    # Use the system temp directory which is NEVER OneDrive-synced.
     _marker_path = None
     try:
-        _base = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
-        _logs_dir = _os.path.join(_base, 'logs')
-        if not _os.path.isdir(_logs_dir):
-            _os.makedirs(_logs_dir, exist_ok=True)
-        _marker_path = _os.path.join(_logs_dir, f'sp_thread_alive_{scan_id}.marker')
+        import tempfile as _tempfile
+        _temp_dir = _tempfile.gettempdir()  # C:\Users\M26402\AppData\Local\Temp (NOT OneDrive)
+        _marker_path = _os.path.join(_temp_dir, f'aegis_sp_thread_{scan_id}.marker')
         _fd = _os.open(_marker_path, _os.O_WRONLY | _os.O_CREAT | _os.O_TRUNC)
         _os.write(_fd, f'ALIVE {scan_id} t={_time.time()}\n'.encode())
         _os.close(_fd)
     except Exception:
-        pass  # If even raw I/O fails, continue — logging below may still work
+        pass  # If even %TEMP% I/O fails, continue — logging below may still work
 
-    # ──── Loggers — NO import statements, use pre-bound _logging ────
-    _sp_log = _logging.getLogger('aegis.sharepoint')
-
+    # Also try OneDrive logs/ dir as a SECONDARY marker (with 3-second timeout)
     try:
-        _sp_log.info(f'[BG-THREAD] ═══ v6.6.4 ═══ SP scan {scan_id}: Thread ALIVE '
-                     f'(site_url={site_url}, type={connector_type}, files={len(files)}, '
-                     f'connector={"provided" if connector else "None"}, '
-                     f'repo_available={_REPO_AVAILABLE})')
+        import threading as _threading
+        def _write_onedrive_marker():
+            try:
+                _base = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+                _logs_dir = _os.path.join(_base, 'logs')
+                if _os.path.isdir(_logs_dir):
+                    _odm = _os.path.join(_logs_dir, f'sp_thread_alive_{scan_id}.marker')
+                    _fd2 = _os.open(_odm, _os.O_WRONLY | _os.O_CREAT | _os.O_TRUNC)
+                    _os.write(_fd2, f'ALIVE {scan_id} t={_time.time()}\n'.encode())
+                    _os.close(_fd2)
+            except Exception:
+                pass
+        _od_thread = _threading.Thread(target=_write_onedrive_marker, daemon=True)
+        _od_thread.start()
+        _od_thread.join(timeout=3.0)  # Give OneDrive 3 seconds, then move on
     except Exception:
         pass
 
+    # ──── STEP 4: LOGGING — with timeout protection against OneDrive hang ────
+    # RotatingFileHandler.emit() writes to OneDrive-synced sharepoint.log.
+    # If OneDrive blocks the write, the logging call hangs forever.
+    # Use a daemon thread with timeout so we don't block the scan.
+    _sp_log = _logging.getLogger('aegis.sharepoint')
+
+    def _log_with_timeout(log_func, msg, timeout_sec=5.0):
+        """Call a logging function with a timeout — prevents OneDrive I/O hang."""
+        try:
+            import threading as _th
+            _log_thread = _th.Thread(target=lambda: log_func(msg), daemon=True)
+            _log_thread.start()
+            _log_thread.join(timeout=timeout_sec)
+            if _log_thread.is_alive():
+                try:
+                    _sys.stderr.write(f'[AEGIS-SP-THREAD] WARNING: Logging hung (OneDrive?), continuing without log\n')
+                    _sys.stderr.flush()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    _log_with_timeout(
+        _sp_log.info,
+        f'[BG-THREAD] ═══ v6.7.1 ═══ SP scan {scan_id}: Thread ALIVE '
+        f'(site_url={site_url}, type={connector_type}, files={len(files)}, '
+        f'connector={"provided" if connector else "None"}, '
+        f'repo_available={_REPO_AVAILABLE})'
+    )
+
+    _log_with_timeout(
+        _logger.info,
+        f"SP scan {scan_id}: Background thread started "
+        f"(site_url={site_url}, connector_type={connector_type}, "
+        f"library_path={library_path}, files={len(files)}, "
+        f"connector={'provided' if connector else 'None'}, "
+        f"repo_available={_REPO_AVAILABLE})"
+    )
+
+    # ──── STEP 5: SANITIZE HUNG HANDLERS ────
+    # v6.7.1: If the timeout-wrapped log calls hung (daemon threads still alive),
+    # the RotatingFileHandler's internal lock is held forever. Any DIRECT log call
+    # in _process_sharepoint_scan_inner() would then block on that same lock.
+    # Solution: detect hung handlers and remove them, adding stderr fallback.
     try:
-        _logger.info(f"SP scan {scan_id}: Background thread started "
-                     f"(site_url={site_url}, connector_type={connector_type}, "
-                     f"library_path={library_path}, files={len(files)}, "
-                     f"connector={'provided' if connector else 'None'}, "
-                     f"repo_available={_REPO_AVAILABLE})")
+        _logging_hung = False
+        for _check_logger in [_sp_log, _logger]:
+            for _lh in list(getattr(_check_logger, 'handlers', [])):
+                if hasattr(_lh, 'stream') and hasattr(_lh, 'baseFilename'):
+                    # This is a FileHandler — test if its lock is available
+                    _handler_lock = getattr(_lh, 'lock', None)
+                    if _handler_lock is not None:
+                        try:
+                            _got_lock = _handler_lock.acquire(timeout=0.5)
+                            if _got_lock:
+                                _handler_lock.release()
+                            else:
+                                # Lock is held by hung daemon thread — remove handler
+                                _check_logger.removeHandler(_lh)
+                                _logging_hung = True
+                        except Exception:
+                            try:
+                                _check_logger.removeHandler(_lh)
+                                _logging_hung = True
+                            except Exception:
+                                pass
+
+        if _logging_hung:
+            # Add stderr handler so inner function still produces visible output
+            try:
+                _stderr_handler = _logging.StreamHandler(_sys.stderr)
+                _stderr_handler.setFormatter(_logging.Formatter(
+                    '%(asctime)s [%(name)s] %(levelname)s: %(message)s'
+                ))
+                _sp_log.addHandler(_stderr_handler)
+                _sys.stderr.write(
+                    f'[AEGIS-SP-THREAD] Removed hung OneDrive FileHandlers, '
+                    f'logging to stderr only\n'
+                )
+                _sys.stderr.flush()
+            except Exception:
+                pass
     except Exception:
         pass
 
@@ -3566,21 +3672,29 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
             except Exception:
                 tb_str = 'unknown (traceback unavailable)'
 
-        # Log to BOTH loggers
+        # v6.7.1: Log errors with timeout protection (OneDrive may still be hanging)
+        _log_with_timeout(
+            _sp_log.error,
+            f'[BG-THREAD] SP scan {scan_id}: FATAL ERROR: {tb_str}'
+        )
+        _log_with_timeout(
+            _logger.error,
+            f"SP scan {scan_id}: FATAL unhandled error in background thread: {tb_str}"
+        )
+
+        # v6.7.1: Write to stderr as guaranteed output
         try:
-            _sp_log.error(f'[BG-THREAD] SP scan {scan_id}: FATAL ERROR: {tb_str}')
-        except Exception:
-            pass
-        try:
-            _logger.error(f"SP scan {scan_id}: FATAL unhandled error in background thread: {tb_str}")
+            _sys.stderr.write(f'[AEGIS-SP-THREAD] FATAL ERROR scan={scan_id}: {str(e)[:200]}\n')
+            _sys.stderr.flush()
         except Exception:
             pass
 
-        # Last-resort: write crash info to file using raw OS I/O
+        # v6.7.1: Write crash info to %TEMP% FIRST (not OneDrive), then attempt OneDrive
         try:
+            import tempfile as _tmp
             _crash_path = _os.path.join(
-                _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
-                'logs', f'sp_thread_crash_{scan_id}.log'
+                _tmp.gettempdir(),
+                f'aegis_sp_crash_{scan_id}.log'
             )
             _cfd = _os.open(_crash_path, _os.O_WRONLY | _os.O_CREAT | _os.O_TRUNC)
             _os.write(_cfd, f'CRASH {scan_id} t={_time.time()}\n{tb_str}\n'.encode())
@@ -3588,7 +3702,25 @@ def _process_sharepoint_scan_async(scan_id, connector, files, options, flask_app
         except Exception:
             pass
 
-        # Update scan state to error
+        # Secondary: try OneDrive logs/ with timeout
+        try:
+            import threading as _cth
+            def _write_crash_onedrive():
+                try:
+                    _base = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+                    _cpath = _os.path.join(_base, 'logs', f'sp_thread_crash_{scan_id}.log')
+                    _cfd2 = _os.open(_cpath, _os.O_WRONLY | _os.O_CREAT | _os.O_TRUNC)
+                    _os.write(_cfd2, f'CRASH {scan_id} t={_time.time()}\n{tb_str}\n'.encode())
+                    _os.close(_cfd2)
+                except Exception:
+                    pass
+            _ct = _cth.Thread(target=_write_crash_onedrive, daemon=True)
+            _ct.start()
+            _ct.join(timeout=3.0)
+        except Exception:
+            pass
+
+        # Update scan state to error (pure in-memory, cannot hang)
         try:
             with _state_lock:
                 state = _state_dict.get(scan_id)
