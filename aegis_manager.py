@@ -52,7 +52,7 @@ from urllib.parse import parse_qs, urlparse
 # CONSTANTS & CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════
 
-MANAGER_VERSION = "2.3.5"
+MANAGER_VERSION = "2.3.6"
 
 # GitHub
 REPO_OWNER = "nicholasgeorgeson-prog"
@@ -1311,6 +1311,25 @@ class PackageManager:
     def preflight_setuptools(self):
         """Fix setuptools v82+ (removed pkg_resources)."""
         C.info('Checking setuptools / pkg_resources...')
+
+        # FIRST: Delete any setuptools v82+ wheels so they can NEVER be installed
+        # by any code path (stragglers loop, --find-links, manual pip install)
+        wheels_dirs = self.find_wheels_dirs()
+        if wheels_dirs:
+            for wd in wheels_dirs:
+                for w in glob.glob(os.path.join(wd, 'setuptools-*.whl')):
+                    bn = os.path.basename(w).lower()
+                    try:
+                        major = int(bn.split('-')[1].split('.')[0])
+                        if major >= 82:
+                            try:
+                                os.remove(w)
+                                C.warn(f'Deleted broken wheel: {bn}')
+                            except OSError as e:
+                                C.warn(f'Could not delete {bn}: {e}')
+                    except (IndexError, ValueError):
+                        pass
+
         ok, err = self.check_import('pkg_resources')
         if ok:
             C.ok('pkg_resources available')
@@ -1319,22 +1338,10 @@ class PackageManager:
         C.warn('pkg_resources missing (setuptools v82+ removed it)')
         C.info('Attempting to install setuptools 80.10.2...')
 
-        # Try wheel directories first — filter OUT v82+ (broken)
-        wheels_dirs = self.find_wheels_dirs()
+        # Try wheel directories — only safe wheels remain after deletion above
         if wheels_dirs:
             for wd in wheels_dirs:
-                whls = glob.glob(os.path.join(wd, 'setuptools-*.whl'))
-                # Filter out v82+ which removed pkg_resources
-                safe_whls = []
-                for w in whls:
-                    bn = os.path.basename(w).lower()
-                    # Extract version: setuptools-80.10.2-py3-none-any.whl → 80
-                    try:
-                        major = int(bn.split('-')[1].split('.')[0])
-                        if major < 82:
-                            safe_whls.append(w)
-                    except (IndexError, ValueError):
-                        pass
+                safe_whls = glob.glob(os.path.join(wd, 'setuptools-*.whl'))
                 for whl in sorted(safe_whls, reverse=True):
                     whl_name = os.path.basename(whl)
                     cmd = [self._python_exe, '-m', 'pip', 'install',
