@@ -5034,6 +5034,349 @@ class ScanHistoryDB:
             )
             return cursor.rowcount > 0
 
+    def batch_update_statements(self, updates):
+        """Batch update multiple statements' fields.
+
+        v6.7.0: Implements the missing method called by
+        /api/scan-history/statements/batch PUT endpoint.
+
+        Args:
+            updates: List of dicts with 'id' and 'updates' keys.
+                     Each 'updates' dict may contain: directive, role, level,
+                     title, description, review_status, confirmed, notes_json.
+
+        Returns:
+            dict with success, updated count, and errors list
+        """
+        allowed = {'directive', 'role', 'level', 'title', 'description',
+                    'review_status', 'confirmed', 'notes_json'}
+        updated = 0
+        errors = []
+
+        with self.connection() as (conn, cursor):
+            for item in updates:
+                stmt_id = item.get('id')
+                field_updates = item.get('updates', {})
+                if not stmt_id or not isinstance(field_updates, dict):
+                    errors.append(f'Invalid update entry: missing id or updates')
+                    continue
+
+                filtered = {k: v for k, v in field_updates.items() if k in allowed}
+                if not filtered:
+                    errors.append(f'Statement {stmt_id}: no valid fields to update')
+                    continue
+
+                try:
+                    set_clause = ', '.join(f'{k} = ?' for k in filtered)
+                    values = list(filtered.values()) + [stmt_id]
+                    cursor.execute(
+                        f'UPDATE scan_statements SET {set_clause} WHERE id = ?',
+                        values
+                    )
+                    if cursor.rowcount > 0:
+                        updated += 1
+                except Exception as e:
+                    errors.append(f'Statement {stmt_id}: {str(e)}')
+
+            conn.commit()
+
+        return {
+            'success': True,
+            'updated': updated,
+            'total': len(updates),
+            'errors': errors
+        }
+
+    def update_statement_review(self, statement_id, review_status, confirmed=False, reviewer=''):
+        """Update review status of a single statement.
+
+        v6.7.0: Implements the missing method called by
+        /api/scan-history/statements/<id>/review PUT endpoint.
+
+        Args:
+            statement_id: ID of the scan_statement to update
+            review_status: 'reviewed', 'rejected', or 'pending'
+            confirmed: Boolean confirmation flag
+            reviewer: Name/identifier of the reviewer
+
+        Returns:
+            dict with success flag and updated statement data
+        """
+        valid_statuses = {'reviewed', 'rejected', 'pending', ''}
+        if review_status not in valid_statuses:
+            return {'success': False, 'error': f'Invalid review_status: {review_status}'}
+
+        with self.connection() as (conn, cursor):
+            cursor.execute(
+                '''UPDATE scan_statements
+                   SET review_status = ?, confirmed = ?
+                   WHERE id = ?''',
+                (review_status, 1 if confirmed else 0, statement_id)
+            )
+            conn.commit()
+
+            if cursor.rowcount == 0:
+                return {'success': False, 'error': f'Statement {statement_id} not found'}
+
+            # Return updated statement
+            cursor.execute(
+                'SELECT * FROM scan_statements WHERE id = ?',
+                (statement_id,)
+            )
+            columns = [desc[0] for desc in cursor.description]
+            row = cursor.fetchone()
+            return {
+                'success': True,
+                'data': dict(zip(columns, row)) if row else None
+            }
+
+    def batch_update_statement_review(self, updates):
+        """Batch update review status for multiple statements.
+
+        v6.7.0: Implements the missing method called by
+        /api/scan-history/statements/batch-review PUT endpoint.
+
+        Args:
+            updates: List of dicts with 'id', 'review_status', and optional
+                     'confirmed', 'reviewer' keys.
+
+        Returns:
+            dict with success, updated count, and errors list
+        """
+        valid_statuses = {'reviewed', 'rejected', 'pending', ''}
+        updated = 0
+        errors = []
+
+        with self.connection() as (conn, cursor):
+            for item in updates:
+                stmt_id = item.get('id')
+                review_status = item.get('review_status', 'reviewed')
+                confirmed = item.get('confirmed', False)
+
+                if not stmt_id:
+                    errors.append('Missing statement id')
+                    continue
+
+                if review_status not in valid_statuses:
+                    errors.append(f'Statement {stmt_id}: invalid status "{review_status}"')
+                    continue
+
+                try:
+                    cursor.execute(
+                        '''UPDATE scan_statements
+                           SET review_status = ?, confirmed = ?
+                           WHERE id = ?''',
+                        (review_status, 1 if confirmed else 0, stmt_id)
+                    )
+                    if cursor.rowcount > 0:
+                        updated += 1
+                except Exception as e:
+                    errors.append(f'Statement {stmt_id}: {str(e)}')
+
+            conn.commit()
+
+        return {
+            'success': True,
+            'updated': updated,
+            'total': len(updates),
+            'errors': errors
+        }
+
+    def search_statements(self, query, directive=None, limit=50):
+        """Search statements across all scans by text content.
+
+        v6.7.0: Implements the missing method called by
+        /api/scan-history/statements/search GET endpoint.
+
+        Args:
+            query: Search text (matched against description, title, statement_number)
+            directive: Optional directive filter (e.g., 'shall', 'should')
+            limit: Maximum number of results (default 50)
+
+        Returns:
+            List of matching statement dicts with document info
+        """
+        with self.connection() as (conn, cursor):
+            search_term = f'%{query}%'
+            params = [search_term, search_term, search_term]
+            sql = '''
+                SELECT ss.*, d.filename as document_name,
+                       s.scan_time, s.score, s.grade
+                FROM scan_statements ss
+                JOIN documents d ON ss.document_id = d.id
+                JOIN scans s ON ss.scan_id = s.id
+                WHERE (ss.description LIKE ? OR ss.title LIKE ?
+                       OR ss.statement_number LIKE ?)
+            '''
+
+            if directive:
+                sql += ' AND ss.directive = ?'
+                params.append(directive)
+
+            sql += ' ORDER BY ss.document_id, ss.position_index LIMIT ?'
+            params.append(limit)
+
+            cursor.execute(sql, params)
+            columns = [desc[0] for desc in cursor.description]
+            return [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+    def find_duplicate_statements(self, document_id=None):
+        """Find duplicate statements based on fingerprint.
+
+        v6.7.0: Implements the missing method called by
+        /api/scan-history/statements/duplicates GET endpoint.
+
+        Args:
+            document_id: Optional document ID to filter by
+
+        Returns:
+            dict with duplicate groups and summary counts
+        """
+        with self.connection() as (conn, cursor):
+            # Check if fingerprint column exists
+            cursor.execute("PRAGMA table_info(scan_statements)")
+            cols = {row[1] for row in cursor.fetchall()}
+            if 'fingerprint' not in cols:
+                return {
+                    'success': True,
+                    'duplicates': [],
+                    'summary': {'total_groups': 0, 'total_duplicates': 0}
+                }
+
+            # Find fingerprints that appear more than once
+            params = []
+            where_clause = ''
+            if document_id:
+                where_clause = 'WHERE ss.document_id = ?'
+                params.append(document_id)
+
+            # Get fingerprints with count > 1
+            sql = f'''
+                SELECT fingerprint, COUNT(*) as cnt
+                FROM scan_statements ss
+                {where_clause}
+                {'AND' if where_clause else 'WHERE'} fingerprint IS NOT NULL
+                AND fingerprint != ''
+                GROUP BY fingerprint
+                HAVING COUNT(*) > 1
+                ORDER BY cnt DESC
+            '''
+            cursor.execute(sql, params)
+            dup_fingerprints = cursor.fetchall()
+
+            if not dup_fingerprints:
+                return {
+                    'success': True,
+                    'duplicates': [],
+                    'summary': {'total_groups': 0, 'total_duplicates': 0}
+                }
+
+            # Get full details for each duplicate group
+            groups = []
+            total_duplicates = 0
+            for fp, count in dup_fingerprints:
+                detail_params = [fp]
+                detail_where = ''
+                if document_id:
+                    detail_where = 'AND ss.document_id = ?'
+                    detail_params.append(document_id)
+
+                cursor.execute(f'''
+                    SELECT ss.*, d.filename as document_name, s.scan_time
+                    FROM scan_statements ss
+                    JOIN documents d ON ss.document_id = d.id
+                    JOIN scans s ON ss.scan_id = s.id
+                    WHERE ss.fingerprint = ? {detail_where}
+                    ORDER BY ss.id
+                ''', detail_params)
+                columns = [desc[0] for desc in cursor.description]
+                stmts = [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+                groups.append({
+                    'fingerprint': fp,
+                    'count': count,
+                    'statements': stmts
+                })
+                total_duplicates += count - 1  # -1 because one is the "original"
+
+            return {
+                'success': True,
+                'duplicates': groups,
+                'summary': {
+                    'total_groups': len(groups),
+                    'total_duplicates': total_duplicates
+                }
+            }
+
+    def deduplicate_statements(self, document_id=None, keep='latest'):
+        """Remove duplicate statements, keeping either latest or earliest.
+
+        v6.7.0: Implements the missing method called by
+        /api/scan-history/statements/deduplicate POST endpoint.
+
+        Args:
+            document_id: Optional document ID to limit dedup scope
+            keep: 'latest' (keep highest id) or 'earliest' (keep lowest id)
+
+        Returns:
+            dict with success flag and counts of removed statements
+        """
+        with self.connection() as (conn, cursor):
+            # Check if fingerprint column exists
+            cursor.execute("PRAGMA table_info(scan_statements)")
+            cols = {row[1] for row in cursor.fetchall()}
+            if 'fingerprint' not in cols:
+                return {
+                    'success': True,
+                    'removed': 0,
+                    'message': 'No fingerprint column — nothing to deduplicate'
+                }
+
+            params = []
+            where_clause = ''
+            if document_id:
+                where_clause = 'AND document_id = ?'
+                params.append(document_id)
+
+            # Determine which to keep: MAX(id) for latest, MIN(id) for earliest
+            keep_func = 'MAX' if keep == 'latest' else 'MIN'
+
+            # Delete all but the kept entry for each duplicate fingerprint group
+            sql = f'''
+                DELETE FROM scan_statements
+                WHERE id NOT IN (
+                    SELECT {keep_func}(id)
+                    FROM scan_statements
+                    WHERE fingerprint IS NOT NULL AND fingerprint != ''
+                    {where_clause}
+                    GROUP BY fingerprint
+                )
+                AND fingerprint IS NOT NULL AND fingerprint != ''
+                AND fingerprint IN (
+                    SELECT fingerprint
+                    FROM scan_statements
+                    WHERE fingerprint IS NOT NULL AND fingerprint != ''
+                    {where_clause}
+                    GROUP BY fingerprint
+                    HAVING COUNT(*) > 1
+                )
+                {where_clause}
+            '''
+            # Need to repeat params for each subquery that uses where_clause
+            all_params = params + params + params
+            cursor.execute(sql, all_params)
+            removed = cursor.rowcount
+            conn.commit()
+
+            _log(f"Deduplicated statements: removed {removed} duplicates (keep={keep}, doc={document_id})")
+
+            return {
+                'success': True,
+                'removed': removed,
+                'keep': keep,
+                'document_id': document_id
+            }
+
     def get_statement_review_stats(self, document_id=None):
         """Get statement review statistics.
 
@@ -5075,7 +5418,7 @@ class ScanHistoryDB:
                 base_query += ' FROM scan_statements'
 
                 if document_id:
-                    base_query += ' WHERE scan_id IN (SELECT id FROM scan_history WHERE document_id = ?)'
+                    base_query += ' WHERE scan_id IN (SELECT id FROM scans WHERE document_id = ?)'
                     cursor.execute(base_query, (document_id,))
                 else:
                     cursor.execute(base_query)
