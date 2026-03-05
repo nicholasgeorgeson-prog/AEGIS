@@ -52,7 +52,7 @@ from urllib.parse import parse_qs, urlparse
 # CONSTANTS & CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════
 
-MANAGER_VERSION = "2.3.6"
+MANAGER_VERSION = "2.3.7"
 
 # GitHub
 REPO_OWNER = "nicholasgeorgeson-prog"
@@ -1554,18 +1554,36 @@ class PackageManager:
             C.info('Reinstalling spaCy + all C dependencies...')
             self.pip_install(SPACY_CHAIN, force=True)
 
-        # Step 3d: Remaining critical
+        # Step 3d: Remaining critical — BATCH install (much faster than one-by-one)
         skip = {'setuptools', 'colorama', 'typer', 'spacy', 'cymem',
                 'murmurhash', 'preshed', 'blis', 'srsly', 'thinc', 'en_core_web_sm'}
-        for pip_name, _ in failed:
-            if pip_name.lower() in skip:
-                continue
-            C.info(f'Reinstalling {pip_name}...')
-            ok, method = self.pip_install(pip_name, force=True)
-            if ok:
-                C.ok(f'{pip_name} ({method})')
-            else:
-                C.fail(f'{pip_name}: {method}')
+        remaining_critical = [n for n, _ in failed if n.lower() not in skip]
+        if remaining_critical:
+            C.info(f'Batch installing {len(remaining_critical)} critical package(s): '
+                   f'{", ".join(remaining_critical[:5])}{"..." if len(remaining_critical) > 5 else ""}')
+            self.pip_install(remaining_critical, force=True)
+            # Re-check which ones still fail and retry individually
+            still_broken = []
+            for pip_name in remaining_critical:
+                # Find the import name for this pip package
+                imp_name = pip_name.replace('-', '_')
+                for imp, pn, _ in CRITICAL_PACKAGES:
+                    if pn == pip_name:
+                        imp_name = imp
+                        break
+                ok, err = self.check_import(imp_name)
+                if ok:
+                    C.ok(f'{pip_name}')
+                else:
+                    still_broken.append(pip_name)
+            # Individual retry for any that failed the batch
+            for pip_name in still_broken:
+                C.info(f'Retrying {pip_name} individually...')
+                ok, method = self.pip_install(pip_name, force=True)
+                if ok:
+                    C.ok(f'{pip_name} ({method})')
+                else:
+                    C.fail(f'{pip_name}: {method}')
 
         # Step 3e: spaCy model
         if 'en_core_web_sm' in failed_names:
@@ -1609,54 +1627,57 @@ class PackageManager:
                 t_ok, _ = self.check_import('torch')
                 torch_available = t_ok
 
+            # Collect remaining optional packages for BATCH install
+            opt_skip = {'torch', 'sspilib', 'pywin32', 'PyJWT'}
+            batch_optional = []
             for pip_name, _ in optional_failed:
-                # Skip deps already handled above
-                if pip_name in ('torch', 'sspilib', 'pywin32', 'PyJWT'):
+                if pip_name in opt_skip:
                     continue
-
-                # Known incompatible packages — clear explanation, not just "not available"
                 if pip_name in INCOMPATIBLE_PACKAGES:
                     C.info(f'{pip_name}: {INCOMPATIBLE_PACKAGES[pip_name]}')
                     continue
-
-                # sentence-transformers requires torch — skip if torch unavailable
                 if pip_name == 'sentence-transformers' and not torch_available:
                     C.warn(f'{pip_name} — skipped (requires torch)')
                     continue
+                batch_optional.append(pip_name)
 
-                # Smart install strategy:
-                # 1. Try WITHOUT --force-reinstall first (pip sees installed deps)
-                # 2. If that fails, try WITH --force-reinstall
-                # 3. For packages needing binary builds, try --only-binary=:all:
-                # This prevents the "no matching distribution for torch" error
-                # when sentence-transformers' dep torch is already installed
-                installed = False
+            if batch_optional:
+                C.info(f'Batch installing {len(batch_optional)} optional package(s): '
+                       f'{", ".join(batch_optional[:5])}{"..." if len(batch_optional) > 5 else ""}')
+                self.pip_install(batch_optional, force=False)
 
-                # Strategy 1: Normal install (no force) — pip uses installed deps
-                C.info(f'Installing {pip_name}...')
-                ok, method = self.pip_install(pip_name, force=False)
-                if ok:
-                    C.ok(f'{pip_name} ({method})')
-                    installed = True
+                # Re-check which ones still fail
+                still_broken_opt = []
+                for pip_name in batch_optional:
+                    imp_name = pip_name.replace('-', '_')
+                    for imp, pn, _ in OPTIONAL_PACKAGES:
+                        if pn == pip_name:
+                            imp_name = imp
+                            break
+                    ok, _ = self.check_import(imp_name)
+                    if ok:
+                        C.ok(f'{pip_name}')
+                    else:
+                        still_broken_opt.append(pip_name)
 
-                # Strategy 2: Force reinstall (for corrupted packages)
-                if not installed:
-                    C.info(f'  Retrying {pip_name} with --force-reinstall...')
+                # Individual retry with smart 3-strategy cascade
+                for pip_name in still_broken_opt:
+                    installed = False
+                    # Strategy 1: Force reinstall
+                    C.info(f'Retrying {pip_name} with --force-reinstall...')
                     ok, method = self.pip_install(pip_name, force=True)
                     if ok:
                         C.ok(f'{pip_name} ({method})')
                         installed = True
-
-                # Strategy 3: Binary-only (for packages that need C compiler)
-                if not installed and pip_name in BINARY_ONLY_PACKAGES:
-                    C.info(f'  Retrying {pip_name} with --only-binary=:all:...')
-                    ok = self._pip_install_binary_only(pip_name)
-                    if ok:
-                        C.ok(f'{pip_name} (binary-only)')
-                        installed = True
-
-                if not installed:
-                    C.warn(f'{pip_name} — could not install (check logs)')
+                    # Strategy 2: Binary-only
+                    if not installed and pip_name in BINARY_ONLY_PACKAGES:
+                        C.info(f'  Retrying {pip_name} with --only-binary=:all:...')
+                        ok = self._pip_install_binary_only(pip_name)
+                        if ok:
+                            C.ok(f'{pip_name} (binary-only)')
+                            installed = True
+                    if not installed:
+                        C.warn(f'{pip_name} — could not install (check logs)')
 
         C.header('[Phase 4] NLTK Data')
         self.check_nltk_data()
