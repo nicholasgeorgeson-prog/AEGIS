@@ -52,7 +52,7 @@ from urllib.parse import parse_qs, urlparse
 # CONSTANTS & CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════
 
-MANAGER_VERSION = "2.3.4"
+MANAGER_VERSION = "2.3.5"
 
 # GitHub
 REPO_OWNER = "nicholasgeorgeson-prog"
@@ -197,6 +197,17 @@ SPACY_CHAIN = [
 
 # Packages that need subprocess-based import testing
 SUBPROCESS_CHECK = {'torch', 'requests_negotiate_sspi'}
+
+# Packages known to be incompatible with current spaCy version (3.8+)
+# These have regex/fallback implementations in AEGIS — not a workaround,
+# the fallback IS the functionality on modern spaCy.
+INCOMPATIBLE_PACKAGES = {
+    'negspacy': 'Incompatible with spaCy 3.6+ (last release June 2023). '
+                'Regex-based negation detection active as built-in replacement.',
+}
+
+# Packages that need --only-binary=:all: (no C compiler on target)
+BINARY_ONLY_PACKAGES = {'passivepy', 'textacy'}
 
 # NLTK datasets
 NLTK_DATASETS = [
@@ -1135,6 +1146,31 @@ class PackageManager:
         # Offline-only mode and offline install failed
         return False, 'offline install failed (no wheels found or incompatible)'
 
+    def _pip_install_binary_only(self, package):
+        """Install a package using --only-binary=:all: (no C compiler needed).
+
+        Some packages (passivepy, textacy) need C extensions to build from
+        source. On machines without a C compiler, --only-binary=:all: tells
+        pip to only use pre-built wheels, never attempt source builds.
+        """
+        # Try offline first
+        wheels_dirs = self.find_wheels_dirs()
+        if wheels_dirs:
+            cmd = [self._python_exe, '-m', 'pip', 'install',
+                   '--no-warn-script-location', '--only-binary=:all:']
+            for wd in wheels_dirs:
+                cmd.extend(['--no-index', '--find-links', wd])
+            cmd.append(package)
+            ok = self._run_pip_with_progress(cmd, 600, package, 'binary-offline')
+            if ok:
+                return True
+
+        # Try online with binary-only
+        cmd = [self._python_exe, '-m', 'pip', 'install',
+               '--no-warn-script-location', '--only-binary=:all:', package]
+        ok = self._run_pip_with_progress(cmd, 600, package, 'binary-online')
+        return ok
+
     def _run_pip_with_progress(self, cmd, timeout, label, method):
         """Run a pip command with live spinner and elapsed time display.
 
@@ -1357,13 +1393,26 @@ class PackageManager:
         """Check and fix NLTK data packages.
 
         Handles RecursionError from nltk.data.find() which can occur when
-        NLTK data paths contain problematic zip structures (Lesson: NLTK
-        Phase 4 recursion bug).
+        broken setuptools/pkg_resources causes import chain recursion.
+        Uses elevated recursion limit and filesystem-first checking to
+        avoid nltk.data.find() when possible.
         """
+        # Raise recursion limit to survive broken import chains
+        # (setuptools v82 + pkg_resources can cause RecursionError)
+        old_limit = sys.getrecursionlimit()
+        try:
+            sys.setrecursionlimit(5000)
+        except Exception:
+            pass
+
         try:
             import nltk
-        except ImportError:
-            C.warn('NLTK not available, skipping data check')
+        except (ImportError, RecursionError) as e:
+            C.warn(f'NLTK not available ({type(e).__name__}), skipping data check')
+            try:
+                sys.setrecursionlimit(old_limit)
+            except Exception:
+                pass
             return 0, 0
 
         # Set local path
@@ -1371,51 +1420,61 @@ class PackageManager:
         if os.path.isdir(local_dir):
             os.environ['NLTK_DATA'] = local_dir
             # Reset path list to avoid duplicates that cause recursion
-            nltk.data.path = [p for p in nltk.data.path if p != local_dir]
-            nltk.data.path.insert(0, local_dir)
+            try:
+                nltk.data.path = [p for p in nltk.data.path if p != local_dir]
+                nltk.data.path.insert(0, local_dir)
+            except (RecursionError, Exception) as e:
+                C.warn(f'NLTK path setup issue: {e}')
 
         ok_count = 0
         fix_count = 0
-        for path, name, category in NLTK_DATASETS:
-            # Check if data directory exists directly (bypass nltk.data.find
-            # which can hit recursion errors in some NLTK path configurations)
-            found = False
-            if os.path.isdir(local_dir):
-                data_dir = os.path.join(local_dir, category, name)
-                data_file = os.path.join(local_dir, category, name + '.zip')
-                if os.path.isdir(data_dir) and os.listdir(data_dir):
-                    found = True
+        try:
+            for path, name, category in NLTK_DATASETS:
+                # Check if data directory exists directly (bypass nltk.data.find
+                # which can hit recursion errors in some NLTK path configurations)
+                found = False
+                if os.path.isdir(local_dir):
+                    data_dir = os.path.join(local_dir, category, name)
+                    data_file = os.path.join(local_dir, category, name + '.zip')
+                    if os.path.isdir(data_dir) and os.listdir(data_dir):
+                        found = True
 
-            if not found:
-                # Fallback: try nltk.data.find with recursion protection
-                try:
-                    nltk.data.find(path)
-                    found = True
-                except (LookupError, RecursionError):
-                    found = False
+                if not found:
+                    # Fallback: try nltk.data.find with recursion protection
+                    try:
+                        nltk.data.find(path)
+                        found = True
+                    except (LookupError, RecursionError):
+                        found = False
 
-            if found:
-                ok_count += 1
-                continue
+                if found:
+                    ok_count += 1
+                    continue
 
-            # Not found — try extracting bundled ZIP
-            fixed = False
-            if os.path.isdir(local_dir):
-                try:
-                    zip_path = os.path.join(local_dir, category, f'{name}.zip')
-                    extract_dir = os.path.join(local_dir, category, name)
-                    if os.path.exists(zip_path) and not os.path.isdir(extract_dir):
-                        with zipfile.ZipFile(zip_path, 'r') as zf:
-                            zf.extractall(os.path.join(local_dir, category))
-                        if os.path.isdir(extract_dir):
-                            C.ok(f'{name} (extracted from bundled ZIP)')
-                            fixed = True
-                            fix_count += 1
-                except Exception as e:
-                    C.warn(f'{name}: extract error — {e}')
+                # Not found — try extracting bundled ZIP
+                fixed = False
+                if os.path.isdir(local_dir):
+                    try:
+                        zip_path = os.path.join(local_dir, category, f'{name}.zip')
+                        extract_dir = os.path.join(local_dir, category, name)
+                        if os.path.exists(zip_path) and not os.path.isdir(extract_dir):
+                            with zipfile.ZipFile(zip_path, 'r') as zf:
+                                zf.extractall(os.path.join(local_dir, category))
+                            if os.path.isdir(extract_dir):
+                                C.ok(f'{name} (extracted from bundled ZIP)')
+                                fixed = True
+                                fix_count += 1
+                    except Exception as e:
+                        C.warn(f'{name}: extract error — {e}')
 
-            if not fixed:
-                C.fail(f'{name} — missing (add ZIP to nltk_data/{category}/)')
+                if not fixed:
+                    C.fail(f'{name} — missing (add ZIP to nltk_data/{category}/)')
+        finally:
+            # Always restore original recursion limit
+            try:
+                sys.setrecursionlimit(old_limit)
+            except Exception:
+                pass
 
         return ok_count, fix_count
 
@@ -1547,15 +1606,50 @@ class PackageManager:
                 # Skip deps already handled above
                 if pip_name in ('torch', 'sspilib', 'pywin32', 'PyJWT'):
                     continue
+
+                # Known incompatible packages — clear explanation, not just "not available"
+                if pip_name in INCOMPATIBLE_PACKAGES:
+                    C.info(f'{pip_name}: {INCOMPATIBLE_PACKAGES[pip_name]}')
+                    continue
+
                 # sentence-transformers requires torch — skip if torch unavailable
                 if pip_name == 'sentence-transformers' and not torch_available:
                     C.warn(f'{pip_name} — skipped (requires torch)')
                     continue
-                ok, method = self.pip_install(pip_name, force=True)
+
+                # Smart install strategy:
+                # 1. Try WITHOUT --force-reinstall first (pip sees installed deps)
+                # 2. If that fails, try WITH --force-reinstall
+                # 3. For packages needing binary builds, try --only-binary=:all:
+                # This prevents the "no matching distribution for torch" error
+                # when sentence-transformers' dep torch is already installed
+                installed = False
+
+                # Strategy 1: Normal install (no force) — pip uses installed deps
+                C.info(f'Installing {pip_name}...')
+                ok, method = self.pip_install(pip_name, force=False)
                 if ok:
                     C.ok(f'{pip_name} ({method})')
-                else:
-                    C.warn(f'{pip_name} — not available')
+                    installed = True
+
+                # Strategy 2: Force reinstall (for corrupted packages)
+                if not installed:
+                    C.info(f'  Retrying {pip_name} with --force-reinstall...')
+                    ok, method = self.pip_install(pip_name, force=True)
+                    if ok:
+                        C.ok(f'{pip_name} ({method})')
+                        installed = True
+
+                # Strategy 3: Binary-only (for packages that need C compiler)
+                if not installed and pip_name in BINARY_ONLY_PACKAGES:
+                    C.info(f'  Retrying {pip_name} with --only-binary=:all:...')
+                    ok = self._pip_install_binary_only(pip_name)
+                    if ok:
+                        C.ok(f'{pip_name} (binary-only)')
+                        installed = True
+
+                if not installed:
+                    C.warn(f'{pip_name} — could not install (check logs)')
 
         C.header('[Phase 4] NLTK Data')
         self.check_nltk_data()
