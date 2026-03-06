@@ -2648,6 +2648,12 @@ def sharepoint_test():
 
     # Parse the URL to extract site_url component
     parsed = sp_parse_url(site_url)
+    if parsed.get('error') or not parsed.get('site_url'):
+        parse_err = parsed.get('error', 'URL parsing returned empty site_url')
+        return jsonify({
+            'success': False,
+            'error': {'message': f'Invalid SharePoint URL: {parse_err}', 'code': 'INVALID_URL'}
+        }), 400
     actual_site_url = parsed['site_url']
 
     connector = SPConnector(actual_site_url)
@@ -2704,7 +2710,7 @@ def sharepoint_connect_and_scan():
     try:
         import logging as _logging
         _sp_diag = _logging.getLogger('aegis.sharepoint')
-        _sp_diag.info('[ROUTE] ═══ review_routes.py v6.6.4 ═══ sharepoint_connect_and_scan ENTRY — auto-scan always active')
+        _sp_diag.info('[ROUTE] ═══ review_routes.py v6.7.3 ═══ sharepoint_connect_and_scan ENTRY — auto-scan always active')
     except Exception:
         pass
 
@@ -2731,7 +2737,25 @@ def sharepoint_connect_and_scan():
 
     # Parse the URL
     parsed = sp_parse_url(site_url)
+
+    # v6.7.3: Reject malformed URLs before attempting any connection
+    if parsed.get('error') or not parsed.get('site_url'):
+        parse_err = parsed.get('error', 'URL parsing returned empty site_url')
+        logger.warning(f'SharePoint URL parse failed: {parse_err}')
+        return jsonify({
+            'success': False,
+            'error': {'message': f'Invalid SharePoint URL: {parse_err}', 'code': 'INVALID_URL'}
+        }), 400
+
     actual_site_url = parsed['site_url']
+
+    # Belt-and-suspenders: ensure the parsed URL looks like an HTTP URL
+    if not actual_site_url.startswith(('http://', 'https://')):
+        logger.warning(f'SharePoint parsed URL is not HTTP: "{actual_site_url}"')
+        return jsonify({
+            'success': False,
+            'error': {'message': f'Invalid SharePoint URL (not HTTP/HTTPS): please check the URL format', 'code': 'INVALID_URL'}
+        }), 400
 
     # Use library path from URL if not explicitly provided
     if not library_path:
@@ -2837,7 +2861,11 @@ def sharepoint_connect_and_scan():
                     result = rest_result  # Use REST error for reporting
 
     if not result['success']:
-        connector.close()
+        if connector is not None:
+            try:
+                connector.close()
+            except Exception:
+                pass
 
         # v6.1.3: Build informative error message based on what actually happened
         original_error = result['message']
@@ -3316,6 +3344,12 @@ def sharepoint_scan_start():
 
     # Parse the URL
     parsed = sp_parse_url(site_url)
+    if parsed.get('error') or not parsed.get('site_url'):
+        parse_err = parsed.get('error', 'URL parsing returned empty site_url')
+        return jsonify({
+            'success': False,
+            'error': {'message': f'Invalid SharePoint URL: {parse_err}', 'code': 'INVALID_URL'}
+        }), 400
     actual_site_url = parsed['site_url']
 
     # If no library_path provided, try to extract from the URL
@@ -3781,7 +3815,7 @@ def _process_sharepoint_scan_inner(scan_id, connector, files, options, flask_app
     _app_ctx = flask_app.app_context()
     _app_ctx.push()
 
-    _sp_log.info(f'[BG-INNER] v6.6.4 SP scan {scan_id}: Inner function STARTED '
+    _sp_log.info(f'[BG-INNER] v6.7.3 SP scan {scan_id}: Inner function STARTED '
                  f'(connector={"provided" if connector else "None"}, '
                  f'files={len(files)}, repo={_REPO_AVAILABLE})')
 

@@ -1,13 +1,22 @@
 {
-  "version": "6.7.2",
+  "version": "6.7.3",
   "release_date": "2026-03-06",
-  "core_version": "6.7.2",
+  "core_version": "6.7.3",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.7.3",
+      "date": "2026-03-06",
+      "changes": [
+        "FIX: SharePoint URL parser — parse_sharepoint_url() now returns early with error dict for empty/malformed URLs instead of producing ':' from empty scheme+host concatenation",
+        "FIX: SharePoint batch scan — post-parse URL validation in sharepoint_connect_and_scan() rejects non-HTTP URLs before creating a connector, preventing auth cascade on invalid ':' URL",
+        "FIX: SharePoint connector close — null-safety guard prevents 'NoneType has no attribute close' crash when connector is None after auth failure on malformed URL"
+      ]
+    },
     {
       "version": "6.7.2",
       "date": "2026-03-06",

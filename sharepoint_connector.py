@@ -836,9 +836,16 @@ def parse_sharepoint_url(url: str) -> Dict[str, str]:
         {'site_url': str, 'library_path': str, 'host': str}
     """
     url = url.strip().rstrip('/')
+    if not url:
+        return {'site_url': '', 'library_path': '', 'host': '', 'error': 'Empty URL'}
+
     parsed = urlparse(url)
     host = parsed.netloc
     path = unquote(parsed.path)
+
+    # Validate: both scheme and host must be present for a valid SharePoint URL
+    if not parsed.scheme or not host:
+        return {'site_url': '', 'library_path': '', 'host': '', 'error': f'Invalid URL (missing {"scheme" if not parsed.scheme else "host"}): {url[:120]}'}
 
     # Strip query params and fragments — they're SharePoint UI state, not path
     # But first check for ?id= or ?RootFolder= params which contain the actual folder path
