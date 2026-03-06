@@ -115,6 +115,13 @@ PRESERVE_DIRS = {
     'node_modules', '.venv', 'venv',
 }
 
+# System files that MUST sync even if in PRESERVE_DIRS
+ALWAYS_SYNC_PATHS = {
+    'static/img/aegis_icon.ico',
+    'static/img/aegis_manager_icon.ico',
+    'static/img/favicon.ico',
+}
+
 # Directories to exclude from packaging
 PACKAGE_EXCLUDE = {
     'logs', 'temp', '__pycache__', '.git', 'backups', '.DS_Store',
@@ -1984,6 +1991,9 @@ class AEGISManager:
     def _should_preserve(self, rel_path):
         """Check if a file should be preserved (user data)."""
         norm = rel_path.replace('\\', '/')
+        # Always sync system files even if in preserved dirs
+        if norm in ALWAYS_SYNC_PATHS:
+            return False
         # Check exact matches
         if norm in USER_DATA_PRESERVE:
             return True

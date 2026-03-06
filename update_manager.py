@@ -189,6 +189,13 @@ PRESERVE_DIRS = {
     'node_modules', '.venv', 'venv', 'archive',
 }
 
+# System files that MUST sync even if in PRESERVE_DIRS
+ALWAYS_SYNC_PATHS = {
+    'static/img/aegis_icon.ico',
+    'static/img/aegis_manager_icon.ico',
+    'static/img/favicon.ico',
+}
+
 
 def _load_pat():
     """Load GitHub Personal Access Token from file or env var."""
@@ -500,6 +507,10 @@ class GitHubUpdater:
     def _should_preserve(self, rel_path):
         """Check if a file should be preserved (user data, wheels, etc.)."""
         norm = rel_path.replace('\\', '/')
+
+        # Always sync system files even if in preserved dirs
+        if norm in ALWAYS_SYNC_PATHS:
+            return False
 
         # Exact file match
         if norm in USER_DATA_PRESERVE:
