@@ -235,8 +235,6 @@ INCOMPATIBLE_PACKAGES = {
                 'Regex-based negation detection active as built-in replacement.',
     'coreferee': 'Incompatible with spaCy 3.6+ (last release June 2023). '
                  'Pattern-based coreference fallback active in AEGIS.',
-    'passivepy': 'No pre-built wheel available. Rule-based passive voice '
-                 'detection active as built-in replacement in AEGIS.',
 }
 
 # Packages that need --only-binary=:all: (no C compiler on target)
@@ -1706,12 +1704,85 @@ class PackageManager:
             C.info('Reinstalling spaCy + all C dependencies...')
             self.pip_install(SPACY_CHAIN, force=True)
 
-        # Step 3d: Remaining critical — ORDERED sequential installs
+        # Step 3d: Detect _fblas / DLL chain corruption
+        # When scipy's BLAS binary is broken, scikit-learn (and sentence-transformers,
+        # textacy) all fail with "DLL load failed while importing _fblas".
+        # The fix is to UNINSTALL numpy+scipy+scikit-learn entirely, then reinstall
+        # fresh from wheels in dependency order. Just reinstalling scikit-learn alone
+        # doesn't fix the underlying broken scipy BLAS binary.
+        blas_chain_corrupted = False
+        blas_error_patterns = ('_fblas', 'DLL load failed', '_csr', '_sparsetools')
+        for pkg_name, err_msg in failed:
+            if any(pat.lower() in err_msg.lower() for pat in blas_error_patterns):
+                blas_chain_corrupted = True
+                C.warn(f'BLAS/DLL corruption detected via {pkg_name}: {err_msg[:80]}')
+                break
+
+        if blas_chain_corrupted:
+            C.info('═══ BLAS chain repair: uninstalling numpy + scipy + scikit-learn ═══')
+            # Step 1: Force uninstall the entire chain (order doesn't matter for uninstall)
+            for pkg in ['scikit-learn', 'scipy', 'numpy']:
+                try:
+                    subprocess.run(
+                        [self._python_exe, '-m', 'pip', 'uninstall', '-y', pkg],
+                        capture_output=True, text=True, timeout=60
+                    )
+                    C.info(f'  Uninstalled {pkg}')
+                except Exception:
+                    C.warn(f'  Could not uninstall {pkg} (may not be installed)')
+
+            # Step 2: Reinstall in dependency order from wheels
+            C.info('Reinstalling numpy → scipy → scikit-learn from wheels...')
+            blas_chain = [('numpy', 'numpy'), ('scipy', 'scipy'), ('scikit-learn', 'sklearn')]
+            for pip_name, import_name in blas_chain:
+                C.info(f'  Installing {pip_name}...')
+                ok, method = self.pip_install(pip_name, force=True)
+                if ok:
+                    v_ok, v_err = self._check_import_subprocess(import_name)
+                    if v_ok:
+                        C.ok(f'  {pip_name} ✓ (verified in subprocess)')
+                    else:
+                        C.fail(f'  {pip_name}: install OK but import fails — {v_err}')
+                        # Try online as last resort
+                        C.info(f'  Trying {pip_name} from online...')
+                        ok2, _ = self.pip_install(pip_name, force=True, offline_only=False)
+                        if ok2:
+                            v_ok2, v_err2 = self._check_import_subprocess(import_name)
+                            if v_ok2:
+                                C.ok(f'  {pip_name} ✓ (online install verified)')
+                            else:
+                                C.fail(f'  {pip_name}: still broken — {v_err2}')
+                else:
+                    C.fail(f'  {pip_name}: install failed ({method})')
+
+            # Re-check what's still broken after BLAS chain repair
+            still_failed = []
+            for pkg_name, _ in failed:
+                if pkg_name.lower() in ('numpy', 'scipy', 'scikit-learn', 'setuptools',
+                                         'colorama', 'typer'):
+                    continue  # Already handled above
+                imp_name = pkg_name.replace('-', '_')
+                for imp, pn, _ in CRITICAL_PACKAGES:
+                    if pn == pkg_name:
+                        imp_name = imp
+                        break
+                v_ok, v_err = self._check_import_subprocess(imp_name)
+                if not v_ok:
+                    still_failed.append((pkg_name, v_err))
+            if still_failed:
+                C.info(f'{len(still_failed)} package(s) still broken after BLAS chain repair')
+                failed = still_failed
+            else:
+                # All critical packages fixed — skip to Step 3e
+                failed = []
+
+        # Step 3d-b: Remaining critical — ORDERED sequential installs
         # Install in dependency order so each package has its deps ready.
         # Use subprocess verification (clean interpreter) to catch real failures
         # instead of in-process importlib which can give false passes.
         skip = {'setuptools', 'colorama', 'typer', 'spacy', 'cymem',
-                'murmurhash', 'preshed', 'blis', 'srsly', 'thinc', 'en_core_web_sm'}
+                'murmurhash', 'preshed', 'blis', 'srsly', 'thinc', 'en_core_web_sm',
+                'numpy', 'scipy', 'scikit-learn'}
         remaining_critical_set = {n.lower() for n, _ in failed if n.lower() not in skip}
 
         if remaining_critical_set:
