@@ -32,12 +32,20 @@ if not exist "%INSTALL_DIR%\app.py" (
     exit /b 1
 )
 
-:: ── Find icon file ───────────────────────────────────────────────
+:: ── Find icon files ──────────────────────────────────────────────
 set "ICON_FILE="
-if exist "%INSTALL_DIR%\static\favicon.ico" (
+if exist "%INSTALL_DIR%\static\img\aegis_icon.ico" (
+    set "ICON_FILE=%INSTALL_DIR%\static\img\aegis_icon.ico"
+) else if exist "%INSTALL_DIR%\static\favicon.ico" (
     set "ICON_FILE=%INSTALL_DIR%\static\favicon.ico"
 ) else if exist "%INSTALL_DIR%\static\img\favicon.ico" (
     set "ICON_FILE=%INSTALL_DIR%\static\img\favicon.ico"
+)
+
+:: ── Find Manager icon file ──────────────────────────────────────
+set "MGR_ICON_FILE="
+if exist "%INSTALL_DIR%\static\img\aegis_manager_icon.ico" (
+    set "MGR_ICON_FILE=%INSTALL_DIR%\static\img\aegis_manager_icon.ico"
 )
 
 :: ── Get version for description ──────────────────────────────────
@@ -99,7 +107,11 @@ if not exist "%MGR_TARGET%" (
 )
 
 if exist "%MGR_TARGET%" (
-    powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS Manager.lnk'); $s.TargetPath = '%MGR_TARGET%'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.Description = 'AEGIS Manager - Updates, Health Check, Repair'; $s.Save(); Write-Host '    [OK] AEGIS Manager.lnk updated'" 2>nul
+    if defined MGR_ICON_FILE (
+        powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS Manager.lnk'); $s.TargetPath = '%MGR_TARGET%'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.IconLocation = '%MGR_ICON_FILE%,0'; $s.Description = 'AEGIS Manager v%VERSION% - Updates, Health Check, Repair'; $s.Save(); Write-Host '    [OK] AEGIS Manager.lnk updated (with icon)'" 2>nul
+    ) else (
+        powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\AEGIS Manager.lnk'); $s.TargetPath = '%MGR_TARGET%'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.Description = 'AEGIS Manager v%VERSION% - Updates, Health Check, Repair'; $s.Save(); Write-Host '    [OK] AEGIS Manager.lnk updated'" 2>nul
+    )
 ) else (
     echo     [SKIP] No manager launcher found
 )
