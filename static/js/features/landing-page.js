@@ -164,6 +164,18 @@ TWR.LandingPage = (function() {
     let initialized = false;
     let openDrillDown = null;
 
+    // v6.4.1: Cached dark mode flag — avoids per-frame DOM class checks in 60 FPS particle loop
+    let _isDarkMode = document.body.classList.contains('dark-mode') ||
+                      document.documentElement.getAttribute('data-theme') === 'dark';
+
+    // Sync cache on theme changes via MutationObserver
+    const _themeObserver = new MutationObserver(() => {
+        _isDarkMode = document.body.classList.contains('dark-mode') ||
+                      document.documentElement.getAttribute('data-theme') === 'dark';
+    });
+    _themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class', 'data-theme'] });
+    _themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
+
     // ── Public API ──────────────────────────────────────────
 
     async function init() {
@@ -217,6 +229,7 @@ TWR.LandingPage = (function() {
 
     function destroy() {
         stopParticleLoop();
+        window.removeEventListener('resize', resizeCanvas);
         initialized = false;
     }
 
@@ -738,24 +751,23 @@ TWR.LandingPage = (function() {
         }
 
         // v4.6.2-fix: Theme toggle button on landing page
+        // v6.4.1: Removed buggy fallback that missed data-theme sync; use cached _isDarkMode
         const themeBtn = document.getElementById('lp-btn-theme');
         if (themeBtn) {
             themeBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (typeof toggleTheme === 'function') {
                     toggleTheme();
-                } else {
-                    document.body.classList.toggle('dark-mode');
-                    const isDark = document.body.classList.contains('dark-mode');
-                    localStorage.setItem('twr-theme', isDark ? 'dark' : 'light');
                 }
                 // v5.9.28: Re-pick particle colors, alpha, and radius for the new theme
-                const nowDark = document.body.classList.contains('dark-mode');
-                particles.forEach(p => {
-                    p.color = pickParticleColor();
-                    p.r = nowDark ? 1 + Math.random() * 1.5 : 1.2 + Math.random() * 1.8;
-                    p.alpha = nowDark ? 0.2 + Math.random() * 0.4 : 0.35 + Math.random() * 0.45;
-                });
+                // MutationObserver updates _isDarkMode automatically after toggleTheme()
+                setTimeout(() => {
+                    particles.forEach(p => {
+                        p.color = pickParticleColor();
+                        p.r = _isDarkMode ? 1 + Math.random() * 1.5 : 1.2 + Math.random() * 1.8;
+                        p.alpha = _isDarkMode ? 0.2 + Math.random() * 0.4 : 0.35 + Math.random() * 0.45;
+                    });
+                }, 0);
             });
         }
 
@@ -1232,15 +1244,14 @@ TWR.LandingPage = (function() {
         // Create particles — v5.9.5: same density in both modes, stronger light mode colors
         const count = Math.min(140, Math.floor((canvas.width * canvas.height) / 8000));
         particles = [];
-        const isDark = document.body.classList.contains('dark-mode');
         for (let i = 0; i < count; i++) {
             particles.push({
                 x: Math.random() * canvas.width,
                 y: Math.random() * canvas.height,
                 vx: (Math.random() - 0.5) * 0.7,
                 vy: (Math.random() - 0.5) * 0.7,
-                r: isDark ? 1 + Math.random() * 1.5 : 1.2 + Math.random() * 1.8,
-                alpha: isDark ? 0.2 + Math.random() * 0.4 : 0.35 + Math.random() * 0.45,
+                r: _isDarkMode ? 1 + Math.random() * 1.5 : 1.2 + Math.random() * 1.8,
+                alpha: _isDarkMode ? 0.2 + Math.random() * 0.4 : 0.35 + Math.random() * 0.45,
                 // Gold/amber palette — rich tones for both modes
                 color: pickParticleColor()
             });
@@ -1251,8 +1262,7 @@ TWR.LandingPage = (function() {
 
     function pickParticleColor() {
         // v5.9.5: Rich visible particles — dark golds on warm cream bg, bright golds on dark bg
-        const isDark = document.body.classList.contains('dark-mode');
-        const colors = isDark ? [
+        const colors = _isDarkMode ? [
             'rgba(214, 168, 74,',   // Gold
             'rgba(184, 116, 58,',   // Amber
             'rgba(230, 237, 243,',  // White-ish
@@ -1329,11 +1339,11 @@ TWR.LandingPage = (function() {
                     ctx.moveTo(particles[i].x, particles[i].y);
                     ctx.lineTo(particles[j].x, particles[j].y);
                     // v4.7.0: Visible connecting lines in both modes
-                    const isDark = document.body.classList.contains('dark-mode');
-                    ctx.strokeStyle = isDark
+                    // v6.4.1: Use cached _isDarkMode (MutationObserver-synced) instead of per-frame DOM query
+                    ctx.strokeStyle = _isDarkMode
                         ? `rgba(214, 168, 74, ${opacity})`
                         : `rgba(160, 120, 40, ${opacity * 3.5})`;
-                    ctx.lineWidth = isDark ? 0.5 : 0.8;
+                    ctx.lineWidth = _isDarkMode ? 0.5 : 0.8;
                     ctx.stroke();
                 }
             }

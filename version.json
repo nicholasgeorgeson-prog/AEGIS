@@ -1,13 +1,36 @@
 {
-  "version": "6.7.1",
-  "release_date": "2026-03-05",
-  "core_version": "6.7.1",
+  "version": "6.7.2",
+  "release_date": "2026-03-06",
+  "core_version": "6.7.2",
   "checker_count": 105,
   "name": "AEGIS",
   "full_name": "Aerospace Engineering Governance & Inspection System",
   "description": "Enterprise document analysis and compliance verification platform for aerospace and defense technical documentation",
   "legacy_name": "TechWriterReview",
   "changelog": [
+    {
+      "version": "6.7.2",
+      "date": "2026-03-06",
+      "changes": [
+        "FIX: Proposal Compare — Total/Subtotal line items now classified as 'Total' category and excluded from cost alignment, category summaries, and grand total calculations to prevent double-counting",
+        "FIX: Proposal Compare — Vendor name detection no longer picks up 'Budgetary Quote' as company name; added budgetary/estimate/rom to skip_words in Strategy 4",
+        "FIX: Proposal Compare — Line item extraction from quotes improved by removing bottom-50% restriction that discarded valid items from smaller tables",
+        "FIX: Proposal Compare HTML export — Tornado chart dynamic label width prevents vendor name text clipping; long names truncated with ellipsis and full-name tooltip on hover",
+        "FIX: Acronym checker — ATTACHMENT:/ENCLOSURE:/APPENDIX: no longer flagged as undefined acronyms; added DOCUMENT_STRUCTURE_WORDS exclusion set",
+        "FIX: Acronym checker — Common capitalized words (ID, AM, PM, IT, IS, AS, AT, BY, IF, IN, NO, OF, ON, OR, SO, TO, UP, US, WE) no longer flagged as acronyms",
+        "FIX: ARI readability checker — Repeated page headers now excluded from paragraph analysis using Counter-based frequency detection to prevent inflated difficulty scores",
+        "FIX: Health check exception handling broadened from ImportError to Exception — catches all import-time failures including DLL load errors, OSError, and PermissionError",
+        "FIX: Health check summary now differentiates 'broken' vs 'missing' packages — broken packages trigger repair, missing packages show install guidance",
+        "FIX: Health check Phase 3b repair now uses force=True flag for broken ML packages — ensures pip actually reinstalls instead of reporting 'already satisfied'",
+        "FIX: ML package repair in web UI — reinstalls scikit-learn, nltk, scipy, sentence-transformers with force-reinstall from wheels directory",
+        "FIX: HV export.py logger initialization — uses get_logger() with fallback to logging.getLogger() preventing NameError on Windows",
+        "FIX: AEGIS Manager email — eml_path now uses COM Send with Display fallback; fixed empty To: header by moving default recipient assignment before msg['To']",
+        "FIX: requirements.txt — scipy>=1.8.0 explicitly added as direct dependency (was only a transitive dep of scikit-learn)",
+        "FIX: Proposal Compare analyzer — None-safe guards on rate comparison prevent TypeError when unit_price is None (r.get('rate') is not None checks added)",
+        "FIX: Proposal Compare parser — Financial total_amount now wrapped in round(..., 2) across all 3 parsers (XLSX/DOCX/PDF) to prevent floating-point display artifacts",
+        "FIX: Landing page — resize event listener now properly removed in destroy() to prevent memory leak during SPA navigation"
+      ]
+    },
     {
       "version": "6.7.1",
       "date": "2026-03-05",

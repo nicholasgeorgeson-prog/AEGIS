@@ -268,6 +268,10 @@ def parse_dollar_amount(text: str) -> Optional[float]:
 
 def classify_line_item(description: str) -> str:
     """Classify a line item — checks learned patterns first, then defaults."""
+    # Check for total/subtotal FIRST — these should never be treated as real line items
+    if TOTAL_KEYWORDS.search(description):
+        return 'Total'
+
     desc_lower = description.lower()
 
     # Check learned category overrides first (user corrections take priority)
@@ -357,7 +361,8 @@ def extract_company_from_text(text: str, max_chars: int = 2000, filename: str = 
                   'statement', 'work', 'scope', 'table', 'contents', 'page', 'date',
                   'section', 'attachment', 'appendix', 'exhibit', 'schedule', 'cost',
                   'price', 'summary', 'executive', 'technical', 'management', 'volume',
-                  'description', 'quantity', 'part', 'catalog', 'item', 'list', 'unit'}
+                  'description', 'quantity', 'part', 'catalog', 'item', 'list', 'unit',
+                  'budgetary', 'estimate', 'rom', 'rough', 'order', 'magnitude'}
     for line in search_text.split('\n')[:30]:
         line = line.strip()
         if not line or len(line) < 3 or len(line) > 60:
@@ -934,8 +939,8 @@ def extract_line_items_from_table(table: ExtractedTable) -> List[LineItem]:
     for row_idx, row in enumerate(table.rows):
         # Skip if this is a total/subtotal row
         row_text = ' '.join(str(c) for c in row)
-        if TOTAL_KEYWORDS.search(row_text) and row_idx > len(table.rows) * 0.5:
-            continue  # Skip totals in the bottom half
+        if TOTAL_KEYWORDS.search(row_text):
+            continue  # Skip total/subtotal rows regardless of position
 
         # Get description
         desc = str(row[desc_col]).strip() if desc_col is not None and desc_col < len(row) else ''
@@ -999,8 +1004,8 @@ def _extract_with_inferred_columns(table: ExtractedTable, inferred: Dict[str, Op
     for row_idx, row in enumerate(table.rows):
         # Skip total/subtotal rows in bottom half
         row_text = ' '.join(str(c) for c in row)
-        if TOTAL_KEYWORDS.search(row_text) and row_idx > len(table.rows) * 0.5:
-            continue
+        if TOTAL_KEYWORDS.search(row_text):
+            continue  # Skip total/subtotal rows regardless of position
 
         # Skip rows that are all empty or all dashes (separator rows)
         non_empty = [c for c in row if str(c).strip() and str(c).strip() not in ('-', '\u2014', '\u2013', '---')]
@@ -1208,7 +1213,7 @@ def parse_excel(filepath: str) -> ProposalData:
 
     # If no total found from total rows, sum line items
     if proposal.total_amount is None and proposal.line_items:
-        proposal.total_amount = sum(li.amount for li in proposal.line_items if li.amount)
+        proposal.total_amount = round(sum(li.amount for li in proposal.line_items if li.amount), 2)
         proposal.total_raw = f'${proposal.total_amount:,.2f}'
 
     proposal.extraction_text = full_text
@@ -1337,7 +1342,7 @@ def parse_docx(filepath: str) -> ProposalData:
 
     # Total
     if proposal.total_amount is None and proposal.line_items:
-        proposal.total_amount = sum(li.amount for li in proposal.line_items if li.amount)
+        proposal.total_amount = round(sum(li.amount for li in proposal.line_items if li.amount), 2)
         proposal.total_raw = f'${proposal.total_amount:,.2f}'
 
     proposal.page_count = len(doc.paragraphs) // 30  # Rough estimate
@@ -1665,7 +1670,7 @@ def parse_pdf(filepath: str) -> ProposalData:
 
     # ── Compute total ──
     if proposal.total_amount is None and proposal.line_items:
-        proposal.total_amount = sum(li.amount for li in proposal.line_items if li.amount)
+        proposal.total_amount = round(sum(li.amount for li in proposal.line_items if li.amount), 2)
         proposal.total_raw = f'${proposal.total_amount:,.2f}'
 
     proposal.extraction_text = full_text

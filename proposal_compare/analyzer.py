@@ -236,8 +236,8 @@ def align_line_items(proposals: List[ProposalData], prop_ids: List[str] = None) 
     aligned: List[AlignedItem] = []
     unmatched: Dict[str, List[Dict]] = {pid: [] for pid in prop_ids}
 
-    # Start with all items from first proposal
-    first_items = proposals[0].line_items
+    # Start with all items from first proposal (exclude Total/Subtotal rows)
+    first_items = [item for item in proposals[0].line_items if item.category != 'Total']
     for item in first_items:
         ai = AlignedItem(
             description=item.description,
@@ -252,7 +252,7 @@ def align_line_items(proposals: List[ProposalData], prop_ids: List[str] = None) 
     # For each subsequent proposal, try to match items to existing aligned items
     for p_idx in range(1, len(proposals)):
         pid = prop_ids[p_idx]
-        prop_items = proposals[p_idx].line_items
+        prop_items = [item for item in proposals[p_idx].line_items if item.category != 'Total']
         matched_aligned_indices = set()
 
         for item in prop_items:
@@ -326,6 +326,8 @@ def build_category_summaries(
 
     for ai in aligned_items:
         cat = ai.category or 'Other'
+        if cat == 'Total':
+            continue  # Skip total/subtotal items from category summaries
         if cat not in category_data:
             category_data[cat] = {pid: 0.0 for pid in prop_ids}
 
@@ -384,7 +386,7 @@ def compare_proposals(proposals: List[ProposalData]) -> ComparisonResult:
 
     # Grand totals — prefer sum of aligned items, fall back to extraction total
     for i, (p, pid) in enumerate(zip(proposals, prop_ids)):
-        aligned_sum = sum(ai.amounts.get(pid, 0) or 0 for ai in result.aligned_items)
+        aligned_sum = sum(ai.amounts.get(pid, 0) or 0 for ai in result.aligned_items if ai.category != 'Total')
         result.totals[pid] = aligned_sum if aligned_sum > 0 else p.total_amount
         result.totals_raw[pid] = p.total_raw
 
@@ -801,7 +803,7 @@ def build_rate_analysis(
     results = []
     for key, item in rate_items.items():
         rates = item['rates']
-        rate_values = [r['rate'] for r in rates.values() if r['rate'] > 0]
+        rate_values = [r['rate'] for r in rates.values() if r.get('rate') is not None and r['rate'] > 0]
         if not rate_values:
             continue
 
@@ -813,15 +815,15 @@ def build_rate_analysis(
         # Find lowest rate vendor
         lowest_vendor = ''
         for pid, r in rates.items():
-            if r['rate'] == min_rate:
+            if r.get('rate') is not None and r['rate'] == min_rate:
                 lowest_vendor = pid
                 break
 
         results.append({
             'description': item['description'],
             'category': item['category'],
-            'rates': {pid: r['rate'] for pid, r in rates.items()},
-            'quantities': {pid: r['quantity'] for pid, r in rates.items()},
+            'rates': {pid: r.get('rate', 0) for pid, r in rates.items()},
+            'quantities': {pid: r.get('quantity', 0) for pid, r in rates.items()},
             'min_rate': min_rate,
             'max_rate': max_rate,
             'avg_rate': round(avg_rate, 2),
