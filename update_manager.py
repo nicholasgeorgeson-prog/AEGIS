@@ -167,7 +167,7 @@ API_BASE = f"https://api.github.com/repos/{REPO}"
 # File extensions considered source files for updates
 SOURCE_EXTENSIONS = {
     '.py', '.js', '.css', '.html', '.json', '.md', '.bat', '.ps1', '.sh',
-    '.txt', '.cfg', '.ini', '.toml', '.yml', '.yaml', '.mjs',
+    '.txt', '.cfg', '.ini', '.toml', '.yml', '.yaml', '.mjs', '.ico',
 }
 
 # User data files — NEVER overwrite during updates

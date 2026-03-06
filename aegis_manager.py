@@ -90,7 +90,7 @@ SERVER_URL = f"http://{SERVER_HOST}:{SERVER_PORT}"
 # Source file extensions to sync (exclude binaries, wheels, audio, images)
 SOURCE_EXTENSIONS = {
     '.py', '.js', '.css', '.html', '.json', '.md', '.bat', '.ps1', '.sh',
-    '.txt', '.cfg', '.ini', '.toml', '.yml', '.yaml', '.mjs',
+    '.txt', '.cfg', '.ini', '.toml', '.yml', '.yaml', '.mjs', '.ico',
 }
 
 # Files/directories to NEVER overwrite (user data)
@@ -3021,12 +3021,14 @@ GitHub: {'Reachable' if ok else 'Not reachable'}
                 try:
                     mail.Send()
                     sent_via_com = True
+                    eml_path = 'COM_SENT'
                     C.ok(f'Email SENT via Outlook to {to_email}!')
                 except Exception:
                     # Send() blocked by security — try Display() so user just clicks Send
                     try:
                         mail.Display()
                         sent_via_com = True
+                        eml_path = 'COM_DISPLAYED'
                         C.ok(f'Email opened in Outlook with recipient pre-filled — click Send!')
                     except Exception:
                         pass
